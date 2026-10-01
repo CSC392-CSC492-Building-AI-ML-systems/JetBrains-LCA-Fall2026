@@ -71,3 +71,23 @@ You can also add command-line arguments using [Hydra's override feature](https:/
     ```
     poetry run python -m eval.eval_pipeline dataset=medium params=codellama7b_4bit params.inference_params.seq_max_len=8000
     ```
+
+### Run selected context composers
+
+By default, the pipeline evaluates every registered composer. To run only path
+distance plus the automatic zero-repository-context baseline, use:
+
+```bash
+poetry run python -m eval.eval_pipeline dataset=small params=codellama7b 'composers=[path_distance]'
+```
+
+This runs four perplexity evaluations (zero context and three path-distance
+context sizes), followed by generation with and without repository context
+when `do_generation=True`. It retains the existing perplexity-based selection
+of the generation configuration; it does not force path distance if zero
+context scores better.
+
+Select several strategies with `'composers=[naive,path_distance]'`. Omit the
+argument or use `composers=null` for the full sweep. The selection does not
+change artifact paths; use a separate `artifacts_dir` when retaining multiple
+runs of the same model and dataset.

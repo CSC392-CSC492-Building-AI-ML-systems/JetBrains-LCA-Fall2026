@@ -93,7 +93,15 @@ class EvalPipeline:
         self.eval_args = EvalConfig(dataset_dir=self.inference_args.out_dir,
                                     out_dir=os.path.join(dataset_out_dir, 'results'), **eval_params)
         self.out_dir = os.path.join(dataset_out_dir, 'results')
-        self.composers = composers
+        selected_composers = config.get("composers")
+        if selected_composers is None:
+            selected_composers = list(composers)
+        elif not isinstance(selected_composers, (list, tuple, omegaconf.ListConfig)):
+            raise ValueError('composers must be a list, e.g. composers=[path_distance], or null for all')
+        unknown = [name for name in selected_composers if name not in COMPOSERS]
+        if unknown:
+            raise ValueError(f"Unknown composers: {unknown}. Available: {list(COMPOSERS)}")
+        self.composers = list(dict.fromkeys(selected_composers))
         self.project_name = wandb_project_name
         self.generator_config: GeneratorConfig
 

@@ -34,10 +34,10 @@ class HFModelBuilder(ModelBuilderBase):
     @staticmethod
     def _update_kwargs(checkpoint, kwargs):
         if 'attn_implementation' not in kwargs:
-            if 'starcoder' not in checkpoint:  # Quick fix for Flash-attention 2 and starcoder
-                kwargs['attn_implementation'] = 'flash_attention_2'
-        if 'torch_dtype' not in kwargs:
-            kwargs['torch_dtype'] = torch.bfloat16
+            if 'starcoder' not in checkpoint:  # Keep Transformers' default for StarCoder.
+                kwargs['attn_implementation'] = 'sdpa'
+        if 'dtype' not in kwargs:
+            kwargs['dtype'] = torch.bfloat16
 
         return kwargs
 
@@ -48,8 +48,8 @@ class HFModelBuilder4bit(HFModelBuilder):
     @classmethod
     def _update_kwargs(cls, checkpoint, kwargs):
         if 'attn_implementation' not in kwargs:
-            if 'starcoder' not in checkpoint:  # Quick fix for Flash-attention 2 and starcoder
-                kwargs['attn_implementation'] = 'flash_attention_2'
+            if 'starcoder' not in checkpoint:  # Keep Transformers' default for StarCoder.
+                kwargs['attn_implementation'] = 'sdpa'
         if 'quantization_config' not in kwargs:
             kwargs['quantization_config'] = cls._get_q_config()
 
