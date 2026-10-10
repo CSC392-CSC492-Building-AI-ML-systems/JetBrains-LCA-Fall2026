@@ -3,6 +3,58 @@
 
 This directory contains the code for running baselines for the Commit message generation (CMG) task in the Long Code Arena benchmark.
 
+### Our replication
+
+Install Python **3.11** first. From the repository's main folder, follow the
+setup commands for your operating system. They create a virtual environment (`.venv`)
+and install the dependencies into it. A virtual environment
+keeps this project's packages separate from other projects.
+
+**Linux or macOS — one-time setup:**
+
+```bash
+cd commit_message_generation
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements-replication.txt
+```
+
+**Windows — one-time setup (PowerShell):**
+
+```powershell
+cd commit_message_generation
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-replication.txt
+```
+
+These commands use the virtual environment directly, so activation is unnecessary.
+The first run needs internet access to download the model and dataset.
+From `commit_message_generation`, run one of the commands below. The runner
+processes all 163 commits with three seeds and calculates the average, without
+asking any questions.
+
+**NVIDIA GPU — default:**
+
+```bash
+.venv/bin/python baseline_replication.py
+```
+
+**CPU:**
+
+```bash
+.venv/bin/python baseline_replication.py --device cpu
+```
+
+On Windows, replace `.venv/bin/python` with `.\.venv\Scripts\python.exe`.
+For later runs, repeat only the run command; setup is needed once.
+You can also specify the GPU explicitly with `--device cuda`.
+
+Scores are saved to `outputs/codet5_full/aggregate.json` and `outputs/codet5_full_cuda/aggregate.json`.
+
+See [RESULTS.md](RESULTS.md) for the comparison with the paper. Shared scores,
+predictions, and run metadata are in `replication_results/`.
+The replication uses CodeT5 on CPU with seeds `2687987020`, `42`, and `123`.
+The first seed comes from the original example; the other two are our choices.
+
 We provide the implementation for the following baseline: a language model that is fed with a zero-shot prompt with a simple instruction and a commit diff.
 
 # How-to
