@@ -22,7 +22,8 @@ The evaluation steps are the following:
 * If you are going to use Flash Attention, run `poetry run pip install flash-attn --no-build-isolation`.
   * Refer to the [official documentation](https://github.com/Dao-AILab/flash-attention?tab=readme-ov-file#installation-and-features) for more details.
   * If you are facing `ImportError` read more here: [Issue](https://github.com/Dao-AILab/flash-attention/issues/981)
-* Some of the composers use [Tree Sitter](https://tree-sitter.github.io/tree-sitter/). Run `git clone https://github.com/tree-sitter/tree-sitter-python` to clone the Tree-sitter for Python.
+* Some of the composers use [Tree Sitter](https://tree-sitter.github.io/tree-sitter/). Run `git clone --branch v0.21.0 https://github.com/tree-sitter/tree-sitter-python` to clone the Tree-sitter for Python.
+  * Use this tag: the locked `tree-sitter` 0.20.4 only loads grammars with ABI 13-14, and the default branch of `tree-sitter-python` is newer (ABI 15), which fails with `Incompatible Language version 15`.
   * The library will be compiled automatically in [`tree_sitter_parser/parser.py`](tree_sitter_parser/parser.py).
   * Refer to the [official documentation](https://github.com/tree-sitter/py-tree-sitter?tab=readme-ov-file#setup) for more details.
 
