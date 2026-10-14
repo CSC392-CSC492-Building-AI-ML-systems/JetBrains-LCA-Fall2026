@@ -281,6 +281,10 @@ for 20 datapoints), about 80 minutes in total. Analysis: `eval.analyze_arms` wit
 Primary result: frozen RAG − `path_distance`, overall EM, paired bootstrap over datapoints, as in §5.3 item 5. If the
 CI includes 0, the conclusion is "no detectable difference", not "RAG is as good".
 
+**Amendment (2026-10-13, after the code commit `6a380e8`).** The held-out run in §7.3 has **not** been executed. The
+research program in §8 supersedes it if approved: the held-out set is still untouched, so it may be redefined and used
+once, at the end, for a stronger design.
+
 ### 7.4 Open items (not part of the held-out run)
 
 - **Mechanism check (cheap, CPU only):** for each dev line, does the context actually contain the identifiers the
@@ -289,4 +293,145 @@ CI includes 0, the conclusion is "no detectable difference", not "RAG is as good
 - **Untested ablations from the proposal:** best-first ordering, window-only vs function chunks, query length (3/10/30),
   dense and hybrid retrieval. Run only on dev, in a later experiment, and only after the held-out result is recorded.
 - **Not yet done:** `imports_first` arm on dev, 7B model, `medium_context`.
-- **Commits:** C-M4 and C-1..C-3 plus this log are uncommitted; a commit is needed before the held-out run.
+- **Commits:** done on 2026-10-13: C-M4, C-1..C-3 and this log are in `168f962`..`6a380e8`.
+
+## 8. Research program: design the strongest retrieval I can (pre-registered 2026-10-13, before any run in this program)
+
+**Goal.** Find the retrieval design that maximises EM at the fixed 7,900-token budget, then measure it once on
+untouched data. Honest outcome space: it may still not beat `path_distance`; that would be reported as such.
+
+### 8.1 Why E2 leaves room for a better design (hypotheses about *why* BM25-on-last-10-lines is weak)
+
+- **D1, dilution.** The prompt is filled to the budget with up to 30 chunks (mean 13.5). Most are probably irrelevant
+  and may distract a 1B model; the static composer has the same flaw but orders by a strong prior (path proximity).
+- **D2, no proximity prior.** `path_distance` encodes "files near the target matter". BM25 ignores it.
+- **D3, lexical query.** The last 10 lines retrieve code that *looks similar*; the line often needs the *definition*
+  of a name it uses (an import, a class, a helper). Similarity and definition lookup are different relations.
+- **D4, chunk boundary.** A matched chunk shows the code that resembles the query; code that *follows* a match
+  (what was written next elsewhere) is often more useful for completion (the idea behind RepoCoder-style retrieval).
+- **D5, single signal.** Dense retrieval and fusion may match what BM25 misses (paraphrases, renamed identifiers).
+
+### 8.2 Protocol changes (all decided before looking at any held-out result; held-out has never been run)
+
+1. **Larger dev set.** 20 datapoints cannot separate designs a point apart. Redefine
+   `dev` = the old 20 datapoints (indices `i*144//20`) **plus 28 more**, evenly spaced among the other 124
+   (the j-th extra is `rest[j*124//28]`): **48 dev datapoints, 96 held-out**. The old dev set must stay inside dev,
+   because E1/E2 already informed a design decision (uncapped prefix); an independent `i*144//48` split would have put
+   13 of those seen datapoints into held-out. The 96 held-out datapoints have never been run, inspected or measured.
+   E1/E2 numbers stay valid for the old 20; anything compared across sets is re-run on the new dev set.
+   *Needs a small code change (C-4: a `dev_extra` option in the split logic, with a test that old dev ⊂ new dev and
+   that dev and held-out are disjoint and complete).*
+2. **Two-stage evaluation to afford many designs.** *No stage touches the held-out datapoints in any form*, including
+   offline measurements of their snapshots.
+   - *Stage A (CPU, minutes, dev datapoints only, no model output and no EM):* an offline
+     **retrieval-quality proxy** (§8.3), used only to discard clearly weak designs.
+   - *Stage B (GPU, ~5–7 min per design on 48 datapoints):* EM on dev for the designs that survive.
+3. **Proxy validity is tested, not assumed.** Before relying on it, check on the six E2 arms (plus `zero`) whether proxy
+   ordering matches EM ordering. If the rank agreement is poor (Spearman < 0.5), the proxy is demoted to a diagnostic
+   and Stage B decides alone.
+4. **Promotion rule (greedy forward selection).** A change is adopted into the running best design when its dev
+   EM improves on the current best (point estimate > 0) **and** its paired 95% CI lower bound is above −1 point
+   (no clear harm). Ties go to the simpler design. At most **25 Stage-B runs** in total (≈ 2.5 GPU hours) to bound
+   dev overfitting; every run is logged, including failures.
+5. **Selection bias is expected and stated.** The best of ~20 designs on 48 datapoints is optimistically biased; the
+   held-out evaluation is the only unbiased number.
+6. **Held-out is used once**, with the final design frozen and its commit hash recorded here first (§8.6).
+
+### 8.3 Retrieval-quality proxy (Stage A)
+
+For each target line `L` in the completion file:
+`X(L)` = identifiers (non-keyword, length ≥ 2) that occur in `L`, are **defined in some other snapshot file**
+(`def`/`class`/top-level assignment), and do **not** occur in the prefix (so the model cannot copy them from the file
+itself). Over lines with `X(L) ≠ ∅`:
+
+- **appearance recall** = share of `X(L)` that occurs anywhere in the prompt context;
+- **definition recall** = share of `X(L)` whose definition (`def x`, `class x`, `x =`) occurs in the context.
+
+Limits, declared now: lexical (a name appearing is not the same as the model understanding it); only covers lines
+with cross-file names; says nothing about whether the model uses the context. It is a screen, not a result.
+Coverage (number of lines with `X(L) ≠ ∅`, per category) is reported with every proxy number.
+
+### 8.4 Candidate designs, in the order they will be tried (each gets its own log entry with settings, a prediction, and results)
+
+| Step | Design change | Targets | Prediction (EM on dev, relative to the current best) |
+|---|---|---|---|
+| R0 | Re-baseline on the new dev set: `zero`, `path_distance`, `imports_first`, `rag` (E2-A1 config) | reference | defines the numbers to beat |
+| R1 | Cap retrieved context: `max_context_tokens` ∈ {1k, 2k, 4k} instead of filling the budget (the rest of the budget goes to prefix) | D1 | a smaller cap helps by ≥ 1 point if dilution matters; no effect if not |
+| R2 | Path-proximity prior fused into the score: `score = bm25_norm + λ·proximity`, λ ∈ {0.25, 0.5, 1} | D2 | closes part of the gap to `path_distance` on `common`/`inproject` |
+| R3 | Import-aware boost for files the completion file imports | D3 | helps `inproject`, `commited` |
+| R4 | Symbol-definition retrieval: resolve identifiers used in the prefix to their definitions via a tree-sitter definition index, place definitions (signatures first) in the context | D3 | raises definition recall sharply; EM gain on lines using cross-file names |
+| R5 | Continuation chunks: after a window match, include the following lines | D4 | helps lines that continue a pattern |
+| R6 | Query variants: last 3 / 10 / 30 lines; identifier-only query | D3 | 3 lines is too noisy, 30 too diffuse; 10 near a plateau |
+| R7 | Dense retrieval (code-embedding model, cosine, per-repo cache) and hybrid reciprocal-rank fusion with BM25 | D5 | dense alone ≈ BM25; hybrid ≥ either by 0.5–1.5 points |
+| R8 | Ordering best-first vs best-last; near-duplicate removal (MMR) | D1 | ordering effect small |
+| R9 | Combine the adopted changes, check for interaction on dev | | gains roughly additive, at most |
+
+Candidate embedding models for R7 (availability and licence to be verified before use): a small code-embedding model
+that loads under the pinned `transformers`, e.g. `Salesforce/codet5p-110m-embedding` or
+`jinaai/jina-embeddings-v2-base-code`. Decision on which is made by a loading/speed smoke test, logged.
+
+### 8.5 Settings recorded for every Stage-B run
+
+Arm name, git hash (and whether the tree is dirty), full Hydra config (`config.json` is written by the driver), model,
+dataset revision, split and `dev_size`, seed, token budget, wall time, and the output directory. Every table in this
+log states which of these differ from the reference run.
+
+### 8.6 Final evaluation (after the design is frozen)
+
+1. Freeze: record the design's configuration and the commit hash here.
+2. Run once on the 96 held-out datapoints, `starcoderbase-1b`: `zero`, `path_distance`, `imports_first`,
+   `rag` at E2-A1 settings (the "v1" design), and the final design.
+3. Run `zero`, `path_distance` and the final design on `starcoderbase-7b` (same held-out datapoints) to check that the
+   direction holds on a larger model (proposal §5, success criterion 1).
+4. Primary result: final design − `path_distance`, overall EM, paired bootstrap over datapoints. Report
+   secondary categories and ES with their CIs; no re-tuning afterwards.
+
+### 8.7 Engineering plan (each a small commit, tested, listed in the change register when done)
+
+New configuration options in `rag/builder.py` / `rag/provider.py` (default values reproduce today's behaviour, pinned
+by tests): `max_context_tokens`, proximity prior, import boost, definition index, continuation lines, query mode,
+ordering, MMR. New `rag/dense.py` for embeddings. New `eval/proxy_metrics.py` for §8.3 (CPU only).
+
+### 8.8 Approvals needed before the first run
+
+1. Redefining dev as 48 datapoints (held-out 96): safe because held-out has never been run; changes §3.
+2. Downloading one or two embedding models from HuggingFace for R7 and running them on the GPU.
+3. The compute budget in §8.2 item 4 (≤ 25 dev runs, about 2.5 GPU hours) plus the final runs (~1.5 GPU hours).
+
+**Approved by the user on 2026-10-13: all three items**, with the instruction to add any further safeguards that make sense.
+
+### 8.9 Decisions on additional safeguards (2026-10-13, before any run in this program)
+
+- **Larger dev set (64 datapoints): not adopted.** It would leave 80 held-out datapoints. The held-out comparison is the
+  only unbiased result and its precision matters more than a modestly less noisy dev set (standard error scales with
+  1/√n: 80 vs 96 held-out datapoints costs about 9% more width on the final confidence interval, while dev would
+  improve by about 15%). Dev stays at 48.
+- **Restricted combination search: adopted.** After R1–R8 each have been tried once and adopted or rejected by the
+  promotion rule, only **one** combined run (R9) plus **at most two** pairwise interaction checks are allowed. No
+  open-ended re-tuning. The 25-run cap stays.
+- **Provenance recorded automatically.** Every run's `summary.json` now includes the git commit, a dirty-tree flag, the
+  wall-clock time, `split`, `dev_size` and `dev_extra` (change C-4 below).
+- **Reproduction check before trusting any new run.** R0 re-runs `path_distance` and `rag` on the new dev set; the 20
+  datapoints shared with E2 must reproduce E2's per-line predictions exactly (checked on the overlapping datapoints).
+
+### 8.10 Change register additions
+
+| ID | Files | Change | Reason | Tests | Status |
+|---|---|---|---|---|---|
+| C-4 | `eval/line_generators.py`, `eval/compare_arms.py`, `eval/config/compare_arms.yaml`, `tests/test_analyze_arms.py`, `tests/test_generation_hook.py` | `dev_indices` / `heldout_indices` (dev = `dev_size` evenly spaced + `dev_extra` more among the rest); `evaluate_generation(select=...)`; driver uses them (`dev_extra: 28` default, giving 48 dev / 96 held-out on `small_context`); `summary.json` records git commit, dirty flag and wall time | §8.2 item 1 and §8.5 | 7 new (suite: 72 tests pass) | written 2026-10-13, uncommitted |
+
+### 8.11 R0: re-baseline on the new dev set (pre-registered 2026-10-13, before the run)
+
+Settings: `split=dev` (48 datapoints; `dev_size=20`, `dev_extra=28`), `starcoderbase-1b`, budget 7,900, seed 42,
+greedy decoding, from `~/ts_test`. Arms: `zero`; `path_distance`; `imports_first`; `rag` with `rag.prefix_cap=7900`
+(the E2-A1 configuration, called **v1** from here on). Output names `r0_<arm>`. The code is the working tree with
+uncommitted C-4 (recorded as dirty in `summary.json`).
+
+Predictions (stated before the run):
+
+1. `path_distance − zero` in overall EM lies between +1 and +4 points (E2 on 20 datapoints gave +2.7).
+2. `v1 − path_distance` lies within ±2 points of 0 (E2: −0.3).
+3. `imports_first − path_distance` lies within ±2 points of 0 (no prior information).
+4. The 20 datapoints that are also in E2 reproduce E2's per-line predictions exactly for `zero`, `path_distance`, `v1`.
+
+R0 decides nothing by itself; it fixes the reference numbers for R1 onwards.
