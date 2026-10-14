@@ -1135,6 +1135,24 @@ change no result**; each was verified to leave behaviour unchanged. Not counted 
 
 Remaining from §8.27: optional extensions only.
 
+### 8.29 Correction of scope: which baselines were actually evaluated (2026-10-14, after the user asked)
+
+The user asked whether all baselines had been evaluated. They had not, and some wording in this log overstated it.
+
+- **Evaluated** (always at the same budget, seed and model): zero context (`none`), `path_distance`, `imports_first`.
+  On the dev and held-out data `path_distance` was better than `imports_first` on `medium_context`
+  (held-out +4.6 EM points, CI excludes 0) and level on `small_context`, so it was used as the reference.
+- **Registered in `composers/composer_registry.py` but not run:** `naive`, `alphabetical`, `file_length`, `half_memory`,
+  `half_memory_path_distance`, `function_class_mask_half`, `function_class_mask_one`. The benchmark's own pipeline would
+  also select among all of them by perplexity; that pipeline was not run either.
+- **Models:** only `starcoderbase-1b` (all arms) and `starcoderbase-7b` (3 arms, targeted lines); the other baseline
+  models of the benchmark (CodeLlama, DeepSeek-Coder, StarCoder2) were not run. **Datasets:** `small_context` and
+  `medium_context` only.
+- **Wording corrected.** "The benchmark's best static composer" in §8.16 and §8.26 should read "the stronger of the two
+  static composers evaluated (`path_distance`)". The current proposal and README were edited accordingly. The measured
+  numbers are unchanged; only the claim's scope is narrowed: the result holds against `path_distance` and
+  `imports_first`, and is not shown against the other seven composers.
+
 ## 9. Progress (kept current; read this first)
 
 **State at last update (2026-10-14 ~16:30, everything done; waiting for the user's commit of the cleanup):** the research

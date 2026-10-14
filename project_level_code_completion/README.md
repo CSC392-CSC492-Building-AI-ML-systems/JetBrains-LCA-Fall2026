@@ -41,7 +41,8 @@ We use [Hydra](https://hydra.cc/docs/intro/) for configuration. The main config 
 
 ### Retrieval-augmented context (RAG)
 A per-line retrieval approach (BM25 over repository chunks, each followed by the next 20 lines of its file) is in
-[`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the best static composer. Design,
+[`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the `path_distance` composer (the stronger of the two
+static composers evaluated; the other registered composers were not run). Design,
 results and limitations: [`RAG_PROPOSAL.md`](RAG_PROPOSAL.md); every experiment step: [`RAG_EXPERIMENT_LOG.md`](RAG_EXPERIMENT_LOG.md);
 result files: [`rag_results/`](rag_results/). The tree-sitter grammar clone above must be in the working directory,
 otherwise a warning is printed and Python files are cut into plain windows. Run one arm at a time:

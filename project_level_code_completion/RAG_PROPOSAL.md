@@ -14,8 +14,9 @@ repository files (path distance, imports first, etc.). We replaced it with **per
 line, BM25 retrieves the most relevant code chunks of the repository snapshot using the last 10 lines before it, and
 fills the same 7,900-token budget with them. Each retrieved chunk is followed by the next 20 lines of its file.
 
-**Result (held-out data, evaluated once, `starcoderbase-1b`):** on `medium_context` the design beats the benchmark's best
-static composer (`path_distance`) by **+6.4 exact-match points** (0.357 → 0.421, 95% CI [+4.1, +8.9], 168 datapoints,
+**Result (held-out data, evaluated once, `starcoderbase-1b`):** on `medium_context` the design beats the strongest static
+composer we evaluated (`path_distance`; `imports_first` was lower; the other seven registered composers were **not**
+run, see §8) by **+6.4 exact-match points** (0.357 → 0.421, 95% CI [+4.1, +8.9], 168 datapoints,
 6,663 lines), in all six line categories. On the lines that use names defined in other files the gain is +7.1 points,
 and a 7B model shows the same gain (+7.3). On `small_context` there is no difference (−0.1 [−0.6, +0.4]), because
 those repositories mostly fit in the budget anyway. A plain BM25 version without any tuning already gives +5.6; the
@@ -173,6 +174,13 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
 
 ## 8. Limitations
 
+- **Only two of the benchmark's static composers were evaluated** (`path_distance`, `imports_first`), plus zero context.
+  The registry also contains `naive`, `alphabetical`, `file_length`, `half_memory`, `half_memory_path_distance`,
+  `function_class_mask_half` and `function_class_mask_one`, and the benchmark's own pipeline chooses among all of them by
+  perplexity. `path_distance` was used as the reference because it is the natural strong baseline and was the better of the
+  two we ran, not because it was shown to be the best of all. Whether any other composer is stronger than `path_distance`
+  on `medium_context` is untested here; the claim above is therefore about `path_distance` specifically.
+- Only `starcoderbase-1b` (and `starcoderbase-7b` on targeted lines); the benchmark's other baseline models were not run.
 - One model family (StarCoder base; 1B for all arms, 7B on targeted lines only), Python only, greedy decoding of a single
   line; `large_context` and `huge_context` were not evaluated.
 - The design search compared about 22 variants on 104 development datapoints, so the incremental value of the final design
