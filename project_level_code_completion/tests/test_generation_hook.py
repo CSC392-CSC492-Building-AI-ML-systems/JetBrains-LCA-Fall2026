@@ -91,6 +91,10 @@ class GeneratorHookTests(unittest.TestCase):
         self.generator.generate_line(make_datapoint())
         self.assertEqual((self.saved()[0]["datapoint_idx"], self.saved()[0]["repo"]), (7, "repo"))
 
+    def test_line_number_is_saved_with_every_result(self):
+        self.generator.generate_line(make_datapoint())
+        self.assertEqual([r["line_num"] for r in self.saved()], [1, 2])
+
     def test_datapoint_idx_absent_by_default(self):
         self.generator.generate_line(make_datapoint())
         self.assertNotIn("datapoint_idx", self.saved()[0])
@@ -206,6 +210,33 @@ class EvaluateGenerationTests(unittest.TestCase):
                             context_provider_factory=self.provider_factory, select=lambda n: [1, 4])
         rows = [json.loads(line) for line in Path(self.args.results_path).read_text().splitlines()]
         self.assertEqual(sorted({r["repo"] for r in rows}), ["repo1", "repo4"])
+
+    def test_line_filter_keeps_only_listed_lines_and_skips_empty_datapoints(self):
+        datapoints = [make_datapoint() for _ in range(3)]
+        filters = {0: {"infile": [1]}, 1: {"infile": []}, 2: {"infile": [2]}}
+        _, lists, _, counts = evaluate_generation(
+            self.args, input_data=datapoints, run_zero=False, context_provider_factory=self.provider_factory,
+            select=lambda n: [0, 1, 2], line_filter=lambda i: filters[i])
+        self.assertEqual(counts, {"infile": 2})
+        self.assertEqual(len(lists["em_list"]["all"]), 2)  # the datapoint with no lines was skipped
+        rows = [json.loads(line) for line in Path(self.args.results_path).read_text().splitlines()]
+        self.assertEqual([r["ground_truth"] for r in rows], ["line1 alpha_func", "line2"])
+
+    def test_line_filter_is_only_called_for_selected_datapoints(self):
+        asked = []
+
+        def line_filter(i):
+            asked.append(i)
+            return {"infile": [1]}
+
+        evaluate_generation(self.args, input_data=[make_datapoint() for _ in range(5)], run_zero=False,
+                            context_provider_factory=self.provider_factory, select=lambda n: [1, 3],
+                            line_filter=line_filter)
+        self.assertEqual(asked, [1, 3])
+
+    def test_line_filter_without_select_is_rejected(self):
+        with self.assertRaises(ValueError):
+            evaluate_generation(self.args, input_data=[make_datapoint()], line_filter=lambda i: {})
 
     def test_limit_selects_evenly_spaced_datapoints(self):
         datapoints = [make_datapoint() for _ in range(6)]

@@ -75,6 +75,21 @@ class SelectionTests(unittest.TestCase):
             result = builder.context_for("alpha_func", budget=budget)
             self.assertLessEqual(count_extra(result.context + "\n" + result.prefix), budget, f"budget={budget}")
 
+    def test_max_context_tokens_caps_retrieved_chunks_only(self):
+        files = {"x/target.txt": "t"} | {f"x/f{i}.txt": f"alpha_func v{i} " + " ".join(["w"] * 8) for i in range(10)}
+        builder = make_builder(files)
+        uncapped = builder.context_for("alpha_func", budget=10_000)
+        capped = builder.context_for("alpha_func", budget=10_000, max_context_tokens=25)
+        self.assertEqual(len(uncapped.chunks), 10)
+        self.assertEqual(len(capped.chunks), 2)  # each chunk costs 12 tokens (path + 10 words + separator)
+        self.assertLess(count(capped.context), count(uncapped.context))
+        self.assertEqual(capped.prefix, "alpha_func")  # the prefix is untouched by the cap
+
+    def test_no_cap_by_default(self):
+        builder = make_builder(FILES)
+        self.assertEqual(builder.context_for(PREFIX, budget=1000).context,
+                         builder.context_for(PREFIX, budget=1000, max_context_tokens=None).context)
+
     def test_too_big_chunk_skipped_smaller_one_used(self):
         files = {
             "x/target.txt": "t",
