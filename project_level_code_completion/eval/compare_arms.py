@@ -7,6 +7,9 @@ Example:
 import json
 import os
 import shutil
+import subprocess
+import time
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,7 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 
 from composers.composer_registry import COMPOSERS
-from eval.line_generators import GeneratorConfig, evaluate_generation
+from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generation, heldout_indices
 from eval.preprocess import preprocess
 from eval.preprocessors import load_datapoints
 from rag.provider import make_rag_provider_factory
@@ -46,12 +49,25 @@ def validate(cfg: DictConfig) -> None:
 
 
 def datapoint_selection(cfg: DictConfig) -> dict:
-    """dev = `dev_size` evenly spaced datapoints; heldout = all the others; all = everything (or `limit_datapoints`)."""
+    """dev = `dev_size` evenly spaced datapoints plus `dev_extra` more; heldout = all the others;
+    all = everything (or `limit_datapoints`)."""
     if cfg.split == 'dev':
-        return {'limit': cfg.dev_size}
+        return {'select': partial(dev_indices, dev_size=cfg.dev_size, dev_extra=cfg.dev_extra)}
     if cfg.split == 'heldout':
-        return {'heldout_of': cfg.dev_size}
+        return {'select': partial(heldout_indices, dev_size=cfg.dev_size, dev_extra=cfg.dev_extra)}
     return {'limit': cfg.limit_datapoints}
+
+
+def git_state() -> dict:
+    """Commit and dirty flag of the code that produced a result."""
+    def git(*args):
+        project_dir = str(Path(__file__).resolve().parent.parent)
+        return subprocess.run(['git', '-C', project_dir, *args], capture_output=True, text=True).stdout.strip()
+
+    try:
+        return {'commit': git('rev-parse', '--short', 'HEAD'), 'dirty': bool(git('status', '--porcelain', '--', '.'))}
+    except OSError:
+        return {'commit': None, 'dirty': None}
 
 
 def run_arm(cfg: DictConfig):
@@ -95,11 +111,13 @@ def run_arm(cfg: DictConfig):
             lang_sep=cfg.composers_config.lang_sep_symbol, meta_sep=cfg.composers_config.meta_info_sep_symbol,
         )
 
+    started = time.time()
     scores, score_lists, em_diff, line_counts = evaluate_generation(generator_config, **kwargs)
 
     summary = {'arm': cfg.arm, 'arm_name': cfg.arm_name or cfg.arm, 'dataset': dataset_name(cfg),
                'model': inference_params['model'], 'token_budget': budget, 'limit_datapoints': cfg.limit_datapoints,
-               'split': cfg.split, 'dev_size': cfg.dev_size,
+               'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra,
+               'code': git_state(), 'wall_seconds': round(time.time() - started, 1),
                'scores': scores, 'em_difference_vs_zero': em_diff, 'line_counts': line_counts}
     (arm_dir / 'summary.json').write_text(json.dumps(summary, indent=4))
     (arm_dir / 'per_datapoint_scores.json').write_text(json.dumps(score_lists))

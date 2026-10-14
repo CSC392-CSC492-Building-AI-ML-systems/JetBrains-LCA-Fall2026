@@ -255,6 +255,26 @@ def subset_indices(n_items: int, limit: Optional[int]) -> list[int]:
     return [i * n_items // limit for i in range(limit)]
 
 
+def dev_indices(n_items: int, dev_size: int, dev_extra: int = 0) -> list[int]:
+    """Development datapoints: `dev_size` evenly spaced ones, plus `dev_extra` evenly spaced among the remaining ones.
+
+    The first group is exactly `subset_indices(n_items, dev_size)`, so enlarging the dev set never moves a datapoint
+    that was already used (those stay in dev) and never touches the held-out ones.
+    """
+    base = subset_indices(n_items, dev_size)
+    chosen = set(base)
+    rest = [i for i in range(n_items) if i not in chosen]
+    if dev_extra:
+        chosen |= {rest[j * len(rest) // dev_extra] for j in range(min(dev_extra, len(rest)))}
+    return sorted(chosen)
+
+
+def heldout_indices(n_items: int, dev_size: int, dev_extra: int = 0) -> list[int]:
+    """Every datapoint that is not in `dev_indices`."""
+    dev = set(dev_indices(n_items, dev_size, dev_extra))
+    return [i for i in range(n_items) if i not in dev]
+
+
 def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] = None) -> list:
     """`limit` evenly spaced items. With `heldout_of=N`, first drop the N evenly spaced items that
     `select_subset(items, N)` would return, so the two selections are disjoint and together cover everything."""
@@ -268,13 +288,14 @@ def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] =
 def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[DatapointBase]] = None,
                         context_provider_factory: Optional[Callable[[DatapointBase], ContextProvider]] = None,
                         run_zero: bool = True, run_context: bool = True, limit: Optional[int] = None,
-                        heldout_of: Optional[int] = None):
+                        heldout_of: Optional[int] = None, select: Optional[Callable[[int], list[int]]] = None):
     """Generate and score target lines.
 
     By default, reads preprocessed datapoints from `args.input_data_path` and runs a zero-context pass and a pass
     with the precomposed context. Optionally: pass `input_data` directly, build a per-line context with
     `context_provider_factory` (called once per datapoint), skip either pass, use `limit` evenly spaced datapoints,
     or evaluate everything except the `heldout_of` evenly spaced datapoints (the complement of `limit=heldout_of`).
+    `select(n)` returning explicit indices (e.g. `dev_indices`) overrides `limit`/`heldout_of`.
     """
     set_seed(args.seed)
     if input_data is None:
@@ -285,7 +306,10 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
             input_data = loaded_data.copy()
         else:
             raise NotImplementedError
-    input_data = select_subset(input_data, limit, heldout_of)
+    if select is not None:
+        input_data = [input_data[i] for i in select(len(input_data))]
+    else:
+        input_data = select_subset(input_data, limit, heldout_of)
 
     model, device = get_model(args)
 

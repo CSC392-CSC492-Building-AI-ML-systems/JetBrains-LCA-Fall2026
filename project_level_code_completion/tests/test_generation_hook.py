@@ -198,6 +198,15 @@ class EvaluateGenerationTests(unittest.TestCase):
                                              context_provider_factory=self.provider_factory, heldout_of=2)
         self.assertEqual(len(lists["em_list"]["all"]), 8)
 
+    def test_select_overrides_limit_and_keeps_listed_datapoints(self):
+        datapoints = [make_datapoint() for _ in range(6)]
+        for i, dp in enumerate(datapoints):
+            dp.repo_name = f"repo{i}"
+        evaluate_generation(self.args, input_data=datapoints, run_zero=False, limit=1,
+                            context_provider_factory=self.provider_factory, select=lambda n: [1, 4])
+        rows = [json.loads(line) for line in Path(self.args.results_path).read_text().splitlines()]
+        self.assertEqual(sorted({r["repo"] for r in rows}), ["repo1", "repo4"])
+
     def test_limit_selects_evenly_spaced_datapoints(self):
         datapoints = [make_datapoint() for _ in range(6)]
         _, lists, _, _ = evaluate_generation(self.args, input_data=datapoints, run_zero=False,

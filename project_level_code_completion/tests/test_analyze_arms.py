@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 
 from eval import compare_arms
 from eval.analyze_arms import arm_lines, datapoint_means, paired_bootstrap, report
-from eval.line_generators import select_subset, subset_indices
+from eval.line_generators import dev_indices, heldout_indices, select_subset, subset_indices
 
 
 def write_arm(base: Path, name: str, rows: list[dict]):
@@ -40,15 +40,49 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(heldout, sorted(heldout))
 
 
+class ExtendedSplitTests(unittest.TestCase):
+    def test_default_sizes_on_small_context(self):
+        dev, heldout = dev_indices(144, 20, 28), heldout_indices(144, 20, 28)
+        self.assertEqual((len(dev), len(heldout)), (48, 96))
+        self.assertEqual(set(dev) & set(heldout), set())
+        self.assertEqual(sorted(dev + heldout), list(range(144)))
+
+    def test_old_dev_set_stays_inside_dev(self):
+        old_dev = set(subset_indices(144, 20))
+        self.assertTrue(old_dev <= set(dev_indices(144, 20, 28)))
+        self.assertTrue(old_dev.isdisjoint(heldout_indices(144, 20, 28)))
+
+    def test_no_extra_reproduces_the_old_split(self):
+        self.assertEqual(dev_indices(144, 20, 0), subset_indices(144, 20))
+        self.assertEqual(heldout_indices(144, 20, 0), [i for i in range(144) if i not in set(subset_indices(144, 20))])
+
+    def test_extra_datapoints_are_spread_out(self):
+        extra = sorted(set(dev_indices(144, 20, 28)) - set(subset_indices(144, 20)))
+        gaps = [b - a for a, b in zip(extra, extra[1:])]
+        self.assertEqual(len(extra), 28)
+        self.assertLessEqual(max(gaps), 12)
+
+    def test_small_inputs_do_not_crash(self):
+        self.assertEqual(sorted(dev_indices(5, 20, 28)), list(range(5)))
+        self.assertEqual(heldout_indices(5, 20, 28), [])
+
+
 class DriverSplitTests(unittest.TestCase):
     def cfg(self, **overrides):
-        base = {"arm": "rag", "split": "all", "dev_size": 20, "limit_datapoints": None}
+        base = {"arm": "rag", "split": "all", "dev_size": 20, "dev_extra": 28, "limit_datapoints": None}
         return OmegaConf.create(base | overrides)
 
     def test_selection_per_split(self):
-        self.assertEqual(compare_arms.datapoint_selection(self.cfg(split="dev")), {"limit": 20})
-        self.assertEqual(compare_arms.datapoint_selection(self.cfg(split="heldout")), {"heldout_of": 20})
+        dev = compare_arms.datapoint_selection(self.cfg(split="dev"))["select"](144)
+        held = compare_arms.datapoint_selection(self.cfg(split="heldout"))["select"](144)
+        self.assertEqual((len(dev), len(held)), (48, 96))
+        self.assertEqual(set(dev) & set(held), set())
         self.assertEqual(compare_arms.datapoint_selection(self.cfg(limit_datapoints=5)), {"limit": 5})
+
+    def test_git_state_reports_commit_and_dirty_flag(self):
+        state = compare_arms.git_state()
+        self.assertEqual(set(state), {"commit", "dirty"})
+        self.assertTrue(state["commit"] is None or len(state["commit"]) >= 7)
 
     def test_invalid_split_and_combination_rejected(self):
         with self.assertRaises(ValueError):
