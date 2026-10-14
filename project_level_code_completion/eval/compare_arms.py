@@ -4,6 +4,7 @@ Example:
     poetry run python -m eval.compare_arms arm=rag limit_datapoints=20
     poetry run python -m eval.compare_arms arm=path_distance limit_datapoints=20
 """
+import importlib
 import json
 import os
 import shutil
@@ -18,7 +19,8 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 
 from composers.composer_registry import COMPOSERS
-from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generation, heldout_indices
+from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generation, heldout_indices, subset_indices
+from eval.proxy_metrics import targeted_lines
 from eval.preprocess import preprocess
 from eval.preprocessors import load_datapoints
 from rag.provider import make_rag_provider_factory
@@ -42,6 +44,10 @@ def validate(cfg: DictConfig) -> None:
     allowed = ['zero', 'rag'] + [name for name in COMPOSERS if name != 'none']
     if cfg.arm not in allowed:
         raise ValueError(f"Unknown arm {cfg.arm!r}. Available: {allowed}")
+    if cfg.static_mode not in ('provider', 'preprocess'):
+        raise ValueError(f"static_mode must be provider or preprocess, got {cfg.static_mode!r}")
+    if cfg.lines not in ('all', 'targeted'):
+        raise ValueError(f"lines must be all or targeted, got {cfg.lines!r}")
     if cfg.split not in ('all', 'dev', 'heldout'):
         raise ValueError(f"split must be all, dev or heldout, got {cfg.split!r}")
     if cfg.split != 'all' and cfg.limit_datapoints is not None:
@@ -56,6 +62,22 @@ def datapoint_selection(cfg: DictConfig) -> dict:
     if cfg.split == 'heldout':
         return {'select': partial(heldout_indices, dev_size=cfg.dev_size, dev_extra=cfg.dev_extra)}
     return {'limit': cfg.limit_datapoints}
+
+
+def static_provider_factory(kind: str, composer_args: dict):
+    """Provider factory for a static composer: the composed context string, a newline, then the prefix.
+
+    This is the text the generator builds from a preprocessed datapoint (`"\\n".join([context, prefix])`), without
+    tokenizing the whole dataset first. `evaluate_generation` calls the factory once per datapoint.
+    """
+    spec = COMPOSERS[kind]
+    composer = getattr(importlib.import_module(spec['module']), spec['name'])(**composer_args)
+
+    def factory(datapoint):
+        context = composer.context_composer(datapoint)
+        return lambda dp, line_num: ("\n".join([context, dp.get_prefix(line_num)]), dp.get_line(line_num), None)
+
+    return factory
 
 
 def git_state() -> dict:
@@ -93,6 +115,9 @@ def run_arm(cfg: DictConfig):
                   **datapoint_selection(cfg))
     if cfg.arm in ('zero', 'rag'):
         kwargs['input_data'] = load_datapoints(cfg.dataset)
+    elif cfg.static_mode == 'provider':
+        kwargs['input_data'] = load_datapoints(cfg.dataset)
+        kwargs['context_provider_factory'] = static_provider_factory(cfg.arm, dict(cfg.composers_config))
     else:
         # Static composer: preprocess the whole dataset with it, exactly as the main pipeline does.
         in_dir = arm_dir / 'in'
@@ -106,17 +131,24 @@ def run_arm(cfg: DictConfig):
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         kwargs['context_provider_factory'] = make_rag_provider_factory(
             lambda text: len(tokenizer(text, add_special_tokens=False)['input_ids']), budget,
-            prefix_cap=cfg.rag.prefix_cap, query_lines=cfg.rag.query_lines, max_chunks=cfg.rag.max_chunks,
-            include_non_py=cfg.rag.include_non_py, extension=cfg.composers_config.extension,
-            lang_sep=cfg.composers_config.lang_sep_symbol, meta_sep=cfg.composers_config.meta_info_sep_symbol,
+            extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
+            meta_sep=cfg.composers_config.meta_info_sep_symbol, **OmegaConf.to_container(cfg.rag),
         )
 
     started = time.time()
+    if cfg.lines == 'targeted':
+        # Only lines whose needed names are defined in other files (log section 8.13); computed from the snapshot.
+        snapshot = kwargs.get('input_data') or load_datapoints(cfg.dataset)
+        kwargs['select'] = kwargs.get('select') or partial(subset_indices, limit=cfg.limit_datapoints)
+        kwargs.pop('limit', None)
+        kwargs['line_filter'] = lambda i: targeted_lines(snapshot[i])
+
     scores, score_lists, em_diff, line_counts = evaluate_generation(generator_config, **kwargs)
 
     summary = {'arm': cfg.arm, 'arm_name': cfg.arm_name or cfg.arm, 'dataset': dataset_name(cfg),
                'model': inference_params['model'], 'token_budget': budget, 'limit_datapoints': cfg.limit_datapoints,
-               'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra,
+               'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra, 'lines': cfg.lines,
+               'static_mode': cfg.static_mode,
                'code': git_state(), 'wall_seconds': round(time.time() - started, 1),
                'scores': scores, 'em_difference_vs_zero': em_diff, 'line_counts': line_counts}
     (arm_dir / 'summary.json').write_text(json.dumps(summary, indent=4))

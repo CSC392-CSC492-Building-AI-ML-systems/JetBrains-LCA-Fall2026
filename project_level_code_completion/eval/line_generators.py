@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import os
 import random
@@ -171,6 +172,7 @@ class LineGeneratorHF(SpecificLineGenerator):
                 prediction = prediction.strip("\n")
                 prediction_line = prediction.split("\n")[0]
                 result = {'original_prediction': prediction, 'prediction_line': prediction_line, 'ground_truth': gt_line, 'line_class': sc_name, 'zero_context': use_zero_context}
+                result['line_num'] = line_num
                 if self.datapoint_idx is not None:
                     result['datapoint_idx'] = self.datapoint_idx
                     result['repo'] = datapoint.repo_name
@@ -288,7 +290,8 @@ def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] =
 def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[DatapointBase]] = None,
                         context_provider_factory: Optional[Callable[[DatapointBase], ContextProvider]] = None,
                         run_zero: bool = True, run_context: bool = True, limit: Optional[int] = None,
-                        heldout_of: Optional[int] = None, select: Optional[Callable[[int], list[int]]] = None):
+                        heldout_of: Optional[int] = None, select: Optional[Callable[[int], list[int]]] = None,
+                        line_filter: Optional[Callable[[int], dict[str, list[int]]]] = None):
     """Generate and score target lines.
 
     By default, reads preprocessed datapoints from `args.input_data_path` and runs a zero-context pass and a pass
@@ -296,6 +299,8 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
     `context_provider_factory` (called once per datapoint), skip either pass, use `limit` evenly spaced datapoints,
     or evaluate everything except the `heldout_of` evenly spaced datapoints (the complement of `limit=heldout_of`).
     `select(n)` returning explicit indices (e.g. `dev_indices`) overrides `limit`/`heldout_of`.
+    `line_filter(i)` (needs `select`) returns, for the datapoint at original index `i`, the lines to evaluate per
+    category; datapoints left with no lines are skipped. It is only called for the selected datapoints.
     """
     set_seed(args.seed)
     if input_data is None:
@@ -307,9 +312,19 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
         else:
             raise NotImplementedError
     if select is not None:
-        input_data = [input_data[i] for i in select(len(input_data))]
+        indices = select(len(input_data))
+        input_data = [input_data[i] for i in indices]
     else:
+        if line_filter is not None:
+            raise ValueError("line_filter needs `select` so that datapoints keep their original indices")
         input_data = select_subset(input_data, limit, heldout_of)
+    if line_filter is not None:
+        kept = []
+        for original_idx, datapoint in zip(indices, input_data):
+            lines = line_filter(original_idx)
+            if any(lines.values()):
+                kept.append(dataclasses.replace(datapoint, completion_lines=lines))
+        input_data = kept
 
     model, device = get_model(args)
 
