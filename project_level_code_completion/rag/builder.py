@@ -6,9 +6,9 @@ from typing import Callable, Optional
 import numpy as np
 
 from composers.path_distance_composer import PathDistanceComposer
-from eval.proxy_metrics import IDENTIFIER, KEYWORDS, definitions
 from rag.bm25 import BM25Index, tokenize_code
 from rag.chunker import Chunk, chunk_repo
+from rag.code_names import IDENTIFIER, KEYWORDS, definitions
 
 MAX_CHUNKS = 30
 QUERY_LINES = 10

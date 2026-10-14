@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
 
@@ -21,11 +22,36 @@ def _default_count_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
-def _default_parse(code: str):
-    """Parse with the project's tree-sitter parser. Imported lazily because importing it loads the grammar."""
-    from tree_sitter_parser.parser import parser
+class ParserUnavailable(RuntimeError):
+    """The tree-sitter grammar could not be loaded (not a syntax error in the file being chunked)."""
 
-    return parser.parse(bytes(code, "utf8")).root_node
+
+_PARSER_STATE: dict = {"parser": None, "error": None}
+
+
+def _default_parse(code: str):
+    """Parse with the project's tree-sitter parser. Imported lazily because importing it loads the grammar.
+
+    Raises `ParserUnavailable` if the grammar cannot be loaded, e.g. when `tree-sitter-python` has not been cloned into
+    the working directory (see the README). The failure is remembered so that the load is not retried for every file.
+    """
+    if _PARSER_STATE["error"] is not None:
+        raise ParserUnavailable(_PARSER_STATE["error"])
+    if _PARSER_STATE["parser"] is None:
+        try:
+            from tree_sitter_parser.parser import parser
+        except Exception as error:  # missing clone, failed build, grammar/library version mismatch
+            _PARSER_STATE["error"] = f"{type(error).__name__}: {error}"
+            raise ParserUnavailable(_PARSER_STATE["error"]) from error
+        _PARSER_STATE["parser"] = parser
+    return _PARSER_STATE["parser"].parse(bytes(code, "utf8")).root_node
+
+
+def _warn_parser_unavailable(reason: str) -> None:
+    warnings.warn(
+        f"tree-sitter grammar not available ({reason}); Python files are cut into plain line windows instead of "
+        f"function/class chunks. Clone tree-sitter-python (tag v0.21.0) into the working directory, see the README.",
+        RuntimeWarning, stacklevel=3)
 
 
 def _end_row(node) -> int:
@@ -88,7 +114,12 @@ def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _defau
         root = (parse or _default_parse)(code)
         if root.has_error:
             raise ValueError("syntax error")
-    except Exception:
+    except ParserUnavailable as error:
+        if not _PARSER_STATE.get("warned"):  # once per process: the same problem would repeat for every file
+            _PARSER_STATE["warned"] = True
+            _warn_parser_unavailable(str(error))
+        return window_chunks(lines, path, 0, count_tokens)
+    except Exception:  # a syntax error or other parse failure in this file: fall back quietly
         return window_chunks(lines, path, 0, count_tokens)
 
     chunks: list[Chunk] = []
