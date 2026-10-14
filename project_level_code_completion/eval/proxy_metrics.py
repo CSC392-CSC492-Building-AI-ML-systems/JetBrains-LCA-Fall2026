@@ -171,6 +171,9 @@ def main():
     parser.add_argument("--rag", nargs="*", default=[], help="overrides for the rag settings, e.g. prefix_cap=2000")
     parser.add_argument("--results", action="store_true", help="join EM from the arms' generation_results.jsonl")
     parser.add_argument("--base", default="~/lca_artifacts/python/starcoderbase-1b/small_context/arms")
+    parser.add_argument("--dataset", default="small", help="small | medium | large | huge (development datapoints only)")
+    parser.add_argument("--dev-size", type=int, default=20)
+    parser.add_argument("--dev-extra", type=int, default=28)
     parser.add_argument("--out", help="write per-line rows as JSON lines to this file")
     args = parser.parse_args()
 
@@ -183,7 +186,7 @@ def main():
     from rag.provider import make_rag_provider_factory
 
     with initialize_config_dir(config_dir=os.path.join(os.path.dirname(__file__), "config"), version_base=None):
-        cfg = compose(config_name="compare_arms")
+        cfg = compose(config_name="compare_arms", overrides=[f"dataset={args.dataset}"])
     budget = cfg.params.inference_params["seq_max_len"] - 100
     tokenizer = AutoTokenizer.from_pretrained(cfg.params.preprocess_params["tokenizer"])
     encode = lambda text: tokenizer(text, add_special_tokens=False)["input_ids"]
@@ -198,7 +201,7 @@ def main():
         **rag_settings)
 
     data = load_datapoints(cfg.dataset)
-    dev = [data[i] for i in dev_indices(len(data), cfg.dev_size, cfg.dev_extra)]  # development datapoints only
+    dev = [data[i] for i in dev_indices(len(data), args.dev_size, args.dev_extra)]  # development datapoints only
     composer_args = dict(cfg.composers_config)
 
     rows = []

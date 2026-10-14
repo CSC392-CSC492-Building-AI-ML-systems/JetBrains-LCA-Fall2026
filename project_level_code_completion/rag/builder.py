@@ -1,4 +1,6 @@
+import random
 import re
+import zlib
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -30,9 +32,17 @@ class RagResult:
     n_definitions: int = 0  # how many of the first `chunks` came from symbol-definition lookup
 
 
-def make_query(prefix: str, n_lines: int = QUERY_LINES) -> str:
-    """The last `n_lines` non-empty lines of the prefix. The target line is never part of the prefix."""
+def make_query(prefix: str, n_lines: int = QUERY_LINES, mode: str = "last") -> str:
+    """The last `n_lines` non-empty lines of the prefix. The target line is never part of the prefix.
+
+    `mode="first"` takes the first `n_lines` instead; it exists only as a control (a stale query that ignores what was
+    just written) for the verification experiments.
+    """
     lines = [line for line in prefix.split("\n") if line.strip()]
+    if mode == "first":
+        return "\n".join(lines[:n_lines])
+    if mode != "last":
+        raise ValueError(f"query mode must be last or first, got {mode!r}")
     return "\n".join(lines[-n_lines:])
 
 
@@ -91,9 +101,9 @@ class RagContextBuilder:
                  extension: str = "", lang_sep: str = "", meta_sep: str = "METASEP\n",
                  retriever: str = "bm25", embedder=None, chunking: str = "structure",
                  fine_window: int = 10, fine_stride: int = 5):
-        if retriever not in ("bm25", "dense", "hybrid"):
-            raise ValueError(f"retriever must be bm25, dense or hybrid, got {retriever!r}")
-        if retriever != "bm25" and embedder is None:
+        if retriever not in ("bm25", "dense", "hybrid", "random", "proximity"):
+            raise ValueError(f"retriever must be bm25, dense, hybrid, random or proximity, got {retriever!r}")
+        if retriever in ("dense", "hybrid") and embedder is None:
             raise ValueError(f"retriever={retriever!r} needs an embedder")
         self.completion_path = completion_path
         self.repo_name = repo_name
@@ -106,7 +116,7 @@ class RagContextBuilder:
         self.file_lines = {path: code.split("\n") for path, code in files.items() if path != completion_path}
         self.index = BM25Index([tokenize_code(chunk.text) for chunk in self.chunks])
         self.chunk_vectors = None
-        if retriever != "bm25":
+        if retriever in ("dense", "hybrid"):
             self.chunk_vectors = np.asarray(
                 embedder.embed_chunks([f"{chunk.path}\n{chunk.text}" for chunk in self.chunks]), dtype=np.float32)
         self._costs: dict[tuple[int, int], int] = {}
@@ -158,6 +168,15 @@ class RagContextBuilder:
 
     def _rank(self, query: str, prefix: str, proximity_weight: float, import_weight: float
               ) -> tuple[list[tuple[int, float]], bool]:
+        # Controls for the verification experiments: rankings that ignore what the code says.
+        if self.retriever == "random":  # a reproducible shuffle that depends only on the prefix
+            order = list(range(len(self.chunks)))
+            random.Random(zlib.crc32(prefix.encode("utf8"))).shuffle(order)
+            return [(i, 0.0) for i in order], False
+        if self.retriever == "proximity":  # nearest files first, no lexical relevance
+            order = sorted(range(len(self.chunks)),
+                           key=lambda i: (-self._path_proximity(self.chunks[i].path), i))
+            return [(i, 0.0) for i in order], False
         if query.strip():
             if self.retriever == "dense":
                 return self._dense_ranking(query), False
@@ -203,7 +222,7 @@ class RagContextBuilder:
                     max_context_tokens: Optional[int] = None, proximity_weight: float = 0.0,
                     import_weight: float = 0.0, definitions_first: bool = False, definition_chunks: int = 8,
                     definition_tokens: Optional[int] = 2000, definition_imports: bool = True,
-                    order: str = "best_last", continuation_lines: int = 0) -> RagResult:
+                    order: str = "best_last", continuation_lines: int = 0, query_mode: str = "last") -> RagResult:
         """Context for one target line whose preceding lines are `prefix`.
 
         `budget` is the total input cap in tokens (context + newline + prefix). Chunks are never truncated:
@@ -226,7 +245,7 @@ class RagContextBuilder:
         if max_context_tokens is not None:
             remaining = min(remaining, max_context_tokens)
 
-        query = make_query(prefix, query_lines)
+        query = make_query(prefix, query_lines, query_mode)
         selected: list[tuple[Chunk, float]] = []
         taken: set[int] = set()
         n_definitions = 0
