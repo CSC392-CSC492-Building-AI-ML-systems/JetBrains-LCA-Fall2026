@@ -1344,15 +1344,86 @@ our dev subset is smaller, so agreement is judged within the bootstrap CI. `half
 unseeded `random()`; the harness seeds Python's `random` at the start of each pass (seed 42), so a given run is reproducible,
 but its context is a random one.
 
+### 8.34 S1: all static composers on the development data (started 2026-10-14; predictions fixed before the runs)
+
+User instruction: "start". S1 runs the seven composers not yet evaluated, plus the two missing reference arms on medium dev,
+with the existing arms reused: small dev has `r0_zero`, `r0_path_distance`, `r0_imports_first`; medium dev has
+`g_path_distance`. New arms are named `s1_<composer>`, 1B model, 8K budget, seed 42, `lines=all`, `split=dev`
+(small: 48 datapoints, 1,573 lines; medium: 56 datapoints, 2,013 lines), static composers fed through the per-line provider
+path (verified identical to the original preprocessing path in V1 for `path_distance`; the other composers use the same
+path by construction).
+
+Arms: `naive`, `alphabetical`, `file_length`, `half_memory`, `half_memory_path_distance`, `function_class_mask_half`,
+`function_class_mask_one` on both datasets; `zero` and `imports_first` also on medium dev.
+
+**Predictions (from the paper's Table 10 ranking and the nature of each composer, before seeing any result):**
+1. `path_distance` stays the best or tied-best static composer on medium dev (within 0.5 points), as in the paper.
+2. `half_memory_path_distance` and `function_class_mask_*` (path-distance based) land within 2 points of `path_distance`.
+3. `naive`, `alphabetical`, `file_length`, `half_memory` (no proximity ordering) are clearly below `path_distance` on medium
+   (by 2–6 points), and close to it on small, where the whole repository tends to fit.
+4. On medium dev, zero context is below every composer.
+
+**Selection rule (fixed in §8.33):** the composer with the highest overall EM on medium dev; ties within 0.5 points go to
+`path_distance`. Then S2 (held-out) and, on approval, S3 (CodeLlama-7B at 16K).
+
+### 8.35 S1 results (run 2026-10-14 17:31–19:16, 16 runs, all exit 0, no tracebacks)
+
+Overall EM (mean over datapoints; Δ vs `path_distance`, 95% CI over datapoints, `*` excludes 0), `starcoderbase-1b`, 8K budget,
+seed 42, all lines of the development datapoints. Outputs `~/lca_artifacts/python/starcoderbase-1b/{medium,small}_context/arms/s1_*`.
+
+| composer / arm | **medium dev** EM | Δ vs path_distance | small dev EM | Δ vs path_distance |
+|---|---:|---|---:|---|
+| **path_distance** (reference) | **0.390** | (reference) | 0.290 | (reference) |
+| function_class_mask_half | 0.390 | +0.000 (4 of 2,013 predictions differ) | 0.290 | +0.000 |
+| half_memory_path_distance | 0.359 | −0.031 [−0.065, −0.003] \* | 0.281 | −0.009 |
+| function_class_mask_one (only declarations + PD) | 0.350 | −0.040 [−0.071, −0.014] \* | 0.271 | −0.019 |
+| imports_first | 0.336 | −0.054 [−0.099, −0.017] \* | 0.292 | +0.002 |
+| alphabetical | 0.331 | −0.059 [−0.103, −0.022] \* | 0.296 | +0.006 \* |
+| half_memory | 0.331 | −0.059 [−0.103, −0.022] \* | 0.281 | −0.008 |
+| file_length | 0.329 | −0.061 [−0.106, −0.025] \* | 0.291 | +0.001 |
+| naive | 0.326 | −0.064 [−0.109, −0.027] \* | 0.291 | +0.001 |
+| zero context | 0.323 | −0.067 [−0.112, −0.030] \* | 0.280 | −0.010 |
+| *(v1 / F for scale)* | *0.475 / 0.485* | *+0.085 \* / +0.095 \** | *0.286 / 0.291* | *−0.003 / +0.002* |
+
+**Selection rule (§8.33):** the highest overall EM on medium dev, ties within 0.5 points to `path_distance` → **`path_distance`**
+(`function_class_mask_half` ties it exactly; the next best composer is 3.1 points lower). So S2 is not needed: the held-out
+comparisons of F, v1, `imports_first` and zero context already use the dev-selected best static composer.
+
+**Predictions (§8.34) scored:** (1) path_distance best or tied-best on medium dev: **met** (tied with `function_class_mask_half`);
+(2) path-distance-based composers within 2 points of it: **partly met**: `function_class_mask_half` yes (0.0), `half_memory_path_distance`
+(−3.1) and `function_class_mask_one` (−4.0) no; (3) naive, alphabetical, file_length, half_memory 2–6 points below on medium and
+close on small: **met** (−5.9 to −6.4, a little beyond the stated range; small within ±0.8); (4) zero context below every composer:
+**met** (0.323, the lowest, though not significantly below naive).
+
+**Findings.**
+- **Only proximity-ordered context matters at 8K.** naive, alphabetical, file_length and half_memory (no proximity ordering) are
+  statistically indistinguishable from zero context on medium (0.326–0.331 vs 0.323): only the last 8K tokens of a huge
+  concatenation survive, and without ordering they are not the relevant ones. `path_distance` puts the nearest files last.
+- `function_class_mask_half` is `path_distance` with the farthest half of the files reduced to declarations; those files are
+  cropped away at 8K, hence the near-identity (the 4 differing predictions are in small repositories where they stay visible).
+- **Agreement with the paper's ranking.** Over the seven composers also in the paper's Table 10, our EM ranking on medium dev
+  is identical to its perplexity ranking (Spearman 1.00): path_distance > half_memory_path_distance > only-declarations+PD
+  (taken to be `function_class_mask_one`, from the paper's footnote "only declarations in all files except one") > imports_first
+  > file_length > naive > file-level (zero context). This is independent evidence that our harness orders the baselines like the
+  original, with a different model (StarCoder 1B vs CodeLlama-7B), window (8K vs 16K) and metric (EM vs perplexity).
+- On small dev all composers are within about one point of each other and of zero context (largest gap −1.9, not significant;
+  `alphabetical` +0.6 is significant but negligible), as with the earlier arms.
+- **F and v1 are far above every static composer on medium dev** (+8.5 and +9.5 over the best), so no choice among the
+  composers could change the central result.
+
+**Scope statement, replacing §8.29's open item:** all nine registered composers and zero context were evaluated on the
+development data; the held-out evaluation compares F with the dev-selected best (`path_distance`), plus `imports_first` and zero
+context. The other composers were not run on held-out data (they are 3–6 points below `path_distance` on medium dev, and
+`path_distance` is 6 points below F on held-out medium). Running them on held-out data would cost about 3–4 GPU hours and is
+available if wanted.
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~17:30, verification finished, §8.30-§8.32):** requested by the user before adding more
-baselines. Results: BM25 matches a brute-force reference (pass); prompts never contain the completion file, but 4 of
-400 rebuilt prompts exceed the budget when the prefix alone fills it (fail as pre-registered, immaterial to results);
-the held-out gain is broad (69.7% of non-tied datapoints, repository-clustered CI [+3.6, +9.7], leave-one-repo-out
-+5.35 to +6.65); controls confirm that relevance drives it (F is +8 to +14.5 points above random chunks,
-proximity-only chunks and a stale query); about 75% of the advantage sits on lines whose text exists verbatim elsewhere
-in the repository. Strict verdict by the pre-registered rule: not "strong" (V-B); substantive assessment: sound, with
-three stated caveats. Still open: running the other 7 registered static composers (§8.29, user to decide), optional
-extensions. Git: HEAD `91f98f6`; uncommitted: tests `test_bm25_reference.py`/`test_controls.py`, builder control
-options, proxy_metrics CLI options, config key `query_mode`, this log, the proposal edits. Nothing pushed by me.
+**State at last update (2026-10-14 ~19:40, S1 done, §8.35):** all nine composers plus zero context were run on the development data.
+`path_distance` is the best (tied by `function_class_mask_half`, which is the same context once the 8K window crops the
+far files); everything without proximity ordering is statistically equal to zero context on medium; the EM ranking equals the
+paper's perplexity ranking (Spearman 1.00 over the seven shared composers). S2 is unnecessary (the dev-selected best is the
+reference already used). Next, on the user's go-ahead: S3 (CodeLlama-7B at 16K on medium dev: file-level, path_distance, F with
+the prefix cap scaled to 15,900; about 2.5-3 h, to compare with the paper's 0.39 vs 0.49), optionally S4 (DeepSeek-Coder 1.3B),
+optionally all composers on held-out (about 3-4 h). Git: HEAD `0fca3a0`; uncommitted: §8.33-§8.35 and the proposal/README edits.
+Nothing pushed by me.

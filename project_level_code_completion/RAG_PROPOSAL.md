@@ -15,8 +15,8 @@ line, BM25 retrieves the most relevant code chunks of the repository snapshot us
 fills the same 7,900-token budget with them. Each retrieved chunk is followed by the next 20 lines of its file.
 
 **Result (held-out data, evaluated once, `starcoderbase-1b`):** on `medium_context` the design beats the strongest static
-composer we evaluated (`path_distance`; `imports_first` was lower; the other seven registered composers were **not**
-run, see §8) by **+6.4 exact-match points** (0.357 → 0.421, 95% CI [+4.1, +8.9], 168 datapoints,
+composer (`path_distance`, chosen as the best of all nine registered composers on development data, §6.5) by
+**+6.4 exact-match points** (0.357 → 0.421, 95% CI [+4.1, +8.9], 168 datapoints,
 6,663 lines), in all six line categories. On the lines that use names defined in other files the gain is +7.1 points,
 and a 7B model shows the same gain (+7.3). On `small_context` there is no difference (−0.1 [−0.6, +0.4]), because
 those repositories mostly fit in the budget anyway. A plain BM25 version without any tuning already gives +5.6; the
@@ -194,6 +194,22 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
 By the pre-registered rule ("strong only if every check passes") the implementation does **not** qualify, because of the
 budget edge case, which has no effect on any result; otherwise it passes. Details: log §8.30–§8.32.
 
+### 6.5 All static composers on development data (EM, `starcoderbase-1b`, 8K budget)
+
+| composer | medium dev (56 dp) | small dev (48 dp) |
+|---|---:|---:|
+| **path_distance** | **0.390** | 0.290 |
+| function_class_mask_half | 0.390 | 0.290 |
+| half_memory_path_distance | 0.359 | 0.281 |
+| function_class_mask_one | 0.350 | 0.271 |
+| imports_first | 0.336 | 0.292 |
+| alphabetical / half_memory / file_length / naive | 0.331 / 0.331 / 0.329 / 0.326 | 0.296 / 0.281 / 0.291 / 0.291 |
+| zero context | 0.323 | 0.280 |
+| *F (final design)* | *0.485* | *0.291* |
+
+Without proximity ordering the composers are indistinguishable from zero context at 8K. Over the seven composers that also
+appear in the paper's Table 10, our EM ranking equals the paper's perplexity ranking (Spearman 1.00). Log §8.35.
+
 ## 7. Changes relative to the v2 proposal
 
 | v2 said | what was done | why |
@@ -208,12 +224,10 @@ budget edge case, which has no effect on any result; otherwise it passes. Detail
 
 ## 8. Limitations
 
-- **Only two of the benchmark's static composers were evaluated** (`path_distance`, `imports_first`), plus zero context.
-  The registry also contains `naive`, `alphabetical`, `file_length`, `half_memory`, `half_memory_path_distance`,
-  `function_class_mask_half` and `function_class_mask_one`, and the benchmark's own pipeline chooses among all of them by
-  perplexity. `path_distance` was used as the reference because it is the natural strong baseline and was the better of the
-  two we ran, not because it was shown to be the best of all. Whether any other composer is stronger than `path_distance`
-  on `medium_context` is untested here; the claim above is therefore about `path_distance` specifically.
+- **Static composers other than `path_distance` and `imports_first` were compared only on development data.** All nine
+  registered composers were run there (§6.5) and `path_distance` was the best, so the held-out evaluation uses it as the
+  reference; the other seven were not run on held-out data. The benchmark's own pipeline chooses among composers by
+  perplexity; we chose by EM on development data.
 - Only `starcoderbase-1b` (and `starcoderbase-7b` on targeted lines); the benchmark's other baseline models were not run.
 - **Much of the gain depends on near-copies.** About 75% of F's advantage over `path_distance` comes from lines whose text
   appears verbatim elsewhere in the repository (§6.4); where it does not, the advantage is about +2.3 points.
