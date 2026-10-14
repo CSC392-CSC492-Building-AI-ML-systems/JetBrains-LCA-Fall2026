@@ -1,215 +1,206 @@
-# Proposal: Retrieval-Augmented Context for Project-Level Code Completion
+# Retrieval-Augmented Context for Project-Level Code Completion
 
 Long Code Arena (LCA) – project-level code completion baseline
-Author: Adriana Gaydov · Status: draft v2 for review
+Author: Adriana Gaydov · Status: **v3, implemented and evaluated** (v2 was the pre-implementation proposal)
+
+This document describes the design, how it was evaluated, and what was found. The complete lab notebook, with every
+setting, prediction and result in the order it happened, is [RAG_EXPERIMENT_LOG.md](RAG_EXPERIMENT_LOG.md); result
+files are in [rag_results/](rag_results/). Section 7 lists what changed relative to the v2 proposal.
 
 ## 1. Summary
 
-The current baseline builds one static context string per completion file by reordering or filtering
-repository files (path distance, imports first, etc.). We propose replacing this with **per-line
-retrieval**: for every target line, retrieve the code chunks from the repository snapshot that are most
-relevant to the code written so far, and fill the model's token budget with them. We implement a BM25
-retriever first, compare it with the existing baselines on one model family under an identical token
-budget, and use the results to decide whether dense or hybrid retrieval is worth adding.
+The benchmark's baseline builds one static context string per completion file by ordering or filtering whole
+repository files (path distance, imports first, etc.). We replaced it with **per-line retrieval**: for every target
+line, BM25 retrieves the most relevant code chunks of the repository snapshot using the last 10 lines before it, and
+fills the same 7,900-token budget with them. Each retrieved chunk is followed by the next 20 lines of its file.
 
-## 2. How the baseline works today
+**Result (held-out data, evaluated once, `starcoderbase-1b`):** on `medium_context` the design beats the benchmark's best
+static composer (`path_distance`) by **+6.4 exact-match points** (0.357 → 0.421, 95% CI [+4.1, +8.9], 168 datapoints,
+6,663 lines), in all six line categories. On the lines that use names defined in other files the gain is +7.1 points,
+and a 7B model shows the same gain (+7.3). On `small_context` there is no difference (−0.1 [−0.6, +0.4]), because
+those repositories mostly fit in the budget anyway. A plain BM25 version without any tuning already gives +5.6; the
+design search added +0.8 on top (CI [+0.2, +1.4]).
+
+## 2. How the baseline works
 
 | Stage | Where | Behaviour |
 |---|---|---|
-| Data | `eval/preprocessors.py`, `data_classes/` | Each datapoint holds a repo snapshot (`context_dict`), one completion file, and `completion_lines` (target line numbers grouped by category). `DatapointCommitDataset.get_context()` keeps all `.py` files plus non-`.py` files that are not hidden, not licenses, and under 16,000 characters. |
-| Composition | `composers/*.py` | A composer orders/filters whole files into one string, **once per datapoint**. It never sees which line will be predicted. |
-| Truncation | `eval/preprocessors.py`, `model_hub/model_inference.py` | Context is cropped to the last `5*seq_max_len` characters, then (perplexity stage only) to `context_max` tokens. |
+| Data | `eval/preprocessors.py`, `data_classes/` | Each datapoint holds a repo snapshot (`context_dict`), one completion file, and `completion_lines` (target line numbers grouped by category). `get_context()` keeps all `.py` files plus non-`.py` files that are not hidden, not licenses, and under 16,000 characters. |
+| Composition | `composers/*.py` | A composer orders or filters whole files into one string, **once per datapoint**; it never sees which line will be predicted. |
+| Truncation | `eval/preprocessors.py` | Context is cropped to the last `5*seq_max_len` characters. |
 | Composer choice | `eval/eval_pipeline.py` | Perplexity on the completion file at three context sizes; the lowest wins and is used for generation. |
-| Generation | `eval/line_generators.py` | Prompt = `context + "\n" + prefix(line_num)`, left-cropped to `seq_max_len - 100` tokens (7,900 with the default `seq_max_len=8000`). Greedy decoding of one line; exact match (EM) and edit similarity (ES), each also run with zero context. Note that `context_max` is **not** used here. |
+| Generation | `eval/line_generators.py` | Prompt = `context + "\n" + prefix(line_num)`, left-cropped to `seq_max_len - 100` tokens (7,900 by default). Greedy decoding of one line; exact match (EM) and edit similarity (ES). |
 
-Dataset facts (`small_context`, from the HF datasets-server): 144 datapoints, about 37.6 MB. Line counts
-by category, summed over all datapoints:
+Datasets (HF revision `1cdf62335c3c30b3b887498fdf2127e39e01b785`): `small_context` has 144 datapoints and 4,686
+target lines; `medium_context` has 224 datapoints. Lines are grouped into six categories (infile, commited, random,
+non_informative, common, inproject).
 
-| Category | Lines | Datapoints with ≥1 line |
-|---|---:|---:|
-| infile | 1,430 | 136 |
-| commited | 1,426 | 99 |
-| random | 703 | 144 |
-| non_informative | 532 | 144 |
-| common | 500 | 88 |
-| inproject | 95 | 11 |
-| **Total** | **4,686** | |
+## 3. Motivation
 
-## 3. Limitations motivating this work
+1. **Static context.** Every line in a file gets the same context, whatever that line needs.
+2. **File-level granularity.** A large file is included or cropped away as a whole even if one function matters.
+3. **No relevance signal.** Ordering is by path distance, import graph or length; nothing measures similarity to the
+   code being written.
+4. **Selection/metric mismatch.** Composers are chosen by whole-file perplexity, but the metric is line-level EM/ES.
 
-1. **Static context.** Every line in a file gets the same context, regardless of what that line needs.
-2. **File-level granularity.** A large file is included (or cropped away) as a whole even when only one
-   function in it is relevant.
-3. **No relevance signal.** Ordering is by path distance, import graph, or length. No composer scores
-   similarity to the code being written.
-4. **Selection/metric mismatch.** Composers are chosen by whole-file perplexity, but the reported
-   metric is line-level EM/ES.
+**A measurement that shaped the evaluation.** Only a minority of lines depend on code defined in other files. Counting,
+for each target line, identifiers that the repository defines in another file and that the file's own prefix does not
+define (called *targeted* or `T` lines): 6.0% of `small_context` lines but 38.3% of `medium_context` lines. Overall EM
+on small repositories therefore cannot move much, however good the retrieval, and medium repositories are where it can
+be tested. (Log §8.13.)
 
-## 4. Proposed design
+## 4. Design as built
 
 ### 4.1 Pipeline
 
 ```
-repo snapshot ──► chunker ──► index (once per datapoint)
+repo snapshot ──► chunker ──► BM25 index (once per datapoint)
                                    │
-prefix before target line ─► query ─┴─► ranked chunks ─► budgeted prompt ─► model ─► line
+prefix before target line ─► query ─┴─► ranked chunks ─► + 20 following lines ─► budgeted prompt ─► model ─► line
 ```
 
-### 4.2 Token budget (applies to every arm)
+### 4.2 Token budget (identical for every arm)
 
-- **Total input cap B** = `seq_max_len - 100` tokens (7,900 by default), measured with the model's
-  own tokenizer. This is the existing generation limit, so all arms see the same maximum input length.
-- **Prefix.** The completion-file prefix before the target line, left-cropped to at most **P = 4,000
-  tokens**. Its actual length is `p ≤ P`.
-- **Retrieved context.** Fills the remaining `B - p` tokens, including separators.
-- **Static arms** keep their existing behaviour (full composed context, then prefix, left-cropped to
-  B). They already fill B, so the arms differ in content rather than in length.
-- The static arms' prefix can grow up to B, while RAG caps it at P; the cap P is itself ablated (§5).
+- Total input cap **B = `seq_max_len − 100` = 7,900 tokens**, counted with the model's own tokenizer; the same cap the
+  generator already applies, so all arms see the same maximum length.
+- The completion-file prefix is kept in full (cropped on the left only if it exceeds B). Retrieved context fills what
+  remains. After assembly the exact total is verified with the tokenizer and the lowest-ranked chunk is dropped until it
+  fits, because per-chunk token costs are not exactly additive.
+- Static arms keep their behaviour (composed context, newline, prefix, left-cropped to B).
 
-### 4.3 Components and defaults
+### 4.3 Components (`rag/`)
 
-**Chunker.** Uses the existing tree-sitter parser (`tree_sitter_parser/`).
-- Each function or method is one chunk (decorators included; methods get their `class X:` line
-  prepended). Remaining module-level code (imports, constants) is one "module header" chunk per file.
-- Any chunk over 512 tokens, any file that fails to parse, and any non-`.py` file is split into line
-  windows of 40 lines with stride 20.
-- Non-`.py` files are indexed only if `get_context()` already keeps them (§2). An ablation drops them.
-- Exact duplicate chunk texts are dropped (the first path wins). Chunk token counts are computed once
-  at index time.
+- **Chunker (`chunker.py`).** tree-sitter: each function or method is one chunk (decorators included; methods get their
+  `class X:` line prepended); class headers and module-level code are separate chunks. Chunks over 512 tokens, files that
+  fail to parse, and non-Python files are cut into 40-line windows with stride 20. Exact duplicates are dropped. Chunks
+  record the symbol they define.
+- **Index.** Built once per datapoint, over every file of the snapshot **except the completion file** (its own prefix is
+  already in the prompt; the snapshot never contains an older copy of it, checked on 104 development datapoints).
+- **Query.** The last 10 non-empty lines before the target line; the target line itself is never included. An empty
+  prefix falls back to the `path_distance` file order.
+- **BM25 (`bm25.py`).** Hand-rolled Okapi BM25 with an inverted index, `k1 = 1.2`, `b = 0.75`; identifiers are lower-cased,
+  kept whole and also split on `_` and camelCase; Python keywords dropped.
+- **Selection and assembly (`builder.py`).** Chunks are taken in descending score until 30 chunks or the budget is
+  reached; a chunk that does not fit is skipped, never truncated. **Each chunk is followed by the next 20 lines of its
+  file** (`continuation_lines=20`). Chunks are emitted in ascending relevance so the best one is nearest the prefix, in
+  the baseline's `path + METASEP + content` layout.
+- **Optional components, all off in the final design:** path-proximity and import priors, definition-name lookup, a context
+  cap, best-first ordering, fine-grained windows, and dense (`dense.py`, cached embeddings) and hybrid retrieval with
+  reciprocal-rank fusion.
 
-**Index.** Built once per datapoint. The completion file is excluded, because its own prefix is
-already in the prompt. Retrieval is in-memory; no vector database is needed at this scale.
+### 4.4 Integration
 
-**Query.** The last **N = 10** non-empty full lines before the target line. The target line itself is
-never part of the query (`get_prefix(line_num)` returns lines `[:line_num]` only). If the prefix is
-empty, the query is empty and the prompt falls back to the `path_distance` file ordering.
+- `eval/line_generators.py` gained an optional per-line context hook (`context_provider`) and options to run only the
+  zero-context or only the context pass, select datapoints, and restrict to given lines. Defaults reproduce the original
+  behaviour (pinned by tests).
+- `eval/compare_arms.py` runs **one arm per invocation** (`zero`, `rag`, or any registered composer) with the same seed
+  and token budget into its own output directory, refusing to append to existing results, and records the git commit and
+  a dirty-tree flag. Static composers are fed through the same per-line path (verified identical to the original
+  preprocessed path: 0 differing predictions out of 1,573).
+- Analysis (`eval/analyze_arms.py`, `eval/make_targets.py`): benchmark-style means (per-datapoint mean, then mean over
+  datapoints) and a paired bootstrap over datapoints (10,000 resamples, seed 0, 95% CI), overall and per category.
+- Final configuration: `arm=rag rag.prefix_cap=7900 rag.continuation_lines=20`, all else default.
 
-**Retriever 1 – BM25 (stage 1).** Hand-rolled Okapi BM25 (about 30 lines), so there is no new
-dependency. Parameters `k1 = 1.2`, `b = 0.75`. Tokenization: regex identifiers
-(`[A-Za-z_][A-Za-z0-9_]*`), lower-cased, with each identifier kept whole and also split on `_` and
-camelCase boundaries; Python keywords are dropped; IDF handles the remaining common tokens.
+## 5. Evaluation as run
 
-**Retriever 2 – dense (stage 2, only if BM25 shows retrieval helps).** Candidate embedding models are
-`Salesforce/codet5p-110m-embedding` or `jinaai/jina-embeddings-v2-base-code` (final choice after a
-quick check that it loads under the pinned `transformers`). Cosine similarity over an in-memory matrix;
-chunk embeddings cached per repo snapshot.
+- **Model:** `starcoderbase-1b` for all arms and development; `starcoderbase-7b` for a confirmation on the targeted lines
+  of `medium_context`. RTX 5090; greedy decoding, seed 42.
+- **Pre-registration and splits.** Hypotheses, predictions and decision rules were written in the log before the
+  corresponding runs. Data was split into **development** (48 of 144 `small_context` and 56 of 224 `medium_context`
+  datapoints) and **held-out** (96 and 168 datapoints, never run or inspected until the end). Design choices were made on
+  development data only, with a cap on the number of runs; the final design was frozen, committed (`566331c`, clean
+  tree), and evaluated once on the held-out data with no change afterwards.
+- **Arms (held-out):** zero context; `path_distance` and `imports_first` (the benchmark's composers); **v1** (plain BM25,
+  untuned); **F** (final design).
+- **Metrics:** EM and ES, overall and per category; uncertainty from the paired bootstrap over datapoints, because lines in
+  one file are correlated.
+- **Primary comparisons:** P1, `medium_context` all lines, F − `path_distance`; P2, targeted lines of small + medium;
+  P3, `small_context` all lines.
 
-**Retriever 3 – hybrid (stage 3, optional).** Reciprocal-rank fusion of BM25 and dense (constant 60).
+## 6. Results
 
-**Selection.** Walk chunks in descending score, skipping zero-score chunks. A chunk that does not fit
-the remaining budget is skipped (chunks are never truncated) and the next smaller one is tried. Stop
-when the budget is filled or after 30 chunks.
+### 6.1 Held-out (EM; Δ vs `path_distance`, 95% CI; `*` excludes 0)
 
-**Prompt assembly.** Selected chunks are emitted in **ascending** relevance, so the best chunk sits
-nearest the prefix. Each chunk uses the existing `path + METASEP + content` layout joined with
-`LANGSEP`, matching the baseline format. The completion-file path and prefix follow.
+| | zero | imports_first | path_distance | v1 (BM25) | **F (final)** |
+|---|---:|---:|---:|---:|---:|
+| **P1 `medium_context`, all lines (168 dp)** | 0.300 | 0.312 | 0.357 | 0.414 (+0.056 \*) | **0.421 (+0.064 [+0.041, +0.089] \*)** |
+| **P2 targeted lines, small + medium (162 dp)** | 0.263 | 0.269 | 0.327 | 0.395 (+0.067 \*) | **0.398 (+0.071 [+0.033, +0.109] \*)** |
+| **P3 `small_context`, all lines (96 dp)** | 0.230 | 0.231 | 0.234 | 0.234 (+0.000) | 0.233 (−0.001 [−0.006, +0.004]) |
+| 7B, targeted lines of `medium_context` (145 dp) | 0.285 | | 0.360 | | **0.433 (+0.073 [+0.038, +0.109] \*)** |
 
-### 4.4 Integration with the existing pipeline
+- F improves **every category** on `medium_context` (common +10.9, random +7.0, infile +6.5, inproject +6.5, commited +4.1,
+  non_informative +4.1 points; all intervals exclude 0). ES on medium: 70.4 → 72.9 (+2.5 \*).
+- F − v1: +0.8 [+0.2, +1.4] \* on medium all lines; +0.3 (not significant) on targeted lines.
+- Static context helps on medium (`path_distance` − zero = +5.7 \*) and not on small (+0.4); `imports_first` is worse than
+  `path_distance` on medium (−4.6 \*).
 
-- New package `rag/` (chunker, retrievers, prompt builder). Existing composers are untouched.
-- The composer interface cannot see `line_num`, so RAG hooks into `LineGeneratorBase._get_context`
-  behind a flag (`context_mode: static | rag`, default `static`).
-- RAG is a **generation-only** arm: it skips the composer and perplexity sweep. Its results are not
-  eligible for perplexity-based selection and do not enter `completion_results.json`.
-- The existing pipeline picks one composer by perplexity, so it cannot guarantee that
-  `path_distance` or `imports_first` is evaluated. A small comparison driver
-  (`eval/compare_arms.py`) therefore runs each arm explicitly: it preprocesses the chosen composer
-  (or skips preprocessing for RAG), calls `evaluate_generation` with the same seed and budget, and
-  writes to a **separate directory per arm** (`<out>/<model>/<dataset>/<arm>/`). Separate directories
-  matter because `generation_results.jsonl` is opened in append mode.
-- `evaluate_generation` always re-runs the zero-context pass. The driver will add a `skip_zero` option
-  so that pass runs once per model instead of once per arm.
-- Logged per line, for analysis only: retrieved paths, scores, and token counts.
-- Retrieval parameters go in a Hydra config group.
+### 6.2 What the design search tried (development data; Δ EM vs v1 on 866 targeted lines, 57 datapoints)
 
-### 4.5 Parameters to ablate
-
-| Parameter | Default | Values |
-|---|---|---|
-| Chunk granularity | function + windows | windows only; function only |
-| Query lines N | 10 | 3, 10, 30 |
-| Chunk order | best-last | best-first |
-| Prefix cap P | 4,000 | 2,000, 4,000, 6,000 |
-| Non-`.py` files | indexed | excluded |
-| Retriever | BM25 | dense, hybrid (stages 2–3) |
-
-## 5. Evaluation plan
-
-- **Models.** `starcoderbase-1b` for iteration and all ablations; `starcoderbase-7b` on the RTX 5090
-  (32 GB) for the headline comparison only. Both are in `MODEL_REGISTRY`.
-- **Data.** `small_context` first (144 datapoints, 4,686 lines). `medium_context` (224 datapoints) if
-  time allows, mainly for more lines in the rare categories.
-- **Fixed settings.** Seed 42, `seq_max_len` 8,000, greedy decoding, the same token budget B for every
-  arm.
-- **Arms.**
-  - A. Zero context (existing)
-  - B. `path_distance` composer (existing)
-  - C. `imports_first` composer (existing)
-  - D. RAG with BM25 and the defaults in §4.3 (new)
-  - E. Ablations of D from §4.5 (1B only)
-- **Metrics.** EM and ES overall and per line category, plus per-datapoint win/loss against zero
-  context (the pipeline's existing `EM_difference`).
-- **Statistics.** Differences between arms are reported as paired differences with a **bootstrap 95%
-  CI resampled over datapoints** (144 clusters, not 4,686 independent lines, because lines within a
-  file are correlated).
-- **Power caveat.** `inproject` has only 95 lines across 11 datapoints in `small_context`, so
-  `inproject` results will be wide and are reported as descriptive, not as the headline claim. The
-  `medium_context` per-category counts will be tallied before we decide whether to run it.
-- **Compute.** About 4,686 generation calls per arm. Wall-clock time on the 1B model will be measured
-  in a pilot (20 datapoints) before the full runs. If 7B proves too slow, the 7B comparison is limited
-  to arms A, B, D, with a sampled subset of datapoints if necessary, and that is stated in the results.
-
-### Success criteria
-
-Defined before running, to be calibrated against the pilot's noise level:
-- **Success:** D beats B on overall EM, with the bootstrap 95% CI of the paired difference excluding 0,
-  on the 1B model and with the same direction on 7B.
-- **Partial:** D beats B on one or more specific categories (reported with their CIs) but not overall.
-- **Negative:** D is not distinguishable from, or is worse than, B. This is reported as a negative
-  result together with the diagnostics below.
-
-Diagnostics for any outcome: retrieval latency, retrieved-token share, and, for each line, whether a
-retrieved chunk contained the identifier that the ground-truth line uses (analysis only, not a filter).
-
-## 6. Expected outcomes (hypotheses, not results)
-
-- RAG helps most on lines that depend on code defined elsewhere in the repository. By the dataset's
-  naming these should be `inproject`, and plausibly `commited` and `common`; the exact definitions of
-  those categories still need to be confirmed against the dataset card before we rely on this.
-- `infile`, `random` and `non_informative` lines change little, since the completion file's own prefix
-  carries most of the signal.
-- Gains are larger when the repository is much longer than B, where file-level composers waste tokens,
-  and shrink for small repositories that already fit.
-- Dense or hybrid retrieval may beat BM25 on paraphrase-like matches, but BM25 is expected to be
-  competitive on code because identifiers repeat literally.
-- Negative results are plausible: chunks that look similar but are not the needed definition can
-  distract the model and lower EM on some lines. Per-datapoint win/loss is there to expose this.
-
-## 7. Risks and mitigations
-
-| Risk | Mitigation |
+| change | Δ vs v1 |
 |---|---|
-| Leakage: retrieving the target line from the completion file | Completion file excluded from the index; unit test asserts no chunk comes from it |
-| Per-line retrieval slows generation | Index once per datapoint; BM25 over thousands of chunks is milliseconds; latency logged |
-| Prefix starved by large retrieved context | Fixed budget split (§4.2); P is ablated |
-| Unfair comparison with perplexity-selected composers | All arms run through the explicit driver at the same budget B on line-level metrics |
-| Small, clustered data gives noisy comparisons | Bootstrap CI over datapoints; `medium_context` as a follow-up; `inproject` reported descriptively |
-| Local environment mismatch | The project pins Python 3.11–3.12, `torch==2.14.0`, `transformers==5.17.0`; the machine's default Python is 3.14. Create a 3.11/3.12 environment and confirm the pins run on the RTX 5090 before milestone 3 |
-| 7B runs too slow | Run ablations on 1B only; pilot timing first; reduce 7B to arms A, B, D |
+| **continuation lines: 20 (final)** / 40 / 10 | **+1.9 \*** / +2.3 (+0.4 vs 20, not adopted) / +1.0 |
+| context cap 1,000 / 2,000 / 4,000 tokens | −3.1 \* / −1.0 / −0.1 |
+| path-proximity prior (0.25 / 0.5 / 1.0) | −0.3 / −0.5 / −0.4 |
+| import boost (0.5 / 1.0) | −0.7 / −4.4 \* |
+| definition-name lookup (with / without imports) | −0.6 / −0.3 |
+| query length 3 / 20 / 30 lines | −1.8 \* / −0.1 / 0.0 |
+| dense retrieval (gte-modernbert) / hybrid / hybrid with unixcoder | 0.0 / −0.9 / −0.4 |
+| fine windows + continuation | +1.5 (not adopted: not simpler, CI includes 0) |
+| best-first ordering | +1.0 alone, but −1.1 on top of continuation: dropped |
 
-## 8. Implementation plan and milestones
+### 6.3 Hypotheses from v2 and what happened
 
-Each milestone ends with a review checkpoint and a small, separate commit.
+| v2 hypothesis | outcome |
+|---|---|
+| Gains are larger when the repository is much longer than B and shrink for small repositories | **Supported** (medium +6.4, small −0.1) |
+| RAG helps most on lines that depend on code defined elsewhere (`inproject`) | **Partly**: `inproject` gains +6.5, but every category gains on medium, including the ones expected to change little |
+| `infile`, `random`, `non_informative` change little | **Supported on small, not on medium** (+6.5, +7.0, +4.1) |
+| Dense or hybrid retrieval may beat BM25 | **Not supported** for the models tried |
+| Negative results are plausible | Not observed on medium; null on small as explained above |
+| Success: beats `path_distance` overall on 1B and same direction on 7B | **Met on `medium_context`**; 7B was run on targeted lines only |
 
-1. **Proposal** (this document).
-2. **Environment check and chunker.** Python 3.11/3.12 environment; confirm the pinned stack runs on
-   the 5090; chunker with unit tests on a toy repo.
-3. **BM25 retriever and prompt builder**, with unit tests (leakage test, budget test).
-4. **Per-line integration and driver** behind `context_mode=rag`; pilot on `starcoderbase-1b` with
-   about 20 datapoints; measure timing and noise.
-5. **Experiments:** arms A–E on `small_context`, then the 7B comparison; results tables and plots.
-6. **Write-up:** fill in §9; optionally add dense/hybrid retrieval.
+## 7. Changes relative to the v2 proposal
 
-## 9. Results
+| v2 said | what was done | why |
+|---|---|---|
+| Prefix capped at 4,000 tokens | Prefix kept in full | The cap was an unfair handicap against the static arms (development data, log §6) |
+| `context_mode: static \| rag` flag in `_get_context` | `context_provider` hook plus the `compare_arms` driver | Cleaner to run arms separately with identical settings |
+| Evaluate on all of `small_context` | Development / held-out split; `medium_context` added | A single `test` split invites tuning on reported data; small repositories cannot show an effect (§3) |
+| Tune ablations one by one | Pre-registered batches, promotion rule and run caps | Limit optimism from trying many designs |
+| Dense retrieval from `codet5p-110m-embedding` or `jina-embeddings-v2-base-code` | `gte-modernbert-base` and `unixcoder-base` | The two named models fail to load under the pinned `transformers` 5.17 |
+| `skip_zero` option | `run_zero` / `run_context` options | Same purpose |
+| Hydra config group for retrieval | `rag:` block in `compare_arms.yaml` | Simpler |
 
-_To be filled after the experiments in milestone 5._
+## 8. Limitations
+
+- One model family (StarCoder base; 1B for all arms, 7B on targeted lines only), Python only, greedy decoding of a single
+  line; `large_context` and `huge_context` were not evaluated.
+- The design search compared about 22 variants on 104 development datapoints, so the incremental value of the final design
+  over plain BM25 is the least certain finding (it shrank from +1.0 on development to +0.8 on held-out; the untuned design
+  keeps about two thirds of its development advantage).
+- The targeted-line definition is lexical; the 82 targeted lines of `small_context` held-out (17 datapoints) are too few
+  to support a claim.
+- The benchmark's generator keeps stopping-criterion state across the lines of a datapoint, so a prediction can depend
+  slightly on which lines were generated before it (about 1% of lines). It affects all arms alike when the line set is
+  the same; it was left unchanged. (Log §8.24.)
+- The chunker silently falls back to plain windows when the tree-sitter grammar is not present in the working directory.
+  All reported runs used the grammar; the fallback should warn (planned).
+
+## 9. Reproduction
+
+```bash
+cd project_level_code_completion
+poetry install                                           # Python 3.11, pinned torch/transformers
+git clone --branch v0.21.0 https://github.com/tree-sitter/tree-sitter-python   # ABI-14 grammar; run from this folder
+poetry run python -m unittest discover -s tests -t .     # 143 tests
+poetry run python -m eval.compare_arms arm=path_distance dataset=medium split=heldout dev_size=28 dev_extra=28 arm_name=h_path_distance
+poetry run python -m eval.compare_arms arm=rag rag.prefix_cap=7900 rag.continuation_lines=20 dataset=medium split=heldout dev_size=28 dev_extra=28 arm_name=h_F
+poetry run python -m eval.analyze_arms --base data/code_generation/artifacts/python/starcoderbase-1b/medium_context/arms --ref h_path_distance --arms h_F
+```
+`starcoderbase-1b` is gated on HuggingFace (accept the licence and log in).
+
+## 10. Possible next steps
+
+`large_context` and `huge_context`; the 7B model on all lines; other model families; iterative retrieve-then-generate
+using the model's draft line as a second query; a learned retriever; a named preset for the final design and a loud
+warning for the grammar fallback.
