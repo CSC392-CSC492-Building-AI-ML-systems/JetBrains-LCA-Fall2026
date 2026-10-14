@@ -1109,14 +1109,39 @@ configuration changed after the first held-out run).
 - Update `RAG_PROPOSAL.md` to v3: what was built, what changed relative to v2, and the results.
 - Optional extensions not done: `large_context` and `huge_context`, 7B on all lines, other models.
 
+### 8.28 Cleanup after the held-out run (2026-10-14, code state: commit `6ded0fb` plus uncommitted changes below)
+
+Purpose: remove the three weaknesses listed in §8.26/§8.27. **These changes were made after the held-out run and
+change no result**; each was verified to leave behaviour unchanged. Not counted in any cap.
+
+| ID | Change | Files |
+|---|---|---|
+| C-12 | Missing tree-sitter grammar is no longer silent: `ParserUnavailable` is raised by the default parser when the grammar cannot be loaded, remembered (no retry per file), and `chunk_file` emits one `RuntimeWarning` per process saying that Python files are cut into plain windows and how to fix it. A syntax error in a single file still falls back quietly, and non-Python files never warn. | `rag/chunker.py` |
+| C-13 | Presets as a Hydra config group: `rag=default` (plain BM25, as before), `rag=v1` (prefix kept in full), `rag=F` (v1 + 20 continuation lines). Explicit overrides still win (`rag=F rag.continuation_lines=0`), and the earlier override-style commands in this log still work. | `eval/config/rag/{default,v1,F}.yaml`, `eval/config/compare_arms.yaml` |
+| C-14 | Dependency direction: identifier/definition helpers moved to `rag/code_names.py`; `rag.builder` imports from it, `eval.proxy_metrics` re-exports them. The `rag` package no longer imports anything from `eval` (tested in a fresh interpreter). | `rag/code_names.py`, `rag/builder.py`, `eval/proxy_metrics.py` |
+
+**Verification.**
+- Tests: **154 pass** with the grammar and 154 with 13 skipped without it (`tests/test_cleanup.py` adds 11: warning once,
+  no warning for a syntax error or a non-Python file, failure remembered, presets and override precedence, the import
+  direction, re-exports).
+- Real warning, in a directory without the grammar: `RuntimeWarning: tree-sitter grammar not available
+  (FileNotFoundError: ... 'tree-sitter-python/src/parser.c'); Python files are cut into plain line windows instead of
+  function/class chunks. Clone tree-sitter-python (tag v0.21.0) into the working directory, see the README.` raised once;
+  with the grammar: no warning, chunk kinds {function, window}.
+- Reproduction: `rag=F` on the targeted dev lines (small 95 lines, medium 771) vs the earlier `b2_R5a` (explicit
+  `prefix_cap=7900 continuation_lines=20`): **0 differing predictions** in both, same ground-truth order, 0 tracebacks
+  (outputs `cleanup_F`, recorded as code `6ded0fb`, dirty because the cleanup was uncommitted at the time).
+- The held-out runs were not repeated; they were produced by commit `566331c`, whose behaviour the above shows is unchanged.
+
+Remaining from §8.27: optional extensions only.
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~15:10, held-out evaluation DONE and analysed, §8.26):** at commit `566331c` the
-pre-registered primary result holds. On medium_context held-out (168 datapoints, all lines) F beats `path_distance` by
-+6.4 EM points [+4.1, +8.9] (v1: +5.6 [+3.3, +8.0]); on the cross-file (`T`) lines F is +7.1 [+3.3, +10.9], and with the 7B
-model +7.3 [+3.8, +10.9]; on small_context there is no difference (−0.1 [−0.6, +0.4]), as hypothesised. F over v1 adds +0.8
-[+0.2, +1.4] on medium all lines. All predictions met except the 7B one ("smaller than 1B": it was equal). Result files are
-in `rag_results/` (new, uncommitted). The design search and held-out use are complete and no configuration was changed
-after the first held-out run. Remaining work (§8.27): post-run cleanup (grammar warning, F preset), proposal v3, final
-write-up; none of it changes results. Caps: full-dev runs 8 of 10, `T` runs 26 of 40, held-out runs 13.
-Git: HEAD `566331c`; uncommitted: `rag_results/` (199 small files, 836 KB) and this log. Nothing pushed by me.
+**State at last update (2026-10-14 ~16:30, everything done; waiting for the user's commit of the cleanup):** the research
+program is complete. Held-out result (§8.26): F beats `path_distance` on medium_context by +6.4 EM points [+4.1, +8.9],
+by +7.1 on cross-file lines, +7.3 with the 7B model, and does nothing on small_context (−0.1), as hypothesised. The
+proposal is v3 (`RAG_PROPOSAL.md`, committed). Post-run cleanup (§8.28: loud grammar warning, `rag=F` preset,
+dependency direction) is written, tested (154 tests) and verified to reproduce F exactly; it is uncommitted. Optional
+extensions remain (large/huge contexts, 7B on all lines, other models). Caps final: full-dev runs 8 of 10, `T` runs
+26 of 40, held-out runs 13. Git: HEAD `6ded0fb`; uncommitted: cleanup code/tests/config, README section, log and
+proposal edits. Nothing pushed by me.

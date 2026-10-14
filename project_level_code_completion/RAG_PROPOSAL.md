@@ -183,8 +183,9 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
 - The benchmark's generator keeps stopping-criterion state across the lines of a datapoint, so a prediction can depend
   slightly on which lines were generated before it (about 1% of lines). It affects all arms alike when the line set is
   the same; it was left unchanged. (Log §8.24.)
-- The chunker silently falls back to plain windows when the tree-sitter grammar is not present in the working directory.
-  All reported runs used the grammar; the fallback should warn (planned).
+- The chunker falls back to plain line windows when the tree-sitter grammar is not present in the working directory. All
+  reported runs used the grammar. The fallback was silent when the experiments were run; after the held-out run it was
+  changed to emit a clear warning once (log §8.28), with no effect on any result.
 
 ## 9. Reproduction
 
@@ -192,9 +193,10 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
 cd project_level_code_completion
 poetry install                                           # Python 3.11, pinned torch/transformers
 git clone --branch v0.21.0 https://github.com/tree-sitter/tree-sitter-python   # ABI-14 grammar; run from this folder
-poetry run python -m unittest discover -s tests -t .     # 143 tests
+poetry run python -m unittest discover -s tests -t .     # 154 tests
 poetry run python -m eval.compare_arms arm=path_distance dataset=medium split=heldout dev_size=28 dev_extra=28 arm_name=h_path_distance
-poetry run python -m eval.compare_arms arm=rag rag.prefix_cap=7900 rag.continuation_lines=20 dataset=medium split=heldout dev_size=28 dev_extra=28 arm_name=h_F
+poetry run python -m eval.compare_arms arm=rag rag=F dataset=medium split=heldout dev_size=28 dev_extra=28 arm_name=h_F
+#   rag=F is the final design (same as rag.prefix_cap=7900 rag.continuation_lines=20); rag=v1 is plain BM25
 poetry run python -m eval.analyze_arms --base data/code_generation/artifacts/python/starcoderbase-1b/medium_context/arms --ref h_path_distance --arms h_F
 ```
 `starcoderbase-1b` is gated on HuggingFace (accept the licence and log in).
@@ -202,5 +204,4 @@ poetry run python -m eval.analyze_arms --base data/code_generation/artifacts/pyt
 ## 10. Possible next steps
 
 `large_context` and `huge_context`; the 7B model on all lines; other model families; iterative retrieve-then-generate
-using the model's draft line as a second query; a learned retriever; a named preset for the final design and a loud
-warning for the grammar fallback.
+using the model's draft line as a second query; a learned retriever.

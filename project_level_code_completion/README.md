@@ -39,6 +39,20 @@ We use [Hydra](https://hydra.cc/docs/intro/) for configuration. The main config 
 * Base class for a composer is [`OneCompletionFileComposer`](composers/one_completion_file_composer.py).
 * To evaluate your composer, you need to add it to `COMPOSERS` dictionary that is located in [composers/composer_registry.py](composers/composer_registry.py).
 
+### Retrieval-augmented context (RAG)
+A per-line retrieval approach (BM25 over repository chunks, each followed by the next 20 lines of its file) is in
+[`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the best static composer. Design,
+results and limitations: [`RAG_PROPOSAL.md`](RAG_PROPOSAL.md); every experiment step: [`RAG_EXPERIMENT_LOG.md`](RAG_EXPERIMENT_LOG.md);
+result files: [`rag_results/`](rag_results/). The tree-sitter grammar clone above must be in the working directory,
+otherwise a warning is printed and Python files are cut into plain windows. Run one arm at a time:
+```
+poetry run python -m eval.compare_arms arm=rag rag=F dataset=medium split=dev dev_size=28 dev_extra=28 arm_name=my_run
+poetry run python -m eval.compare_arms arm=path_distance dataset=medium split=dev dev_size=28 dev_extra=28 arm_name=my_baseline
+poetry run python -m eval.analyze_arms --base data/code_generation/artifacts/python/starcoderbase-1b/medium_context/arms --ref my_baseline --arms my_run
+```
+`rag=F` is the final design, `rag=v1` the untuned BM25 design; `split=dev|heldout` selects the development or the
+held-out part of the dataset.
+
 ### Suported datasets:
 * All configurations of [`JetBrains-Research/lca-project-level-code-completion`](https://huggingface.co/datasets/JetBrains-Research/lca-project-level-code-completion):
    * `small_context`
