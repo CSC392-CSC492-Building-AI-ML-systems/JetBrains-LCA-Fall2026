@@ -160,6 +160,19 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
 | Negative results are plausible | Not observed on medium; null on small as explained above |
 | Success: beats `path_distance` overall on 1B and same direction on 7B | **Met on `medium_context`**; 7B was run on targeted lines only |
 
+### 6.4 Verification of the implementation (after the held-out run)
+
+| check | result |
+|---|---|
+| BM25 against a brute-force reference formula | equal within 1e-9 on 200 random corpora |
+| Prompts rebuilt for 400 random held-out lines | never contain the completion file; **4 exceed the 7,900-token budget** when the prefix alone fills it, so no chunk fits (3.3% of medium and 4.7% of small held-out lines are in this regime; zero context, `path_distance` and F score alike there; excluding them changes the result by 0.2 points) |
+| Robustness on `medium_context` held-out | F better on 76 datapoints, worse on 33, tied on 59; repository-clustered 95% CI [+3.6, +9.7]; leave-one-repository-out +5.4 … +6.7 |
+| Controls (development data, targeted lines) | F 0.378; random chunks 0.233; proximity-only chunks 0.244; stale query 0.297: **relevance of the retrieved chunks, not extra text, drives the gain** |
+| Where the gain comes from | in 21% of lines F's context contains the target line verbatim; those lines carry about 75% of F's advantage (+2.3 points where neither context does) |
+
+By the pre-registered rule ("strong only if every check passes") the implementation does **not** qualify, because of the
+budget edge case, which has no effect on any result; otherwise it passes. Details: log §8.30–§8.32.
+
 ## 7. Changes relative to the v2 proposal
 
 | v2 said | what was done | why |
@@ -181,6 +194,10 @@ prefix before target line ─► query ─┴─► ranked chunks ─► + 20 fo
   two we ran, not because it was shown to be the best of all. Whether any other composer is stronger than `path_distance`
   on `medium_context` is untested here; the claim above is therefore about `path_distance` specifically.
 - Only `starcoderbase-1b` (and `starcoderbase-7b` on targeted lines); the benchmark's other baseline models were not run.
+- **Much of the gain depends on near-copies.** About 75% of F's advantage over `path_distance` comes from lines whose text
+  appears verbatim elsewhere in the repository (§6.4); where it does not, the advantage is about +2.3 points.
+- **No room for retrieval in 3–5% of lines:** when the prefix itself fills the 7,900-token budget no chunk can be added
+  (§6.4); there F equals the static baselines.
 - One model family (StarCoder base; 1B for all arms, 7B on targeted lines only), Python only, greedy decoding of a single
   line; `large_context` and `huge_context` were not evaluated.
 - The design search compared about 22 variants on 104 development datapoints, so the incremental value of the final design

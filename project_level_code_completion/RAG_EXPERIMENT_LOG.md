@@ -1153,13 +1153,153 @@ The user asked whether all baselines had been evaluated. They had not, and some 
   numbers are unchanged; only the claim's scope is narrowed: the result holds against `path_distance` and
   `imports_first`, and is not shown against the other seven composers.
 
+### 8.30 Verification of the implementation: plan and pass criteria (pre-registered 2026-10-14, before any check was run)
+
+The user asked whether the RAG implementation is strong before more baselines are added. "Strong" is defined here, with
+criteria that can fail. Checks V-A..V-D are CPU-only analyses of existing outputs or of rebuilt prompts (no tuning; the
+held-out data is only *read* by checks whose purpose is to audit the finished result). V-E needs a few new GPU runs and
+uses **development data only**, so the held-out set is not touched again for model runs.
+
+| Check | Question | Pass criterion (fixed now) |
+|---|---|---|
+| **V-A** BM25 | Does the inverted-index BM25 equal a brute-force reference? | Scores equal within 1e-9 on 200 random corpora and queries (a new unit test) |
+| **V-B** Prompts | Do rebuilt F prompts ever exceed the budget or contain the completion file? Sample: 400 random held-out lines (medium and small), tokenized with the StarCoder tokenizer | 0 budget violations, 0 chunks from the completion file |
+| **V-C** Robustness | Is the held-out gain broad? (i) share of datapoints with F > path_distance vs F < path_distance on medium held-out; (ii) bootstrap over **repositories** instead of datapoints (several datapoints share a repo); (iii) leave-one-repository-out range | (i) F wins at least 60% of the datapoints that are not tied; (ii) the repository-clustered 95% CI of P1 excludes 0; (iii) the smallest leave-one-repo-out estimate stays ≥ +4.0 points |
+| **V-D** Source of the gain | For lines whose ground truth appears verbatim in the visible prompt (copy opportunity), how do F and `path_distance` compare, and how much of F's advantage lies there? | Reported, no pass/fail. Flag as a caveat if more than 50% of the advantage comes from verbatim-copy lines |
+| **V-E** Controls (GPU, `T_dev`, 1B) | Does *relevance* drive the gain? Same chunking, packing, continuation lines and budget as F, but: **C1** random chunks; **C2** chunks ordered by path proximity only; **C3** BM25 with a *stale* query (the first 10 lines of the file, not the last 10) | F − C1 ≥ +5.0 points, F − C2 ≥ +2.0, F − C3 ≥ +2.0, with the paired CI lower bound above 0 for C1 |
+| **V-F** Mechanism (CPU, dev) | Do F's prompts show the needed cross-file names more often than `path_distance`'s? | F's share of lines with all needed names visible exceeds `path_distance`'s on medium dev |
+
+**Predictions (before running):** V-C passes; copy lines carry a minority of the advantage (I expect 30–50%); random
+chunks land near the zero-context level or between zero context and `path_distance`, proximity-only near
+`path_distance`, and the stale query clearly below F. **If V-E fails (F − random < +3 points), the claim that the
+retrieval itself is responsible for the gain is withdrawn and the implementation is not called strong.**
+
+**Verdict rule:** the implementation is called *strong* only if V-A, V-B, V-C and V-E all pass; V-D and V-F are
+explanatory. Any failing check is reported with its numbers.
+
+New code for V-E (C-15): `retriever=random|proximity` and `query_mode=last|first` in `RagContextBuilder`, tested and
+checked to leave the defaults (`bm25`, `last`) bit-identical.
+
+### 8.31 Verification results (2026-10-14; checks as defined in §8.30)
+
+New code: C-15 `retriever=random|proximity` and `query_mode=first|last` (controls; defaults unchanged), `eval/proxy_metrics.py`
+CLI options `--dataset/--dev-size/--dev-extra`, tests `test_bm25_reference.py` and `test_controls.py`: **169 tests pass**
+with the grammar; without it the same 169 run and 13 of them skip.
+
+**V-A, BM25 against a brute-force reference: PASS.** Scores equal the formula within 1e-9 on 200 random corpora and
+queries (and for three other `k1`/`b` settings); the ranking order (descending score, ties by document order) is
+identical to the reference's.
+
+**V-B, rebuilt F prompts on 400 random held-out lines (70 medium + 30 small datapoints, 4 lines each), StarCoder
+tokenizer: FAIL as pre-registered, edge case explained.**
+
+| criterion | result |
+|---|---|
+| 0 budget violations | **4 of 400 prompts exceed 7,900 tokens** (max 7,939) |
+| 0 chunks from the completion file | 0 |
+| prompts end with the prefix | 400 of 400 |
+
+*Cause.* All four violating prompts had **zero chunks selected**: the prefix alone is 7,882–7,899 tokens and the fixed header
+and file path (28–41 tokens) pushes the total past the budget; nothing droppable remains. The generator's own left crop
+then trims the first tokens, so the model never receives more than 7,900 tokens, and its input is essentially the
+prefix alone, i.e. the same as zero context. The stated invariant "total ≤ budget" therefore holds only when the prefix
+plus header fits; this is now documented and pinned by a test.
+*Extent.* 217 of 6,663 held-out medium lines (3.3%) and 147 of 3,113 small lines (4.7%) are in this regime.
+*Impact on results (held-out, all lines).* On those lines zero context, `path_distance` and F are equal: EM 0.346 / 0.346 /
+0.350 (medium) and 0.102 / 0.102 / 0.109 (small); F and `path_distance` give the same outcome on 216 of 217 and 146 of 147
+lines. Excluding them: F − `path_distance` on medium is **+0.0654 [+0.0420, +0.0903]** (all lines: +0.0638
+[+0.0407, +0.0885]); on small −0.0011 (all lines −0.0012). **The edge case does not change any result.**
+*Also from the sample:* in 58 of 400 lines (14.5%) the ground-truth line (≥ 15 characters) appears verbatim in the
+retrieved context (see V-D).
+
+**V-C, robustness of P1 (medium held-out, all lines, F − `path_distance`): PASS on all three criteria.**
+
+| criterion | result |
+|---|---|
+| (i) F wins ≥ 60% of non-tied datapoints | F better on 76, worse on 33, tied on 59 (of 168): **69.7%** of non-tied; exact sign test p = 4.7e-5 |
+| (ii) repository-clustered 95% CI excludes 0 | 72 distinct repositories (up to 5 datapoints each); clustered CI **[+0.0357, +0.0974]** (point +0.0638; the datapoint-level CI was [+0.041, +0.089]) |
+| (iii) leave-one-repository-out minimum ≥ +4.0 | range **+5.35 … +6.65** points |
+
+Also: removing the 10 datapoints where F gains most leaves +3.1 points; removing the 10 where it loses most gives +7.4. The
+median datapoint difference is 0 (many lines are unaffected by context); the mean effect is carried by a minority of
+datapoints, which is expected, and is not driven by a few repositories.
+
+**V-D, where the advantage comes from (medium held-out, 1,500 random lines, lines of ≥ 15 characters counted as copy
+opportunities): reported; the pre-registered caveat flag is TRIGGERED.**
+
+| ground-truth line visible verbatim in the context | lines | EM F | EM path_distance | share of F's total advantage |
+|---|---:|---:|---:|---:|
+| both F and path_distance | 148 | 0.703 | 0.709 | −1% |
+| **F only** | **168** | **0.762** | **0.298** | **+76%** |
+| path_distance only | 5 | 0.800 | 1.000 | −1% |
+| neither | 1,179 | 0.311 | 0.288 | +26% |
+
+F's retrieved context contains the ground-truth line verbatim in 21.1% of lines (path_distance's visible context in 10.2%),
+and those lines carry **74.8% of F's advantage** (prediction was 30–50%: wrong). Where neither context contains the
+line, F is still ahead by +2.3 points (0.311 vs 0.288), smaller and not separately tested. Reading: **most of the gain
+comes from retrieval surfacing existing near-copies of the line to be written** (clones, repeated idioms, test or
+generated code), which `path_distance`'s cropped context often omits. This is the intended use of repository-level
+retrieval and is not leakage (the completion file is excluded and absent from the snapshot), but it qualifies the claim:
+the benefit is largest for code that is repeated elsewhere in the repository.
+
+**V-F, mechanism (medium dev, 771 targeted lines, all lines run): PASS.** Share of targeted lines with all needed names
+visible in the prompt: `path_distance` 0.907, v1 0.982, F 0.983; mean share of needed names whose *definition text* is
+visible: 0.167, 0.349, 0.371 (F shows definitions 2.2× as often).
+
+### 8.32 V-E controls (run 2026-10-14 16:57–17:19, 8 runs, all exit 0, no tracebacks) and the overall verdict
+
+`T_dev` (866 targeted lines, 57 datapoints; development data only), `starcoderbase-1b`, budget 7,900, seed 42. Every
+control uses F's settings (`rag=F`: prefix kept in full, 20 continuation lines, structure chunking, 30 chunks, same
+budget) and changes only how chunks are chosen. **Validation:** `ve_F_repro` (F on the final code, including the control
+code) vs the earlier `b2_R5a`: **0 differing predictions** in small (95 lines) and medium (771 lines).
+
+| arm | what it changes | T-EM | Δ vs **F** [95% CI] | Δ vs path_distance | pre-registered threshold |
+|---|---|---:|---|---|---|
+| **F** | BM25 on the last 10 lines | **0.378** | (reference) | +0.096 [+0.041, +0.161] \* | |
+| C1 random chunks | chunks in a random (prefix-seeded) order | 0.233 | **−0.145 [−0.216, −0.080] \*** | −0.048 \* | F − C1 ≥ +5.0 with CI lower bound above 0: **PASS** (+14.5) |
+| C2 proximity only | nearest files first, no lexical relevance | 0.244 | **−0.134 [−0.204, −0.071] \*** | −0.038 [−0.086, +0.000] | F − C2 ≥ +2.0: **PASS** (+13.4) |
+| C3 stale query | BM25 with the *first* 10 lines of the file | 0.297 | **−0.081 [−0.131, −0.039] \*** | +0.015 [−0.033, +0.070] | F − C3 ≥ +2.0: **PASS** (+8.1) |
+| (zero context) | none | 0.196 | | −0.086 \* | |
+
+Reference points on the same lines: zero context 0.196, `path_distance` 0.282.
+
+**Predictions (§8.30):** random chunks "near zero or between zero and path_distance": **met** (0.233); proximity-only "near
+path_distance": **roughly** (0.244, 3.8 points below, not significantly); stale query "clearly below F": **met**.
+**Reading:** neither more text, nor chunking, nor packing, nor continuation lines, nor proximity explains F's gain;
+**query-relevant retrieval does**. Random and proximity-only chunks are even worse than `path_distance`'s whole-file
+context, so the chunk-based pipeline is only better than the static composer *because* of the BM25 relevance signal.
+The stale query (relevant to the top of the file, not to what is being written) recovers only part of the effect.
+
+**Overall verdict, applying the rule fixed in §8.30 ("strong only if V-A, V-B, V-C and V-E all pass"):**
+
+| check | outcome |
+|---|---|
+| V-A BM25 equals the reference | pass |
+| V-B budget and leakage | **fail as written** (4 of 400 prompts over budget, all with no room for chunks; 0 leaks) |
+| V-C robustness | pass (69.7% of non-tied datapoints, repository-clustered CI excludes 0, leave-one-repo-out ≥ +5.35) |
+| V-E relevance controls | pass (F ≥ 8 points above every control) |
+| V-D copy analysis, V-F mechanism | explanatory; V-D flag triggered (75% of the advantage on verbatim-copy lines) |
+
+**By the rule as written the implementation does not meet "strong", because V-B failed.** The failure is an invariant
+that cannot hold when the prefix alone fills the budget (3.3% of medium and 4.7% of small held-out lines), it has no
+effect on what the model sees or on any result (§8.31), and it is now documented and pinned by a test; but the criterion
+was not met and I am not redefining it. **Substantive assessment:** the implementation is correct, robust across
+repositories, and its gain is caused by retrieval relevance. Three caveats stand and belong with every claim:
+
+1. the gain is concentrated where the repository contains near-copies of the line to be written (V-D: about 75% of
+   the advantage) and only +2.3 points where it does not;
+2. the edge case where retrieval has no room (3–5% of lines);
+3. the comparison is against `path_distance` and `imports_first` only (§8.29).
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~16:30, everything done; waiting for the user's commit of the cleanup):** the research
-program is complete. Held-out result (§8.26): F beats `path_distance` on medium_context by +6.4 EM points [+4.1, +8.9],
-by +7.1 on cross-file lines, +7.3 with the 7B model, and does nothing on small_context (−0.1), as hypothesised. The
-proposal is v3 (`RAG_PROPOSAL.md`, committed). Post-run cleanup (§8.28: loud grammar warning, `rag=F` preset,
-dependency direction) is written, tested (154 tests) and verified to reproduce F exactly; it is uncommitted. Optional
-extensions remain (large/huge contexts, 7B on all lines, other models). Caps final: full-dev runs 8 of 10, `T` runs
-26 of 40, held-out runs 13. Git: HEAD `6ded0fb`; uncommitted: cleanup code/tests/config, README section, log and
-proposal edits. Nothing pushed by me.
+**State at last update (2026-10-14 ~17:30, verification finished, §8.30-§8.32):** requested by the user before adding more
+baselines. Results: BM25 matches a brute-force reference (pass); prompts never contain the completion file, but 4 of
+400 rebuilt prompts exceed the budget when the prefix alone fills it (fail as pre-registered, immaterial to results);
+the held-out gain is broad (69.7% of non-tied datapoints, repository-clustered CI [+3.6, +9.7], leave-one-repo-out
++5.35 to +6.65); controls confirm that relevance drives it (F is +8 to +14.5 points above random chunks,
+proximity-only chunks and a stale query); about 75% of the advantage sits on lines whose text exists verbatim elsewhere
+in the repository. Strict verdict by the pre-registered rule: not "strong" (V-B); substantive assessment: sound, with
+three stated caveats. Still open: running the other 7 registered static composers (§8.29, user to decide), optional
+extensions. Git: HEAD `91f98f6`; uncommitted: tests `test_bm25_reference.py`/`test_controls.py`, builder control
+options, proxy_metrics CLI options, config key `query_mode`, this log, the proposal edits. Nothing pushed by me.
