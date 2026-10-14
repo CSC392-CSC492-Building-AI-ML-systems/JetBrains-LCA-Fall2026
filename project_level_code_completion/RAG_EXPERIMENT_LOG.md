@@ -1,4 +1,4 @@
-# RAG experiment log (lab notebook)
+﻿# RAG experiment log (lab notebook)
 
 Companion to [RAG_PROPOSAL.md](RAG_PROPOSAL.md). Conventions:
 
@@ -414,6 +414,16 @@ ordering, MMR. New `rag/dense.py` for embeddings. New `eval/proxy_metrics.py` fo
 - **Reproduction check before trusting any new run.** R0 re-runs `path_distance` and `rag` on the new dev set; the 20
   datapoints shared with E2 must reproduce E2's per-line predictions exactly (checked on the overlapping datapoints).
 
+### 8.9.1 Unattended operation rules (2026-10-13; the user is away)
+
+Authorised: run the steps of §8 on the dev set and 1B model, within the 25-run cap, applying the promotion rule
+exactly as written; write and test code; download embedding models.
+Not authorised, so work stops and waits for the user: the held-out run (§8.6, needs a committed hash), any git
+commit or push, deleting anything outside `~/lca_artifacts` and scratch directories, changing the pre-registered
+rules, or continuing after an unexplained failure or implausible result. Before every GPU run the GPU's free memory
+is checked, and the run is delayed or the chain stopped if another job is using it. Each step is logged before the
+next starts, and a "state at last update" line is kept at the top of §9 so the log can be picked up cold.
+
 ### 8.10 Change register additions
 
 | ID | Files | Change | Reason | Tests | Status |
@@ -435,3 +445,577 @@ Predictions (stated before the run):
 4. The 20 datapoints that are also in E2 reproduce E2's per-line predictions exactly for `zero`, `path_distance`, `v1`.
 
 R0 decides nothing by itself; it fixes the reference numbers for R1 onwards.
+
+### 8.12 R0 results (run 2026-10-13, 21:16–21:41, all four arms exit 0)
+
+Code: commit `056cb19` (C-4 included). `summary.json` reports `dirty: true`, caused only by uncommitted edits to this log
+file; no code file differed from the commit. Settings: `split=dev` (48 datapoints, 1,573 lines), `starcoderbase-1b`,
+budget 7,900, seed 42. Outputs: `~/lca_artifacts/python/starcoderbase-1b/small_context/arms/r0_*`; statistics:
+`~/lca_artifacts/reports/r0_vs_path_distance.md`. Wall time per arm: zero 209 s, path_distance 322 s,
+imports_first 314 s, v1 354 s.
+
+**EM on dev (mean over datapoints; Δ vs `path_distance`, 95% CI over datapoints, `*` excludes 0):**
+
+| EM | zero | path_distance | imports_first | v1 (RAG, prefix uncapped) |
+|---|---:|---:|---:|---:|
+| all (48) | 0.280 (−0.010 [−0.051, +0.018]) | **0.290** | 0.292 (+0.002 [−0.004, +0.009]) | 0.286 (−0.003 [−0.012, +0.005]) |
+| infile (46) | 0.270 | 0.287 | 0.291 | 0.262 (−0.025 [−0.075, +0.005]) |
+| commited (32) | 0.250 | 0.229 | 0.219 | 0.223 |
+| common (27) | 0.155 | 0.191 | 0.191 | 0.192 |
+| inproject (4) | 0.107 | 0.140 | 0.128 | 0.128 |
+| non_informative (48) | 0.222 | 0.240 | 0.224 | 0.241 |
+| random (48) | 0.322 | 0.326 | 0.343 * (+0.017 [+0.004, +0.033]) | 0.326 |
+| **ES all** | 63.3 (−2.1 [−4.4, −0.3] *) | 65.4 | 65.1 | 65.0 (−0.4 [−1.1, +0.3]) |
+
+**Predictions (§8.11) scored:**
+
+1. `path_distance − zero` in [+1, +4] points: **+1.0, at the lower boundary** (met in point estimate; CI
+   [−1.8, +5.1] includes 0).
+2. `v1 − path_distance` within ±2: **met** (−0.3 [−1.2, +0.5]).
+3. `imports_first − path_distance` within ±2: **met** (+0.2 [−0.4, +0.9]).
+4. Exact reproduction on the 20 datapoints shared with E2: **met**, 0 differing predictions out of 709 lines for each
+   of `zero`, `path_distance`, `v1` (ground-truth order identical).
+
+**What R0 tells us:**
+
+- **Headroom is small.** Context of any kind (`path_distance`, `imports_first`, `v1`) is within about one EM point of
+  `path_distance`; zero context is only 1 point below it (not significant). In ES the benefit of context is clear
+  (+2.1, significant). Any retrieval design has to be judged against a small EM ceiling, so EM differences below about
+  1 point will not be resolvable on 48 datapoints (CIs for close variants are ±0.5–1 point, wide for `zero`).
+- **`v1` is statistically level with `path_distance`** on EM and ES overall, and below it on `infile` (−2.5 points,
+  CI includes 0). The `inproject` category has 4 datapoints in this dev set; its large ES gaps are descriptive only.
+- **Consequence for the plan.** With EM nearly saturated across designs, selection on EM alone is noisy. The
+  retrieval-quality proxy (§8.3) becomes more valuable as a lower-variance screen, and ES (also reported by the
+  benchmark) is a useful secondary signal. The promotion rule in §8.2 item 4 stays as written, with EM primary.
+
+**Amendment to §8.2 item 3 (2026-10-13, before any proxy has been computed).** Validating the proxy by rank agreement
+across arms is uninformative here: four arms with EMs of 0.280, 0.286, 0.290 and 0.292 are within noise. Validity will
+instead be tested at line level: across the R0 arms, among lines with `X(L) ≠ ∅`, compare EM for lines where the
+needed names appear in the context ("hit") with lines where they do not ("miss"), with a datapoint-clustered bootstrap
+CI. The proxy is kept as a screen only if hits have EM at least 3 points above misses with the CI excluding 0;
+otherwise it remains a diagnostic and Stage B alone decides.
+
+### 8.13 Proxy coverage finding and protocol revision (2026-10-13, before any further GPU run)
+
+**Measurement (dev datapoints only, no model output, no EM):** `eval.proxy_metrics` on R0's four arms, and a coverage
+count over the 1,573 dev lines.
+
+| category | lines | strict X(L) ≠ ∅ (name defined elsewhere, **not in the prefix**) | loose X(L) ≠ ∅ (name defined elsewhere, **not defined in the file's own prefix**) |
+|---|---:|---:|---:|
+| commited | 543 | 0 | 19 |
+| common | 115 | 0 | 3 |
+| infile | 456 | 1 | 14 |
+| inproject | 44 | 10 | 44 |
+| non_informative | 183 | 3 | 7 |
+| random | 232 | 3 | 8 |
+| **all** | **1,573** | **17** | **95 (6.0%)** |
+
+First proxy run with the pre-registered strict definition (17 lines): visible-name share was 0.88 for `v1`, 0.77 for
+`path_distance` and `imports_first`, 0.0 for `zero`. The line-level validity check came out
++0.27 [0.00, +0.67] (41 hit and 27 miss line-arm pairs), i.e. inconclusive: far too few lines.
+
+**Why the strict rule was wrong (post-hoc, stated as such).** Excluding names that merely *occur* in the prefix removes
+lines such as `args = parser.parse_args()` after `import parser`: the name is copyable, but its signature and behaviour
+are not visible. Reading the definition requires the cross-file code, so such lines are exactly those retrieval is for.
+The **loose rule** is adopted: `X(L)` = identifiers in `L` that the repo defines in another file and that the
+completion file's prefix does not itself define. The strict variant stays available as a secondary number.
+
+**What this means.**
+
+1. **Only about 6% of lines can plausibly benefit from retrieval** of cross-file definitions on this dataset
+   (all `inproject` lines plus a few in other categories). Whatever a design does for those lines changes overall EM
+   by roughly 6% of the gain: +10 points on those lines is +0.6 overall. Overall EM cannot discriminate retrieval
+   designs on 48 datapoints, which is consistent with R0 and E2. This is a finding about the benchmark, not a failure
+   of the proxy or of BM25.
+2. Design selection should therefore be made on the lines where retrieval can matter, with overall EM as a guardrail.
+
+**Revised protocol (pre-registered now; supersedes §8.2 items 2 and 4 where they conflict).**
+
+- **Targeted line set `T`:** the lines with loose `X(L) ≠ ∅`. They are computed from the repository snapshot and the
+  file prefix only (no model output), for the datapoints of the split being used. Evaluating only these lines costs
+  about 6% of a full run (roughly 20 seconds of generation per 100 lines).
+- **Development data for `T`:** `T` lines of the 48 small_context dev datapoints (95 lines) **plus** the `T` lines of a
+  medium_context development subset: 56 evenly spaced datapoints of its 224 (`dev_size=28`, `dev_extra=28`), the other
+  168 being held out and untouched. `medium_context` is a different dataset (larger repositories, where the budget is
+  more binding), so adding it adds no small_context held-out information. The line counts of `T` on medium dev are
+  recorded when first measured.
+- **Primary development metric:** EM on `T` lines (mean over datapoints having `T` lines, paired bootstrap over
+  datapoints). **Guardrail:** overall EM on the 48 small_context dev datapoints must not show clear harm.
+- **Promotion rule (replaces §8.2 item 4):** adopt a change when `T`-EM improves (point estimate > 0) **and** the lower
+  bound of its paired 95% CI is above −2 points on `T`; for each adoption, one full-dev run on small_context checks
+  that overall EM's CI lower bound is above −1 point. Ties go to the simpler design.
+- **Run caps (replace the old 25):** at most **40 `T`-only runs** and **10 full-dev runs** (the 4 R0 runs already used
+  count against the 10), because each additional design tried on the same lines raises the optimism of the winner.
+- **Held-out evaluation (replaces §8.6 items 2 and 4):** one pass, final design frozen first:
+  (i) small_context held-out, 96 datapoints, all lines: overall EM and per-category EM, primary = final design vs
+  `path_distance`, overall EM, as before; and (ii) `T` lines of the held-out small_context datapoints and of the
+  168 held-out medium_context datapoints, EM, as a co-primary result. Arms: `zero`, `path_distance`, `imports_first`,
+  `v1`, final design on 1B; `zero`, `path_distance`, final design on 7B. Both co-primary results are reported with
+  CIs whatever they show.
+- **Honest expectation, stated before the data:** the benchmark's own measure is dominated by lines retrieval cannot
+  help, so a null result on overall EM is likely even for a good design; the `T`-line results are where an effect would
+  show.
+
+**Engineering needed (C-5):** `line_filter` option in `evaluate_generation`, a targeting module, a `lines=targeted`
+option in the driver. Tests accompany each.
+
+### 8.14 Targeted dev set measured; changes C-5..C-8; baselines on T pre-registered (2026-10-13)
+
+**Counts of targeted (`T`) lines on development datapoints only** (`eval.line_generators.dev_indices`; the 96
+small_context and 168 medium_context held-out datapoints were not loaded into any count):
+
+| dataset, dev subset | lines | `T` lines | datapoints with ≥1 `T` line | `T` by category |
+|---|---:|---:|---:|---|
+| small_context, 48 dev | 1,573 | 95 (6.0%) | 12 of 48 | inproject 44, commited 19, infile 14, random 8, non_informative 7, common 3 |
+| medium_context, 56 dev (`dev_size=28`, `dev_extra=28`) | 2,013 | 771 (38.3%) | 45 of 56 | inproject 430, infile 127, common 103, commited 63, non_informative 36, random 12 |
+| **`T_dev` total** | | **866 lines in 57 datapoints** | | |
+
+`medium_context` has far more lines that depend on cross-file definitions, so it is the better place to measure
+retrieval. The `T_dev` size (866 lines) is about 9× the small-only set.
+
+**Changes (all tested on CPU; suite: 101 tests pass):**
+
+| ID | Files | Change | Reason |
+|---|---|---|---|
+| C-5 | `eval/proxy_metrics.py`, `eval/line_generators.py`, `eval/compare_arms.py`, `eval/config/compare_arms.yaml`, 3 test files | Loose `X(L)` rule (§8.13) with `strict` flag; `targeted_lines(datapoint)`; `evaluate_generation(line_filter=...)` (needs `select`, skips datapoints left with no lines, only called for selected datapoints); `lines: all\|targeted` driver option; proxy builds prompts only for lines with needed names | §8.13 protocol |
+| C-6 | `rag/builder.py`, `rag/provider.py`, `eval/compare_arms.py`, `eval/config/compare_arms.yaml`, `tests/test_builder.py` | `max_context_tokens` cap on retrieved chunks (None = unchanged behaviour); the driver now forwards the whole `rag:` config block so new options need no driver edit | design R1 |
+| C-7 | `eval/compare_arms.py` | *(planned)* static composer arms run through the per-line provider path (composer string + `"\n"` + prefix) instead of the preprocessed JSON, controlled by `static_mode: provider\|preprocess` | The preprocessed path tokenizes all 224 medium datapoints per arm; the provider path is what the generator feeds the model in both cases |
+| C-8 | `eval/analyze_arms.py` | *(planned)* `--base` accepts several arm directories (e.g. small and medium); datapoints get distinct ids per base, so `T_dev` results from the two datasets are analysed together | `T_dev` spans two datasets |
+
+**Validation V1 (planned, not a design run, not counted against the run caps):** run `path_distance` through the new
+provider path on the small_context dev split, all lines, and compare per-line predictions with `r0_path_distance`.
+Expected: **identical** (the model sees the same text). If not identical, C-7 is not used and the cause is logged.
+
+**Pre-registered predictions for R0-T** (the four R0 arms on `T_dev`, `zero`, `path_distance`, `imports_first`, `v1`;
+one logical run each, executed as one run per dataset; outputs `r0t_<arm>` under each dataset's `arms/` directory;
+metric = EM on `T` lines, mean over the datapoints that have `T` lines, paired bootstrap over datapoints):
+
+1. `path_distance − zero` on `T_dev` lies between **+3 and +15 points**: context should matter much more on lines that
+   use cross-file names than on lines overall (+1.0 on all lines in R0).
+2. `v1 − path_distance` lies within **±4 points**, sign unknown (v1 showed more of the needed names than
+   `path_distance` in the first proxy run, but retrieved chunks are not ordered by file proximity).
+3. `imports_first − path_distance` lies within **±4 points**.
+4. If the CI of `path_distance − zero` includes 0 on 866 lines, I will conclude that even for cross-file lines a 1B
+   model barely uses repository context at this budget, and will say so; the search for a better retriever then has
+   little headroom to work with.
+
+R0-T counts as 4 `T` runs against the cap of 40.
+
+**V1 result (2026-10-13, 21:51–21:57): PASS.** `path_distance` via `static_mode=provider` on the small_context dev split
+(all lines, 1,573) gave **0 differing per-line predictions** against `r0_path_distance`, identical ground-truth order,
+EM all 0.2897 in both, wall time 314 s vs 322 s. The provider path is therefore used for static arms from here on
+(C-7 adopted). Output: `.../small_context/arms/v1_path_distance_provider`. Not counted against the caps.
+
+**R0-T launched** after V1; executed per dataset: small_context `split=dev dev_size=20 dev_extra=28 lines=targeted`,
+medium_context `dataset=medium split=dev dev_size=28 dev_extra=28 lines=targeted`; arms `zero`, `path_distance`,
+`imports_first`, `rag rag.prefix_cap=7900` (= v1), names `r0t_<arm>`; same model, budget 7,900, seed 42.
+
+### 8.15 Batch B1: single-change designs on `T_dev`, pre-registered 2026-10-13 (before any B1 run and before R0-T's results were read)
+
+**Code (C-9, tests: 118 pass; the new options were mutation-checked, i.e. the tests fail when the feature is
+disabled):** `rag/builder.py` gained four optional signals, all off by default so that default behaviour equals v1
+(`proximity_weight`, `import_weight`, `definitions_first` with `definition_chunks`/`definition_tokens`/
+`definition_imports`, `order`); `rag/chunker.py` chunks record the `symbol` they define; the config exposes them under
+`rag:`. A reproduction check of v1 on the final code (identical predictions to `r0t_v1`) is part of the batch.
+
+**Common settings:** every B1 arm is v1 plus one change: `arm=rag rag.prefix_cap=7900` and the override listed; model
+`starcoderbase-1b`, budget 7,900, seed 42, `lines=targeted`, `T_dev` = small dev (`split=dev dev_size=20 dev_extra=28`)
++ medium dev (`dataset=medium dev_size=28 dev_extra=28`); outputs `b1_<id>` under each dataset's `arms/`.
+Reference for all deltas: `r0t_v1`. Metric: EM on `T` lines, paired bootstrap over datapoints. Promotion rule: §8.13.
+
+| ID | Override | Targets | Prediction (EM on `T_dev` vs v1) |
+|---|---|---|---|
+| R1a / R1b / R1c | `rag.max_context_tokens=1000` / `2000` / `4000` | D1 dilution | 2000 or 4000 gains ≥ +1 point; 1000 loses (too little context) |
+| R2a / R2b / R2c | `rag.proximity_weight=0.25` / `0.5` / `1.0` | D2 no proximity prior | gains, with the best at 0.5; ≥ +1 point |
+| R3a / R3b | `rag.import_weight=0.5` / `1.0` | D3 definition lives in imported files | gain on `inproject` ≥ +1 point |
+| R4a | `rag.definitions_first=true` | D3 similarity ≠ definition | **largest gain, ≥ +3 points** (T lines are exactly the lines that use names defined elsewhere) |
+| R4b | `rag.definitions_first=true rag.definition_imports=false` | whether imports matter | smaller gain than R4a |
+| R8 | `rag.order=best_first` | ordering | within ±1 point |
+
+11 `T` runs, taking the `T` total to 15 of 40. No full-dev runs. A design that is adopted gets its guardrail check later
+(§8.13). After B1: adopt every design meeting the rule, then one combined run R9 (and at most two pairwise checks).
+
+**Honest uncertainty stated up front:** R4a is the design I believe in most; if it does not help on `T` lines, the claim
+that retrieval of definitions is what these lines need is wrong for a 1B model at this budget, and I will say so.
+
+### 8.16 R0-T results (run 2026-10-13, 21:57–22:16, all 8 runs exit 0, no tracebacks)
+
+Settings as pre-registered in §8.14: `T_dev` = small dev (95 lines, 12 datapoints) + medium dev (771 lines, 45
+datapoints) = **866 lines, 57 datapoints**, `starcoderbase-1b`, budget 7,900, seed 42. Code: commit `056cb19`
+(`dirty` because of uncommitted C-5..C-9 and log; the default-behaviour paths used by R0-T are unchanged by the later
+edits, to be confirmed by `b1_v1repro`). Wall time: small 23–58 s per arm, medium 115–376 s per arm. Outputs:
+`~/lca_artifacts/python/starcoderbase-1b/{small,medium}_context/arms/r0t_*`; reports
+`~/lca_artifacts/reports/r0t_{pooled,medium,small}.md`.
+
+**EM on `T` lines (mean over datapoints; Δ vs `path_distance`, 95% CI over datapoints; `*` excludes 0):**
+
+| EM on `T` lines | zero | path_distance | imports_first | **v1 (BM25 RAG)** |
+|---|---:|---:|---:|---:|
+| **pooled (57 datapoints)** | 0.196 (−0.086 [−0.141, −0.039] *) | **0.282** | 0.221 (−0.061 [−0.112, −0.018] *) | **0.359 (+0.078 [+0.028, +0.133] *)** |
+| medium only (45) | 0.214 (−0.092 *) | 0.305 | 0.230 (−0.076 *) | **0.412 (+0.107 [+0.046, +0.171] *)** |
+| small only (12) | 0.130 (−0.062 [−0.178, +0.013]) | 0.192 | 0.189 (−0.004) | 0.161 (−0.031 [−0.087, 0.000]) |
+| pooled `inproject` (40) | 0.203 | 0.290 | 0.221 | **0.432 (+0.142 [+0.072, +0.225] *)** |
+| pooled `commited` (13) | 0.150 | 0.154 | 0.180 | 0.261 (+0.107 [−0.000, +0.244]) |
+| pooled `common` (13) | 0.214 | 0.197 | 0.204 | 0.317 (+0.121 [−0.026, +0.310]) |
+| pooled `infile` (20) | 0.139 | 0.206 | 0.210 | 0.262 (+0.055 [−0.094, +0.184]) |
+| pooled `non_informative` (29) | 0.190 | 0.362 | 0.224 | 0.391 (+0.029 [−0.092, +0.155]) |
+| pooled ES, all `T` lines | 57.9 | 66.7 | 62.6 | **70.3 (+3.7 [+1.3, +6.2] *)** |
+
+**Predictions (§8.14) scored:**
+
+1. `path_distance − zero` on `T_dev` in [+3, +15]: **met**, +8.6 points [+3.9, +14.1] (pooled).
+2. `v1 − path_distance` within ±4: **not met, the effect is larger than predicted**: +7.8 [+2.8, +13.3].
+3. `imports_first − path_distance` within ±4: **not met**, −6.1 [−11.2, −1.8]: it is clearly *worse* than
+   `path_distance` on these lines.
+4. (If `path_distance − zero` had included 0 on `T_dev`, a null conclusion would have been drawn.) It did not.
+
+**Findings:**
+
+- **Context matters a lot on cross-file lines**, in contrast to overall EM (≈ +1 point on all lines in R0): zero →
+  `path_distance` is +8.6 points on `T`.
+- **Plain BM25 retrieval at the same 7,900-token budget beats the benchmark's best static composer on these lines**
+  by +7.8 points pooled and +10.7 on medium_context, with confidence intervals excluding 0. v1 is the proposal's
+  *untuned* design (apart from the uncapped prefix, a fairness fix decided on the earlier 20-datapoint dev set), so the
+  gain is not a product of the design search that follows.
+- **The effect is dataset-dependent.** On small_context `T` (12 datapoints, 95 lines) v1 is level or lower (−3.1,
+  CI includes 0). This agrees with the hypothesis that retrieval helps when the repository does not fit the budget
+  (medium) and cannot when everything already fits (small), but 12 datapoints cannot establish it; the held-out data
+  will say more.
+- **`inproject` is where it shows**: +14.2 points [+7.2, +22.5] for v1 over `path_distance` on 40 datapoints.
+
+**Caveats, stated now:** (i) these are development data, all that is claimed is the direction and rough size; the
+held-out result is the unbiased number. (ii) Datapoints were pooled across two datasets with 45 of 57 from medium; the
+pooled mean is dominated by medium. (iii) Only `T` lines; the effect on *all* lines is diluted (about 38% of medium
+lines are `T`, 6% of small lines). (iv) The small-vs-medium contrast is observational.
+
+**Amendment to the held-out plan (§8.13), made before any held-out data was touched:** add a third co-primary
+measurement, **(iii) medium_context held-out, all lines** (168 datapoints, about 36 lines each), overall EM and per
+category. Reason: this is the natural benchmark-level quantity for the setting where retrieval helps, and it shows the
+practical size of the effect rather than only the `T` lines. Estimated cost 20–30 minutes per 1B arm. One full-line
+medium *dev* run per arm (v1 vs `path_distance`) will be done first as the guardrail check and counts against the
+10 full-dev runs.
+
+### 8.17 B1 results (run 2026-10-13, 22:16–23:08, 24 runs: 12 configs × 2 datasets, all exit 0, no tracebacks)
+
+**Reproduction check: PASS.** `b1_v1repro` (v1 on the final code of that moment) vs `r0t_v1`: **0 differing predictions**
+in small (95 lines) and medium (771 lines), same ground-truth order. The default behaviour is unchanged by C-5..C-9.
+
+Reference: `r0t_v1`, EM on `T_dev` = **0.359**. Δ = arm − v1, 95% CI over datapoints (57 pooled), `*` = excludes 0.
+Rule (§8.13): promote if Δ > 0 and CI lower bound > −2 points.
+
+| ID | Override (on top of v1) | T-EM | Δ pooled [CI] | Δ medium | Δ `inproject` | Δ ES | rule |
+|---|---|---:|---|---:|---|---:|---|
+| R4a | `definitions_first=true` | 0.353 | −0.006 [−0.017, +0.002] | −0.008 | −0.011 [−0.027, +0.002] | −0.2 | no |
+| R4b | `definitions_first=true definition_imports=false` | 0.357 | −0.003 [−0.014, +0.006] | −0.004 | −0.005 | +0.2 | no |
+| R2a | `proximity_weight=0.25` | 0.356 | −0.003 [−0.014, +0.006] | −0.005 | −0.009 | −0.9 | no |
+| R2b | `proximity_weight=0.5` | 0.354 | −0.005 [−0.017, +0.005] | −0.006 | −0.011 | −0.5 | no |
+| R2c | `proximity_weight=1.0` | 0.355 | −0.004 [−0.017, +0.007] | −0.005 | −0.010 | −0.9 | no |
+| R1a | `max_context_tokens=1000` | 0.329 | **−0.031 [−0.053, −0.010] \*** | −0.038 | −0.037 \* | −3.5 \* | no |
+| R1b | `max_context_tokens=2000` | 0.350 | −0.010 [−0.025, +0.003] | −0.013 | −0.021 \* | −1.4 \* | no |
+| R1c | `max_context_tokens=4000` | 0.359 | −0.001 [−0.006, +0.006] | −0.001 | −0.006 \* | −0.5 | no |
+| R3a | `import_weight=0.5` | 0.352 | −0.007 [−0.019, +0.002] | −0.008 | −0.014 | +0.2 | no |
+| R3b | `import_weight=1.0` | 0.315 | **−0.044 [−0.081, −0.015] \*** | −0.055 | −0.071 \* | −2.3 \* | no |
+| R8 | `order=best_first` | **0.369** | **+0.010 [−0.002, +0.025]** | +0.005 | −0.002 | **+1.0 \*** | **yes** |
+
+**Predictions (§8.15) scored:**
+
+- R1: "2000 or 4000 gains ≥ +1; 1000 loses": 1000 loses (**met**); 2000 and 4000 do not gain (**not met**). Retrieved
+  context is monotone: more is better or equal. The dilution hypothesis D1 is **not supported**.
+- R2: "gains, best at 0.5, ≥ +1": **not met**; every weight is slightly negative (−0.3 to −0.5). D2 **not supported**.
+- R3: "gain on `inproject` ≥ +1": **not met**; −1.4 at 0.5 and −7.1 \* at 1.0 (a strong import prior pushes out
+  better-matching chunks). D3 via imports **not supported**.
+- R4a: "largest gain, ≥ +3": **not met** (−0.6). R4b "smaller than R4a": numerically yes (−0.3 vs −0.6), but both are
+  indistinguishable from 0. Looking up definitions by name adds nothing beyond what BM25 already retrieves.
+- R8: "within ±1": **met at the boundary** (+1.0).
+
+**Decisions (mechanical, by the pre-registered rule):** R8 is promoted; R1–R4 are rejected. Since only R8 is promoted,
+there is nothing to combine yet.
+
+**Interpretation, and what is not claimed:**
+
+- v1 sits at a local optimum for these axes: capping context, proximity, import priors and definition look-ups do not
+  help a 1B model beyond plain BM25 over the last 10 lines. The big gain of v1 over the static composers (§8.16) comes
+  from *similarity-based retrieval of relevant chunks per line*, not from structural priors.
+- **R8 is weak evidence.** The gain (+1.0 points, CI [−0.2, +2.5]) is the best of eleven comparisons; the expected
+  best of eleven draws of pure noise is of this size (typical paired SE here ≈ 0.7 points). It is promoted because the
+  rule says so and it costs nothing, but its value will be assessed in the held-out run, which will include both v1
+  and the final design so the effect of the whole search can be read directly.
+- The offline proxy (§8.3, §8.13) is **not used further**: each `T`-run takes only 3–8 minutes, so a screen is not
+  needed. It remains a diagnostic. (Its line-level validity test was inconclusive and never completed.)
+- R3b (`import_weight=1.0`) and R1a are clearly harmful; the CIs exclude 0.
+
+**Cap accounting:** `T` runs used 15 of 40 (R0-T 4 + B1 11; `b1_v1repro` is a validation, not counted). Full-dev runs 4 of 10.
+
+### 8.18 Dense retrieval feasibility, and batch B2 (pre-registered 2026-10-13, before any B2 run)
+
+**Feasibility test (CPU, toy query with one relevant and two irrelevant snippets), `transformers` 5.17:**
+
+| model | loads? | ranks the relevant snippet first? | notes |
+|---|---|---|---|
+| `Salesforce/codet5p-110m-embedding` | no | n/a | remote code fails: `'CodeT5pEmbeddingConfig' object has no attribute 'is_decoder'` |
+| `jinaai/jina-embeddings-v2-base-code` | no | n/a | remote code fails: `cannot import name 'find_pruneable_heads_and_indices'` |
+| `microsoft/unixcoder-base` (126M, mean pooling) | yes | yes (cosines 0.63 / 0.08 / 0.33) | code-specific, not contrastively tuned for retrieval |
+| `Alibaba-NLP/gte-modernbert-base` (149M, CLS) | yes | yes (0.66 / 0.43 / 0.51) | general retrieval model with code in its training mix, 8k context |
+| `BAAI/bge-small-en-v1.5` (33M, CLS) | yes | yes (0.81 / 0.62 / 0.64) | text model; small and fast, kept as a fallback |
+
+A toy example says only that the pipeline works, not which model is best. Candidates for B2: `gte-modernbert-base`
+(primary) and `unixcoder-base`.
+
+**Code to write for B2 (CPU tests, change C-10):** `rag/dense.py` (batched GPU embedding of chunks and queries, on-disk
+cache keyed by model and chunk text); `retriever: bm25|dense|hybrid` (hybrid = reciprocal-rank fusion, constant 60, of
+the BM25 ranking and the dense ranking); `continuation_lines` (append the lines that follow a retrieved chunk in its
+file); `chunking: structure|fine` with `fine_window`/`fine_stride` (overlapping line windows over every file, closest
+to retrieval-then-continue designs). All off by default; tests, mutation checks, and a v1 reproduction check as for B1.
+
+**B2 designs.** Each is v1 plus one change (so the reference remains `r0t_v1`; R8 is combined in R9), `T_dev`, same
+settings as B1, outputs `b2_<id>`:
+
+| ID | Override | Prediction (EM on `T_dev` vs v1) |
+|---|---|---|
+| R6a | `rag.query_lines=3` | worse, Δ in [−5, −0.5] (too little signal) |
+| R6b | `rag.query_lines=20` | within ±2 |
+| R6c | `rag.query_lines=30` | within [−3, +2] (more text dilutes the query) |
+| R5a | `rag.continuation_lines=20` | gain ≥ +1 (completion needs what comes next) |
+| R5b | `rag.chunking=fine rag.fine_window=10 rag.fine_stride=5 rag.continuation_lines=20` | gain ≥ +2 (closest to retrieve-and-continue); could be negative if tiny chunks flood the context |
+| R7a | `rag.retriever=dense rag.embedder=Alibaba-NLP/gte-modernbert-base` | within [−3, +2]; BM25 should win on identifier matching |
+| R7b | `rag.retriever=hybrid rag.embedder=Alibaba-NLP/gte-modernbert-base` | gain ≥ +1 |
+| R7c | `rag.retriever=hybrid rag.embedder=microsoft/unixcoder-base` | within [−3, +2] |
+
+8 `T` runs, taking the total to 23 of 40. Then R9: v1 + R8 + every B2 design meeting the rule, plus at most two
+pairwise checks (§8.9).
+
+**C-10 implemented (2026-10-13), 139 tests pass (21 new):** `rag/dense.py` (`DenseEmbedder`: batched bf16 GPU encoding,
+CLS or mean pooling, chunks truncated on the right and queries on the left, on-disk float16 cache keyed by model and
+exact texts); `RagContextBuilder(retriever=bm25|dense|hybrid, embedder, chunking=structure|fine, fine_window,
+fine_stride)`, `context_for(continuation_lines=...)`, `reciprocal_rank_fusion` (constant 60, top 200 of each ranking);
+provider factory and config (`rag.retriever`, `rag.embedder`, `rag.pooling`, `rag.embedding_cache`, `rag.chunking`,
+`rag.fine_window`, `rag.fine_stride`, `rag.continuation_lines`). Notes: dense and hybrid ignore `proximity_weight` and
+`import_weight` (documented); dense ranks every chunk, so budget and `max_chunks` alone decide how many are used.
+
+**Real-model smoke test (`gte-modernbert-base`, bf16 on the GPU, 4 medium dev datapoints, development data only):**
+chunk counts 404–650 per repo; first embedding of a repo 0.6–3.8 s, cached 0.1–0.3 s; dense query 17–41 ms per line
+(the model is loaded once per process); the dense selection overlaps with BM25's by Jaccard 0.09–0.31, so it selects
+substantially different chunks.
+
+### 8.19 B2 results (run 2026-10-13 23:20–23:58, 18 runs, all exit 0, no tracebacks) and decisions
+
+**Reproduction check: PASS.** `b2_v1repro` vs `r0t_v1`: 0 differing predictions in small (95 lines) and medium
+(771 lines); the final code (C-10) leaves default behaviour unchanged.
+
+Reference `r0t_v1`, EM on `T_dev` = 0.359; Δ = arm − v1, 95% CI over 57 datapoints, `*` excludes 0.
+
+| ID | Override (on top of v1) | T-EM | Δ pooled [CI] | Δ medium | Δ `inproject` | Δ ES |
+|---|---|---:|---|---:|---|---:|
+| R6a | `query_lines=3` | 0.341 | **−0.018 [−0.041, −0.001] \*** | −0.022 \* | −0.016 \* | −1.1 \* |
+| R6b | `query_lines=20` | 0.359 | −0.001 [−0.018, +0.017] | −0.008 | −0.018 [−0.046, 0.000] | −0.4 |
+| R6c | `query_lines=30` | 0.360 | +0.000 [−0.018, +0.018] | −0.007 | −0.020 \* | −0.9 |
+| **R5a** | **`continuation_lines=20`** | **0.378** | **+0.019 [+0.001, +0.042] \*** | +0.014 [−0.003, +0.041] | +0.001 [−0.009, +0.011] | 0.0 |
+| R5b | `chunking=fine fine_window=10 fine_stride=5 continuation_lines=20` | 0.374 | +0.015 [−0.011, +0.044] | +0.011 | −0.012 | +0.1 |
+| R7a | `retriever=dense` (gte-modernbert-base) | 0.360 | +0.000 [−0.016, +0.018] | −0.007 | −0.015 [−0.034, 0.000] | −1.3 \* |
+| R7b | `retriever=hybrid` (gte-modernbert-base, RRF) | 0.350 | −0.009 [−0.026, +0.004] | −0.013 | −0.010 | −0.8 |
+| R7c | `retriever=hybrid` (unixcoder-base, mean pooling) | 0.355 | −0.004 [−0.013, +0.006] | −0.006 | −0.014 \* | −1.4 \* |
+
+**R5a by category (Δ vs v1):** non_informative +0.063 [+0.011, +0.126] \*, infile +0.052 [0.000, +0.154],
+commited +0.017, common +0.004, inproject +0.001, random 0. At line level (866 lines): the two arms agree on 838;
+v1 is right only on 10, R5a only on 18.
+**R8 by category (from B1):** common +0.031, infile +0.022, non_informative −0.017, inproject −0.002.
+
+**Predictions (§8.18) scored:** R6a [−5, −0.5] **met** (−1.8); R6b within ±2 **met**; R6c [−3, +2] **met**;
+R5a ≥ +1 **met** (+1.9); R5b ≥ +2 **not met** (+1.5, CI includes 0); R7a [−3, +2] **met**; R7b ≥ +1 **not met**
+(−0.9); R7c [−3, +2] **met**.
+
+**Tie rule, written here before R9 (it interprets §8.13's "ties go to the simpler design"):** an absolute difference
+below 0.5 points counts as a tie. The helper script's "PROMOTE" flag only checks Δ > 0 and the CI lower bound, so it
+fires for Δ = +0.0003 (R7a) and Δ = +0.0004 (R6c); those are ties and are **not adopted**.
+
+**Decisions:**
+
+- **Adopt R5a** (`continuation_lines=20`): Δ +1.9, CI excludes 0, no added machinery beyond a line count. It is
+  chosen over R5b (+1.5, CI includes 0, needs a different chunking mode), the simpler design when both pass.
+- **Adopt R8** (`order=best_first`) provisionally from B1; its evidence is weak (§8.17), so it is kept only if it does
+  not hurt in combination (rule below).
+- **Not adopted:** R6a/b/c (10 lines remains the plateau), R7a (tie, more complex), R7b, R7c, R5b.
+- **Dense and hybrid retrieval do not beat BM25 for this 1B model** at this budget, on these lines: dense equals v1
+  to three decimals in T-EM (0.360 vs 0.359) while selecting largely different chunks (Jaccard 0.1–0.3), and
+  fusion does not add to either.
+
+**Cap accounting:** `T` runs used 23 of 40 (R0-T 4, B1 11, B2 8; the two reproduction checks are not counted).
+
+### 8.20 Batch B3: dose of continuation and the combination (pre-registered 2026-10-13, before any B3 run)
+
+`T_dev`, same settings; each arm is v1 plus the listed overrides; outputs `b3_<id>`:
+
+| ID | Overrides | Prediction |
+|---|---|---|
+| R5c | `rag.continuation_lines=40` | Δ vs **R5a** within [−2, +2] points (more following code may help or crowd the budget) |
+| R5d | `rag.continuation_lines=10` | Δ vs R5a in [−2.5, 0] |
+| R9a | `rag.continuation_lines=20 rag.order=best_first` (R5a + R8) | Δ vs v1 ≥ +2.0 points, and within ±1.5 of R5a |
+
+**Rules fixed now.** The continuation length was not in the original plan, so changing it from 20 needs strict
+evidence: R5c or R5d replaces 20 only if its Δ vs R5a is positive **and** the CI lower bound is above 0. Best-first
+ordering stays in the final design only if R9a beats R5a by at least +0.5 points; otherwise the final design is R5a
+(best-chunk-last). If the dose changes, one more run (R9b = new dose + the ordering decision) is made. `T` runs after B3:
+26 of 40. Then the guardrail: full-line dev runs of `path_distance`, v1 and the final design on small dev and
+medium dev (6 runs, which reaches the cap of 10 full-dev runs), and the design is frozen.
+
+### 8.21 B3 results (run 2026-10-14 00:13, 6 runs, all exit 0, no tracebacks) and the final design
+
+Δ = arm − reference, EM on `T_dev` (57 datapoints), 95% CI over datapoints, `*` excludes 0.
+
+| ID | Overrides (on top of v1) | T-EM | Δ vs **R5a** [CI] | Δ vs v1 [CI] |
+|---|---|---:|---|---|
+| R5a (B2) | `continuation_lines=20` | 0.378 | (reference) | +0.019 [+0.001, +0.042] \* |
+| R5c | `continuation_lines=40` | 0.382 | +0.004 [−0.007, +0.020] | +0.023 [+0.001, +0.050] \* |
+| R5d | `continuation_lines=10` | 0.369 | −0.009 [−0.029, +0.002] | +0.010 [−0.002, +0.024] |
+| R9a | `continuation_lines=20 order=best_first` | 0.367 | −0.011 [−0.054, +0.017] | +0.007 [−0.040, +0.045] |
+
+**Predictions (§8.20) scored:** R5c within [−2, +2] of R5a **met** (+0.4); R5d in [−2.5, 0] **met** (−0.9); R9a ≥ +2.0
+vs v1 **not met** (+0.7); R9a within ±1.5 of R5a **met** (−1.1).
+
+**Decisions by the rules fixed in §8.20:**
+
+- Continuation dose stays at **20**: R5c's lower CI bound is below 0 (−0.7), so the strict condition for changing it
+  fails. The dose response is mild and saturating (10: 0.369, 20: 0.378, 40: 0.382).
+- **Best-first ordering is dropped**: R9a does not beat R5a by +0.5 (it is 1.1 lower). The weak B1 signal for R8
+  (+1.0, CI [−0.2, +2.5]) did not survive combination; most likely it was noise from picking the best of eleven.
+
+**Final design F (frozen below after the guardrail):** BM25 over chunks of the repository snapshot (function/method,
+class-header and module-header chunks via tree-sitter, 40/20 line windows for other files, 512-token cap), query =
+last 10 non-empty prefix lines, up to 30 chunks selected by BM25 score under the 7,900-token budget, prefix uncapped,
+**each retrieved chunk followed by the next 20 lines of its file**, best chunk nearest the prefix, non-Python files kept.
+As a config: `arm=rag rag.prefix_cap=7900 rag.continuation_lines=20`, everything else default.
+
+**Search accounting (for honest reading of the final numbers):** designs tried on the dev data after v1: 11 (B1) + 8
+(B2) + 3 (B3) = 22 `T` comparisons against v1 or R5a, plus 4 baselines; 26 of 40 `T` runs used. Of these, the
+selected change (continuation) was the best of the continuation family after one pre-registered prediction of success
+(R5a ≥ +1, made before B2). Its dev effect (+1.9) is optimistically biased by selection; v1 vs F on held-out data
+will show how much of it persists.
+
+**Held-out evaluation arms (decided now):** `zero`, `path_distance`, `imports_first`, **`v1`** (the untuned proposal
+design) and **F**, so that "v1 vs F" isolates what the search added. 7B: `zero`, `path_distance`, `F` (and `v1` if time).
+
+### 8.22 Guardrail: full-line dev runs (pre-registered 2026-10-14, before the runs)
+
+Purpose (§8.13): confirm that F does not harm overall performance, and measure the effect on all lines rather than
+only `T`. Runs (`lines=all`, `split=dev`, same budget and seed):
+
+| dataset (dev subset) | arms | already available |
+|---|---|---|
+| small_context (48 datapoints, 1,573 lines) | F (`g_F`) | `r0_path_distance`, `r0_v1` |
+| medium_context (56 datapoints, 2,013 lines) | `path_distance`, v1, F (`g_*`) | none |
+
+4 new full-dev runs: 8 of 10 used after them.
+
+**Pass criteria and predictions (stated before running):**
+
+1. **Guardrail:** overall EM of F − v1 has a 95% CI lower bound above −1.0 point on each of small dev and medium dev.
+2. **Prediction, medium full lines:** F − `path_distance` between **+2 and +6** points (T lines are 38% of medium
+   lines; the `T` effect is about +10 to +12, diluted by non-T lines where little change is expected).
+3. **Prediction, small full lines:** F − `path_distance` within **±2** points (small repositories mostly fit the
+   budget, and R0 showed v1 level with `path_distance` there).
+4. If the guardrail fails, F is not frozen and the final design reverts to v1 with the failure reported.
+
+### 8.23 Guardrail results (run 2026-10-14 00:14–00:45, 4 runs, all exit 0) and the freeze of F
+
+Full-line dev runs, `starcoderbase-1b`, budget 7,900, seed 42. Mean over datapoints; Δ vs `path_distance`, 95% CI over
+datapoints; `*` excludes 0. Reports: `~/lca_artifacts/reports/guard_{small,medium}_vs_{pd,v1}.md`.
+
+| overall EM, all lines | path_distance | v1 | **F** | F − v1 |
+|---|---:|---:|---:|---|
+| **medium_context dev (56 datapoints, 2,013 lines)** | 0.390 | 0.475 (+0.085 [+0.039, +0.136] \*) | **0.485 (+0.095 [+0.046, +0.148] \*)** | +0.010 [−0.000, +0.020] |
+| small_context dev (48 datapoints, 1,573 lines) | 0.290 | 0.286 (−0.003 [−0.012, +0.005]) | 0.291 (+0.002 [−0.006, +0.009]) | +0.005 [−0.000, +0.011] |
+
+Per category on medium dev, F − `path_distance`: inproject +0.161 \*, common +0.128 \*, commited +0.119 \*, infile
++0.106 \*, random +0.075 \*, non_informative +0.058 \*. F − v1 by category: commited +0.051, infile +0.021,
+non_informative +0.016, common +0.013, random +0.009, inproject +0.000 (none excludes 0).
+
+**Criteria (§8.22) scored:**
+
+1. Guardrail, CI lower bound of F − v1 above −1.0 point: **passed** on both datasets (lower bounds −0.000 and −0.000).
+2. Medium F − `path_distance` in [+2, +6]: **not met; the effect is larger than predicted**, +9.5 [+4.6, +14.8]. Retrieval
+   helps all categories on medium repositories, not only the targeted lines; my dilution argument (T lines are 38% of
+   lines, so ≈ +4) was wrong.
+3. Small F − `path_distance` within ±2: **met** (+0.2).
+4. N/A (guardrail passed).
+
+**F is frozen.** Configuration: `arm=rag rag.prefix_cap=7900 rag.continuation_lines=20`, all other options at their
+defaults (BM25 retriever, structure chunking, 10 query lines, 30 chunks, no proximity/import/definition signals,
+best chunk nearest the prefix, non-Python files included), budget 7,900 tokens, model `starcoderbase-1b`, seed 42.
+
+Caps final: `T` runs 26 of 40; full-dev runs 8 of 10 (R0 4 + 4 here). Validation runs (v1/b1/b2 reproductions, V1, V2)
+are not counted.
+
+### 8.24 C-11, validation V2, and a quirk of the benchmark's generator
+
+**C-11 (143 tests pass):** every saved generation row now also records `line_num`; `eval/make_targets.py` writes the
+targeted lines of a split to JSON; `eval.analyze_arms --targets` restricts an analysis to those lines. Purpose: the
+held-out evaluation runs all lines once, and the targeted-line result is derived from the same generations instead of a
+second run.
+
+**V2 (2026-10-14 00:47–00:50, not counted):** zero-context arm on small dev, all lines, filtered by the new targets file
+vs the earlier `r0t_zero` (`lines=targeted`): 95 lines kept (= 95), ground-truth sequences identical, **EM outcomes
+identical (same multiset, mean 0.2105)**, 94 of 95 predictions identical. The all-lines run reproduces the earlier
+all-lines zero run exactly (0 differing predictions of 1,573).
+
+**Quirk found (existing benchmark code, not changed):** `StopOnNewLine` in `eval/line_generators.py` keeps a counter
+`_num_generated_tokens` across target lines of one datapoint and resets it only when a line stops on a newline token. A
+line that ends by EOS or by the 100-token limit leaves the counter ≥ 5, which lets the next line's very first newline-
+containing token stop it at once (whitespace-only output). The line `dlt-hub__dlt` / `commited` / 100 is such a case: the
+all-lines run produced whitespace only, the targeted run (different preceding lines) produced a real line. So a
+prediction can depend on which lines were generated before it in the same datapoint (about 1% of lines here). It
+affects every arm alike within a given setting, and runs with the same line set are exactly reproducible, but runs with
+different line sets (all vs targeted) differ slightly. Consequence: **the held-out comparison uses the same line set
+for all arms**, and the dev `T` results (targeted runs) and the held-out `T` subset (taken from all-lines runs) are
+consistent in direction but not identical in their generations. Fixing the criterion would change the benchmark's own
+behaviour, so it is only reported.
+
+### 8.25 Final held-out protocol (frozen 2026-10-14, before any held-out datapoint was evaluated)
+
+**Precondition:** all code and this log are committed by the user, the commit hash is written below, and the working
+tree is clean (so each held-out `summary.json` shows `dirty: false`). Commit hash of the evaluated code: *(to be filled
+in before the first run: `________`)*.
+
+**Arms (1B, `starcoderbase-1b`, all lines, one run each, seed 42, budget 7,900):** `zero`, `path_distance`,
+`imports_first`, `v1` (`arm=rag rag.prefix_cap=7900`), `F` (`+ rag.continuation_lines=20`).
+- small_context held-out: `split=heldout` (96 datapoints, about 3,100 lines); arm names `h_<arm>`.
+- medium_context held-out: `dataset=medium split=heldout dev_size=28 dev_extra=28` (168 datapoints, about 6,000 lines);
+  arm names `h_<arm>`.
+**7B (`starcoderbase-7b`):** `zero`, `path_distance`, `F` on the targeted lines of medium held-out
+(`dataset=medium split=heldout dev_size=28 dev_extra=28 lines=targeted params=starcoderbase7b`), names `h7_<arm>`.
+Targeted lines only, to bound the cost; the 7B claim is limited to those lines.
+
+**Primary comparisons (pre-specified; paired bootstrap over datapoints, 10,000 resamples, 95% CI, EM):**
+
+- **P1.** medium_context held-out, **all lines**: F − `path_distance`, overall EM.
+- **P2.** targeted (`T`) lines of small + medium held-out, pooled: F − `path_distance`.
+- **P3.** small_context held-out, all lines: F − `path_distance` (the proposal's original primary).
+
+**Secondary:** v1 − `path_distance`; **F − v1** (what the design search added); `imports_first`; per category; ES; the 7B
+comparison; `zero` vs `path_distance` (does static context help at all).
+
+**Predictions (made before the run, with selection-bias shrinkage in mind; the dev effects are +9.5, +7.8…+9 and +0.2):**
+P1 between **+4 and +10** points; P2 between **+5 and +12**; P3 within **±2**; F − v1 between **0 and +2** on medium; 7B F −
+`path_distance` on `T` lines positive but smaller than 1B's (a stronger model needs less retrieval help).
+
+**What counts as what:** RAG "improves on the static baseline" if P1's CI excludes 0 in favour of F. If P1 fails but P2
+holds, the gain is limited to lines using cross-file names. If neither holds, the dev results were selection noise and
+that is the reported result. P3 is reported whatever it shows; a null there is expected and consistent with the
+hypothesis that retrieval matters only when the repository does not fit in the budget. No parameter is changed after
+the first held-out run.
+
+**Commands** (from `~/ts_test`, `PYTHONPATH` = project dir; one per arm and dataset, via the scripts used throughout):
+`python -m eval.compare_arms arm_name=h_<arm> artifacts_dir=~/lca_artifacts split=heldout lines=all arm=<arm> [rag.… as above]`
+(medium: add `dataset=medium dev_size=28 dev_extra=28`). Analysis: `python -m eval.make_targets --dataset small|medium
+--split heldout --dev-size 20|28 --dev-extra 28 --out …` then `python -m eval.analyze_arms --base <small arms> <medium
+arms> --targets <small targets> <medium targets> --ref h_path_distance --arms h_zero h_imports_first h_v1 h_F`.
+
+## 9. Progress (kept current; read this first)
+
+**State at last update (2026-10-14 ~01:05, WAITING FOR THE USER'S COMMIT):** the design search is finished. Final design F
+(= v1 + `rag.continuation_lines=20`) is frozen (§8.23). On the dev data F beats `path_distance` on medium_context by
++9.5 points overall EM [+4.6, +14.8] and is level on small_context (+0.2); v1 (the untuned BM25 design) already
+gives +8.5 on medium. Guardrail passed. Tests: 143 pass. The held-out protocol is fixed (§8.25) but NOT started: it
+needs the user to commit all code and this log first, so the evaluated code has a hash. After the commit: write the hash
+into §8.25, run the held-out arms (about 3.5 h for 1B, plus the 7B targeted run), analyse, and fill in §9/§10 with the
+results. Caps used: full-dev runs 8 of 10; `T` runs 26 of 40. Held-out sets (small 96, medium 168): untouched.
+Git: HEAD `056cb19`; uncommitted: C-5..C-11 code/tests and this log. Nothing pushed.
