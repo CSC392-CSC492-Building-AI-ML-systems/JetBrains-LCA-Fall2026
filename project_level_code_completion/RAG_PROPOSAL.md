@@ -33,8 +33,29 @@ design search added +0.8 on top (CI [+0.2, +1.4]).
 | Generation | `eval/line_generators.py` | Prompt = `context + "\n" + prefix(line_num)`, left-cropped to `seq_max_len - 100` tokens (7,900 by default). Greedy decoding of one line; exact match (EM) and edit similarity (ES). |
 
 Datasets (HF revision `1cdf62335c3c30b3b887498fdf2127e39e01b785`): `small_context` has 144 datapoints and 4,686
-target lines; `medium_context` has 224 datapoints. Lines are grouped into six categories (infile, commited, random,
-non_informative, common, inproject).
+target lines; `medium_context` has 224 datapoints and 8,676 lines. The sets are split by the size of the `.py` files of the
+repository snapshot (small < 48K characters, medium 48K–192K, large 192K–768K, huge > 768K; about 3 characters per token),
+with at most 5 datapoints per repository. The snapshot is the repository **before** the commit that added the completion
+file, so the completion file itself is never in it. Target lines have one of six categories, assigned in this order of
+priority (benchmark paper, Appendix C): **commited** (uses a function or class declared in files created in the same commit,
+which are therefore *not* in the snapshot), **inproject** (declared in the snapshot), **infile** (declared in the completion
+file), **common** (very common names such as `main` or `get`), **non_informative** (too short or long, `print`, `import`,
+declarations, comments), and **random** (the rest).
+
+### 2.1 What the benchmark paper reports (Bogomolov et al., *Long Code Arena*, 2024)
+
+The paper's baselines use CodeLlama-7B (16K context) and DeepSeek-Coder 1.3B / 6.7B, and compare several context composers.
+Its main finding for this task is that the path-distance composer works best. For CodeLlama-7B at 16K, exact match with
+only the file prefix ("file-level") vs path distance: `small_context` 0.35 → 0.37 (+5%), **`medium_context` 0.39 → 0.49 (+26%)**,
+large 0.35 → 0.47, huge 0.39 → 0.45; on medium the `inproject` lines go from 0.32 to 0.49 (+53%). On the medium set, the
+paper's perplexity ranking of composers (Table 10, 12,000 context tokens) puts path distance first (1.607), then half-memory +
+path distance (1.636), only-declarations + path distance (1.710), imports-first (1.732), file-length (1.742), naive (1.761),
+against 1.849 for file-level.
+
+Our setting differs (StarCoderBase 1B/7B and an 8K window instead of CodeLlama-7B and 16K), so the numbers are not directly
+comparable, but the pattern is the same: static context helps a lot on `medium_context` (ours: 0.300 → 0.357, +19%; `inproject`
++39%) and barely on `small_context` (ours: 0.230 → 0.234). The paper does not evaluate retrieval for this task; retrieval
+(BM25) appears only as a baseline for its library-based generation task.
 
 ## 3. Motivation
 

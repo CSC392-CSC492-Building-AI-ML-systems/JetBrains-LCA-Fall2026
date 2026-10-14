@@ -1291,6 +1291,59 @@ repositories, and its gain is caused by retrieval relevance. Three caveats stand
 2. the edge case where retrieval has no room (3–5% of lines);
 3. the comparison is against `path_distance` and `imports_first` only (§8.29).
 
+### 8.33 Cross-check against the benchmark paper (2026-10-14; the user supplied arXiv 2406.11612)
+
+The user shared the Long Code Arena paper and asked for all baselines to be run, noting that the paper's results use a 7B
+model. What the paper says, and what changes in our record:
+
+**Verified definitions (Appendix C, Q35), replacing guesses made earlier in this log (§5, §6, §8.16):**
+`commited` = the line uses a function/class declared in files **created in the same commit as the completion file**
+(excluding it); `inproject` = declared in the repository snapshot; `infile` = declared in the completion file; `common` =
+very common names (`main`, `get`, …); `non_informative` = shorter than 5 or longer than 150 characters, a `print` or `import`
+line, a function/class declaration, or a comment; `random` = none of the above. A line gets the first matching category in
+the order commited > inproject > infile > common (non_informative and random are separate). Consequences:
+(a) the snapshot is the parent commit, so the definitions behind `commited` lines are **not in the snapshot** (consistent
+with the audit finding that the completion file is never in it); the RAG gain on `commited` lines (+4.1 on medium held-out)
+therefore cannot come from retrieving definitions, which fits V-D (near-copies); (b) `inproject` lines are exactly the
+lines whose names are defined in the snapshot, which is why every `inproject` line of the dev sets (44 in small dev, 430 in
+medium dev) was a targeted line (§8.13).
+
+**Paper baselines and numbers (for reference, not reproduced here):** models CodeLlama-7B (16K window), DeepSeek-Coder 1.3B
+and 6.7B; composers naive, path distance, file length, half memory, imports first, only declarations + path distance.
+Table 9 (CodeLlama-7B, 16K, EM, file-level → path distance): small 0.35 → 0.37, **medium 0.39 → 0.49**, large 0.35 → 0.47,
+huge 0.39 → 0.45; medium `inproject` 0.32 → 0.49. Table 10 (CodeLlama-7B, medium, perplexity of the completion file at
+12,000 tokens): path distance 1.607 (best), half-memory + path distance 1.636, imports first 1.732, file length 1.742, naive
+1.761, only declarations + path distance 1.710, file-level 1.849; the authors state that EM ranks composers in the same
+order. The paper's selection of `path_distance` as the strongest composer therefore rests on a perplexity ranking for
+CodeLlama-7B, which is independent support for our choice of reference, but does not replace running the composers in our
+setting (open item, §8.29).
+
+**Comparison with our results.** Different model and window (StarCoderBase 1B, 8K vs CodeLlama-7B, 16K), so only the pattern
+is comparable: medium static context gain +19% relative (ours, held-out) vs +26% (paper); medium `inproject` +39% vs +53%;
+small +2% vs +5%. The paper's size classes (at about 3 characters per token, counting only `.py` files) explain the
+small-vs-medium result of §8.26: small repositories hold under about 16K tokens of Python and largely fit a 16K window,
+medium ones hold 16K–64K tokens and do not fit 8K or 16K. (Correction of a first draft of this paragraph, which said 12K–48K.)
+
+**Related work worth citing (from the paper's references):** RepoCoder (iterative retrieval and generation, ref. 63) and
+RepoBench (ref. 39) are the repository-level completion benchmarks the paper compares itself with; retrieval-augmented
+generation is named as a main motivation (refs. 5, 17, 28). Our continuation lines resemble RepoCoder's idea of taking the
+code that follows a match; this is a similarity of idea, not a claim of equivalence.
+
+**Plan for "all baselines" (pre-registered 2026-10-14; compute not yet started, user approval requested):**
+
+| stage | what | model, window | data | cost estimate |
+|---|---|---|---|---|
+| S1 | all 9 composers (+ zero) in our harness; choose the best static composer by overall EM | StarCoderBase-1B, 8K | medium dev (2,013 lines) and small dev (1,573); 7 new composers + zero and imports_first on medium dev | about 2 h |
+| S2 | the best static composer from S1 (if not `path_distance`) vs F on held-out | same | medium and small held-out | about 1 h |
+| S3 | harness check against the paper and F on the paper's model: file-level, path distance, F with the prefix cap scaled to the window | CodeLlama-7B, 16K | medium dev (56 datapoints, 2,013 lines) | about 2.5–3 h (7B at 16K is about 2 s per line, an estimate) |
+| S4 (optional) | same arms on the paper's small model | DeepSeek-Coder-1.3B, 16K | medium held-out | about 2–3 h |
+
+Selection rule for S1 (fixed now): the composer with the highest overall EM on medium dev; ties (within 0.5 points) go to
+`path_distance`. S3's expected pattern, from the paper: file-level ≈ 0.39 and path distance ≈ 0.49 on the full medium set;
+our dev subset is smaller, so agreement is judged within the bootstrap CI. `half_memory` drops lines at random with the
+unseeded `random()`; the harness seeds Python's `random` at the start of each pass (seed 42), so a given run is reproducible,
+but its context is a random one.
+
 ## 9. Progress (kept current; read this first)
 
 **State at last update (2026-10-14 ~17:30, verification finished, §8.30-§8.32):** requested by the user before adding more
