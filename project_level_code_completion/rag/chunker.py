@@ -14,6 +14,7 @@ class Chunk:
     end_line: int  # 0-based, inclusive
     kind: str  # function | class_header | module_header | window
     n_tokens: int
+    symbol: Optional[str] = None  # name of the function/method/class the chunk defines, if any
 
 
 def _default_count_tokens(text: str) -> int:
@@ -48,14 +49,23 @@ def window_chunks(lines: list[str], path: str, first_line: int, count_tokens: Ca
     return chunks
 
 
-def _make_chunk(path, lines, start, end, kind, count_tokens, header: Optional[str] = None) -> list[Chunk]:
+def _make_chunk(path, lines, start, end, kind, count_tokens, header: Optional[str] = None,
+                symbol: Optional[str] = None) -> list[Chunk]:
     text = "\n".join(lines[start:end + 1])
     if header is not None:
         text = header + "\n" + text
     n_tokens = count_tokens(text)
     if n_tokens > MAX_CHUNK_TOKENS:
-        return window_chunks(lines[start:end + 1], path, start, count_tokens)
-    return [Chunk(path, text, start, end, kind, n_tokens)]
+        windows = window_chunks(lines[start:end + 1], path, start, count_tokens)
+        if windows:
+            windows[0].symbol = symbol  # the first window holds the signature
+        return windows
+    return [Chunk(path, text, start, end, kind, n_tokens, symbol)]
+
+
+def _name_of(node) -> Optional[str]:
+    name = node.child_by_field_name("name") if node is not None else None
+    return name.text.decode("utf8") if name is not None else None
 
 
 def _definition_of(node):
@@ -90,17 +100,19 @@ def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _defau
             continue
         start, end = node.start_point[0], _end_row(node)
         if definition.type == "function_definition":
-            chunks += _make_chunk(path, lines, start, end, "function", count_tokens)
+            chunks += _make_chunk(path, lines, start, end, "function", count_tokens, symbol=_name_of(definition))
             covered.update(range(start, end + 1))
         elif definition.type == "class_definition":
             class_line = lines[definition.start_point[0]]
             methods = [m for m in definition.child_by_field_name("body").children
                        if (_definition_of(m) is not None and _definition_of(m).type == "function_definition")]
             header_end = (methods[0].start_point[0] - 1) if methods else end
-            chunks += _make_chunk(path, lines, start, header_end, "class_header", count_tokens)
+            chunks += _make_chunk(path, lines, start, header_end, "class_header", count_tokens,
+                                  symbol=_name_of(definition))
             for method in methods:
                 m_start, m_end = method.start_point[0], _end_row(method)
-                chunks += _make_chunk(path, lines, m_start, m_end, "function", count_tokens, header=class_line)
+                chunks += _make_chunk(path, lines, m_start, m_end, "function", count_tokens, header=class_line,
+                                      symbol=_name_of(_definition_of(method)))
             covered.update(range(start, end + 1))
 
     # Everything outside functions/classes (imports, constants, top-level statements) is one chunk.
@@ -115,15 +127,26 @@ def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _defau
 
 
 def chunk_repo(files: dict[str, str], count_tokens: Callable[[str], int] = _default_count_tokens,
-               parse: Optional[Callable] = None, exclude_paths: Iterable[str] = ()) -> list[Chunk]:
-    """Chunk every file of a snapshot, skipping `exclude_paths` and dropping exact duplicate chunk texts."""
+               parse: Optional[Callable] = None, exclude_paths: Iterable[str] = (),
+               chunking: str = "structure", fine_window: int = 10, fine_stride: int = 5) -> list[Chunk]:
+    """Chunk every file of a snapshot, skipping `exclude_paths` and dropping exact duplicate chunk texts.
+
+    `chunking="structure"` (default) uses function/class/header chunks; `"fine"` cuts every file into overlapping
+    windows of `fine_window` lines with stride `fine_stride` (token counts are not computed for these).
+    """
+    if chunking not in ("structure", "fine"):
+        raise ValueError(f"chunking must be structure or fine, got {chunking!r}")
     excluded = set(exclude_paths)
     seen: set[str] = set()
     chunks = []
     for path, code in files.items():
         if path in excluded:
             continue
-        for chunk in chunk_file(path, code, count_tokens, parse):
+        if chunking == "fine":
+            file_chunks = window_chunks(code.split("\n"), path, 0, lambda text: 0, fine_window, fine_stride)
+        else:
+            file_chunks = chunk_file(path, code, count_tokens, parse)
+        for chunk in file_chunks:
             key = chunk.text.strip()
             if key and key not in seen:
                 seen.add(key)
