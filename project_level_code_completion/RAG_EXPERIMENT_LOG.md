@@ -972,8 +972,9 @@ behaviour, so it is only reported.
 ### 8.25 Final held-out protocol (frozen 2026-10-14, before any held-out datapoint was evaluated)
 
 **Precondition:** all code and this log are committed by the user, the commit hash is written below, and the working
-tree is clean (so each held-out `summary.json` shows `dirty: false`). Commit hash of the evaluated code: *(to be filled
-in before the first run: `________`)*.
+tree is clean (so each held-out `summary.json` shows `dirty: false`). Commit hash of the evaluated code: **`566331c`**
+(fixed before the run, stated to the user at launch and recorded in every held-out `summary.json`; written into this
+file only after the run so the working tree stayed clean during it).
 
 **Arms (1B, `starcoderbase-1b`, all lines, one run each, seed 42, budget 7,900):** `zero`, `path_distance`,
 `imports_first`, `v1` (`arm=rag rag.prefix_cap=7900`), `F` (`+ rag.continuation_lines=20`).
@@ -1009,13 +1010,113 @@ the first held-out run.
 --split heldout --dev-size 20|28 --dev-extra 28 --out …` then `python -m eval.analyze_arms --base <small arms> <medium
 arms> --targets <small targets> <medium targets> --ref h_path_distance --arms h_zero h_imports_first h_v1 h_F`.
 
+### 8.26 Held-out evaluation: record and results (run 2026-10-14 10:00–14:48)
+
+**Step log (copied from the notes kept outside the repository during the run):**
+
+- ~09:40 Verification before the run: HEAD `566331c`, clean tree for the project directory, `main` in sync with
+  `origin/main` (the user committed and pushed; I pushed nothing), 143 tests pass on the committed code, GPU idle.
+- ~09:55 Audit on **development** datapoints only: the repository snapshot contains an older copy of the completion file
+  in **0 of 48** small dev and **0 of 56** medium dev datapoints, so the static composers have no advantage that RAG
+  lacks. Tree-sitter is active in the directory the experiment scripts use (first medium dev datapoint: function 90,
+  class_header 10, module_header 14, window 291 chunks, 116 symbols); without the grammar the chunker silently falls
+  back to windows only (399 windows, 0 symbols), which is a weakness to fix.
+- 10:00 Launch: `run_heldout.sh 566331c`; its guard confirmed HEAD = `566331c` and 0 uncommitted files. The user
+  approved ("ok go"). No repository file was edited during the run.
+- 10:00–14:48 Thirteen arms, all `exit=0`, 0 tracebacks, every `summary.json` reads `commit 566331c, dirty False`.
+  Wall time: medium 1B: path_distance 24.3 min, F 28.3, v1 28.0, zero 13.1, imports_first 37.8; small 1B: 10.4, 11.6,
+  11.5, 6.6, 13.4; medium 7B targeted lines: path_distance 41.0, F 43.5, zero 16.8.
+- 14:50 Analysis as pre-specified in §8.25 (`eval.make_targets`, `eval.analyze_arms`, paired bootstrap over datapoints,
+  10,000 resamples, 95% CI). Reports in `rag_results/reports/heldout/`; per-arm `summary.json` and `config.json` in
+  `rag_results/arms/` (the per-line generation files are large and stay in `~/lca_artifacts` in WSL).
+
+**Data:** small_context held-out: 96 datapoints, 3,113 lines. medium_context held-out: 168 datapoints, 6,663 lines.
+Targeted (`T`) lines: 82 in 17 small datapoints and 2,532 in 145 medium datapoints (38% of medium lines); pooled 2,614
+lines in 162 datapoints. 7B arms ran on the 2,532 medium `T` lines.
+
+**Primary results (EM, mean over datapoints; Δ = arm − `path_distance`, 95% CI over datapoints, `*` excludes 0):**
+
+| | zero | imports_first | **path_distance** | v1 (BM25 RAG) | **F (v1 + 20 continuation lines)** |
+|---|---:|---:|---:|---:|---:|
+| **P1: medium held-out, all lines (168 dp)** | 0.300 (−0.057 \*) | 0.312 (−0.046 \*) | **0.357** | 0.414 (+0.056 [+0.033, +0.080] \*) | **0.421 (+0.064 [+0.041, +0.089] \*)** |
+| **P2: `T` lines, small + medium (162 dp)** | 0.263 (−0.064 \*) | 0.269 (−0.058 \*) | **0.327** | 0.395 (+0.067 [+0.033, +0.103] \*) | **0.398 (+0.071 [+0.033, +0.109] \*)** |
+| **P3: small held-out, all lines (96 dp)** | 0.230 (−0.004) | 0.231 (−0.003) | **0.234** | 0.234 (+0.000 [−0.005, +0.005]) | 0.233 (−0.001 [−0.006, +0.004]) |
+
+ES (edit similarity), all lines: medium path_distance 70.4 → v1 72.2 (+1.9 \*) → F 72.9 (+2.5 [+1.3, +3.7] \*); small
+63.8 → 63.9 (+0.1) and 63.7 (−0.1), no difference.
+
+**P1 by category (medium held-out, F − `path_distance`):** common +0.109 \*, random +0.070 \*, infile +0.065 \*,
+inproject +0.065 \*, commited +0.041 \*, non_informative +0.041 \*; all six intervals exclude 0.
+
+**Secondary results:**
+
+| comparison | result |
+|---|---|
+| F − v1, medium all lines | **+0.008 [+0.002, +0.014] \***; by category only non_informative (+0.017 \*) excludes 0 |
+| F − v1, small all lines | −0.001 [−0.004, +0.002] |
+| F − v1, `T` lines pooled | +0.003 [−0.016, +0.022] (not significant) |
+| `T` lines, medium only: v1 / F − `path_distance` | +0.069 \* / +0.075 [+0.035, +0.114] \* |
+| `T` lines, small only (17 dp, 82 lines) | v1 +0.051 [−0.022, +0.176], F +0.037 [−0.051, +0.169]: underpowered |
+| **7B, medium `T` lines (145 dp, 2,532 lines):** zero / path_distance / F | 0.285 / 0.360 / **0.433**: F − path_distance **+0.073 [+0.038, +0.109] \***, ES +2.5 \* |
+| static context vs none (path_distance − zero) | medium all lines +0.057 \*; small all lines +0.004 (no effect) |
+| imports_first − path_distance | medium −0.046 \*; small −0.003 |
+
+**Pre-registered predictions (§8.25) scored:**
+
+| prediction | outcome |
+|---|---|
+| P1 between +4 and +10 points | **met**: +6.4 [+4.1, +8.9] |
+| P2 between +5 and +12 | **met**: +7.1 [+3.3, +10.9] |
+| P3 within ±2 | **met**: −0.1 [−0.6, +0.4] (null, as hypothesised) |
+| F − v1 on medium between 0 and +2 | **met**: +0.8 [+0.2, +1.4] |
+| 7B: F − path_distance on `T` positive but smaller than 1B's | **positive: met; smaller: not met.** +7.3 (7B) vs +7.5 (1B) on the same medium `T` lines: about equal |
+
+**Decision criteria (§8.25):** P1's CI excludes 0 in favour of F → **RAG improves on the static baseline on
+medium_context.** P2 holds too. P3 is null, which is consistent with the hypothesis that retrieval matters when the
+repository does not fit in the token budget and not when it does.
+
+**Dev → held-out shrinkage (selection bias made visible):** F − path_distance on medium all lines: dev +9.5 → held-out
++6.4; v1: +8.5 → +5.6; F − v1 on medium all lines: +1.0 → +0.8; F − v1 on `T` lines: +1.9 → +0.3. The untuned v1 keeps
+about two thirds of its dev advantage; the part that the design search added (continuation lines) is smaller and
+significant only over all medium lines, not on `T` lines.
+
+**What the results support, stated carefully:**
+
+1. On `medium_context`, BM25 retrieval of repository chunks under the same 7,900-token budget beats the benchmark's best
+   static composer by about **+6 EM points (≈ +16–18% relative)**, in all six line categories, with CIs excluding 0, and
+   by a similar amount on the 7B model for cross-file lines.
+2. Static context itself helps on medium (+5.7 over no context) and not on small; the ranking of static composers
+   (`path_distance` over `imports_first`) holds on medium.
+3. Most of the gain comes from the simple design (v1). The refinements I tested mostly did not help (§8.17–§8.21);
+   the one that did (continuation lines) is worth about +0.8 points on medium.
+4. On `small_context` there is no effect either way.
+
+**Limits of these conclusions:** one model family (StarCoder base; 1B for all arms, 7B on `T` lines only), Python only,
+greedy single-line completion, `small_context` and `medium_context` only (`large` and `huge` untested), a single run per
+arm (greedy decoding is deterministic, so the only uncertainty is datapoint sampling, which the CIs capture), the
+stateful stop criterion of the benchmark generator (§8.24), and a lexical definition of the targeted lines. The small
+`T` subset (82 lines) cannot support any claim of its own. The design search used 22 comparisons on 104 dev datapoints
+(§8.21), so the incremental value of F over v1 is the least certain finding.
+
+**Cap accounting, final:** full-dev runs 8 of 10, `T` runs 26 of 40, held-out runs 13 (one per arm, no repeats, no
+configuration changed after the first held-out run).
+
+### 8.27 Open items after the held-out run (nothing below affects the results above)
+
+- Warn loudly when the tree-sitter grammar is missing instead of silently falling back to windows (§8.26 audit).
+- Add a named preset for F (`arm=rag` currently defaults to a 4,000-token prefix cap and no continuation lines).
+- Move the shared identifier helpers out of `eval/proxy_metrics.py` (the `rag` package imports from `eval`).
+- Update `RAG_PROPOSAL.md` to v3: what was built, what changed relative to v2, and the results.
+- Optional extensions not done: `large_context` and `huge_context`, 7B on all lines, other models.
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~01:05, WAITING FOR THE USER'S COMMIT):** the design search is finished. Final design F
-(= v1 + `rag.continuation_lines=20`) is frozen (§8.23). On the dev data F beats `path_distance` on medium_context by
-+9.5 points overall EM [+4.6, +14.8] and is level on small_context (+0.2); v1 (the untuned BM25 design) already
-gives +8.5 on medium. Guardrail passed. Tests: 143 pass. The held-out protocol is fixed (§8.25) but NOT started: it
-needs the user to commit all code and this log first, so the evaluated code has a hash. After the commit: write the hash
-into §8.25, run the held-out arms (about 3.5 h for 1B, plus the 7B targeted run), analyse, and fill in §9/§10 with the
-results. Caps used: full-dev runs 8 of 10; `T` runs 26 of 40. Held-out sets (small 96, medium 168): untouched.
-Git: HEAD `056cb19`; uncommitted: C-5..C-11 code/tests and this log. Nothing pushed.
+**State at last update (2026-10-14 ~15:10, held-out evaluation DONE and analysed, §8.26):** at commit `566331c` the
+pre-registered primary result holds. On medium_context held-out (168 datapoints, all lines) F beats `path_distance` by
++6.4 EM points [+4.1, +8.9] (v1: +5.6 [+3.3, +8.0]); on the cross-file (`T`) lines F is +7.1 [+3.3, +10.9], and with the 7B
+model +7.3 [+3.8, +10.9]; on small_context there is no difference (−0.1 [−0.6, +0.4]), as hypothesised. F over v1 adds +0.8
+[+0.2, +1.4] on medium all lines. All predictions met except the 7B one ("smaller than 1B": it was equal). Result files are
+in `rag_results/` (new, uncommitted). The design search and held-out use are complete and no configuration was changed
+after the first held-out run. Remaining work (§8.27): post-run cleanup (grammar warning, F preset), proposal v3, final
+write-up; none of it changes results. Caps: full-dev runs 8 of 10, `T` runs 26 of 40, held-out runs 13.
+Git: HEAD `566331c`; uncommitted: `rag_results/` (199 small files, 836 KB) and this log. Nothing pushed by me.
