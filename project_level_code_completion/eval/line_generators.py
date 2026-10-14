@@ -2,7 +2,7 @@ import logging
 import os
 import random
 from dataclasses import dataclass
-from typing import Dict
+from typing import Callable, Dict, Optional
 
 import jsonlines
 import numpy as np
@@ -33,6 +33,9 @@ class GeneratorConfig:
 
 logging.basicConfig(level=logging.ERROR)
 
+# (datapoint, line_num) -> (prompt before generation, ground-truth line, optional info saved with the result)
+ContextProvider = Callable[[DatapointBase, int], tuple[str, str, Optional[dict]]]
+
 
 def set_seed(seed: int = 42) -> None:
     np.random.seed(seed)
@@ -61,6 +64,7 @@ class LineGeneratorBase:
         self.max_seq_len = max_seq_len
         self.results_path = results_path
         self.generation_results: Dict[str, GenerationResults] = dict()
+        self.datapoint_idx: Optional[int] = None  # position in the evaluated list, saved to allow paired analysis
 
     def choose_lines(self, datapoint) -> list[int]:
         raise NotImplementedError
@@ -138,16 +142,21 @@ class LineGeneratorHF(SpecificLineGenerator):
         self._load_tokenizer()
 
     @torch.inference_mode()
-    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False) -> dict[str, int]:
+    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False,
+                      context_provider: Optional[ContextProvider] = None) -> dict[str, int]:
         dict_of_lines = self.load_lines(datapoint)
         gen_config = self._get_generation_config()
         for sc_name, list_of_lines in dict_of_lines.items():
             # print('='*25, sc_name, '='*25)
             self.generation_results[sc_name] = GenerationResults(list(), list())
             for line_num in list_of_lines:
-                context, gt_line = self._get_context(datapoint, line_num)
+                retrieval_info = None
                 if use_zero_context:
                     context, gt_line = self._get_zero_context(datapoint, line_num)
+                elif context_provider is not None:
+                    context, gt_line, retrieval_info = context_provider(datapoint, line_num)
+                else:
+                    context, gt_line = self._get_context(datapoint, line_num)
                 # When the context is too long, we want to crop the beginning for more efficient tokenization
                 if len(context) > self.max_seq_len * 6:
                     context = context[-self.max_seq_len * 6:]
@@ -161,7 +170,13 @@ class LineGeneratorHF(SpecificLineGenerator):
                 prediction = self.decode(out)
                 prediction = prediction.strip("\n")
                 prediction_line = prediction.split("\n")[0]
-                self.save_results({'original_prediction': prediction, 'prediction_line': prediction_line, 'ground_truth': gt_line, 'line_class': sc_name, 'zero_context': use_zero_context})
+                result = {'original_prediction': prediction, 'prediction_line': prediction_line, 'ground_truth': gt_line, 'line_class': sc_name, 'zero_context': use_zero_context}
+                if self.datapoint_idx is not None:
+                    result['datapoint_idx'] = self.datapoint_idx
+                    result['repo'] = datapoint.repo_name
+                if retrieval_info is not None:
+                    result['retrieval'] = retrieval_info
+                self.save_results(result)
                 self.generation_results[sc_name].append_result(prediction=prediction_line, gt=gt_line)
 
         # datapoint.pop('completion_lines', None)
@@ -233,16 +248,44 @@ class LineGeneratorHF(SpecificLineGenerator):
 
 
 
+def subset_indices(n_items: int, limit: Optional[int]) -> list[int]:
+    """Indices of `limit` evenly spaced items; all of them when `limit` is None or not smaller than `n_items`."""
+    if limit is None or limit >= n_items:
+        return list(range(n_items))
+    return [i * n_items // limit for i in range(limit)]
+
+
+def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] = None) -> list:
+    """`limit` evenly spaced items. With `heldout_of=N`, first drop the N evenly spaced items that
+    `select_subset(items, N)` would return, so the two selections are disjoint and together cover everything."""
+    if heldout_of is not None:
+        excluded = set(subset_indices(len(items), heldout_of))
+        items = [item for i, item in enumerate(items) if i not in excluded]
+    return [items[i] for i in subset_indices(len(items), limit)]
+
+
 @torch.inference_mode()
-def evaluate_generation(args: GeneratorConfig):
+def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[DatapointBase]] = None,
+                        context_provider_factory: Optional[Callable[[DatapointBase], ContextProvider]] = None,
+                        run_zero: bool = True, run_context: bool = True, limit: Optional[int] = None,
+                        heldout_of: Optional[int] = None):
+    """Generate and score target lines.
+
+    By default, reads preprocessed datapoints from `args.input_data_path` and runs a zero-context pass and a pass
+    with the precomposed context. Optionally: pass `input_data` directly, build a per-line context with
+    `context_provider_factory` (called once per datapoint), skip either pass, use `limit` evenly spaced datapoints,
+    or evaluate everything except the `heldout_of` evenly spaced datapoints (the complement of `limit=heldout_of`).
+    """
     set_seed(args.seed)
-    loaded_data = get_input_data(args)
-    if isinstance(loaded_data[0], dict):
-        input_data = [DatapointCommitDataset(**input_dict) for input_dict in loaded_data]
-    elif isinstance(loaded_data[0], DatapointCommitDataset):
-        input_data = loaded_data.copy()
-    else:
-        raise NotImplementedError
+    if input_data is None:
+        loaded_data = get_input_data(args)
+        if isinstance(loaded_data[0], dict):
+            input_data = [DatapointCommitDataset(**input_dict) for input_dict in loaded_data]
+        elif isinstance(loaded_data[0], DatapointCommitDataset):
+            input_data = loaded_data.copy()
+        else:
+            raise NotImplementedError
+    input_data = select_subset(input_data, limit, heldout_of)
 
     model, device = get_model(args)
 
@@ -252,9 +295,14 @@ def evaluate_generation(args: GeneratorConfig):
         em_dict['all'] = list()
         es_dict['all'] = list()
         sc_counts = None
-        for datapoint in tqdm(input_data):
+        for datapoint_idx, datapoint in enumerate(tqdm(input_data)):
             generator = LineGeneratorHF(model, device, max_seq_len=args.seq_max_len, tokenizer_path=args.tokenizer_path, results_path=args.results_path)
-            el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context)
+            generator.datapoint_idx = datapoint_idx
+            provider = None
+            if context_provider_factory is not None and not use_zero_context:
+                provider = context_provider_factory(datapoint)
+            el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context,
+                                                context_provider=provider)
             if sc_counts is None:
                 sc_counts = el_counts
             else:
@@ -293,38 +341,37 @@ def evaluate_generation(args: GeneratorConfig):
 
         return em_dict, es_dict, sc_counts
 
-    set_seed(args.seed)
-    em_dict_0, es_dict_0, line_counts_0 = process_results(use_zero_context=True)
-    set_seed(args.seed)
-    em_dict, es_dict, line_counts = process_results(use_zero_context=False)
-    assert line_counts_0 == line_counts, "you have different line counts"
-    em_diff_dict = dict()
-    for sc_name in em_dict.keys():
-        em_list = em_dict[sc_name]
-        em_list_0 = em_dict_0[sc_name]
-        assert len(em_list) == len(em_list_0), 'your score has different lengths'
-        em_diff_dict[sc_name] = {
-            'positive': sum([(sc - sc_0) > 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-            'negative': sum([(sc - sc_0) < 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-            'zero': sum([(sc - sc_0) == 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-        }
-
-    return [
-        {
+    scores, score_lists, em_diff_dict, line_counts = dict(), dict(), dict(), None
+    if run_zero:
+        set_seed(args.seed)
+        em_dict_0, es_dict_0, line_counts_0 = process_results(use_zero_context=True)
+        line_counts = line_counts_0
+        scores |= {
             'em_zero': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in em_dict_0.items()},
             'es_zero': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in es_dict_0.items()},
+        }
+        score_lists |= {'em_zero_list': em_dict_0, 'es_zero_list': es_dict_0}
+    if run_context:
+        set_seed(args.seed)
+        em_dict, es_dict, line_counts = process_results(use_zero_context=False)
+        scores |= {
             'em': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in em_dict.items()},
             'es': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in es_dict.items()},
-        },
-        {
-            'em_zero_list': em_dict_0,
-            'es_zero_list': es_dict_0,
-            'em_list': em_dict,
-            'es_list': es_dict,
-        },
-        em_diff_dict,
-        line_counts
-    ]
+        }
+        score_lists |= {'em_list': em_dict, 'es_list': es_dict}
+    if run_zero and run_context:
+        assert line_counts_0 == line_counts, "you have different line counts"
+        for sc_name in em_dict.keys():
+            em_list = em_dict[sc_name]
+            em_list_0 = em_dict_0[sc_name]
+            assert len(em_list) == len(em_list_0), 'your score has different lengths'
+            em_diff_dict[sc_name] = {
+                'positive': sum([(sc - sc_0) > 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
+                'negative': sum([(sc - sc_0) < 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
+                'zero': sum([(sc - sc_0) == 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
+            }
+
+    return [scores, score_lists, em_diff_dict, line_counts]
 
 
     # print(f'Final results for zero context: '

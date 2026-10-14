@@ -20,6 +20,35 @@ class TokenizerOutput:
     completion: List[int]
 
 
+def load_datapoints(dataset_params: str | dict) -> list[DatapointBase]:
+    """Load the HF dataset into datapoints that keep the full repo snapshot (`context_dict`)."""
+    data = list()
+    if isinstance(dataset_params, str):
+        hf_data = load_dataset(dataset_params, split='test')
+    elif isinstance(dataset_params, omegaconf.dictconfig.DictConfig):
+        hf_data = load_dataset(split='test', **dataset_params)
+    else:
+        raise ValueError('check `config.dataset`, it must be string or dictionary')
+
+    repos_list = list(set([hf_dp['repo'] for hf_dp in hf_data]))
+    repos_map = {repo: repo_num for repo_num, repo in enumerate(repos_list)}
+
+    for hf_dp in hf_data:
+        dp = dict()
+        dp['repo_name'] = hf_dp['repo']
+        dp['repo_id'] = repos_map[hf_dp['repo']]
+        dp['completion_lines'] = hf_dp['completion_lines']
+        # dp['completion_lines_raw'] = hf_dp['completion_lines_raw']
+        filenames, contents = hf_dp['repo_snapshot']['filename'], hf_dp['repo_snapshot']['content']
+        assert len(filenames) == len(contents)
+        dp['context_dict'] = {filename: content for filename, content in zip(filenames, contents)}
+        # dp['context_dict'] = {el['filename']: el['content'] for el in hf_dp['repo_snapshot']}
+        dp['completion_dict'] = {hf_dp['completion_file']['filename']: hf_dp['completion_file']['content']}
+        data.append(DatapointCommitDataset(**dp))
+
+    return data
+
+
 class PreprocessorBase:
     def __init__(self,
                  dataset_params: str | dict,
@@ -126,36 +155,7 @@ class PreprocessorBase:
             json.dump(self.prepared_data, f)
 
     def _load_data(self, dataset_params: str | dict) -> list[DatapointBase]:
-        if True: #self.data_source == 'hf':
-            data = list()
-            if isinstance(dataset_params, str):
-                hf_data = load_dataset(dataset_params, split='test')
-            elif isinstance(dataset_params, omegaconf.dictconfig.DictConfig):
-                hf_data = load_dataset(split='test', **dataset_params)
-            else:
-                raise ValueError('check `config.dataset`, it must be string or dictionary')
-
-            repos_list = list(set([hf_dp['repo'] for hf_dp in hf_data]))
-            repos_map = {repo: repo_num for repo_num, repo in enumerate(repos_list)}
-
-            for hf_dp in hf_data:
-                dp = dict()
-                dp['repo_name'] = hf_dp['repo']
-                dp['repo_id'] = repos_map[hf_dp['repo']]
-                dp['completion_lines'] = hf_dp['completion_lines']
-                # dp['completion_lines_raw'] = hf_dp['completion_lines_raw']
-                filenames, contents = hf_dp['repo_snapshot']['filename'], hf_dp['repo_snapshot']['content']
-                assert len(filenames) == len(contents)
-                dp['context_dict'] = {filename: content for filename, content in zip(filenames, contents)}
-                # dp['context_dict'] = {el['filename']: el['content'] for el in hf_dp['repo_snapshot']}
-                dp['completion_dict'] = {hf_dp['completion_file']['filename']: hf_dp['completion_file']['content']}
-                data.append(DatapointCommitDataset(**dp))
-
-            return data
-
-        # with open(path, 'r') as f:
-        #     data = json.load(f)
-        # return data
+        return load_datapoints(dataset_params)
 
 
 from transformers import AutoTokenizer
