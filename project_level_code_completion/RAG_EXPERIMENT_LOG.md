@@ -1665,6 +1665,30 @@ Untried: filling leftover budget with path_distance files after retrieval (may m
 cost, to revisit around Oct 21 if the queue finishes early: (a) RAG + path_distance filler and RAG + proximity prior on
 CodeLlama-7B, medium, all 224 datapoints (2 arms, ~8 h); (b) the 7 other static composers on CodeLlama-7B, medium, all 224
 (7 arms, ~15-25 h). Recorded as a limitation in `RAG_PROPOSAL.md` §8.
+### 8.44 Plan: three rented machines for the remaining runs (2026-10-15 ~00:50; user decision pending; nothing run yet)
+
+**Why.** The local PC overheats (user), the queue was cleared (§9), and time is short. Three machines cut ~100 GPU hours to about
+1-1.5 days of wall time. Cost is the user's decision (budget not set; prices not checked here).
+
+**Split (scripts in `rag_results/scripts/rental/`, each skips finished arms; every arm of one comparison table stays on one machine
+except E2/E3, which is split in two and tied together by an anchor check):**
+
+| Machine | Script | Arms (all CodeLlama-7B, 16K unless stated) | Est. |
+|---|---|---|---|
+| A | `run_A.sh` | e23_zero, e23_pd, e23_v1, e23_k10/k5/k3/k1/k60 (E3 top-k + baselines) | ~25-30 h |
+| B | `run_B.sh` | e23_fine10/fine20/fine40/file (E2 chunking), e23_F | ~22-28 h |
+| C | `run_C.sh` | anchor, V3, S3c, S4 F16 (DeepSeek-1.3B), SMALL, LARGE, DS-dev (DeepSeek-1.3B), T10 | ~30-40 h |
+| first free | `run_tail.sh` | HUGE, then H-all (optional, E4-adjacent) | ~10-20 h |
+
+**Consistency rule.** Greedy decoding can differ across GPU models/drivers/library builds in near-tie tokens. E2/E3 is split over A and B,
+so each machine first runs `anchor_check` (zero and v1 on the same 5 datapoints, `limit_datapoints=5`) and prints a hash of the
+predictions. **If the hashes on A, B and C are identical, the split is accepted**; if not, the differing lines are counted and
+logged, and e23_v1 is re-run on B so that B's arms are compared with a v1 from the same machine. Same pins as local: `poetry install`
+from `pyproject.toml`/`poetry.lock` (torch 2.14.0), `rental/requirements_freeze.txt` records the 245 exact local package versions,
+tree-sitter grammar tag v0.21.0. Local numbers (S3a, 56 dev datapoints) are not mixed into rented tables.
+
+**Hygiene.** Read-only Hugging Face token, revoked after the runs; no GitHub credentials on rented boxes; only small result files
+(`summary.json`, `config.json`, `per_datapoint_scores.json`, reports) are copied back; `generation_results.jsonl` stays on the box until analysed.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
@@ -1706,4 +1730,4 @@ Hugging Face access to `bigcode/starcoderbase-*` is set up.
 
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~23:35):** scope clarified by the user: our part is E1, E2 (chunking) and E3 (top-k), numbered as in the proposal timeline (the proposal's section 7 numbering is a typo the grader flagged). **E2/E3 has priority over everything else.** Section 8.40 pre-registers the all-data one-variable ablation (medium, all 224 datapoints, 13 arms, script `run_e23.sh`, arms `e23_*`; model CodeLlama-7B per section 8.41, not StarCoder-1B). `switch_e23.sh` is armed: after the running `s4_ds1b_pd` finishes it stops the old chain, runs E2/E3, then the S4 F16 step, then the v2 paper-protocol chain (section 8.39). T10 and H-all are E4 material, last in line, droppable on the user's say-so. Check progress with `grep -E "=====|-----" ~/lca_evidence.log`.
+**State at last update (2026-10-15 ~00:30): THE QUEUE IS CLEARED (user instruction: the PC overheats, "clear the queue but keep whatever is running").** Only `s4_ds1b_pd` (DeepSeek-1.3B, medium held-out, path_distance) is still running; nothing follows it. All chain controllers were stopped (`clear_queue.sh`). The pre-registered plans stay valid and are not run: E2/E3 on CodeLlama-7B (sections 8.40, 8.41, script `run_e23.sh`), the paper-protocol chain (8.39, `run_evidence_v2.sh`), S4 F16. To resume: `setsid nohup bash <scripts>/run_e23.sh &` (skips finished arms; it then resumes S4 and v2). Options discussed: rent a GPU (vast.ai) with one machine per comparison table, or cap local power (`nvidia-smi -pl 350`); not decided. Scope: E1, E2 (chunking), E3 (top-k) per the proposal timeline.
