@@ -1,4 +1,4 @@
-﻿# RAG experiment log (lab notebook)
+# RAG experiment log (lab notebook)
 
 Companion to [RAG_PROPOSAL.md](RAG_PROPOSAL.md). Conventions:
 
@@ -1563,6 +1563,46 @@ within ±0.05 of the paper's values; the paper's small/large/huge EM rows for pa
 (0.35 / 0.35 / 0.39) reproduced within ±0.03. If a reproduction misses its range, the difference is reported and investigated,
 not adjusted away.
 
+### 8.40 E2/E3: controlled one-variable-at-a-time ablation on all data (pre-registered 2026-10-14 ~23:30, before any arm ran; user priority)
+
+**Why now.** The user clarified the course scope: our job is E1 (simple RAG vs baseline), E2 (chunking) and E3 (top-k), numbered
+as in the proposal's timeline (§3/§6; the proposal's §7 numbers them differently, which the grader flagged as a typo). E2/E3
+must be "controlled results showing which change affects performance" with "one variable at a time" and "fixed evaluation
+settings". The ablations of §8.15-8.21 changed one thing at a time, but on development subsets and targeted lines only, with
+the base design drifting between batches. They are not the deliverable. User instruction: **everything for E2/E3 has
+priority over the rest of the queue.**
+
+**Protocol (fixed now).** Model `starcoderbase-1b` (the repository's baseline model, fast enough for ~13 arms), dataset
+`medium_context`, **all 224 datapoints, all lines** (`split=all lines=all`), budget 7,900, seed 42, no sampling of datapoints.
+Base = **v1** (`arm=rag rag=v1`: plain BM25, tree-sitter structure chunks, 10-line query, 30 chunks, no signals, no
+continuation). Every other arm differs from v1 in exactly the overrides shown. Metric: EM over all lines (mean over
+datapoints, benchmark style) and per category; paired bootstrap over datapoints (10,000 resamples, 95% CI) vs v1. Because
+the design F was tuned on dev data, F is reported on all 224 and, separately, on the held-out 168.
+
+| Arm | Overrides on v1 | Variable | Prediction (EM, all lines, Δ vs v1) |
+|---|---|---|---|
+| e23_zero / e23_pd | `arm=zero` / `arm=path_distance` | baselines, same data | pd − zero in [+0.5, +4]; v1 − pd in [+3, +9] |
+| e23_v1 | (none) | base | (reference) |
+| e23_k10 | `rag.max_chunks=10` | E3 top-k | within ±1.5 |
+| e23_k5 | `rag.max_chunks=5` | E3 | Δ in [−4, 0] |
+| e23_k3 | `rag.max_chunks=3` | E3 | Δ in [−6, −0.5] |
+| e23_k1 | `rag.max_chunks=1` | E3 | Δ in [−9, −2] (and still ≥ path_distance − 3) |
+| e23_k60 | `rag.max_chunks=60` | E3 | within ±0.5 (the 7,900-token budget, not k, binds) |
+| e23_fine10 | `chunking=fine fine_window=10 fine_stride=5` | E2 granularity | within ±2.5 |
+| e23_fine20 | `chunking=fine fine_window=20 fine_stride=10` | E2 | within ±2.5 |
+| e23_fine40 | `chunking=fine fine_window=40 fine_stride=20` | E2 | within ±2.5 |
+| e23_file | `chunking=fine fine_window=100000 fine_stride=100000` (whole files) | E2 | Δ in [−8, −1]: few distinct files fit the budget |
+| e23_F | `rag=F` (v1 + 20 continuation lines) | link to §8.26 | Δ in [+0.5, +3] |
+
+**Stated now:** the predictions come from the dev findings of §8.17-8.21 (dense/hybrid, dose, ordering, query length were
+tied or negative there). The k-sweep and file-granularity arms were never run before. Rule for reading results: an arm
+"changes performance" if its paired CI excludes 0; |Δ| < 0.5 points is a tie. No arm is adopted into F from this batch
+(F is frozen, §8.23); this batch measures, it does not tune.
+
+**Scripts:** `run_e23.sh` (arms above, skips finished arms; afterwards resumes the pre-empted S4 F16 step, then starts the v2
+chain) and `switch_e23.sh` (waits for the running `s4_ds1b_pd` to finish, stops the old chain, starts `run_e23.sh`). Both are
+in `rag_results/scripts/`. Marker: `E2/E3 complete`. Output arms: `~/lca_artifacts/python/starcoderbase-1b/medium_context/arms/e23_*`.
+**Not done, noted:** the same ablation on small_context and a second model (CodeLlama-7B) if time allows after the queue.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
@@ -1604,11 +1644,4 @@ Hugging Face access to `bigcode/starcoderbase-*` is set up.
 
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 23:00, user asleep; paper-protocol queue armed, §8.39):** user instruction: use ALL data points,
-stop skipping, reproduce exactly how the paper tests. S4 (DeepSeek-Coder-1.3B/16K, medium held-out) is running (zero done, ends about
-01:00). `switch_chain.sh` then starts `run_evidence_v2.sh`: V3 (original preprocessing vs provider path at 16K), S3c (CodeLlama-7B/16K,
-medium held-out, ALL lines; with S3a = all 224 datapoints), T10 (the repository's unmodified eval_pipeline = paper Table 10; dry run
-confirmed the schedule [256, 1753, 12002]), Table 9 small (all 144), S4 completion on dev, Table 9 large (all 270), Table 9 huge (all
-296), then H-all. About 45 GPU hours in total; markers `V3 done`, `S3c complete`, `T10 complete`, `SMALL complete`,
-`DS-dev complete`, `LARGE complete`, `HUGE complete`, `H-all complete` in `~/lca_evidence.log`. Each step is analysed when its marker
-appears. Git: uncommitted: §8.33-§8.39 and the proposal/README edits. Nothing pushed by me.
+**State at last update (2026-10-14 ~23:35):** scope clarified by the user: our part is E1, E2 (chunking) and E3 (top-k), numbered as in the proposal timeline (the proposal's section 7 numbering is a typo the grader flagged). **E2/E3 has priority over everything else.** Section 8.40 pre-registers the all-data one-variable ablation (StarCoder-1B, medium, all 224 datapoints, 13 arms, script `run_e23.sh`, arms `e23_*`). `switch_e23.sh` is armed: after the running `s4_ds1b_pd` finishes it stops the old chain, runs E2/E3, then the S4 F16 step, then the v2 paper-protocol chain (section 8.39). T10 and H-all are E4 material, last in line, droppable on the user's say-so. Check progress with `grep -E "=====|-----" ~/lca_evidence.log`.
