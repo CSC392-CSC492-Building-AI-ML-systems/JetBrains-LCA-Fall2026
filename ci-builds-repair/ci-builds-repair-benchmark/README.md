@@ -1,76 +1,133 @@
 # 🏟️ Long Code Arena Baselines
+
 ## CI builds repair
 
-This directory contains the code for the CI builds repair benchmark. 
+This directory contains the evaluation harness for the
+[🤗 CI builds repair dataset](https://huggingface.co/datasets/JetBrains-Research/lca-ci-builds-repair).
+It runs a repair function against failing repository snapshots and evaluates
+the resulting commits with GitHub Actions.
 
-# How to
+## Prerequisites
+
+- Python 3.10
+- Git
+- Membership in the
+  [LCA-CI-builds-repair organization](https://github.com/LCA-CI-builds-repair)
+- A GitHub personal access token with permission to push to the benchmark
+  repositories and read their Actions results
 
 ## 💾 Install dependencies
 
-We provide dependencies for two Python dependencies managers: [pip](https://pip.pypa.io/en/stable/) and [Poetry](https://python-poetry.org/docs/). Poetry is preferred, `requirements.txt` is obtained by running ` poetry export --output requirements.txt`.
+From the repository root, change into this directory:
 
-* If you prefer pip, run `pip install -r requirements.txt`
-* If you prefer Poetry, run `poetry install`
+```bash
+cd ci-builds-repair/ci-builds-repair-benchmark
+```
+
+Poetry is the preferred dependency manager:
+
+```bash
+poetry install
+```
+
+Alternatively, install the exported dependencies with pip:
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 ## ⚙️ Configure
 
-To initialize the benchmark, you need to pass a path to a config file with the following fields (see example in [`config_template.yaml`](config_template.yaml)):
+Create a local configuration file from the tracked template:
 
-`repos_folder`: the path to where the cloned repos will be stored;  
-`out_folder`: the path to where the result files will be stored;  
-`data_cache_dir`: the path to where the cached dataset will be stored;  
-`username_gh`: your GitHub username;  
-`test_username`: _Optional_. Username that would be displayed in the benchmark, if omitted, `username_gh` will be used;  
-`language`: dataset language (for now, only Python is available).  
+```bash
+cp config_template.yaml config.yaml
+```
+
+Set the following values in `config.yaml`:
+
+| Field | Description |
+| --- | --- |
+| `repos_folder` | Directory where benchmark repositories are cloned. |
+| `out_folder` | Directory where evaluation results are written. |
+| `data_cache_dir` | Directory used for the Hugging Face dataset cache. |
+| `username_gh` | GitHub username used to push benchmark branches. |
+| `test_username` | Optional name included in benchmark branch names; defaults to `username_gh`. |
+| `language` | Dataset language. Currently only `Python` is supported. |
+
+Store your GitHub token in a local `.env` file (ignored by Git):
+
+```dotenv
+TOKEN_GH=your_token_here
+```
+
+Keep `config.yaml`, `.env`, cloned repositories, cached data, and run outputs
+local. The repository-level `.gitignore` excludes `config.yaml` and the
+conventional local `repos/`, `data/`, and `out/` directories.
 
 ## 🚀 Run
 
-**Important**: Before usage, please request to be added to the benchmark [organization]([https://huggingface.co/datasets/JetBrains-Research/lca-ci-builds-repair](https://github.com/orgs/LCA-CI-fix-benchmark) on Github to be able to push the repos for the test.
+Use [`run_benchmark.py`](run_benchmark.py) as the starting point. Uncomment the
+operation you want to run, then execute it with your selected environment:
 
-For the example of the benchmark usage code, see the [`run_benchmark.py`](run_benchmark.py) script.
+```bash
+poetry run python run_benchmark.py
+```
 
-The method `CIFixBenchmark.eval_dataset(fix_repo_function)` evaluates the baseline function. Specifically, it:
+The main entry point is `CIFixBenchmark.eval_dataset(fix_repo_function)`. It:
 
-1. Downloads the [dataset](https://huggingface.co/datasets/JetBrains-Research/lca-ci-builds-repair);
-2. Repairs repo by `fix_repo_function` function that utilizes repo state and logs of fails
-3. Sends the datapoints to GitHub to run workflows;
-4. Requests results from GitHub;
-5. Analyzes results and prints them.
+1. Downloads the dataset.
+2. Clones and prepares each failing repository snapshot.
+3. Calls `fix_repo_function` to modify the local checkout.
+4. Pushes the repair branch to GitHub and waits for Actions results.
+5. Collects and summarizes the results.
 
-For debugging, please limit yourself to a small number of datapoints (argument `num_dp=num_dp`).
+Start with a small run while developing a repair function:
 
-### ⚒️ fix_repo_function
+```python
+CIBenchPython.eval_dataset(fix_repo_function, num_dp=1)
+```
 
-To use the benchmark, you need to pass a function `fix_repo_function` that repairs the build according to 
-the repository state on a local machine, logs, and the metadata of the failed workflows.
-The function should have the following (all optional) arguments:
-(`datapoint`, `repo_path`, `repo`, `out_folder`)
+### ⚒️ Repair function
 
-`datapoint`:  datapoint from the dataset (its structure is given below);  
-`repo_path`:  path to the repo on the user's machine;  
-`repo`:       git.Repo object from GitPython library;  
-`out_folder`: directory for outputting the benchmark results.  
+A repair function may accept the following arguments:
 
-For now, only two functions have been implemented:
+```python
+def fix_repo_function(datapoint, repo_path, repo, out_folder):
+    ...
+```
 
-`fix_none` —       does nothing;  
-`fix_apply_diff` — applies the diff that repairs the issue in the original repository;  
+- `datapoint`: Dataset record containing the failure metadata and logs.
+- `repo_path`: Path to the local repository checkout.
+- `repo`: `git.Repo` instance for the checkout.
+- `out_folder`: Directory for benchmark output files.
 
-You can download the dataset using the `CIFixBenchmark.get_dataset()` method.
+Two reference implementations are available in
+[`benhmark_functions.py`](benhmark_functions.py):
+
+- `fix_none` leaves the checkout unchanged.
+- `fix_apply_diff` applies the ground-truth repair diff.
+
+Use `CIFixBenchmark.get_dataset()` to download or inspect the dataset without
+running an evaluation.
 
 ## 📈 Outputs
 
-The evaluation method outputs the following results:
+The configured output directory contains:
 
-1. `jobs_ids.jsonl` — identifiers of the jobs that were sent to GitHub. They are used for further evaluation.
-2. `jobs_results.jsonl` — results of each job.
-3. `jobs_awaiting.jsonl` — list of awaiting jobs (normally should be empty).
-3. `jobs_invalid.jsonl` — list of invalid jobs (normally should be empty).
+- `jobs_ids_<model>.jsonl`: identifiers for jobs submitted to GitHub.
+- `jobs_results_<model>.jsonl`: completed job results.
+- `jobs_awaiting_<model>.jsonl`: jobs still waiting for a result.
+- `jobs_invalid_<model>.jsonl`: jobs that could not be evaluated.
 
-Examples of these files can be found in the (`/examples`)[examples/] directory.
+Example files are available in the [`examples`](examples/) directory.
 
-You can also evaluate your results using the method `CIFixBenchmark.eval_jobs(result_filename=result_filename)`,
-passing the `jobs_ids.jsonl` file.
+To resume result collection from a previously created jobs file, call:
+
+```python
+CIBenchPython.eval_jobs(job_ids_file="path/to/jobs_ids_<model>.jsonl")
+```
 
 ## 📩 Contact info
+
 If you have any questions or requests concerning this dataset, please contact lca@jetbrains.com
