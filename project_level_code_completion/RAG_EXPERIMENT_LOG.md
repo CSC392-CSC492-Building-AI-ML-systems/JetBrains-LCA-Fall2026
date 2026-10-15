@@ -1955,6 +1955,20 @@ medium development data), so every datapoint is a clean held-out test. Paired bo
 medium (+4.5, §8.57) and consistent with the explanation that retrieval helps most when the repository is far larger than the window (huge repositories exceed 768K characters of Python; the
 16K window sees a small fraction of them under any static composer). Paper Table 9 baselines on huge reproduced earlier (§8.56: zero 0.381 vs 0.39, path distance 0.451 vs 0.45).
 Local arms are exported to `rag_results/local/`.
+### 8.64 E3: `e23_k5` (machine A, finished 18:08 UTC; wall 5,858 s = 1.6 h)
+
+`max_chunks=5`, everything else as `e23_v1`; CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0. EM all **0.520**; commited 0.439, common 0.487, infile 0.468,
+inproject 0.520, non_informative 0.435, random 0.618; ES all 79.6. Paired against `e23_v1` (0.530): **-1.0 points [-1.6, -0.4] \***; infile -1.6 \*, common -1.7 (n.s.), inproject -1.2 (n.s.),
+commited +0.1, others about 0. **Prediction (§8.40) "k5 in [-4, 0] vs v1": met (-1.0).**
+
+| E3 so far (EM, all lines, vs v1; CI over 224 datapoints) | k | EM | Δ vs v1 [95% CI] |
+|---|---:|---:|---|
+| k5 | 5 | 0.520 | -1.0 [-1.6, -0.4] \* |
+| k10 | 10 | 0.524 | -0.6 [-1.0, -0.1] \* |
+| v1 | 30 | 0.530 | (reference) |
+
+The dose response is shallow and monotone: 5 chunks cost one point against 30, and even 5 chunks stay **+2.8 points above path_distance (0.492)** on all lines. Pending: k3, k1, k60.
+Speed: k5 took 1.6 h (88 lines/min) against 3.9 h for k30.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
