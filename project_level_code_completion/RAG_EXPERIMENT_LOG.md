@@ -1989,6 +1989,23 @@ chunks can drop context that path_distance keeps. This is reported as a result, 
 **Paper (Table 9, large_context, file-level): 0.35; ours 0.3503: difference +0.000, within the +-0.03 tolerance (§8.39): met.** Next on C: LARGE path_distance, then F16.
 
 **E3 table so far (EM, all lines, vs v1):** k3 -2.0 \*, k5 -1.0 \*, k10 -0.6 \*, k30 (v1) 0; k1 and k60 pending. **E2 table (vs v1):** fine10 -0.6, fine20 +0.6, fine40 +0.9 \*, whole files +0.2; F pending (machine B).
+### 8.66 E3: `e23_k1` (machine A, finished 20:51 UTC; wall 4,531 s = 1.3 h)
+
+`max_chunks=1` (a single retrieved chunk), everything else as `e23_v1`; CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0. EM all **0.489**; commited 0.440, common 0.463, infile 0.430,
+inproject 0.485, non_informative 0.397, random 0.593; ES all 78.3. Paired against `e23_v1` (0.530): **-4.1 points [-5.2, -3.0] \***, significant in every category except commited. **Predictions (§8.40): "k1 in [-9, -2] vs v1": met (-4.1);
+"k1 still within 3 points of path_distance": met (0.489 vs 0.492, difference -0.3, no CI computed).**
+
+| E3 (EM, all lines, vs v1 = 30 chunks; CI over 224 datapoints) | k | EM | Δ vs v1 [95% CI] |
+|---|---:|---:|---|
+| k1 | 1 | 0.489 | -4.1 [-5.2, -3.0] \* |
+| k3 | 3 | 0.510 | -2.0 [-2.7, -1.3] \* |
+| k5 | 5 | 0.520 | -1.0 [-1.6, -0.4] \* |
+| k10 | 10 | 0.524 | -0.6 [-1.0, -0.1] \* |
+| v1 | 30 | 0.530 | (reference) |
+| path_distance (static, full 16K window) | | 0.492 | -3.8 |
+
+Reading: the curve is monotone and concave, with the steepest gain from 1 to 5 chunks; **one retrieved chunk (about 1-2K tokens) already matches path_distance, whose context is the full 16K window**, i.e. a
+tenth of the tokens for the same accuracy. Only k60 is pending for E3 (machine A, running).
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
