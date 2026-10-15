@@ -54,6 +54,21 @@ Expected files:
 - `0.txt` through `4.txt`
 - `summary.json`
 
+## Dashboard Run
+
+The dashboard can launch this baseline through the module-local adapter. Start
+the backend with the adapter configured as its runner:
+
+```bash
+LCA_RUN_COMMAND="poetry run python module_summarization/dashboard_runner.py" \
+  uvicorn app.main:app --reload
+```
+
+The adapter uses the smoke configuration by default. To run the full
+replication configuration instead, set `LCA_MODULE_SUMMARIZATION_CONFIG` to
+`module_summarization/replication_configs/config_openai_full_2k.yaml` before
+starting the backend.
+
 ## Full Baseline Run
 
 Run all 216 test examples:
