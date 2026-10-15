@@ -7,8 +7,15 @@
 # Afterwards log in to Hugging Face with a READ-ONLY token (revoke it when the runs are done): `huggingface-cli login`.
 set -e
 TARBALL=${1:?usage: setup_box.sh <path-to-lca_project.tar.gz>}
-sudo apt-get update -y && sudo apt-get install -y git python3.11 python3.11-venv python3-pip build-essential || true
-python3 -m pip install --user poetry
+SUDO=""; command -v sudo > /dev/null && SUDO=sudo
+export DEBIAN_FRONTEND=noninteractive
+$SUDO apt-get update -y
+$SUDO apt-get install -y software-properties-common curl git build-essential openssh-client
+$SUDO add-apt-repository -y ppa:deadsnakes/ppa          # Ubuntu 22.04 has no python3.11 otherwise
+$SUDO apt-get update -y
+$SUDO apt-get install -y python3.11 python3.11-venv python3.11-dev
+curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+python3.11 -m pip install --user poetry
 export PATH=$HOME/.local/bin:$PATH
 mkdir -p $HOME/lca-repo && tar -xzf "$TARBALL" -C $HOME/lca-repo       # gives $HOME/lca-repo/project_level_code_completion
 cd $HOME/lca-repo/project_level_code_completion
