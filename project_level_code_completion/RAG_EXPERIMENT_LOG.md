@@ -1689,6 +1689,63 @@ tree-sitter grammar tag v0.21.0. Local numbers (S3a, 56 dev datapoints) are not 
 
 **Hygiene.** Read-only Hugging Face token, revoked after the runs; no GitHub credentials on rented boxes; only small result files
 (`summary.json`, `config.json`, `per_datapoint_scores.json`, reports) are copied back; `generation_results.jsonl` stays on the box until analysed.
+### 8.45 Rented machines: set-up record and the cross-machine anchor check (2026-10-15 ~00:45 local; boxes' clocks are UTC)
+
+**Machines** (vast.ai, one RTX 5090 32 GB each, image `nvidia/cuda:13.0.0-devel-ubuntu22.04`, 150 GB disk; code deployed from a
+tarball of commit `cd5e52c`, `poetry install` from `poetry.lock`, which gave torch 2.14.0+cu130 and transformers 5.17.0, identical
+to the local machine; tree-sitter-python tag v0.21.0): **A** (instance 56042083; two earlier hosts, offers 53275550 and 45669406,
+failed to start and were destroyed), **B** (56040139), **C** (56040143). Combined price about $2.02 per hour. No credentials other
+than a read-only Hugging Face token were placed on the boxes.
+
+**Anchor check (§8.44), run on all three machines before any real arm:** `anchor_zero` and `anchor_v1` (CodeLlama-7B, 16K, medium,
+first 5 datapoints, all their lines); hash of the ordered (datapoint, line, prediction) triples:
+
+| Arm | A | B | C |
+|---|---|---|---|
+| anchor_zero | 8fe8932f2bdd2507cbb637e43efe795a | same | same |
+| anchor_v1 | 6941beca9483433aadb95d7d68f172a3 | same | same |
+
+**Result: identical on all three machines (zero differing predictions on 5 datapoints, no-retrieval and retrieval).** The rule of §8.44
+is met, so E2/E3 arms run on A and B are compared with each other directly. This check covers only 5 datapoints; it rules out a
+systematic difference between machines, not a rare near-tie flip, which is why each table's arms still stay within the machine
+assignment of §8.44 where possible. Runs started: A `e23_zero` at 04:36:58 UTC (after its anchors), B `e23_fine10` at 04:31:16,
+C `v3_cl7b_pd_preprocess` at 04:31:53.
+### 8.46 V3 result (machine C, 2026-10-15 04:37 UTC) and a note on `datapoint_idx`
+
+**V3** (§8.39): `v3_cl7b_pd_preprocess` = CodeLlama-7B, 16K, medium, first 5 datapoints (5 repos, 158 lines), `arm=path_distance
+static_mode=preprocess` (the repository's own preprocessing path), exit 0. Compared with the provider-path `path_distance`
+predictions already available from S3a (`s3a_cl7b_pd`, dev data, 2,013 lines, 41 repos), matched on (repo, line number, ground-truth
+text): **51 lines overlap, 0 differ** (prediction was: 0 differing). **Limitation:** only 51 of the 158 V3 lines are covered by S3a,
+because S3a ran the 56 dev datapoints and V3 the first 5 of all 224; 107 V3 lines have no provider-path counterpart yet. This
+extends V1 (StarCoder, 8K) to the paper's model and window on a partial overlap; it does not prove equality on all 158 lines. A complete
+check needs `path_distance static_mode=provider limit_datapoints=5` on the same datapoints (about 5 minutes of GPU); it is not queued
+and will be run on whichever machine is free.
+
+**Note for all later analysis:** `datapoint_idx` in a subset run (dev, held-out) is the position within the subset, not the global
+dataset index; matching predictions across runs on different subsets must use (repo, line_num, ground_truth). My first V3 comparison
+matched on (datapoint_idx, line_num) and showed 8 spurious differences; those were an artefact of the wrong key and are retracted.
+
+**Local run finished:** `s4_ds1b_pd` (DeepSeek-1.3B, medium held-out) completed on the local GPU; zero and path_distance exist; S4's F16
+arm is now assigned to machine C (`run_C.sh`). Analysis of S4 follows when F16 finishes.
+### 8.47 S4 results so far: DeepSeek-Coder-1.3B, 16K, medium held-out, all lines (run 2026-10-14 22:09 to 2026-10-15 00:55 local, local GPU)
+
+Arms `s4_ds1b_zero` (wall 1,850 s) and `s4_ds1b_pd` (`path_distance`, `static_mode=provider`, wall 4,514 s); 6,663 lines (commited 1,235,
+common 555, infile 1,612, inproject 1,800, non_informative 643, random 818); token budget 15,900. EM, mean over datapoints (benchmark
+style); the `F16` arm is still to come (machine C).
+
+| EM | all | commited | common | infile | inproject | non_informative | random |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| zero | 0.347 | 0.397 | 0.288 | 0.312 | 0.289 | 0.277 | 0.469 |
+| path_distance | 0.455 | 0.439 | 0.403 | 0.380 | 0.469 | 0.404 | 0.552 |
+| difference | **+0.108** | +0.042 | +0.115 | +0.068 | **+0.180** | +0.127 | +0.083 |
+
+ES: zero 71.4, path_distance 76.5 (all lines). Reading: on this model and window the static context helps clearly (+10.8 points), most
+on `inproject` (+18.0), the category where cross-file context is needed; the gain is far larger than the +1 point seen with StarCoder-1B
+at 8K on the development set (§8.12), consistent with the paper's finding that long context helps most at 16K. No paired confidence
+intervals yet (they need the F16 arm for the comparison that matters and `analyze_arms` over the per-datapoint scores).
+**Provenance flags:** `s4_ds1b_zero` ran under code commit `cf1c159` and `s4_ds1b_pd` under `6d4227c`, both with uncommitted changes
+recorded as `dirty`; the code paths used by these two arms (zero, `path_distance` via the provider) were not edited between them (the
+later changes were the log, the proposal and the rental scripts), but this is stated, not proven by a re-run.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
