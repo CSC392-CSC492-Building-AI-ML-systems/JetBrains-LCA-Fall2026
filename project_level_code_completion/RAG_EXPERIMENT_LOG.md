@@ -1755,6 +1755,120 @@ same 5 datapoints as the rented V3, which completes the equivalence check of §8
 path_distance, F16 on all 296 datapoints and 9,810 lines; (3) H-all, optional. Local and rented results are separate tables: HUGE is
 compared only within its own three arms, all run locally. Expected: HUGE 10-13 h or more (the local 5090 was slower per line in S3a than the
 rented machines were in their first minutes; the reason is not established). Rented machines A, B, C are unchanged (§8.44-8.45).
+### 8.49 S3c zero result (machine C, finished 2026-10-15 05:31 UTC; wall 3,223 s): CodeLlama-7B, 16K, medium held-out, no context
+
+168 held-out datapoints, 6,663 lines, `lines=all`, exit 0, no errors. EM (mean over datapoints): **all 0.380**; commited 0.395, common 0.314,
+infile 0.354, inproject 0.324, non_informative 0.313, random 0.486. ES all 73.8. Dev counterpart (`s3a_cl7b_zero`, local run, 56
+datapoints, 2,013 lines): EM all 0.408 (commited 0.337, common 0.304, infile 0.430, inproject 0.307, non_informative 0.304, random 0.543).
+
+**All 224 datapoints (S3a dev + S3c held-out), approximate:** datapoint-weighted mean of the two "all" scores = (168 x 0.380 + 56 x 0.408) / 224
+= **0.387**. This assumes the summary's "all" is a mean over datapoints, as the benchmark computes it; the exact pooled value comes from the
+per-datapoint score files when all arms are in. **Pre-registered prediction (§8.39): zero about 0.39 +- 0.03 -> met (0.387).** The held-out
+and dev halves differ by 2.8 points; a difference of that size between random subsets of datapoints is expected, and it is the reason both
+halves are reported and pooled. Provenance: the rented boxes run from a tarball without `.git`, so the summary shows an empty commit; the
+code is commit `cd5e52c` (§8.45), identical on all boxes.
+### 8.50 E2/E3 baseline `e23_zero` (machine A, finished 2026-10-15 05:43 UTC; wall 4,005 s)
+
+CodeLlama-7B, 16K, medium, **all 224 datapoints, all 8,676 lines** (commited 1,495, common 779, infile 2,224, inproject 2,236,
+non_informative 858, random 1,084), no context, exit 0. EM (mean over datapoints): **all 0.387**; commited 0.378, common 0.311, infile 0.371,
+inproject 0.320, non_informative 0.311, random 0.500. ES all 73.9. **Pre-registered (§8.39/§8.41): 0.39 +- 0.04 -> met.** It also matches the
+approximation of §8.49 (0.387 from S3a dev + S3c held-out; the two machines and the local run agree), a useful consistency check between
+the rented machine A, the rented machine C and the local run. This is the reference "zero" row for the whole E2/E3 table.
+### 8.51 HUGE, first arm: `p9_huge_cl7b_zero` (local GPU, finished 2026-10-15 02:28 local; wall 5,690 s)
+
+CodeLlama-7B, 16K, huge_context, **all 296 datapoints, all 9,810 lines** (commited 1,019, common 692, infile 2,608, inproject 2,901,
+non_informative 1,164, random 1,426), no context, exit 0 (code commit `5d96770`, recorded dirty). EM (mean over datapoints): **all 0.381**;
+commited 0.437, common 0.332, infile 0.400, inproject 0.346, non_informative 0.294, random 0.492. ES all 74.5. This is the "zero" reference
+for HUGE; the comparison with the paper's Table 9 row for huge_context is made when path_distance and F16 are in (§8.39 tolerance +-0.03 for
+the baselines; no other number is claimed here). Next on the local GPU: `p9_huge_cl7b_pd`, then `p9_huge_cl7b_F16`.
+### 8.52 E2 first result: `e23_fine10` (machine B, finished 2026-10-15 06:49 UTC; wall 8,314 s)
+
+CodeLlama-7B, 16K, medium, all 224 datapoints, all 8,676 lines; `v1` with `chunking=fine fine_window=10 fine_stride=5` (every file cut into
+overlapping 10-line windows, stride 5, instead of function/class chunks), exit 0, no errors. EM (mean over datapoints): **all 0.524**;
+commited 0.478, common 0.505, infile 0.466, inproject 0.519, non_informative 0.447, random 0.626. ES all 79.8.
+
+**Against the no-context row (`e23_zero`, 0.387): +13.7 points on all lines.** This is the only comparison available now. The row that
+§8.40 pre-registered for this arm, "within +-2.5 points of v1", cannot be scored until `e23_v1` finishes (machine A, after `e23_pd`), and
+no paired confidence interval exists yet (it needs the arm and its reference from the per-datapoint scores). Not claimed here: that
+fine10 is better or worse than structure chunks. The paper's `path_distance` baseline for medium CodeLlama-7B is about 0.49 (§8.33); that
+comparison also waits for `e23_pd` on the same data.
+### 8.53 S3c `path_distance` (machine C, finished 2026-10-15 09:18 UTC; wall 13,638 s = 3.8 h): the paper's baseline on the paper's model
+
+CodeLlama-7B, 16K, medium held-out (168 datapoints, 6,663 lines), `arm=path_distance static_mode=provider`, exit 0. EM (mean over datapoints):
+**all 0.482**; commited 0.457, common 0.447, infile 0.411, inproject 0.479, non_informative 0.444, random 0.565. ES all 78.4.
+Dev counterpart (`s3a_cl7b_pd`, 56 datapoints): EM all 0.521 (commited 0.331, common 0.414, infile 0.494, inproject 0.498, non_informative 0.456,
+random 0.619).
+
+**All 224 datapoints (approximate, datapoint-weighted):** (168 x 0.4822 + 56 x 0.5212) / 224 = **0.492**. **Pre-registered (§8.39): path_distance
+about 0.49 +- 0.03 -> met.** With the zero row (0.387, §8.50): path_distance gains **+10.5 points** over no context on all 224 datapoints
+(held-out only: 0.482 - 0.380 = +10.2). This reproduces the paper's CodeLlama-7B / medium_context result for the benchmark's own best composer
+with all data, using the same model, window and line set; the exact pooled value and a paired CI follow from the per-datapoint files.
+Speed note for planning: a full-window arm runs at about 29 lines per minute (6,663 lines in 3.8 h), so `e23_pd` (8,676 lines) needs about 5 h.
+### 8.54 E2: `e23_fine20` (machine B, finished 2026-10-15 10:06 UTC; wall 11,782 s = 3.3 h)
+
+Same setting as §8.52 with `fine_window=20 fine_stride=10`. All 224 datapoints, 8,676 lines, exit 0. EM (mean over datapoints): **all 0.535**;
+commited 0.458, common 0.502, infile 0.479, inproject 0.536, non_informative 0.460, random 0.629. ES all 80.5.
+
+| E2 so far (EM, all lines, medium, CodeLlama-7B/16K) | all |
+|---|---:|
+| zero (no context) | 0.387 |
+| fine10 (10-line windows, stride 5) | 0.524 |
+| fine20 (20-line windows, stride 10) | 0.535 |
+
+fine20 is +1.1 points above fine10 on all lines, with `inproject` +1.8 and `infile` +1.3 and `commited` -2.0; no paired CI yet, so the sign of any
+small difference is not established. Still pending before the E2 table is complete: `e23_v1` (the structure-chunk base, machine A), fine40, file.
+Cost check: credit $87.94 after about 5 h of four machines.
+### 8.55 E2/E3 baseline `e23_pd` (machine A, finished 2026-10-15 10:29 UTC; wall 17,145 s = 4.8 h)
+
+`arm=path_distance static_mode=provider`, CodeLlama-7B, 16K, medium, **all 224 datapoints, 8,676 lines**, exit 0. EM (mean over datapoints): **all 0.492**;
+commited 0.420, common 0.439, infile 0.429, inproject 0.484, non_informative 0.447, random 0.579. ES all 78.7. This equals the pooled estimate
+from S3a dev + S3c held-out (0.492, §8.53): the local run, rented machine C and rented machine A agree.
+
+**Predictions scored (§8.40/§8.41):** absolute level "path_distance about 0.49 +- 0.04" (§8.41): **met**. The row "pd - zero in [+0.5, +4]" of §8.40
+was my estimate from the 1B development results and was **not met**: the difference is **+10.5 points** (0.492 - 0.387); §8.41 widened the
+v1 - pd range but did not restate this one for the 7B model. The 7B/16K gap reproduces the paper (long static context helps this model far more than it
+helped a 1B model at 8K), so the error was in my 1B-based prior, not in the run.
+
+| E2/E3 table so far (EM, all lines, medium, 224 datapoints, CodeLlama-7B/16K) | all | vs zero | vs path_distance |
+|---|---:|---:|---:|
+| zero | 0.387 | | -10.5 |
+| path_distance (paper's baseline) | 0.492 | +10.5 | |
+| fine10 | 0.524 | +13.7 | +3.2 |
+| fine20 | 0.535 | +14.8 | +4.3 |
+
+No paired confidence intervals yet; the v1 base, k-sweep, fine40, file and F rows are pending. Speed: 8,676 lines in 4.8 h at about 30 lines/min.
+### 8.56 HUGE: `p9_huge_cl7b_pd` (local GPU, finished 2026-10-15 07:50 local; wall 19,311 s = 5.4 h) and the comparison with the paper's Table 9
+
+CodeLlama-7B, 16K, huge_context, `path_distance static_mode=provider`, **all 296 datapoints, 9,810 lines**, exit 0. EM (mean over datapoints): **all 0.451**;
+commited 0.547, common 0.397, infile 0.444, inproject 0.430, non_informative 0.399, random 0.535. ES all 77.9.
+
+**Against the paper's Table 9 (huge_context, CodeLlama-7B, 16K; §8.33): file-level 0.39 -> path distance 0.45.** Ours: zero (no repository context) **0.381**
+(paper 0.39, difference -0.009) and path_distance **0.451** (paper 0.45, difference +0.001). **Both are within the +-0.03 tolerance fixed in §8.39 (a
+pre-registered prediction), and the second is within 0.002.** Gain of path_distance over no context on huge: **+7.0 points** (paper +6). This is a
+reproduction of a paper row on all datapoints and all lines with the repository's own composers. Speed: 9,810 lines in 5.4 h (30 lines/min), the same as the
+rented machines. Next on the local GPU: `p9_huge_cl7b_F16` (our final design on huge).
+### 8.57 S3c `F16` (machine C, finished 2026-10-15 12:56 UTC; wall 13,018 s = 3.6 h): the final design on the paper's model, held-out medium, all lines
+
+CodeLlama-7B, 16K (`rag=F rag.prefix_cap=15900`: BM25 over structure chunks + 20 continuation lines), medium **held-out, 168 datapoints, 6,663 lines**, exit 0.
+EM (mean over datapoints): **all 0.527**; commited 0.453, common 0.526, infile 0.469, inproject 0.527, non_informative 0.465, random 0.609. ES all 80.3.
+
+**Paired comparison on the same 168 datapoints (10,000 bootstrap resamples over datapoints, 95% CI; `*` = excludes 0; script `analyze_arms`):**
+
+| EM | zero | path_distance (ref) | **F16** | F16 - path_distance [CI] |
+|---|---:|---:|---:|---|
+| all (168) | 0.380 | 0.482 | **0.527** | **+0.045 [+0.026, +0.066] \*** |
+| common (95) | 0.314 | 0.447 | 0.526 | +0.079 [+0.035, +0.129] \* |
+| infile (143) | 0.354 | 0.411 | 0.469 | +0.058 [+0.033, +0.086] \* |
+| inproject (114) | 0.324 | 0.479 | 0.527 | +0.047 [+0.018, +0.083] \* |
+| random (168) | 0.486 | 0.565 | 0.609 | +0.044 [+0.020, +0.069] \* |
+| non_informative (168) | 0.313 | 0.444 | 0.465 | +0.021 [-0.005, +0.049] |
+| commited (63) | 0.395 | 0.457 | 0.453 | -0.005 [-0.068, +0.055] |
+
+ES all: F16 80.6 vs path_distance 78.7 (+1.8 [+1.0, +2.8] \*). **Pre-registered (§8.39): F16 - path_distance +2 to +5 points on held-out medium -> met
+(+4.5, CI excludes 0).** F16 beats the paper's best composer on the paper's model and window, on data never used to design F, in 5 of 7 categories with
+the interval excluding 0; `commited` shows no difference. For reference F gained +6.4 on StarCoder-1B at 8K (§8.26); on CodeLlama-7B at 16K the gain
+is smaller (+4.5) because the static baseline is already much stronger. Pooling with S3a (dev, 56 datapoints; F was tuned on dev, so the held-out row
+above is the unbiased one) and the clustered bootstrap follow when all arms are in.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
