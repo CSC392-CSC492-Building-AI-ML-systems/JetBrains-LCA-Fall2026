@@ -1417,13 +1417,46 @@ context. The other composers were not run on held-out data (they are 3–6 point
 `path_distance` is 6 points below F on held-out medium). Running them on held-out data would cost about 3–4 GPU hours and is
 available if wanted.
 
+### 8.36 Completing the evidence: order of work and pre-registration for the paper's setting (2026-10-14)
+
+User instruction: "i want it so that we have all proof, but yea u choose best order". Order chosen by evidence per GPU hour:
+
+| step | what | model, window | data | est. cost |
+|---|---|---|---|---|
+| P0 | timing pilot (5 datapoints): `path_distance` and F16 | CodeLlama-7B, 16K | medium, first 5 datapoints (development-independent timing only, results not used) | ~10-20 min |
+| S3a | file-level (zero), path_distance, F16 | CodeLlama-7B, 16K | medium dev (56 dp, 2,013 lines) | 2.5-4 h (from P0) |
+| S4 | zero, path_distance, F16 | DeepSeek-Coder-1.3B, 16K | medium held-out (168 dp, 6,663 lines) | ~2 h |
+| S3b | zero, path_distance, F16 | CodeLlama-7B, 16K | targeted lines of medium held-out (2,532) | ~3-5 h (from P0) |
+| H-all | the 7 composers not yet on held-out | StarCoderBase-1B, 8K | medium and small held-out | ~4.5 h |
+
+**F16 (fixed now, untuned):** the final design F with the budget scaled to the window: `seq_max_len=16000` → total budget 15,900
+tokens, `rag.prefix_cap=15900` (the prefix keeps its full-budget access, as in F at 8K), `rag.continuation_lines=20`, everything else
+as F. Nothing else is changed; in particular `max_chunks=30` stays, so the retrieved context may not fill the larger budget.
+This is an extrapolation, not a re-tuned configuration; if F16 underperforms, no re-tuning follows (the result is reported).
+
+**Predictions, written before any of these runs:**
+- **S3a** (CodeLlama-7B, 16K, medium dev): file-level EM 0.39 ± 0.05 and `path_distance` EM 0.49 ± 0.05 (the paper's whole-set
+  values), i.e. `path_distance` − zero ≈ +10 points with a CI excluding 0 (paper: +10); F16 − `path_distance` between +2 and +7
+  points (smaller than at 8K, because a 16K window holds more of a medium repository). Our dev subset is smaller than the paper's
+  224 datapoints, so agreement is judged against the CI, not the point value.
+- **S4** (DeepSeek-Coder-1.3B, 16K, medium held-out): `path_distance` − zero positive with CI excluding 0; F16 − `path_distance`
+  between +2 and +8 points.
+- **S3b** (CodeLlama-7B, 16K, held-out targeted lines): F16 − `path_distance` between +3 and +10 points (the 7B result at 8K
+  was +7.3).
+- **H-all:** the held-out ranking of the composers equals the dev ranking of §8.35 up to ties (Spearman ≥ 0.9 over the nine arms);
+  `path_distance` remains best.
+
+**Rules:** pass/fail is by the CI of the paired difference over datapoints, as before; every failed prediction is reported. If P0
+shows the 7B runs would take far longer than estimated, the 7B steps are reduced to a smaller evenly spaced subset of the same
+split and the reduction is logged before running them.
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~19:40, S1 done, §8.35):** all nine composers plus zero context were run on the development data.
-`path_distance` is the best (tied by `function_class_mask_half`, which is the same context once the 8K window crops the
-far files); everything without proximity ordering is statistically equal to zero context on medium; the EM ranking equals the
-paper's perplexity ranking (Spearman 1.00 over the seven shared composers). S2 is unnecessary (the dev-selected best is the
-reference already used). Next, on the user's go-ahead: S3 (CodeLlama-7B at 16K on medium dev: file-level, path_distance, F with
-the prefix cap scaled to 15,900; about 2.5-3 h, to compare with the paper's 0.39 vs 0.49), optionally S4 (DeepSeek-Coder 1.3B),
-optionally all composers on held-out (about 3-4 h). Git: HEAD `0fca3a0`; uncommitted: §8.33-§8.35 and the proposal/README edits.
-Nothing pushed by me.
+**State at last update (2026-10-14 19:40, evidence chain running):** S1 done (§8.35). Timing pilot P0 (CodeLlama-7B, 16K,
+5 medium datapoints, results unused): zero 0.45 s/line, path_distance 1.96, F16 1.8 -> no reduction of the 7B steps needed.
+The chain `run_evidence.sh` (detached in WSL, log `~/lca_evidence.log`, markers `S3a complete`, `S4 complete`, `S3b complete`,
+`H-all complete`) started 19:36: S3a (CodeLlama-7B/16K on medium dev, about 2.4 h), S4 (DeepSeek-Coder-1.3B/16K on medium held-out,
+about 2 h), S3b (CodeLlama-7B/16K on held-out targeted lines, about 3 h), H-all (7 composers on held-out, 1B/8K, about 4.5 h);
+total about 12 h. Predictions are fixed in §8.36. Each step is analysed when its marker appears; the chain can be stopped if a
+step reveals a problem. To check it: `grep "=====" ~/lca_evidence.log` in WSL. Git: HEAD `0fca3a0`+; uncommitted: §8.33-§8.36 and the
+proposal/README edits. Nothing pushed by me.
