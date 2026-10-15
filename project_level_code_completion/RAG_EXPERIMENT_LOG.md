@@ -2005,6 +2005,32 @@ inproject 0.485, non_informative 0.397, random 0.593; ES all 78.3. Paired agains
 | path_distance (static, full 16K window) | | 0.492 | -3.8 |
 
 Reading: the curve is monotone and concave, with the steepest gain from 1 to 5 chunks; **one retrieved chunk already matches path_distance, whose context fills whatever the 16K window leaves after the prefix**. A chunk is capped at 512 tokens (§8.9 design), so the retrieved context is at most about 600 tokens including its path header, against up to about 15K tokens of static context; the prefix is identical in both. (Correction, 2026-10-15: the first version of this entry said "1-2K tokens", which was not measured and is wrong.) Only k60 is pending for E3 (machine A, running).
+### 8.67 H-all complete (local GPU, 2026-10-15 17:24 local): the seven other static composers on held-out data, StarCoder-1B at 8K
+
+Fourteen arms, all exit 0: `hall_<composer>` on **medium held-out** (168 datapoints, 6,663 lines) and `hall_small_<composer>` on **small held-out** (96 datapoints, 3,113 lines), `static_mode=provider`, compared with
+the arms already run on the same data (`h_zero`, `h_path_distance`, `h_imports_first`, `h_v1`, `h_F`). Paired bootstrap over datapoints, reference `h_path_distance`, `*` = CI excludes 0. This is a different model and window
+from the CodeLlama-7B/16K evidence (it completes the baseline picture of §8.29/§8.35 on held-out data; it is not a Table 9 reproduction).
+
+| medium held-out, EM all lines (168) | EM | Δ vs path_distance [CI] |
+|---|---:|---|
+| **F (`h_F`)** | **0.421** | **+0.064 [+0.041, +0.089] \*** |
+| v1 (plain BM25) | 0.414 | +0.056 [+0.033, +0.080] \* |
+| function_class_mask_half | 0.358 | +0.001 [+0.000, +0.002] (tie) |
+| **path_distance** (reference) | 0.357 | |
+| file_length | 0.353 | -0.065 [-0.121, -0.017] \* (**covers only 1,652 of 6,663 lines; not comparable, see below**) |
+| half_memory_path_distance | 0.331 | -0.027 [-0.046, -0.010] \* |
+| function_class_mask_one | 0.322 | -0.036 [-0.055, -0.018] \* |
+| alphabetical | 0.313 | -0.044 [-0.068, -0.022] \* |
+| imports_first | 0.312 | -0.046 [-0.070, -0.024] \* |
+| naive | 0.302 | -0.055 [-0.079, -0.034] \* |
+| half_memory | 0.301 | -0.057 [-0.081, -0.035] \* |
+| zero | 0.300 | -0.057 [-0.082, -0.035] \* |
+
+**No static composer beats `path_distance` on medium held-out; one ties it (function_class_mask_half, which keeps path-distance order and only masks function and class bodies, differs on a handful of lines); both retrieval arms
+beat all of them by more than 5.6 points.** On small held-out all composers, v1 and F lie between 0.230 and 0.234 and every difference to path_distance is within 0.4 points (none excludes 0 on EM), i.e. nothing matters there.
+**Anomaly, stated:** `hall_file_length` produced predictions for only 1,652 of the 6,663 lines (exit 0, no traceback); its 0.353 therefore describes a different line subset and is excluded from the ranking
+until the cause is found (likely a composer path that returns an empty context for some datapoints in provider mode; not yet investigated). Conclusion for the proposal's limitation on baselines (§8.43): on
+held-out data and StarCoder-1B the benchmark's other composers do not threaten the choice of path_distance as the baseline; the same check on CodeLlama-7B/16K was not run.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
