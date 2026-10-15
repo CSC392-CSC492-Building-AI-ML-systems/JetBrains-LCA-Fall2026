@@ -1651,6 +1651,20 @@ composer) as an extra for E4. It is the official **Stage 1**: it is how the repo
 baseline. Our comparison arms (zero, path_distance, F) are fair if path_distance wins Stage 1, which the paper reports and our
 dev data (S1) supported; T10 is the evidence on all data. **Decision:** keep T10 in the chain (queued after E2/E3 and S4, as
 before), not top priority. H-all (other composers on held-out line completion) remains E4-adjacent and last.
+### 8.43 Decision: only two baselines on CodeLlama-7B; extensions not queued (2026-10-15 ~00:05; user decision)
+
+**Question (user):** why only two baselines (zero, path_distance), and could other composers do better with RAG?
+**Answer recorded:** (1) Two baselines is the repository's own protocol (README: zero context vs the one composer chosen by
+Stage 1; §8.42) and the paper reports path_distance as best; our S1 on dev data (StarCoder-1B, 8 static composers, §8.35)
+agreed. (2) Not shown on CodeLlama-7B: that no other composer beats F in line-completion EM; the other composers on 7B appear
+only as perplexity (T10) and on 1B (H-all). (3) Combining RAG with composer signals: on dev data, `proximity_weight` 0.25/0.5/1.0
+was −0.3 to −0.5 points (n.s.), `import_weight` 0.5 neutral and 1.0 −7.1 on inproject, `definitions_first` neutral (§8.17).
+Untried: filling leftover budget with path_distance files after retrieval (may matter at 16K, where the budget is less often full).
+
+**Decision (user: "adding them would take ages"):** do not add arms. Queue unchanged (§9). Candidates held back, in order of
+cost, to revisit around Oct 21 if the queue finishes early: (a) RAG + path_distance filler and RAG + proximity prior on
+CodeLlama-7B, medium, all 224 datapoints (2 arms, ~8 h); (b) the 7 other static composers on CodeLlama-7B, medium, all 224
+(7 arms, ~15-25 h). Recorded as a limitation in `RAG_PROPOSAL.md` §8.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**

@@ -230,6 +230,13 @@ appear in the paper's Table 10, our EM ranking equals the paper's perplexity ran
   registered composers were run there (§6.5) and `path_distance` was the best, so the held-out evaluation uses it as the
   reference; the other seven were not run on held-out data. The benchmark's own pipeline chooses among composers by
   perplexity; we chose by EM on development data.
+- **Two baselines on the paper's model.** On CodeLlama-7B at 16K the line-completion comparison covers zero context and
+  `path_distance` (the benchmark's own protocol compares zero context with one chosen composer, and the paper reports
+  `path_distance` as best). The other composers are covered by the repository's perplexity pipeline (log §8.39, step T10) and
+  by line completion on StarCoder-1B only. We did not test whether another composer beats retrieval on 7B, nor two
+  extensions that were left out for compute: retrieval plus a path-proximity prior, and retrieval followed by
+  `path_distance` files filling the leftover budget (the earlier proximity-prior variants were neutral on development data,
+  §6.2).
 - Only `starcoderbase-1b` (and `starcoderbase-7b` on targeted lines); the benchmark's other baseline models were not run.
 - **Much of the gain depends on near-copies.** About 75% of F's advantage over `path_distance` comes from lines whose text
   appears verbatim elsewhere in the repository (§6.4); where it does not, the advantage is about +2.3 points.
