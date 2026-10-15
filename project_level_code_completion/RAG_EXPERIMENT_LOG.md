@@ -1869,6 +1869,60 @@ ES all: F16 80.6 vs path_distance 78.7 (+1.8 [+1.0, +2.8] \*). **Pre-registered 
 the interval excluding 0; `commited` shows no difference. For reference F gained +6.4 on StarCoder-1B at 8K (§8.26); on CodeLlama-7B at 16K the gain
 is smaller (+4.5) because the static baseline is already much stronger. Pooling with S3a (dev, 56 datapoints; F was tuned on dev, so the held-out row
 above is the unbiased one) and the clustered bootstrap follow when all arms are in.
+### 8.58 S4 complete: DeepSeek-Coder-1.3B, 16K, medium held-out, all lines (`s4_ds1b_F16` on machine C, finished 2026-10-15 14:09 UTC; wall 4,423 s = 1.2 h)
+
+A second model of the paper (DeepSeek-Coder-1.3B), same 168 held-out datapoints and 6,663 lines for all three arms (zero and path_distance ran locally, §8.47;
+F16 on rented machine C; hardware equivalence of the machines is covered by the anchor check, §8.45). Paired bootstrap over datapoints (10,000 resamples), `*` = CI excludes 0:
+
+| EM | zero | path_distance (ref) | **F16** | F16 - path_distance [CI] |
+|---|---:|---:|---:|---|
+| all (168) | 0.347 | 0.455 | **0.500** | **+0.045 [+0.026, +0.067] \*** |
+| common (95) | 0.288 | 0.403 | 0.489 | +0.086 [+0.040, +0.137] \* |
+| infile (143) | 0.312 | 0.380 | 0.429 | +0.050 [+0.025, +0.078] \* |
+| inproject (114) | 0.289 | 0.469 | 0.518 | +0.049 [+0.018, +0.086] \* |
+| non_informative (168) | 0.277 | 0.404 | 0.435 | +0.031 [+0.002, +0.063] \* |
+| random (168) | 0.469 | 0.552 | 0.594 | +0.042 [+0.018, +0.068] \* |
+| commited (63) | 0.397 | 0.439 | 0.458 | +0.019 [-0.032, +0.070] |
+
+ES all: F16 78.8 vs path_distance 77.0 (+1.8 [+0.8, +2.8] \*). **F16 beats the benchmark's best composer by +4.5 points [+2.6, +6.7] on a second model**, the same size of
+gain as on CodeLlama-7B (+4.5, §8.57), with six of seven categories excluding 0 (only `commited` does not). The gain is therefore not specific to one model.
+Caveat stated: F was designed on StarCoder-1B development data and these 168 datapoints are held-out for the design, but they are the same datapoints the 7B held-out
+row uses, so the two rows are not independent evidence about new datapoints. DeepSeek-1.3B on the 56 dev datapoints (DS-dev) is still to come.
+### 8.59 E1 and the first E2 comparisons on all 224 datapoints: `e23_v1` is the base (machine A, finished 2026-10-15 14:23 UTC; wall 14,046 s = 3.9 h)
+
+`e23_v1` = plain BM25 over function/class/module chunks (tree-sitter), 10-line query, up to 30 chunks, 16K budget, no continuation lines; CodeLlama-7B, medium, **all 224
+datapoints, all 8,676 lines**, exit 0. EM (mean over datapoints): **all 0.530**; commited 0.438, common 0.504, infile 0.484, inproject 0.532, non_informative 0.444, random 0.619;
+ES all 80.2. Paired bootstrap over the 224 datapoints (10,000 resamples), reference `e23_v1`; `*` = CI excludes 0; arms ran on machines A (zero, pd, v1) and B (fine10, fine20),
+which gave identical predictions in the anchor check (§8.45):
+
+| EM, all lines (224) | EM | Δ vs v1 [95% CI] |
+|---|---:|---|
+| zero (no context) | 0.387 | -0.143 [-0.173, -0.114] \* |
+| path_distance (paper's baseline) | 0.492 | -0.038 [-0.058, -0.020] \* |
+| **v1 (E1: simple RAG)** | **0.530** | (reference) |
+| fine10 (10-line windows, stride 5) | 0.524 | -0.006 [-0.012, +0.001] |
+| fine20 (20-line windows, stride 10) | 0.535 | +0.006 [-0.000, +0.011] |
+
+**E1 (simple RAG vs baseline), the week-3 deliverable, on the paper's model, window and all data: v1 beats path_distance by +3.8 points [+2.0, +5.8] \* and no context by +14.3 [+11.4, +17.3].**
+By category v1 - path_distance: common +6.6 \*, infile +5.5 \*, inproject +4.8 \*, random +4.0 \*, commited +1.8 (n.s.), non_informative -0.3 (n.s.).
+**E2 (chunking), first two arms:** fine10 and fine20 tie with structure chunks (-0.6 [-1.2, +0.1], +0.6 [-0.0, +1.1]); the only categories where a window arm differs
+from v1 with an interval excluding 0 are `infile` (fine10 -1.8 \*) and `inproject` (fine10 -1.3 \*). Chunk shape inside this range matters little; the retrieval itself is what
+carries the gain.
+
+**Predictions scored (§8.40/§8.41):** v1 - path_distance in [+1, +9]: **met** (+3.8). fine10 and fine20 within +-2.5 of v1: **both met** (-0.6, +0.6). Still pending for E2: fine40 (machine B, running) and
+whole files; E3 (top-k sweep) runs on machine A next.
+### 8.60 E2 `e23_fine40` (machine B, finished 14:50 UTC; wall about 2.7 h) and SMALL zero `p9_small_cl7b_zero` (machine C, finished 14:50 UTC; wall 2,425 s)
+
+**E2, 40-line windows (`fine_window=40 fine_stride=20`)**, CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0: EM **all 0.538**. Paired against `e23_v1` (0.530):
+**+0.9 points [+0.3, +1.5] \***; by category: common +0.9, infile -0.4, inproject +0.7 (all n.s.). **E2 so far (EM, all lines, vs v1; CI over 224 datapoints):** fine10 -0.6 [-1.2, +0.1],
+fine20 +0.6 [-0.0, +1.1], fine40 +0.9 [+0.3, +1.5] \*. **Prediction "within +-2.5 of v1" (§8.40): met for all three.** The trend is mild: larger windows are better by up to
+about a point and the shape of the chunks matters little compared with retrieval itself; fine40 is the first window arm whose interval excludes 0 (a small effect, above the
+0.5-point tie threshold of §8.19 but below 1 point). Whole files (`e23_file`) is the remaining E2 arm; the structure-chunk base `v1` is not beaten by any arm by more than about a point.
+
+**SMALL (Table 9), zero:** CodeLlama-7B, 16K, small_context, **all 144 datapoints, all 4,686 lines** (commited 1,426, common 500, infile 1,430, inproject 95, non_informative 532, random 703),
+exit 0: EM **all 0.361**; commited 0.320, common 0.323, infile 0.354, inproject 0.165, non_informative 0.286, random 0.422; ES all 73.3. **Paper (Table 9, small_context, file-level): 0.35;
+ours 0.361, difference +0.011, within the +-0.03 tolerance (§8.39): met.** Only 95 `inproject` lines exist in the small set (small repositories fit in the window), so that row is noisy.
+Next on C: SMALL path_distance, then F16.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
