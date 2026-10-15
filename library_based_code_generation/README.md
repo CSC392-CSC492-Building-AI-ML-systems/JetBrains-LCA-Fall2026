@@ -27,6 +27,28 @@ In order to evaluate models, run the [evaluation script](src/evaluation/evaluate
 The script will generate code with the available models and compute the metrics (`ChrF` and `API Recall`). 
 If the code for the specific model is already available in the `results` directory, the evaluation script will just compute the metrics.
 
+## Reproducible baseline replication
+
+`baseline_replication.py` replicates the BM25 top-20 API-hint baseline with the benchmark's existing prompts, model adapters, code extraction, ChrF, and API Recall metrics. It pins the dataset to the current Hub revision and records source hashes and package versions for each fresh run.
+
+Set `OPENAI_API_KEY` for OpenAI models and `TOGETHER_API_KEY` for Together models. Keys are read from the environment and are not stored in config files.
+
+Run a five-example smoke test:
+
+```bash
+poetry run python baseline_replication.py --config replication_configs/config_bm25_smoke.yaml
+```
+
+Run the full test split with all six released models:
+
+```bash
+poetry run python baseline_replication.py --config replication_configs/config_bm25_full.yaml
+```
+
+The smoke config writes under `results/bm25/gpt-3.5-turbo-0125/`. The full config writes per-model predictions, run metadata, and summaries under `results/bm25/`. New predictions are nested in each model folder, preserving the existing numbered `.py` files. Fresh predictions resume automatically; use `--restart` to regenerate them. Use `--evaluate-only` to score completed saved predictions without model API calls.
+
+For pip installation, use `python -m pip install -r requirements-replication.txt`. The results table and existing baseline-score provenance are documented in [RESULTS.md](RESULTS.md). The original [evaluation workflow](src/evaluation/evaluate.py) remains available.
+
 
 ## ⚙️ Customize
 
