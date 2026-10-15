@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2/E3 controlled ablation (RAG_EXPERIMENT_LOG.md section 8.40): StarCoder-1B, medium_context, ALL 224 datapoints, ALL lines.
-# Base = v1 (plain BM25, structure chunks, 30 chunks, 7,900-token budget). Each arm changes ONE variable. Skips finished arms.
+# E2/E3 controlled ablation (RAG_EXPERIMENT_LOG.md sections 8.40/8.41): CodeLlama-7B (16K window, the paper's model), medium_context, ALL 224 datapoints, ALL lines.
+# Base = v1 (plain BM25, structure chunks, 30 chunks, 16K budget). Each arm changes ONE variable. Skips finished arms.
 # Afterwards: finishes the S4 step that this script pre-empted, then starts the v2 (paper protocol) chain.
 source $(dirname "$0")/common.sh
 LOG=$HOME/lca_evidence.log
@@ -19,8 +19,8 @@ run_once() {
   run_arm $LOG $NAME "$@"
 }
 
-ALL="dataset=medium split=all lines=all"
-V1="arm=rag rag=v1"
+ALL="params=codellama7b dataset=medium split=all lines=all"
+V1="arm=rag rag=v1 rag.prefix_cap=15900"
 
 # Baselines on exactly the same data
 run_once e23_zero $ALL arm=zero
@@ -37,7 +37,7 @@ run_once e23_fine20 $ALL $V1 rag.chunking=fine rag.fine_window=20 rag.fine_strid
 run_once e23_fine40 $ALL $V1 rag.chunking=fine rag.fine_window=40 rag.fine_stride=20
 run_once e23_file   $ALL $V1 rag.chunking=fine rag.fine_window=100000 rag.fine_stride=100000
 # Final design F (v1 + 20 continuation lines) on the same data, for the link to the earlier results
-run_once e23_F    $ALL arm=rag rag=F
+run_once e23_F    $ALL arm=rag rag=F rag.prefix_cap=15900
 echo "===== E2/E3 complete $(date +%T) =====" | tee -a $LOG
 
 # The S4 step that this chain pre-empted (DeepSeek-1.3B, 16K, medium held-out)

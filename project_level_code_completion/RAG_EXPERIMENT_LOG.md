@@ -1603,6 +1603,26 @@ tied or negative there). The k-sweep and file-granularity arms were never run be
 chain) and `switch_e23.sh` (waits for the running `s4_ds1b_pd` to finish, stops the old chain, starts `run_e23.sh`). Both are
 in `rag_results/scripts/`. Marker: `E2/E3 complete`. Output arms: `~/lca_artifacts/python/starcoderbase-1b/medium_context/arms/e23_*`.
 **Not done, noted:** the same ablation on small_context and a second model (CodeLlama-7B) if time allows after the queue.
+### 8.41 Amendment to §8.40: the E2/E3 ablation runs on CodeLlama-7B, not StarCoder-1B (2026-10-14 ~23:40, before any e23 arm ran)
+
+**What was wrong.** §8.40 chose `starcoderbase-1b` for speed. The user had already said the paper's results use the 7B model and
+asked for the paper's exact protocol (§8.39); the proposal (§7) also says to keep the model consistent with the baseline
+reproduction. Choosing 1B on my own for compute was an error, and the user corrected it ("I told you only use 7B").
+
+**Change (no `e23_*` arm had started, so no result is affected):** every E2/E3 arm uses `params=codellama7b` (CodeLlama-7B, the
+paper's 16K window), `dataset=medium split=all lines=all` (all 224 datapoints), and the RAG arms set `rag.prefix_cap=15900` (the
+`F16` convention of §8.37, so the 16K budget is 15,900 tokens). Arms and overrides are otherwise exactly those of §8.40. Output
+arms: `~/lca_artifacts/python/codellama-7b/medium_context/arms/e23_*`. `run_e23.sh` was edited accordingly (copy in
+`rag_results/scripts/`).
+
+**Predictions:** the structure of §8.40 stands (sign and rough size of each Δ). Two re-statements for 7B: (i) zero and
+path_distance on all 224 datapoints should land near the paper's CodeLlama-7B values (about 0.39 and 0.49; §8.33), within ±0.04;
+(ii) the v1 − path_distance gap on 7B at 16K may be smaller than on a 1B model at 7,900 tokens, so the range [+3, +9] from
+§8.40 is widened to [+1, +9]. All other rows unchanged.
+
+**Cost, stated so the user can decide on ordering:** a full-context 7B arm over 224 datapoints takes about 3-5 hours (S3a's F16
+arm took 68 minutes for the 56 dev datapoints). Short-context arms (k=1, 3, 5) are faster. 13 arms: roughly 35-50 hours in
+total, which is why arm order matters: baselines, v1, then k and chunking arms, F last. Nothing is skipped for time.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
@@ -1644,4 +1664,4 @@ Hugging Face access to `bigcode/starcoderbase-*` is set up.
 
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 ~23:35):** scope clarified by the user: our part is E1, E2 (chunking) and E3 (top-k), numbered as in the proposal timeline (the proposal's section 7 numbering is a typo the grader flagged). **E2/E3 has priority over everything else.** Section 8.40 pre-registers the all-data one-variable ablation (StarCoder-1B, medium, all 224 datapoints, 13 arms, script `run_e23.sh`, arms `e23_*`). `switch_e23.sh` is armed: after the running `s4_ds1b_pd` finishes it stops the old chain, runs E2/E3, then the S4 F16 step, then the v2 paper-protocol chain (section 8.39). T10 and H-all are E4 material, last in line, droppable on the user's say-so. Check progress with `grep -E "=====|-----" ~/lca_evidence.log`.
+**State at last update (2026-10-14 ~23:35):** scope clarified by the user: our part is E1, E2 (chunking) and E3 (top-k), numbered as in the proposal timeline (the proposal's section 7 numbering is a typo the grader flagged). **E2/E3 has priority over everything else.** Section 8.40 pre-registers the all-data one-variable ablation (medium, all 224 datapoints, 13 arms, script `run_e23.sh`, arms `e23_*`; model CodeLlama-7B per section 8.41, not StarCoder-1B). `switch_e23.sh` is armed: after the running `s4_ds1b_pd` finishes it stops the old chain, runs E2/E3, then the S4 F16 step, then the v2 paper-protocol chain (section 8.39). T10 and H-all are E4 material, last in line, droppable on the user's say-so. Check progress with `grep -E "=====|-----" ~/lca_evidence.log`.
