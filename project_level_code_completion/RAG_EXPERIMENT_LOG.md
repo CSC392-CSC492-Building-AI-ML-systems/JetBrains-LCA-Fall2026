@@ -1563,6 +1563,45 @@ within ±0.05 of the paper's values; the paper's small/large/huge EM rows for pa
 (0.35 / 0.35 / 0.39) reproduced within ±0.03. If a reproduction misses its range, the difference is reported and investigated,
 not adjusted away.
 
+## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
+
+**Standing instructions (apply to all future work on this project):**
+1. **Use all data.** Every datapoint and every listed line of a dataset, never a subset, unless the user explicitly asks for one.
+   (Stated 2026-10-14: "we use all data points, stop SKIPPING".)
+2. **Reproduce the paper's protocol exactly** (Long Code Arena, arXiv 2406.11612; the repository's own pipeline, models CodeLlama-7B and
+   DeepSeek-Coder, 16K window, EM per category) so that comparisons can say "we used exactly their testing" (§8.39).
+3. **Fair comparison.** Same datapoints, lines, budget and seed for every arm; no outcome-based selection of data; held-out discipline
+   for anything tuned (F's design saw the development datapoints, so F is also reported on held-out only).
+4. **Document every step and every change** in this log, with settings, and write predictions before running.
+5. The user commits; **never commit or push** from here; **no `Co-Authored-By` lines**; give `git add <files>` / `git commit` commands.
+6. Overnight work continues unattended through the queue in §8.39; the user decides when to cut it.
+
+**How to resume after any interruption:** `grep -E "=====|-----" ~/lca_evidence.log` (in WSL) shows finished and skipped steps and
+the markers; the queue script is `run_evidence_v2.sh` (skips every arm that already has a `summary.json`; re-run it with
+`setsid nohup bash <path>/run_evidence_v2.sh &`); all scripts are copied into `rag_results/scripts/` (the live copies are in the
+session scratch folder, which is temporary). Outputs: `~/lca_artifacts/python/<model>/<dataset>_context/arms/<arm>/`
+(`summary.json`, `config.json`, `generation_results.jsonl`), reports in `~/lca_artifacts/reports/`; small files mirrored in `rag_results/`.
+Environment: WSL Ubuntu, poetry env `lca-L6V1CIw0-py3.11`, tree-sitter-python v0.21.0 clone in `~/ts_test` (run experiments from there),
+Hugging Face access to `bigcode/starcoderbase-*` is set up.
+
+**Master index (section → what → script in `rag_results/scripts/` → outputs):**
+
+| id | section | what | script | arm directories |
+|---|---|---|---|---|
+| E1 | §2 | pilot, StarCoder-1B, 20 datapoints | `run_pilot.sh`, `analyze_pilot.py` | `pilot_*` |
+| E2 | §5-§7 | reproduction check, prefix-cap and Python-only ablations (dev 20) | `run_e2.sh`, `analyze_e2.py` | `dev_*` |
+| R0 / R0-T | §8.11-§8.16 | re-baseline on dev 48; targeted lines (small+medium) | `run_r0.sh`, `run_r0t.sh`, `analyze_r0.py`, `run_r0t_analysis.sh` | `r0_*`, `r0t_*` |
+| V1, V2 | §8.14, §8.24 | provider path = preprocessing path; targets filter | `run_v1.sh`, `run_v2.sh`, `check_v1.py`, `diag_v2.py` | `v1_*`, `v2_*` |
+| B1-B3 | §8.15-§8.21 | design search on targeted lines | `run_b1.sh`, `run_b2.sh`, `run_b3.sh`, `summarize_designs.py` | `b1_*`, `b2_*`, `b3_*` |
+| guardrail | §8.22-§8.23 | full-line dev runs of path_distance, v1, F | `run_guardrail.sh`, `run_guardrail_analysis.sh` | `g_*` |
+| held-out | §8.25-§8.26 | the one-shot evaluation at commit `566331c` (1B/8K, 7B targeted) | `run_heldout.sh`, `analyze_heldout.sh` | `h_*`, `h7_*` |
+| cleanup | §8.28 | grammar warning, `rag=F` preset, dependency direction | `run_cleanup_check.sh` | `cleanup_F` |
+| V-A..V-F | §8.30-§8.32 | verification and control experiments | `verify_cpu.py`, `run_ve.sh`, `run_vf.sh`, `noroom_impact.py`, `diag_budget.py` | `ve_*` |
+| S1 | §8.34-§8.35 | all static composers on dev | `run_s1.sh`, `analyze_s1.py`, `check_fcm.py` | `s1_*` |
+| P0, S3a | §8.36-§8.37 | CodeLlama-7B/16K timing pilot; medium dev | `run_p0.sh`, `run_evidence.sh`, `analyze_s3a.sh` | `p0_*`, `s3a_*` |
+| S4 | §8.36 | DeepSeek-Coder-1.3B/16K, medium held-out | `run_evidence.sh` | `s4_ds1b_*` |
+| queue | §8.38-§8.39 | exact paper protocol on all data | `run_evidence_v2.sh`, `switch_chain.sh`, `wait_marker2.sh` | `v3_*`, `s3c_*`, `p9_*`, `s4dev_*`, `hall_*`, `t10/` |
+
 ## 9. Progress (kept current; read this first)
 
 **State at last update (2026-10-14 23:00, user asleep; paper-protocol queue armed, §8.39):** user instruction: use ALL data points,
