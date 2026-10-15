@@ -1746,6 +1746,15 @@ intervals yet (they need the F16 arm for the comparison that matters and `analyz
 **Provenance flags:** `s4_ds1b_zero` ran under code commit `cf1c159` and `s4_ds1b_pd` under `6d4227c`, both with uncommitted changes
 recorded as `dirty`; the code paths used by these two arms (zero, `path_distance` via the provider) were not edited between them (the
 later changes were the log, the proposal and the rental scripts), but this is stated, not proven by a re-run.
+### 8.48 The tail runs on the local GPU, not on a fourth rented machine (2026-10-15 ~00:50 local; user decision)
+
+A fourth machine (D, instance 56044456, $0.82/h) was rented and then destroyed by the user before any setup, to save money; the user
+chose to run the tail on the local RTX 5090. `rag_results/scripts/run_local_tail.sh` (log `~/lca_local_tail.log`, markers
+`V3 provider done`, `HUGE complete`, `H-all complete`) runs: (1) `v3_cl7b_pd_provider`: path_distance through the provider path on the
+same 5 datapoints as the rented V3, which completes the equivalence check of §8.46; (2) HUGE (Table 9): CodeLlama-7B/16K zero,
+path_distance, F16 on all 296 datapoints and 9,810 lines; (3) H-all, optional. Local and rented results are separate tables: HUGE is
+compared only within its own three arms, all run locally. Expected: HUGE 10-13 h or more (the local 5090 was slower per line in S3a than the
+rented machines were in their first minutes; the reason is not established). Rented machines A, B, C are unchanged (§8.44-8.45).
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
