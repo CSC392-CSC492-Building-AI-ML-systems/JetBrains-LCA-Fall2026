@@ -1923,6 +1923,13 @@ about a point and the shape of the chunks matters little compared with retrieval
 exit 0: EM **all 0.361**; commited 0.320, common 0.323, infile 0.354, inproject 0.165, non_informative 0.286, random 0.422; ES all 73.3. **Paper (Table 9, small_context, file-level): 0.35;
 ours 0.361, difference +0.011, within the +-0.03 tolerance (§8.39): met.** Only 95 `inproject` lines exist in the small set (small repositories fit in the window), so that row is noisy.
 Next on C: SMALL path_distance, then F16.
+### 8.61 E3, first arm: `e23_k10` (machine A, finished 2026-10-15 16:31 UTC; wall about 2.2 h)
+
+`max_chunks=10` (at most 10 retrieved chunks instead of 30), everything else as `e23_v1`; CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0. EM all **0.524**
+vs v1 0.530: **-0.6 points [-1.0, -0.1] \*** (paired over 224 datapoints). By category vs v1: inproject -1.6 [-2.8, -0.6] \*, commited -2.1 (n.s.), common -0.6, random -0.2, infile +0.1,
+non_informative -0.0. **Prediction "within +-1.5 of v1" (§8.40): met (-0.6).** Reading: cutting the context from 30 to 10 chunks costs about half a point overall and a point and a half on
+`inproject` lines, which need the most cross-file material; the arm runs about 1.8x faster because the prompts are shorter. Remaining E3 arms (k5, k3, k1, k60) are running on machine A.
+Speed and clock note: arm-level times in the log are taken from the run logs (UTC on the rented machines); earlier chat estimates of wall-clock times were assumptions and are not part of the record.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
