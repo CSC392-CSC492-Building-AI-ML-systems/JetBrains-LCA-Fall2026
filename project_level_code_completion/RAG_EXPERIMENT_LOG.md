@@ -1450,13 +1450,126 @@ This is an extrapolation, not a re-tuned configuration; if F16 underperforms, no
 shows the 7B runs would take far longer than estimated, the 7B steps are reduced to a smaller evenly spaced subset of the same
 split and the reduction is logged before running them.
 
+### 8.37 S3a results: the paper's model and window (run 2026-10-14 19:36–22:09; 3 runs, exit 0, no tracebacks)
+
+CodeLlama-7B (`codellama/CodeLlama-7b-hf`), 16K window (total budget 15,900 tokens), seed 42, greedy, medium dev (56 datapoints,
+2,013 lines), all lines. Wall time: zero 18 min, path_distance 66, F16 68. Code state: zero and path_distance at commit `aa141b6`
+(docs uncommitted, flagged dirty), F16 at `cf1c159` (clean); no code differed. Outputs `~/lca_artifacts/python/codellama-7b/medium_context/arms/s3a_*`,
+report `~/lca_artifacts/reports/s3a/s3a_vs_pd.md`.
+
+**Overall EM and comparison with the paper's Table 9 (medium set, CodeLlama-7B, 16K; the paper uses all 224 datapoints, we use 56):**
+
+| EM | file-level / zero: ours | paper | path_distance: ours | paper | **F16**: ours |
+|---|---:|---:|---:|---:|---:|
+| **all** | **0.408** | 0.39 | **0.521** | 0.49 | **0.565** |
+| infile | 0.430 | 0.37 | 0.494 | 0.43 | 0.547 |
+| inproject | 0.307 | 0.32 | 0.498 | 0.49 | 0.563 |
+| commited | 0.337 | 0.38 | 0.331 | 0.42 | 0.394 |
+| common | 0.304 | 0.31 | 0.414 | 0.44 | 0.472 |
+| non_informative | 0.304 | 0.31 | 0.456 | 0.44 | 0.465 |
+| random | 0.543 | 0.50 | 0.619 | 0.58 | 0.689 |
+
+**Paired differences (95% CI over the 56 datapoints; `*` excludes 0):** `path_distance` − zero **+0.113 [+0.057, +0.172] \***
+(paper: +0.10); **F16 − path_distance +0.044 [+0.004, +0.090] \*** (ES +1.4 [−0.3, +3.5]). By category, F16 − `path_distance`:
+random +0.071 \*, inproject +0.065 \*, infile +0.053 \*, commited +0.063, common +0.058, non_informative +0.008 (the last three
+not significant).
+
+**Predictions (§8.36) scored:** file-level 0.39 ± 0.05 → 0.408 **met**; `path_distance` 0.49 ± 0.05 → 0.521 **met**; `path_distance`
+− zero ≈ +10 with CI excluding 0 → +11.3 **met**; F16 − `path_distance` between +2 and +7 → +4.4 **met**.
+
+**Reading.** (1) *Harness validation:* on the paper's own model and window our pipeline reproduces the paper's baseline numbers
+within sampling error, overall (0.41 / 0.52 vs 0.39 / 0.49) and for most categories, including `inproject` (0.31 → 0.50 vs 0.32 → 0.49).
+The largest gap is `commited` for `path_distance` (0.33 vs 0.42, a 26-datapoint category with a wide CI). Our dev subset is a quarter
+of the paper's set, so differences of a few points are within noise. (2) *Generalization:* the retrieval design, with only its budget
+scaled to the window and nothing re-tuned, improves on `path_distance` for a 7B model at 16K by +4.4 points (+8.5% relative), smaller
+than the +6.4 on the 1B model at 8K, as predicted: a larger window holds more of a medium repository, so there is less left for
+retrieval to add. (3) This is development data (the same 56 datapoints used when designing F, though not for any 16K choice); the
+held-out confirmation for this model is S3b.
+
+### 8.38 Fairness of the datapoints; S3b replaced by S3c (2026-10-14, after the user's objection)
+
+**User concern (verbatim):** "WE WANT TO HAVE FAIR COMPARISON not us choosing possibly the best datapoints??" It followed the
+statement that S3a used 56 datapoints against the paper's 224.
+
+**Assessment.**
+- *No datapoint was selected by outcome.* The development and held-out sets were defined by index formula (§8.2, §8.8):
+  old dev = `i*144//20`, extras evenly spaced among the rest, held-out = all others; for medium, `dev_size=28, dev_extra=28`.
+  They were fixed before any result of the corresponding stage. Every comparison (all arms) uses identical datapoints, lines,
+  budget and seed, so differences are paired.
+- *The development subset is not favourable to the baselines or to F by selection:* the baselines score a little higher there
+  (medium, StarCoder 1B, `path_distance`: dev 0.390 vs held-out 0.357; zero: 0.323 vs 0.300), and F's advantage is larger on dev
+  (+9.5) than on held-out (+6.4).
+- *What is not fair:* F was tuned on the development datapoints, so any F result on them is optimistic; this includes S3a's
+  F16 − `path_distance` = +4.4 (F16 itself was not tuned, but the design of F was). The unbiased comparison is on datapoints that
+  were never used: the held-out set.
+- *Representativeness:* 56 of 224 datapoints is a quarter of the paper's sample; evenly spaced, not outcome-based, but noisier
+  (§8.37). The baselines have no tuned parameters, so they may use all 224.
+
+**Change of plan (decided before the S3b arms started; S4 is running and unchanged):**
+- **S3b (CodeLlama-7B/16K on held-out targeted lines) is replaced by S3c: zero, `path_distance` and F16 on the 168 held-out
+  medium datapoints, ALL lines (6,663)**, names `s3c_cl7b_*`. The targeted-line result is a subset of the same generations
+  (via `eval.make_targets`/`--targets`), so nothing is lost. Cost about 8 h (zero 50 min, path_distance 3.6 h, F16 3.3 h) instead of 3 h.
+- **Full-set reproduction of the paper's baselines:** zero and `path_distance` on S3a (56 dev) + S3c (168 held-out) = all 224
+  medium datapoints, as in the paper's Table 9; reported next to the paper's numbers. F16 is reported **separately on held-out
+  (the unbiased headline)** and, for transparency only, on all 224.
+- H-all (the seven remaining composers on held-out, 1B/8K) follows as before.
+
+**Predictions for S3c (before the runs):** held-out medium, all lines, CodeLlama-7B/16K: `path_distance` − zero ≥ +8 points with CI
+excluding 0; F16 − `path_distance` between +2 and +7 points; over all 224 datapoints zero within ±0.03 of the paper's 0.39 and
+`path_distance` within ±0.03 of 0.49. (The S3a F16 effect, +4.4, is optimistic for the reason above; I expect the held-out value
+to be somewhat lower, about +3 to +5.)
+
+### 8.39 Exact reproduction of the paper's test protocol, on all data (2026-10-14 ~23:00; user instruction)
+
+**User instruction (verbatim, while going to sleep):** "what matters is we use all data points, stop SKIPPING, reproduce exactly how
+they test it so that when we compare we can say we used exactly their testing, DID U HEAR". Acknowledged: subsets (56 of 224 medium
+datapoints in S3a), line subsets (targeted lines) and splits were used to save compute; for the paper comparison they are replaced.
+
+**The paper's protocol, as far as the paper and the repository define it:** models CodeLlama-7B (16K window; `params=codellama7b`,
+`seq_max_len=16000`), DeepSeek-Coder 1.3B and 6.7B; the four sets small/medium/large/huge (144/224/270/296 datapoints; 4,686/8,676/
+9,631/9,810 lines), **every datapoint and every listed line**; exact match after whitespace stripping, per category and overall;
+greedy single-line generation by `eval/line_generators.py` (unchanged defaults); Table 9 = file-level (no repository context) vs the
+path-distance composer; Table 10 = perplexity of the completion file for every composer at context sizes 256 / 1,753 / 12,000 tokens
+(the pipeline's own schedule: `first_step=256`, `final=seq_max_len*3//4=12,000`, geometric steps), produced by the repository's own
+`eval.eval_pipeline`.
+
+**What we run, in priority order (queue `run_evidence_v2.sh`; GPU time per step is an estimate from measured s/line):**
+
+| marker | step | what | est. |
+|---|---|---|---|
+| (running) | S4 | DeepSeek-Coder-1.3B/16K, medium **held-out** (168 dp), zero / path_distance / F16 | ends ~01:00 |
+| `V3 done` | V3 | repository's original preprocessing path vs our per-line provider path for `path_distance`, CodeLlama-7B/16K, 5 datapoints: predictions must be identical (extends V1 from StarCoder/8K to the paper's model and window) | 10 min |
+| `S3c complete` | S3c | CodeLlama-7B/16K, medium **held-out, all lines**, zero / path_distance / F16; with S3a (dev 56) this is **all 224 medium datapoints, all 8,676 lines** | ~8 h |
+| `T10 complete` | T10 | the repository's **unmodified `eval.eval_pipeline`** (perplexity stage only, all composers, CodeLlama-7B/16K, medium, all 224 datapoints) = Table 10 | ~3 h |
+| `SMALL complete` | Table 9 small | CodeLlama-7B/16K, **all 144 datapoints, all 4,686 lines**, zero / path_distance / F16 | ~5.5 h |
+| `DS-dev complete` | S4 completion | DeepSeek-1.3B/16K on the 56 medium dev datapoints, so S4 covers all 224 | ~1 h |
+| `LARGE complete` | Table 9 large | CodeLlama-7B/16K, **all 270 datapoints, all 9,631 lines**, zero / path_distance / F16 | ~11 h |
+| `HUGE complete` | Table 9 huge | CodeLlama-7B/16K, **all 296 datapoints, all 9,810 lines**, zero / path_distance / F16 | ~11 h |
+| `H-all complete` | H-all | the seven remaining composers, StarCoder-1B/8K, medium and small held-out | ~4.5 h |
+
+Total about 45 GPU hours, in this order so that the most important evidence arrives first and any prefix of the queue is
+self-contained. Results are reported as they finish; the queue can be cut at any marker.
+
+**How F16 is reported (not skipping, and not misleading):** every table of the paper-protocol comparison uses all data. Because F's
+design was tuned on 104 development datapoints (48 small, 56 medium), an F figure over those sets includes datapoints the design
+saw. Therefore each such table has two F16 columns computed from the same generations: *all datapoints* (the exact protocol) and
+*held-out datapoints only* (indices from `heldout_indices`; for large and huge every datapoint is held-out, since F was never
+tuned on them). No run is dropped or re-run because of this.
+
+**Predictions (before the runs):** V3: 0 differing predictions. S3c + S3a over 224 datapoints: zero 0.39 ± 0.03 and path_distance
+0.49 ± 0.03 (the paper's medium values); F16 − path_distance on held-out between +2 and +5. T10: composer order of the paper's Table 10
+reproduced at the 12,000-token column (path distance best, then half-memory + path distance, ..., file-level worst), perplexities
+within ±0.05 of the paper's values; the paper's small/large/huge EM rows for path distance (0.37 / 0.47 / 0.45) and file-level
+(0.35 / 0.35 / 0.39) reproduced within ±0.03. If a reproduction misses its range, the difference is reported and investigated,
+not adjusted away.
+
 ## 9. Progress (kept current; read this first)
 
-**State at last update (2026-10-14 19:40, evidence chain running):** S1 done (§8.35). Timing pilot P0 (CodeLlama-7B, 16K,
-5 medium datapoints, results unused): zero 0.45 s/line, path_distance 1.96, F16 1.8 -> no reduction of the 7B steps needed.
-The chain `run_evidence.sh` (detached in WSL, log `~/lca_evidence.log`, markers `S3a complete`, `S4 complete`, `S3b complete`,
-`H-all complete`) started 19:36: S3a (CodeLlama-7B/16K on medium dev, about 2.4 h), S4 (DeepSeek-Coder-1.3B/16K on medium held-out,
-about 2 h), S3b (CodeLlama-7B/16K on held-out targeted lines, about 3 h), H-all (7 composers on held-out, 1B/8K, about 4.5 h);
-total about 12 h. Predictions are fixed in §8.36. Each step is analysed when its marker appears; the chain can be stopped if a
-step reveals a problem. To check it: `grep "=====" ~/lca_evidence.log` in WSL. Git: HEAD `0fca3a0`+; uncommitted: §8.33-§8.36 and the
-proposal/README edits. Nothing pushed by me.
+**State at last update (2026-10-14 23:00, user asleep; paper-protocol queue armed, §8.39):** user instruction: use ALL data points,
+stop skipping, reproduce exactly how the paper tests. S4 (DeepSeek-Coder-1.3B/16K, medium held-out) is running (zero done, ends about
+01:00). `switch_chain.sh` then starts `run_evidence_v2.sh`: V3 (original preprocessing vs provider path at 16K), S3c (CodeLlama-7B/16K,
+medium held-out, ALL lines; with S3a = all 224 datapoints), T10 (the repository's unmodified eval_pipeline = paper Table 10; dry run
+confirmed the schedule [256, 1753, 12002]), Table 9 small (all 144), S4 completion on dev, Table 9 large (all 270), Table 9 huge (all
+296), then H-all. About 45 GPU hours in total; markers `V3 done`, `S3c complete`, `T10 complete`, `SMALL complete`,
+`DS-dev complete`, `LARGE complete`, `HUGE complete`, `H-all complete` in `~/lca_evidence.log`. Each step is analysed when its marker
+appears. Git: uncommitted: §8.33-§8.39 and the proposal/README edits. Nothing pushed by me.

@@ -52,8 +52,10 @@ paper's perplexity ranking of composers (Table 10, 12,000 context tokens) puts p
 path distance (1.636), only-declarations + path distance (1.710), imports-first (1.732), file-length (1.742), naive (1.761),
 against 1.849 for file-level.
 
-Our setting differs (StarCoderBase 1B/7B and an 8K window instead of CodeLlama-7B and 16K), so the numbers are not directly
-comparable, but the pattern is the same: static context helps a lot on `medium_context` (ours: 0.300 → 0.357, +19%; `inproject`
+We also ran the paper's own setting (CodeLlama-7B, 16K, medium; our 56 development datapoints against the paper's 224): file-level
+0.408 vs the paper's 0.39, `path_distance` 0.521 vs 0.49, `inproject` 0.31 → 0.50 vs 0.32 → 0.49, so our pipeline reproduces its
+baseline numbers within sampling error (log §8.37). In our main setting (StarCoderBase 1B/7B and an 8K window instead of
+CodeLlama-7B and 16K) the numbers are not directly comparable to the paper's, but the pattern is the same: static context helps a lot on `medium_context` (ours: 0.300 → 0.357, +19%; `inproject`
 +39%) and barely on `small_context` (ours: 0.230 → 0.234). The paper does not evaluate retrieval for this task; retrieval
 (BM25) appears only as a baseline for its library-based generation task.
 
