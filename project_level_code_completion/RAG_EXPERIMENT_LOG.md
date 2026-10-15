@@ -2004,8 +2004,7 @@ inproject 0.485, non_informative 0.397, random 0.593; ES all 78.3. Paired agains
 | v1 | 30 | 0.530 | (reference) |
 | path_distance (static, full 16K window) | | 0.492 | -3.8 |
 
-Reading: the curve is monotone and concave, with the steepest gain from 1 to 5 chunks; **one retrieved chunk (about 1-2K tokens) already matches path_distance, whose context is the full 16K window**, i.e. a
-tenth of the tokens for the same accuracy. Only k60 is pending for E3 (machine A, running).
+Reading: the curve is monotone and concave, with the steepest gain from 1 to 5 chunks; **one retrieved chunk already matches path_distance, whose context fills whatever the 16K window leaves after the prefix**. A chunk is capped at 512 tokens (§8.9 design), so the retrieved context is at most about 600 tokens including its path header, against up to about 15K tokens of static context; the prefix is identical in both. (Correction, 2026-10-15: the first version of this entry said "1-2K tokens", which was not measured and is wrong.) Only k60 is pending for E3 (machine A, running).
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
