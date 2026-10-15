@@ -1623,6 +1623,34 @@ path_distance on all 224 datapoints should land near the paper's CodeLlama-7B va
 **Cost, stated so the user can decide on ordering:** a full-context 7B arm over 224 datapoints takes about 3-5 hours (S3a's F16
 arm took 68 minutes for the 56 dev datapoints). Short-context arms (k=1, 3, 5) are faster. 13 arms: roughly 35-50 hours in
 total, which is why arm order matters: baselines, v1, then k and chunking arms, F last. Nothing is skipped for time.
+### 8.42 Check against the official sources: dataset card and lca-baselines README (2026-10-14 ~23:50; user supplied both links)
+
+Sources read: `huggingface.co/datasets/JetBrains-Research/lca-project-level-code-completion` and
+`github.com/JetBrains-Research/lca-baselines/tree/main/project_level_code_completion` (README).
+
+**Dataset.** Four configs by repository size (`small_context` < 48K characters of `.py`, medium 48K-192K, large 192K-768K, huge
+> 768K). Counts loaded locally: large **270 datapoints / 9,631 lines**, huge **296 / 9,810**; small 144 and medium 224
+(log §8.34-8.38) agree with the card. The card contradicts itself on huge (viewer 270, stats 296); the data has 296, which is
+what every run here uses. Six line categories, same as ours (committed [sic: `commited` in the data], inproject, infile,
+common, non_informative, random). The card states **no metric**; the protocol is in the code and the paper.
+
+**Official protocol (README).** Stage 1: run next-token prediction with every context composer and select the one with the
+lowest perplexity on the completion file. Stage 2: run one-line completion with zero context and with the chosen composer
+only. Commands: `python -m eval.eval_pipeline params=codellama7b` (default), `dataset=small params=starcoderbase7b`, and an
+8K example `params.inference_params.seq_max_len=8000`.
+
+**Window arithmetic traced to their code (answering "where did you get 15,900"):** `eval/config/params/codellama7b.yaml`
+`seq_max_len: 16000`; `eval/eval_pipeline.py:133` and `:231` pass `seq_max_len - 100` to the generator, so 15,900; our
+`GENERATION_RESERVE = 100` (`compare_arms.py:29`) copies that rule. `GeneratorConfig.context_max` is declared in
+`eval/line_generators.py:25` but never read there, so the perplexity sweep (256 / 1,753 / 12,007) does not change the window
+used for generation. Still untraced: how the generator truncates over-long inputs (V3 and the S3a baseline match are the
+evidence), and a line-by-line comparison of every composer parameter.
+
+**Correction to earlier wording.** §8.39 and the chat treated T10 (the repository's own `eval_pipeline`, perplexity per
+composer) as an extra for E4. It is the official **Stage 1**: it is how the repository chooses the composer that serves as the
+baseline. Our comparison arms (zero, path_distance, F) are fair if path_distance wins Stage 1, which the paper reports and our
+dev data (S1) supported; T10 is the evidence on all data. **Decision:** keep T10 in the chain (queued after E2/E3 and S4, as
+before), not top priority. H-all (other composers on held-out line completion) remains E4-adjacent and last.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
