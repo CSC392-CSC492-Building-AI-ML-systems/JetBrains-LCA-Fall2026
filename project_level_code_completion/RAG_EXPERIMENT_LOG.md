@@ -1969,6 +1969,26 @@ commited +0.1, others about 0. **Prediction (§8.40) "k5 in [-4, 0] vs v1": met 
 
 The dose response is shallow and monotone: 5 chunks cost one point against 30, and even 5 chunks stay **+2.8 points above path_distance (0.492)** on all lines. Pending: k3, k1, k60.
 Speed: k5 took 1.6 h (88 lines/min) against 3.9 h for k30.
+### 8.65 Four arms: E3 `e23_k3`, E2 `e23_file`, SMALL F16 `p9_small_cl7b_F16`, LARGE zero `p9_large_cl7b_zero` (finished 18:49-20:09 UTC)
+
+All CodeLlama-7B, 16K, exit 0, no errors. Paired bootstrap over datapoints (10,000 resamples), `*` = CI excludes 0.
+
+**E3, k3** (`max_chunks=3`; wall 5,196 s): EM all **0.510**; vs `e23_v1` (0.530) **-2.0 [-2.7, -1.3] \***; infile -2.2 \*, inproject -2.8 \*, non_informative -2.2 \*, random -1.2 \*,
+common -2.6 (n.s.), commited +1.9 (n.s.). **Prediction (§8.40) "k3 in [-6, -0.5]": met (-2.0).**
+
+**E2, whole files** (`chunking=fine fine_window=100000`: every file is one chunk; wall 18,127 s = 5.0 h): EM all **0.531** vs v1 **+0.2 [-1.0, +1.2]**: a tie. By category: non_informative +2.4 \*, commited +2.6, others
+within 0.6. **Prediction (§8.40) "file in [-8, -1] vs v1": NOT met.** I expected whole files to fill the 16K budget with few files and lose; they tie with function/class chunks, at 1.3x the run time. With a 16K window the
+retrieved files fit (the 30-chunk cap and the budget leave room for several whole files), so granularity does not matter at this window size; at an 8K window the result might differ (not tested).
+
+**SMALL, F16** (wall 7,267 s): EM all **0.371** vs path_distance 0.372: **-0.1 [-0.7, +0.7]**, and vs zero (0.361) +1.0. By category: infile -2.1 \* (F16 0.350 vs 0.371), all others n.s.
+(inproject has only 11 datapoints and 95 lines). **On small_context F does not beat the benchmark's best composer.** This matches the earlier held-out finding on StarCoder-1B (§8.26: no gain on small) and the
+mechanism in §8.16: when the repository (< 48K characters) fits the window, the static composer already contains everything, and retrieval adds nothing; the small `infile` loss suggests that selecting
+chunks can drop context that path_distance keeps. This is reported as a result, not a failure of the run.
+
+**LARGE, zero** (wall 4,704 s): CodeLlama-7B, 16K, large_context, **all 270 datapoints, all 9,631 lines**: EM all **0.350**; commited 0.391, common 0.341, infile 0.355, inproject 0.287, non_informative 0.304, random 0.437.
+**Paper (Table 9, large_context, file-level): 0.35; ours 0.3503: difference +0.000, within the +-0.03 tolerance (§8.39): met.** Next on C: LARGE path_distance, then F16.
+
+**E3 table so far (EM, all lines, vs v1):** k3 -2.0 \*, k5 -1.0 \*, k10 -0.6 \*, k30 (v1) 0; k1 and k60 pending. **E2 table (vs v1):** fine10 -0.6, fine20 +0.6, fine40 +0.9 \*, whole files +0.2; F pending (machine B).
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
