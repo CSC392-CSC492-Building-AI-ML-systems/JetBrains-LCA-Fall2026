@@ -1936,6 +1936,25 @@ CodeLlama-7B, 16K, small_context, `path_distance static_mode=provider`, **all 14
 inproject 0.269, non_informative 0.292, random 0.434; ES all 74.2. **Paper (Table 9, small_context): path distance 0.37; ours 0.372, difference +0.002: within the +-0.03 tolerance (§8.39): met.**
 Against no context (`p9_small_cl7b_zero`, 0.361, §8.60): **+1.1 points**, the small gain the paper also reports for this set (file-level 0.35 -> path distance 0.37) because small repositories largely fit
 the window without any composer. Both Table 9 baseline rows now reproduced for medium (0.387 / 0.492), small (0.361 / 0.372) and huge (0.381 / 0.451). Next on C: SMALL F16.
+### 8.63 HUGE complete: our final design F16 on the paper's largest set (local GPU; `p9_huge_cl7b_F16` finished 2026-10-15 13:26 local; wall 20,133 s = 5.6 h)
+
+CodeLlama-7B, 16K, huge_context, `rag=F rag.prefix_cap=15900`, **all 296 datapoints, all 9,810 lines**, exit 0. This data was never used to design or tune F (§8.21, §8.23: only small and
+medium development data), so every datapoint is a clean held-out test. Paired bootstrap over 296 datapoints (10,000 resamples), reference `p9_huge_cl7b_pd`, `*` = CI excludes 0:
+
+| EM, huge_context | zero | path_distance (ref) | **F16** | F16 - path_distance [95% CI] |
+|---|---:|---:|---:|---|
+| all (296) | 0.381 | 0.451 | **0.539** | **+0.088 [+0.068, +0.108] \*** |
+| commited (132) | 0.436 | 0.547 | 0.623 | +0.076 [+0.031, +0.124] \* |
+| common (170) | 0.332 | 0.397 | 0.542 | +0.145 [+0.096, +0.199] \* |
+| infile (232) | 0.400 | 0.444 | 0.526 | +0.083 [+0.056, +0.110] \* |
+| inproject (281) | 0.346 | 0.430 | 0.533 | +0.103 [+0.078, +0.128] \* |
+| non_informative (296) | 0.294 | 0.399 | 0.482 | +0.083 [+0.057, +0.111] \* |
+| random (296) | 0.492 | 0.535 | 0.618 | +0.083 [+0.060, +0.106] \* |
+
+**F16 beats the paper's best composer by +8.8 points [+6.8, +10.8] on the largest repositories, with the interval excluding 0 in all seven categories.** The gain is larger than on
+medium (+4.5, §8.57) and consistent with the explanation that retrieval helps most when the repository is far larger than the window (huge repositories exceed 768K characters of Python; the
+16K window sees a small fraction of them under any static composer). Paper Table 9 baselines on huge reproduced earlier (§8.56: zero 0.381 vs 0.39, path distance 0.451 vs 0.45).
+Local arms are exported to `rag_results/local/`.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
