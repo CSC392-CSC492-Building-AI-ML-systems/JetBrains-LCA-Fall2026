@@ -1930,6 +1930,12 @@ vs v1 0.530: **-0.6 points [-1.0, -0.1] \*** (paired over 224 datapoints). By ca
 non_informative -0.0. **Prediction "within +-1.5 of v1" (§8.40): met (-0.6).** Reading: cutting the context from 30 to 10 chunks costs about half a point overall and a point and a half on
 `inproject` lines, which need the most cross-file material; the arm runs about 1.8x faster because the prompts are shorter. Remaining E3 arms (k5, k3, k1, k60) are running on machine A.
 Speed and clock note: arm-level times in the log are taken from the run logs (UTC on the rented machines); earlier chat estimates of wall-clock times were assumptions and are not part of the record.
+### 8.62 SMALL, path_distance: `p9_small_cl7b_pd` (machine C, finished 16:48 UTC; wall 7,078 s = 2.0 h)
+
+CodeLlama-7B, 16K, small_context, `path_distance static_mode=provider`, **all 144 datapoints, all 4,686 lines**, exit 0. EM (mean over datapoints): **all 0.372**; commited 0.340, common 0.339, infile 0.371,
+inproject 0.269, non_informative 0.292, random 0.434; ES all 74.2. **Paper (Table 9, small_context): path distance 0.37; ours 0.372, difference +0.002: within the +-0.03 tolerance (§8.39): met.**
+Against no context (`p9_small_cl7b_zero`, 0.361, §8.60): **+1.1 points**, the small gain the paper also reports for this set (file-level 0.35 -> path distance 0.37) because small repositories largely fit
+the window without any composer. Both Table 9 baseline rows now reproduced for medium (0.387 / 0.492), small (0.361 / 0.372) and huge (0.381 / 0.451). Next on C: SMALL F16.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
