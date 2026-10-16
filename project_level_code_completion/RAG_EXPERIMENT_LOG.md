@@ -2055,6 +2055,15 @@ were over-confident priors from the 1B development runs and are discussed in §8
 
 **Machine A is finished:** its 10 arms (2 anchors, zero, path_distance, v1, k1, k3, k5, k10, k60) were synced to `~/lca_remote/A` and verified (every predictions-file size and summary hash identical to the machine); the small files
 are in `rag_results/rented/A/`. A can be destroyed without losing results. Machines A and B complete the E2/E3 deliverable; C continues with LARGE, DS-dev and T10.
+### 8.70 LARGE, path_distance: `p9_large_cl7b_pd` (machine C, finished 01:35 UTC; wall 19,600 s = 5.4 h); Table 9 baselines now reproduced for all four sets
+
+CodeLlama-7B, 16K, large_context, `path_distance static_mode=provider`, **all 270 datapoints, all 9,631 lines**, exit 0. EM (mean over datapoints): **all 0.473**; commited 0.551, common 0.459, infile 0.462, inproject 0.437,
+non_informative 0.425, random 0.541; ES all 79.7. **Paper (Table 9, large_context): path distance 0.47; ours 0.473, difference +0.003: within the +-0.03 tolerance (§8.39): met.** Against no context (`p9_large_cl7b_zero`, 0.350):
+**+12.3 points**.
+
+**Table 9 reproduction, all four sets (ours / paper), CodeLlama-7B, 16K, all datapoints and lines:** small 0.361 / 0.35 (no context) and 0.372 / 0.37 (path distance); medium 0.387 / 0.39 and 0.492 / 0.49; large 0.350 / 0.35 and
+0.473 / 0.47; huge 0.381 / 0.39 and 0.451 / 0.45. **All eight values are within 0.01 of the paper (tolerance was 0.03): 8 of 8 predictions met.** Next on C: LARGE F16 (running), then DS-dev and T10.
+Machines A and B were destroyed by the user after their results were synced and verified (§8.68, §8.69); only C is left.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
