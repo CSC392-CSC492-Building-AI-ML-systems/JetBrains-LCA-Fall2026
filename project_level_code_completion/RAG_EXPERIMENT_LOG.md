@@ -2031,6 +2031,16 @@ beat all of them by more than 5.6 points.** On small held-out all composers, v1 
 **Anomaly, stated:** `hall_file_length` produced predictions for only 1,652 of the 6,663 lines (exit 0, no traceback); its 0.353 therefore describes a different line subset and is excluded from the ranking
 until the cause is found (likely a composer path that returns an empty context for some datapoints in provider mode; not yet investigated). Conclusion for the proposal's limitation on baselines (§8.43): on
 held-out data and StarCoder-1B the benchmark's other composers do not threaten the choice of path_distance as the baseline; the same check on CodeLlama-7B/16K was not run.
+### 8.68 E2/E3 final arm on machine B: `e23_F` (finished 00:42 UTC; wall 17,380 s = 4.8 h); machine B complete and verified
+
+`rag=F` (v1 + 20 continuation lines after each retrieved chunk), CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0. EM all **0.537**; commited 0.436, common 0.513, infile 0.486,
+inproject 0.535, non_informative 0.465, random 0.629; ES all 80.4. Paired against `e23_v1` (0.530): **+0.7 points [+0.3, +1.3] \***; categories: non_informative +2.1 [+0.6, +3.7] \*, random +1.1 [+0.1, +2.1] \*,
+others within 0.8 (n.s.). **Prediction (§8.40) "F in [+0.5, +3] vs v1": met (+0.7).** The continuation lines add a small, significant gain over plain retrieval; on the design's own tuning data the dev estimate was +1.9 and on StarCoder
+held-out +0.8 (§8.26), so +0.7 here is consistent with the shrinkage seen before. F vs path_distance on all 224 datapoints: 0.537 vs 0.492 = **+4.5 points**.
+
+**E2 complete (vs v1, EM all lines, 224 datapoints):** fine10 -0.6 [-1.2, +0.1], fine20 +0.6 [-0.0, +1.1], fine40 +0.9 [+0.3, +1.5] \*, whole files +0.2 [-1.0, +1.2]; F (continuation) +0.7 [+0.3, +1.3] \*.
+**Machine B is finished:** its 7 arms (2 anchors + 5 E2/F arms) were synced to `~/lca_remote/B` and verified against the machine (every `generation_results.jsonl` size and `summary.json` hash identical); the small files are
+under `rag_results/rented/B/`. B can be destroyed without losing results.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
