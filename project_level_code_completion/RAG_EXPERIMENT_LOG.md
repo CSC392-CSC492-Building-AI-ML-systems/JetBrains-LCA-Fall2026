@@ -2041,6 +2041,20 @@ held-out +0.8 (§8.26), so +0.7 here is consistent with the shrinkage seen befor
 **E2 complete (vs v1, EM all lines, 224 datapoints):** fine10 -0.6 [-1.2, +0.1], fine20 +0.6 [-0.0, +1.1], fine40 +0.9 [+0.3, +1.5] \*, whole files +0.2 [-1.0, +1.2]; F (continuation) +0.7 [+0.3, +1.3] \*.
 **Machine B is finished:** its 7 arms (2 anchors + 5 E2/F arms) were synced to `~/lca_remote/B` and verified against the machine (every `generation_results.jsonl` size and `summary.json` hash identical); the small files are
 under `rag_results/rented/B/`. B can be destroyed without losing results.
+### 8.69 E3 complete: `e23_k60` (machine A, finished 01:35 UTC; wall 17,067 s = 4.7 h); machine A complete and verified; E2/E3 summary
+
+`max_chunks=60`, everything else as `e23_v1`; CodeLlama-7B, 16K, medium, all 224 datapoints, 8,676 lines, exit 0. EM all **0.5297** vs v1 0.5296: **+0.0 [-0.3, +0.4]** (a tie in every category). **Prediction (§8.40) "k60 within +-0.5 of v1":
+met.** More than 30 chunks adds nothing: the 16K token budget, not the chunk cap, is what limits the context.
+
+**E3 (top-k) complete, EM all lines, 224 datapoints, vs v1 = 30 chunks [95% CI]:** k1 0.489 (-4.1 [-5.2, -3.0] \*), k3 0.510 (-2.0 [-2.7, -1.3] \*), k5 0.520 (-1.0 [-1.6, -0.4] \*), k10 0.524 (-0.6 [-1.0, -0.1] \*),
+k30 0.530 (reference), k60 0.530 (+0.0 [-0.3, +0.4]); path_distance 0.492, zero 0.387. The curve rises steeply from 1 to 5 chunks, flattens by 10, and saturates by 30.
+**E2 (chunking) complete (§8.68):** chunk shape within +-1 point (fine10 -0.6, fine20 +0.6, fine40 +0.9 \*, whole files +0.2); F +0.7 \*.
+
+**Predictions scored over E2/E3 (§8.40/§8.41), 13 arms:** met: v1 - pd (+3.8), fine10/20/40, k10, k5, k3, k1, k60, F; not met: pd - zero (+10.5 against [+0.5, +4]) and whole files (+0.2 against [-8, -1]). Both misses
+were over-confident priors from the 1B development runs and are discussed in §8.55 and §8.65.
+
+**Machine A is finished:** its 10 arms (2 anchors, zero, path_distance, v1, k1, k3, k5, k10, k60) were synced to `~/lca_remote/A` and verified (every predictions-file size and summary hash identical to the machine); the small files
+are in `rag_results/rented/A/`. A can be destroyed without losing results. Machines A and B complete the E2/E3 deliverable; C continues with LARGE, DS-dev and T10.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
