@@ -2064,6 +2064,31 @@ non_informative 0.425, random 0.541; ES all 79.7. **Paper (Table 9, large_contex
 **Table 9 reproduction, all four sets (ours / paper), CodeLlama-7B, 16K, all datapoints and lines:** small 0.361 / 0.35 (no context) and 0.372 / 0.37 (path distance); medium 0.387 / 0.39 and 0.492 / 0.49; large 0.350 / 0.35 and
 0.473 / 0.47; huge 0.381 / 0.39 and 0.451 / 0.45. **All eight values are within 0.01 of the paper (tolerance was 0.03): 8 of 8 predictions met.** Next on C: LARGE F16 (running), then DS-dev and T10.
 Machines A and B were destroyed by the user after their results were synced and verified (§8.68, §8.69); only C is left.
+### 8.71 Machine C complete: LARGE F16, DS-dev, and the failed T10 (C finished 2026-10-16 07:50 UTC; all arms synced and verified)
+
+**LARGE, F16** (`p9_large_cl7b_F16`; CodeLlama-7B, 16K, large_context, **all 270 datapoints, all 9,631 lines**, exit 0; never used for design). Paired bootstrap over 270 datapoints, reference `p9_large_cl7b_pd`:
+
+| EM, large_context | zero | path_distance (ref) | **F16** | F16 - path_distance [95% CI] |
+|---|---:|---:|---:|---|
+| all (270) | 0.350 | 0.473 | **0.565** | **+0.092 [+0.070, +0.114] \*** |
+| inproject (243) | 0.287 | 0.437 | 0.549 | +0.112 [+0.082, +0.144] \* |
+| common (147) | 0.341 | 0.459 | 0.544 | +0.085 [+0.039, +0.133] \* |
+| random (270) | 0.437 | 0.541 | 0.632 | +0.091 [+0.066, +0.118] \* |
+| non_informative (270) | 0.304 | 0.425 | 0.505 | +0.081 [+0.053, +0.109] \* |
+| infile (222) | 0.355 | 0.462 | 0.523 | +0.061 [+0.033, +0.091] \* |
+| commited (121) | 0.391 | 0.551 | 0.592 | +0.041 [-0.003, +0.086] |
+
+**F16 beats the benchmark's best composer by +9.2 points on large_context, 6 of 7 categories significant, consistent with huge (+8.8).** F16 gain by set, CodeLlama-7B/16K, all data: small -0.1, medium +4.5 (held-out) / +4.5 (all 224: 0.537 F vs 0.492),
+large **+9.2**, huge **+8.8**: no gain when the repository fits the window, a gain growing with repository size.
+
+**DeepSeek-1.3B, medium dev (56 datapoints, 2,013 lines; `s4dev_ds1b_*`):** zero 0.368, path_distance 0.493, F16 **0.541**: F16 - path_distance **+4.7 [+0.8, +9.4] \***. With the held-out half (S4, +4.5, §8.58) S4 now covers all 224 medium
+datapoints: pooled F16 about 0.510 vs path_distance about 0.465 (datapoint-weighted, +4.5). Note F was tuned on dev data, so the held-out half (+4.5) is the unbiased one; the dev half agrees.
+
+**T10 (the repository's own perplexity pipeline, Stage 1) FAILED:** `eval.eval_pipeline dataset=medium params=codellama7b do_generation=False` exited 1 after 8 minutes with `torch.OutOfMemoryError: CUDA out of memory` (tried to allocate 312 MiB, 31.1 of 31.4 GiB in use on the
+32 GB RTX 5090) inside the Llama MLP at the 16K window. The pipeline's inference is not memory-light enough for a 32 GB card at 16K with the 7B model in this environment (the paper used larger GPUs). **No Table 10 numbers were produced; the pre-registered T10
+predictions (§8.39) are therefore untested, not missed.** Not retried. Options if wanted: a 48 GB+ GPU, or an altered inference batch size (which would deviate from the unmodified pipeline).
+
+All of C's 16 arms were synced to `~/lca_remote/C` and verified (every predictions-file size and summary hash identical); small files are in `rag_results/rented/C/`. C was idle from 07:50 UTC (about 8 h of billing, about $5) until it could be reviewed.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
