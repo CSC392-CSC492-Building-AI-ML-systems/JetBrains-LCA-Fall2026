@@ -1,7 +1,7 @@
 """Prepare Python bug-localization snapshots; no retrieval or label access.
 
 Run from the repository root:
-    python bug_localization/baseline_eval/prepare_repositories.py --limit 1
+    python bug_localization/rag/prepare_repositories.py --limit 1
 """
 
 import argparse
@@ -13,10 +13,10 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-if __package__:
-    from .run_all_tfidf import DATASET, ROOT, get_repository, read_content
-else:
-    from run_all_tfidf import DATASET, ROOT, get_repository, read_content
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from bug_localization.baseline_eval.run_all_tfidf import DATASET, get_repository, read_content
 
 
 FORMAT_VERSION = 1
@@ -29,7 +29,8 @@ CANDIDATE_POLICY = {
     "decoding": "utf-8-strict",
     "empty_files": "retain",
 }
-DEFAULT_CACHE = ROOT / "outputs" / "prepared_snapshots"
+RAG_ROOT = Path(__file__).resolve().parent
+DEFAULT_CACHE = RAG_ROOT / "outputs" / "prepared_snapshots"
 
 
 def validate_settings(window, stride):

@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from bug_localization.baseline_eval import prepare_repositories as preparation
+from bug_localization.rag import prepare_repositories as preparation
 from bug_localization.baseline_eval.run_all_tfidf import read_content
 
 
