@@ -268,3 +268,228 @@ Validation passed all **18** step-2 tests with the default Python interpreter.
 The **16** step-1 regression tests also passed using the existing sibling
 `lca-baselines/.venv` environment with GitPython installed (the default
 interpreter skips its two Git fixtures). No new dependencies were installed.
+
+## Bug-report retrieval and BM25 file ranking (step 3)
+
+[`retrieval.py`](retrieval.py) implements label-free query construction and
+retrieval. [`run_retrieval.py`](run_retrieval.py) loads benchmark examples,
+matches snapshots/indexes, and saves resumable predictions.
+[`evaluate_retrieval.py`](evaluate_retrieval.py) reads labels only after those
+predictions exist, reusing the original TF-IDF evaluator's scoring functions.
+All generated artifacts stay under `rag/outputs/` by default. No prompts,
+LLM calls, generation, title weighting, query rewriting, embeddings, overlap
+merging, or token-budget packing are performed.
+
+### Query and snapshot matching
+
+The verified dataset fields are `issue_title` and `issue_body`. The query is
+the nonblank title followed by a blank line (`\n\n`) and the nonblank body.
+Missing, null, or whitespace-only fields contribute nothing. The original
+contents are otherwise preserved, including stack traces, identifiers,
+Markdown/code blocks, indentation, CR/LF, and links. Both fields must be strings
+or null; invalid types produce explicit failures. The step-2 tokenizer processes
+this query with exactly the same rules as chunk text.
+
+Prediction input is explicitly limited to `repo_owner`, `repo_name`, `base_sha`,
+`issue_url`, `issue_title`, and `issue_body`. Arrow datasets are projected to
+these columns **before reading any example rows**. Dataset labels, `head_sha`,
+diffs, fix commit messages, and fixed code are not prediction inputs. An example
+is identified by its split, zero-based dataset index, and issue URL, within a
+run carrying the dataset fingerprint.
+
+A full SHA first looks up step 1's exact content-addressed snapshot and validates
+its provenance, candidate policy, chunking, and checksum. A validated snapshot
+already records the resolved full SHA, so this path needs no Git access. A cache
+miss or abbreviated SHA goes through the existing step-1 Git resolution and
+preparation API; repository handles are closed afterward. Repository identity,
+resolved SHA, chunk settings, and step-2 index metadata must agree before
+retrieval. Matching examples reuse the same prepared/index cache identities.
+The search always operates on one matching repository revision.
+
+### Evidence and complete file rankings
+
+`retrieve(index, query, max_chunks=30)` returns:
+
+- `retrieved_chunks`: up to the requested number of positive matches, each with
+  `rank`, original `chunk_id`, `score`, `path`, inclusive `start_line`/`end_line`,
+  and exact `text`. Order is descending score, then original chunk ID.
+- `ranking`: every candidate once, as `{rank, file, score}` records compatible
+  with the existing file-ranking evaluator. The score is the **maximum** chunk
+  score for that file, computed across **all indexed chunks**, before limiting
+  the evidence list. Files without matches or indexable chunks, including empty
+  candidates, receive zero. Order is descending score, then lexicographic path.
+- `candidate_count` and `distinct_retrieved_files`: the complete candidate
+  universe size and the distinct file count within the selected evidence.
+
+Multiple chunks from one file are allowed. Overlaps never accumulate extra
+credit because aggregation uses maximum rather than sum. The chunk limit cannot
+change the complete file ranking. Empty, fully filtered, and unmatched queries
+produce no evidence and a complete zero-score ranking in path order. A zero
+chunk limit also preserves full-ranking scores. Negative/non-integer limits
+are rejected.
+
+### Run and evaluate
+
+With `datasets` and `GitPython` available, run a small subset from the repository
+root:
+
+```shell
+python -m bug_localization.rag.run_retrieval --split test --start 0 --limit 3 --max-chunks 30 --window 40 --stride 20 --k1 1.2 --b 0.75 --evaluate
+```
+
+The Python test split has **50** examples. To explicitly run the full experiment:
+
+```shell
+python -m bug_localization.rag.run_retrieval --split test --all --max-chunks 30 --window 40 --stride 20 --k1 1.2 --b 0.75 --evaluate
+```
+
+`--split` also accepts `train` and `dev`. `--all` selects all examples from
+`--start`; otherwise `--limit` defaults to one. The preparation candidate policy
+is still Python-only. Default cache/output locations are:
+
+- `--prepared-cache-dir`: `bug_localization/rag/outputs/prepared_snapshots`
+- `--index-cache-dir`: `bug_localization/rag/outputs/bm25_indexes`
+- `--output-dir`: `bug_localization/rag/outputs/bm25_retrieval`
+
+`--output-dir` is the **parent** of content-addressed run folders. The CLI prints
+the actual run location; `latest_run.json` records its folder name. Resume is
+on by default (`--resume`); use `--no-resume` to recompute predictions. Failed
+examples are retried. Missing repositories follow step 1's existing clone/fetch
+behavior unless `--repository-cache-dir` points to existing clones; that option
+only reads their Git histories, with no checkout or fetch. `--dataset-cache-dir`
+controls dataset loading. `--dataset-file` instead reads an existing Arrow file
+offline; it must contain the selected split in the original example order.
+
+Evaluate an existing run separately, using PowerShell to resolve the latest
+output directory:
+
+```powershell
+$outputRoot = "bug_localization/rag/outputs/bm25_retrieval"
+$runName = (Get-Content "$outputRoot/latest_run.json" | ConvertFrom-Json).run_directory
+$runDir = "$outputRoot/$runName"
+python -m bug_localization.rag.evaluate_retrieval "$runDir/summary.json"
+```
+
+If retrieval used `--dataset-file` or `--dataset-cache-dir`, pass the same option
+to evaluation. Evaluation checks the dataset fingerprint and allowed example
+inputs against the saved predictions. The original standalone evaluator can
+also consume the separately saved labeled rankings for the Python test split:
+
+```powershell
+python bug_localization/baseline_eval/evaluate_tfidf.py "$runDir/evaluation/summary.json" --allow-partial
+```
+
+Omit `--allow-partial` for a complete 50-example run. Its console heading remains
+the original TF-IDF heading; the saved summary identifies the BM25 baseline.
+
+### Persistence, resume, and label separation
+
+The run folder is keyed by a canonical-JSON SHA-256 of the manifest, including
+the dataset fingerprint, split/selected indices, tokenizer/scoring versions,
+chunking and BM25 settings, retrieval/query/aggregation policies, and hashes of
+the implementation and reused scoring/reader source files.
+
+- `run_metadata.json`: complete run manifest.
+- `examples/000.json`, etc.: label-free predictions. Successful records contain
+  the example index/URL, repository and resolved buggy SHA, query text, requested
+  maximum chunks, snapshot metadata fingerprint/cache path, BM25 identity/cache
+  key/path, tokenizer/BM25 settings, evidence chunks, complete file ranking,
+  candidate count, distinct retrieved file count, timing, and identity signature.
+- `summary.json`: selected indices, dataset/selected totals, successful and
+  failed counts, processed/remaining counts, reused count, successful result
+  paths, and explicit failure records. Failed example files have `status=failed`
+  and an error, rather than a successful empty retrieval.
+
+Prediction files carry `payload_sha256` over all other fields. Unique temporary
+files are atomically replaced after serialization. Resume requires a successful
+record with a valid checksum, exact current input/config/snapshot/index identity,
+complete candidate coverage, valid score/order/count fields, and evidence that
+still matches prepared source. Corrupt, incomplete, stale, or failed outputs are
+recomputed. Query changes invalidate per-example identity even for callers
+without a dataset fingerprint. Relevant code/settings changes select a new run.
+
+Labels are saved **only under `evaluation/`**, after prediction:
+
+- `metrics.json`: file-ranking metrics, candidate-retrieval macro metrics,
+  denominators/coverage, prediction/evaluation failure counts and details.
+- `per_example_metrics.json`: original ranking metrics plus candidate recall,
+  outside-candidate gold paths, retrieved chunk count, and distinct file count.
+- `examples/000.json`, etc., and `summary.json`: labeled ranking records in the
+  original evaluator's expected format. Prediction artifacts stay unchanged.
+
+### Metrics and coverage
+
+The original `evaluate_tfidf.score_example` and `aggregate` functions provide
+MAP, MRR, single-file Recall@1, multiple-file Recall@2/Precision@2, F1 at the
+established cutoff, and Hit@1/5/10. Their definitions and saved ranking order
+are unchanged. **All raw gold paths** stay in those metric denominators;
+outside-candidate gold paths remain missed predictions.
+
+Candidate-file recall instead divides retrieved **eligible gold files** by
+gold files within the complete candidate universe. Repeated evidence chunks
+from a file count once. Gold matching follows the existing evaluator's exact
+path equality, with no additional slash/case normalization or test-file filter.
+Outside-candidate paths are listed separately per example and counted globally.
+Macro candidate recall, the fraction retrieving at least one eligible file,
+and the fraction retrieving all eligible files use evaluated examples with at
+least one eligible gold file. Zero-eligible examples receive null recall/hit
+values and are explicitly counted outside those applicable denominators.
+
+Both prediction and evaluation failures are reported alongside metrics, with
+coverage over the requested examples. Metrics are computed on valid successes;
+failures are never silently treated as successful empty retrievals or dropped
+from the reported counts. The CLI returns nonzero for either failure type.
+The evidence limit is a number of **chunks**, while recall and distinct-file
+counts operate on **files**.
+
+### Step-3 checks and local smoke results
+
+```shell
+python -m unittest discover -s bug_localization/rag/tests -v
+```
+
+The step-3 tests cover query preservation/null fields, label/fix access guards,
+Arrow projection before row loading, exact snapshot/revision/index matching,
+multiple chunks per file, maximum aggregation, ranking independence from limits,
+all-candidate coverage, empty/unknown/filtered queries, deterministic ties,
+candidate-recall arithmetic and macro denominators, zero-eligible cases, failure
+reporting/retry, output corruption, and resume invalidation for settings,
+tokenizer changes, query changes, and changed prepared evidence. The evaluator
+adapter is checked against the original standalone evaluator.
+
+The available cached Python test dataset contains 50 examples. A local smoke
+run over indices **0-2**, using existing Git histories and no network, completed
+**3/3** predictions with **0** prediction or evaluation failures:
+
+| Index | Repository | Retrieved chunks (limit 30) | Distinct files | Candidate files |
+| --- | --- | ---: | ---: | ---: |
+| 0 | `thealgorithms/python` | 30 | 23 | 195 |
+| 1 | `keras-team/keras` | 30 | 9 | 553 |
+| 2 | `serverless/serverless` | 12 | 9 | 10 |
+
+Candidate recall macro was **0.666667**, at-least-one and all-eligible fractions
+were both **0.666667**, and mean distinct retrieved files was **13.666667**.
+BM25 full-ranking MAP/MRR were **0.376263**, Recall@1/F1 were **0.333333**, and
+Hit@1/5/10 were each **0.333333**. All three cases had one raw gold file and no
+gold paths outside the candidate universe; multiple-file metrics were therefore
+not applicable. These are smoke-subset results, not full-benchmark estimates.
+
+The exact local offline command (PowerShell) uses the existing sibling virtual
+environment and repository cache:
+
+```powershell
+$python = "C:/Users/Admin/Desktop/Projects/lca-baselines/.venv/Scripts/python.exe"
+$arrow = "C:/Users/Admin/.cache/huggingface/datasets/JetBrains-Research___lca-bug-localization/py/0.0.0/f2bb26a1c3320ccc1d7b02d2630077ff327a80f6/lca-bug-localization-test.arrow"
+$repos = "C:/Users/Admin/Desktop/Projects/lca-baselines/bug_localization/repos"
+& $python -m bug_localization.rag.run_retrieval --dataset-file $arrow --repository-cache-dir $repos --limit 3 --max-chunks 30 --evaluate
+```
+
+All **59** RAG tests passed using the existing environment with GitPython
+(**25** step-3 checks plus **34** step-1/2 checks). All **72** retrieved smoke
+chunks were checked against the original prepared text, paths, IDs, and line
+ranges, and each full ranking covered its complete candidate universe. A second
+smoke invocation resumed all three predictions with identical results/metrics.
+
+The full 50-example experiment was not run. This version retains step 1's
+Python-only candidates and step 2's ASCII lexical tokenizer. Evidence is not
+packed to any LLM budget; that remains a later step.
