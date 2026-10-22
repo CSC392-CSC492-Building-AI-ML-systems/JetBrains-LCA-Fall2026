@@ -111,6 +111,33 @@ Two reference implementations are available in
 Use `CIFixBenchmark.get_dataset()` to download or inspect the dataset without
 running an evaluation.
 
+### Replicate the reference baselines
+
+[`replicate_baselines.py`](replicate_baselines.py) runs two reference methods:
+`none` submits the unmodified failing revision, while `diff` applies the
+dataset's ground-truth patch. The latter is an oracle sanity check, not a
+predictive repair baseline. Each run needs its own output directory. From this
+directory, after configuring `config.yaml` and `TOKEN_GH`:
+
+```bash
+poetry run python replicate_baselines.py submit --baseline none --config config.yaml --output-dir out/none --num-dp 1
+poetry run python replicate_baselines.py collect --baseline none --config config.yaml --output-dir out/none --jobs-file out/none/jobs_ids_none.jsonl
+poetry run python evaluate_replication.py out/none
+```
+
+Replace `none` with `diff` and use `out/diff` for the oracle run. Omit
+`--num-dp` for the full dataset, or use `--ids 1 2` to select dataset IDs.
+`--dataset-folder` accepts a local dataset directory for `submit`.
+
+`submit` clones repositories, pushes branches to the benchmark GitHub
+organization, and starts Actions runs. `collect` checks each outstanding job
+once; rerun it later to pick up completed Actions jobs. It preserves results
+already collected and writes awaiting and invalid job lists.
+`evaluate_replication.py` reads saved files only and writes
+`replication_summary.json`. It reports completed job pass rate separately from
+coverage and lists unresolved IDs; a partial run is not presented as a full
+dataset score. Keep each run's `jobs_ids_*.jsonl` file to collect results later.
+
 ## 📈 Outputs
 
 The configured output directory contains:
