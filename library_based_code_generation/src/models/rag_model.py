@@ -1,0 +1,46 @@
+from ..context.rag_retriever import DEFAULT_EMBEDDING_MODEL, OpenAIEmbedder, RAGRetriever
+from .openai_model import OpenAIModel
+
+
+class RAGModel(OpenAIModel):
+    """Same generation call and prompt as the official baseline; only retrieval differs."""
+
+    def __init__(self, model_name: str, k: int = 20, mode: str = "dense",
+                 embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+                 bm25_tokenizer: str = "official", rrf_k: int = 60, embedder=None):
+        super().__init__(model_name, use_bm25=True)  # reuses the existing project_apis plumbing
+        self.k, self.mode, self.rrf_k = k, mode, rrf_k
+        self.embedding_model, self.bm25_tokenizer = embedding_model, bm25_tokenizer
+        self.embedder = embedder or OpenAIEmbedder(embedding_model)
+        self._retrievers = {}  # one index per library, not per task
+
+    def get_bm25_prompt(self, instruction: str, project_apis: list[str], n_selections: int = 20):
+        key = tuple(project_apis)
+        if key not in self._retrievers:
+            self._retrievers[key] = RAGRetriever(
+                list(project_apis), self.embedder, self.mode,
+                rrf_k=self.rrf_k, bm25_tokenizer=self.bm25_tokenizer)
+        apis = self._retrievers[key].top_k(instruction, self.k)
+        text = (instruction + "\n\nYou can find the following APIs from the library helpful:\n"
+                + ", ".join(apis))
+        return self.get_prompt(text)
+
+    def name(self):
+        tag = f"rag_{self.mode}"
+        if self.mode == "hybrid" and self.bm25_tokenizer != "official":
+            tag += f"-{self.bm25_tokenizer}"
+        if self.embedding_model != DEFAULT_EMBEDDING_MODEL:
+            tag += f"-{self.embedding_model}"
+        return f"{tag}_k{self.k}/{self.model_name}"
+
+    def config(self) -> dict:
+        """Recorded in metadata.json so every result says how it was produced."""
+        hybrid = self.mode == "hybrid"
+        return {
+            "generator": self.model_name,
+            "retrieval_mode": self.mode,
+            "k": self.k,
+            "embedding_model": self.embedding_model,
+            "bm25_tokenizer": self.bm25_tokenizer if hybrid else None,
+            "rrf_k": self.rrf_k if hybrid else None,
+        }
