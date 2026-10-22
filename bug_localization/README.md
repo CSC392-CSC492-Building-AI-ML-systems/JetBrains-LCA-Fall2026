@@ -57,6 +57,6 @@ You can access the data using the [datasets](https://huggingface.co/docs/dataset
 ## RAG approach
 
 Repository preparation, tokenization, BM25 indexing, bug-report retrieval,
-file ranking, evaluation, tests, and generated caches
+file ranking, LLM evidence packing and reranking, evaluation, tests, and generated caches
 are grouped under [`rag/`](rag/README.md). See its README for build, diagnostic
 query, and verification commands.

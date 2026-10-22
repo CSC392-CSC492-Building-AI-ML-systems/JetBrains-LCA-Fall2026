@@ -491,5 +491,216 @@ ranges, and each full ranking covered its complete candidate universe. A second
 smoke invocation resumed all three predictions with identical results/metrics.
 
 The full 50-example experiment was not run. This version retains step 1's
-Python-only candidates and step 2's ASCII lexical tokenizer. Evidence is not
-packed to any LLM budget; that remains a later step.
+Python-only candidates and step 2's ASCII lexical tokenizer. Step 3 leaves
+evidence unpacked; step 4 below adds the LLM budget and ranking stage.
+
+## LLM integration and RAG file ranking (step 4)
+
+[`run_ranking.py`](run_ranking.py) consumes **saved step-3 predictions**. It does
+not load a dataset, clone repositories, retrieve more code, rewrite queries, or
+run agents. Each example gets at most one logical ranking request, with bounded
+transport retries. TF-IDF, BM25 retrieval, and their output files are unchanged.
+Only files represented in the packed chunks can be reordered by the LLM; every
+other step-1 candidate remains in its original BM25 order in the tail.
+
+### Commands from the repository root
+
+Dry runs need only the standard library. Real requests need the existing
+`openai==1.60.1` dependency; `tiktoken~=0.8.0` enables model-specific tokenization.
+Evaluation also needs the existing `datasets` dependency. Select your existing
+Python environment with these dependencies. Credentials come exclusively from
+`OPENAI_API_KEY` in that process's environment; do not put a key in the JSON
+configuration or command line. No API call was made during implementation.
+
+These PowerShell commands use the already saved local step-3 example 0:
+
+```powershell
+$retrieval = "bug_localization/rag/outputs/bm25_retrieval/23e8068409387329b18c997a2becc322c5c248241ea1796cc687699f826efb8e/summary.json"
+$config = "bug_localization/rag/ranking_config.json"
+
+# 1. Build and save prompts, without a client, credentials, or model calls.
+python -m bug_localization.rag.run_ranking $retrieval --config $config --dry-run --limit 1 --tokenizer bytes --output-dir bug_localization/rag/outputs/llm_prompts
+
+# 2. Explicitly request one model example (requires OPENAI_API_KEY).
+python -m bug_localization.rag.run_ranking $retrieval --config $config --start 0 --limit 1 --output-dir bug_localization/rag/outputs/llm_ranking
+```
+
+For another run, replace `$retrieval` with its `summary.json`. A run directory or
+parent containing `latest_run.json` is also accepted. `--start` is the minimum
+original dataset index; `--limit` limits the number of selected step-3 examples
+(default **1**). Failed/unavailable step-3 examples count toward that limit and
+are recorded as pipeline failures because no valid BM25 fallback exists.
+
+For the **50-example Python test split**, first ensure all 50 step-3 predictions
+and the existing TF-IDF baseline are available. These commands explicitly request
+the full retrieval and model experiment; they are instructions, not an automatic
+run. If step 3 is already complete, use that run instead of regenerating it.
+
+```powershell
+# Preparation only if you do not already have a complete step-3 run:
+python -m bug_localization.rag.run_retrieval --split test --limit 50 --max-chunks 30 --output-dir bug_localization/rag/outputs/bm25_python50
+
+# 3. Rank and evaluate all 50 against the existing TF-IDF and BM25 predictions.
+python -m bug_localization.rag.run_ranking bug_localization/rag/outputs/bm25_python50 --config bug_localization/rag/ranking_config.json --limit 50 --resume --output-dir bug_localization/rag/outputs/llm_python50 --evaluate --tfidf-summary bug_localization/outputs/tfidf_python50
+
+# Evaluate an already saved model run without making requests:
+python -m bug_localization.rag.evaluate_ranking bug_localization/rag/outputs/llm_python50 --tfidf-summary bug_localization/outputs/tfidf_python50
+```
+
+`--tfidf-summary` accepts the original TF-IDF summary, its run directory, or its
+latest-run parent. If it lives elsewhere, supply its actual path. The unchanged
+baseline runner is `python bug_localization/baseline_eval/run_all_tfidf.py`.
+Without `--tfidf-summary`, the report explicitly includes BM25/RAG only. A
+supplied TF-IDF run must match every evaluated example's index, issue URL,
+resolved snapshot SHA, candidate universe, and labels, as well as the dataset
+fingerprint and split; mismatches fail comparison rather than silently changing
+the cohort. Check `coverage`, `total_examples`, `pipeline_failures`, and
+`remaining_examples` before interpreting any run as a full 50-example result.
+
+`--dataset-file path/to/test.arrow` and `--dataset-cache-dir` are evaluation-only
+options. The dataset is opened only after all predictions have been saved.
+`--dry-run --evaluate` is rejected because prompts are not model predictions.
+
+### Model configuration and reuse decisions
+
+[`ranking_config.json`](ranking_config.json) follows the existing backbone's
+`model_name`, temperature **0**, and seed **76097149** conventions. Its 16,384
+token context is an experiment budget, not a claim about a provider's maximum.
+CLI options override JSON fields: `--backend openai`, `--model`,
+`--context-window`, `--max-output-tokens`, `--temperature`, `--top-p`, `--seed`,
+`--timeout-seconds`, `--max-retries`, `--response-format`, `--tokenizer`, and
+`--safety-margin`. Generation fields can be `null` in JSON to omit unsupported
+parameters. Deterministic settings do **not** guarantee identical responses.
+
+[`model.py`](model.py) exposes `ModelClient.generate(messages) -> ModelResponse`,
+including raw content, available usage, latency, request/completion IDs, returned
+model, fingerprint, refusal, and finish reason. It uses the same OpenAI Python
+SDK/environment convention as the existing bug-localization backbone and
+[`library_based_code_generation` client](../../library_based_code_generation/src/models/openai_model.py).
+Those wrappers are coupled to their own context builders and do not expose all
+the required metadata. The bug-localization wrapper's nested decorators also
+mix transport and semantic retries, so they are not reused. SDK retries are
+disabled; this adapter retries only connections, 408/409/429, and 5xx errors,
+up to `max_retries` additional attempts, with delays of 1, 2, 4, ... seconds
+capped at 8. Every attempt and available request ID is recorded. Other request
+errors return a BM25 fallback immediately. Exception bodies, headers, and
+credentials are never persisted.
+
+The default uses a strict JSON schema through Chat Completions, as documented
+in the [official OpenAI structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs).
+`--response-format json_object` or `text` selects a mode for models without
+schema support; there is no automatic parameter switch or LLM repair loop.
+Refusals, truncated completions, malformed JSON, and unusable lists fall back to
+the original BM25 ranking. Unsupported model settings fail explicitly.
+
+### Prompt and token policy
+
+[`prompts/file_ranking_v1.txt`](prompts/file_ranking_v1.txt) is the dedicated
+versioned template. The system message specifies the task and treats all issue
+and source contents as untrusted evidence. The user message is a JSON record
+with the issue title/body, explicit allowed paths, and complete chunks carrying
+their original IDs, paths, inclusive line ranges, and exact source text. No
+labels, fix diffs, fixed code, or evaluation feedback enter prediction.
+
+[`ranking_prompt.py`](ranking_prompt.py) uses `tiktoken.encoding_for_model` for
+the selected model when available, without the older tokenizer wrapper's
+hardcoded GPT-4 encoding and heavyweight transformer import. When unavailable,
+it counts **one token per UTF-8 byte**, a conservative upper bound for byte-BPE
+text; `--tokenizer bytes` explicitly selects this offline mode. Both count the
+response-format JSON and add **16 tokens per message + 32 per request** for
+framing. Text token counts are exact only for the selected encoding, while
+server framing/schema overhead remains an estimate. Additionally reserve
+`max(safety_margin, ceil(context_window * 0.05))` tokens, plus the full configured
+output budget, before packing. Counts, tokenizer version/encoding or fallback
+reason, reservations, and effective input budget are saved.
+
+If the issue with empty evidence exceeds that input budget, deterministically
+remove suffixes from the **body first, then title**, in blocks of one eighth of
+the remaining characters rounded up (at least one). Recount after each removal;
+retain exact character prefixes and record original/kept character counts. This
+policy can sacrifice evidence coverage for very long issues; it does not tune
+truncation using labels. If even fixed prompt overhead cannot fit, skip the call.
+
+Consider chunks by descending BM25 score, then original ID. Trial packing
+rebuilds and counts the whole prompt **including its new candidate list**.
+Include a complete chunk if it fits; otherwise skip it and continue. Candidate
+paths are exactly the distinct included-chunk paths in original BM25 file order.
+Recount the final prompt before submission. Empty retrieval/no fitting evidence
+produces `fallback_no_evidence` without a model call. Every included/excluded ID
+and reason is saved. Oversized overhead is marked `fits_budget=false` and is
+never submitted. No source chunk is truncated or expanded.
+
+### Validation, complete rankings, and resume
+
+[`file_ranking.py`](file_ranking.py) accepts only a JSON object with exactly
+`ranked_files: list`. Duplicate JSON keys, non-JSON numeric constants, Markdown
+fences, and extra fields are rejected. Paths follow step 1's validator: only
+backslashes become `/`; preserve case and whitespace, reject absolute paths and
+dot segments, and require exact membership in allowed paths. No fuzzy matching.
+For a usable partial list, keep valid paths in returned order, remove invalid
+entries/duplicates, and append omitted allowed paths in BM25 order. Record all
+problems and repairs. Empty/all-invalid lists fall back to the original BM25
+ranking. There is no response-validation retry.
+
+Validated candidates lead the complete ranking, followed by all other step-1
+candidates in BM25 order, including zero-score/empty files exactly once. RAG
+`score` fields are descending **ordinal scores**, solely to satisfy the existing
+evaluator's ordering contract; they are not relevance probabilities or BM25
+scores. `bm25_ranking` separately preserves the full original scores and order.
+
+Outputs live under `rag/outputs/llm_ranking/<run-sha256>/` by default:
+
+- `run_metadata.json`: model/backend and exact request parameters, prompt hash
+  and version, tokenizer identity, implementation/package hashes, dataset
+  provenance, selected indices, and retrieval input hashes.
+- `examples/NNN.json`: checksum, retrieval identity and self-contained label-free
+  retrieval input, full snapshot metadata, model settings, exact packed and
+  submitted messages, token counts/truncation/chunk decisions, raw response and
+  metadata, parsed/validated order, repairs, BM25 ranking, and final ranking.
+- `summary.json`: processed/remaining counts, artifact paths, status counts,
+  failures, reuse counts, and selected-example coverage. Its `successful` count
+  means completed pipeline artifacts, including fallbacks; model successes are
+  separate statuses.
+- `evaluation/metrics.json` and `per_example_metrics.json`: labels and metrics
+  remain separate from model inputs; evaluator-compatible complete rankings are
+  also saved under `evaluation/bm25/` and `evaluation/rag/`.
+
+Atomic writes and payload checksums guard partial artifacts. A `running` record
+with the prepared prompt is saved before requesting the model; interruption can
+leave request state unknown and resuming it may repeat a billable request.
+Content-addressed run identity covers retrieval contents, prompt/configuration,
+model settings, tokenizer, and relevant implementation/package hashes. Resume
+only reuses matching `success`, `repaired`, `fallback_no_evidence`, or `dry_run`
+artifacts. Request/validation failures and incomplete/corrupt records are retried
+on a subsequent run. Dry and live runs have different identities.
+`--no-resume` explicitly regenerates results. CLI request/validation or pipeline
+failures return nonzero, while still saving every available BM25 fallback.
+
+### Evaluation and focused verification
+
+[`evaluate_ranking.py`](evaluate_ranking.py) calls the unchanged
+`evaluate_tfidf.score_example` and `aggregate` functions: full-ranking MAP, MRR,
+Hit@1/5/10, the existing single/multiple-file recall and precision, and macro
+F1 at the existing cutoffs. Outside-candidate gold remains in the ranking-metric
+denominators. Recall before/after packing uses distinct eligible gold candidate
+files; zero eligible gold yields null and is excluded from recall macro means.
+It also reports model successes, repaired responses, request failures, unusable
+responses, all BM25 fallbacks, available token totals/reporting counts, retries,
+and request latency (including retries/backoff). The primary pipeline metrics
+include recorded fallbacks. No successful-model-only subset is reported.
+Unrecoverable pipeline failures have no prediction and are reported in coverage.
+
+```shell
+python -m unittest bug_localization.rag.tests.test_file_ranking -v
+python -m unittest discover -s bug_localization/rag/tests -v
+```
+
+Step-4 tests use synthetic evidence and mock clients; they cover prompt budget,
+candidate-list overhead, skipping large chunks, deterministic issue truncation,
+empty evidence, JSON/path repairs, full-universe order, bounded transport retries,
+raw metadata and credential isolation, request/parse fallbacks, CLI dry runs,
+resume invalidation, label isolation, unchanged three-way metrics, and recall
+loss after packing. Validation used one existing cached retrieval example for
+dry-run packing only. The default interpreter lacks GitPython, so the two
+existing Git snapshot fixtures skip. Real provider calls and the full model
+experiment have not been run; prompts were not tuned against test labels.
