@@ -494,6 +494,184 @@ The full 50-example experiment was not run. This version retains step 1's
 Python-only candidates and step 2's ASCII lexical tokenizer. Step 3 leaves
 evidence unpacked; step 4 below adds the LLM budget and ranking stage.
 
+## Complete Python test benchmark (step 5)
+
+Run from the repository root with `python -m bug_localization.rag.run_benchmark`.
+The runner requires the **50-row Python test split**, even when selecting a
+smoke subset. It retains original dataset indices and derives filesystem-safe
+example IDs from label-free issue/repository inputs. Dataset fingerprint,
+selected inputs, source hashes, candidate policy, unchanged retrieval settings,
+tokenizers, model settings, prompt identity, and evaluation policy determine
+the run signature. Full mode requires indices 0 through 49.
+
+Step 5 uses [`benchmark_config.json`](benchmark_config.json), defaulting to
+**gpt-4**, with an 8,192-token context window, text output containing the prompted
+JSON ranking, and no seed parameter. These defaults match step 4's
+`ranking_config.json`. Model settings remain
+configurable through JSON or CLI overrides. A model-only override does not
+automatically change context limits or response-format support.
+
+For each example, the runner invokes step 3's existing `run_examples` with
+the **original index**, reusing snapshot and BM25 index caches. It passes the
+validated label-free retrieval artifact to step 4's `pack_prompt` and `predict`.
+No retrieval setting, prompt, scoring rule, or baseline implementation changes.
+Model requests are sequential, at most one logical request per example plus
+bounded transport retries. Results are saved immediately and atomically.
+Prediction reads only the established input-column allowlist; evaluation
+reads labels afterwards and retains unreachable labels as misses.
+
+Outputs live in `bug_localization/outputs/rag_python50/<sha256>/`:
+
+- `run_metadata.json`: deterministic configuration, dataset and code identity.
+- `examples/<index>_<id>.json`: step-4 result schema, exact packed messages,
+  submitted messages, raw response, validation/repairs, full BM25 and final
+  rankings, model usage/timing, retrieval provenance, and retry history.
+- `retrieval/<signature>/`: step-3 artifacts and metadata, referenced by absolute
+  summary path. Prepared snapshots and indexes remain in their shared caches.
+- `summary.json`: updated after every example; processed, remaining, failed,
+  successful model rankings, completed fallbacks, dry prompts and reuse counts.
+- `metrics.json`, `comparison.csv`, and `evaluation/`: generated after real
+  predictions or by evaluate-only mode. Dry runs produce no evaluation files.
+- `attempts/`: previous completed fallbacks archived when explicitly retried.
+
+`successful` retains step 4's completed-artifact convention; use
+`successful_model_rankings`, `completed_bm25_fallbacks`, and `dry_run_prompts`
+to distinguish outcomes. Dry runs, including empty-evidence examples, always
+have status `dry_run` and cannot be evaluated as RAG predictions.
+
+Resume is on by default. Matching, checksum-validated successes **and all
+completed fallbacks** are reused, preserving paid responses. Failed, corrupt,
+or incomplete records are retried. `--retry-fallbacks` explicitly retries
+fallbacks and archives their previous responses; `--no-resume` reruns everything.
+An abrupt interruption after the provider accepts a request but before its
+response is persisted can require another request; exactly-once billing is
+not guaranteed. A failed preparation/retrieval is an execution failure, never
+an empty successful prediction. Failures do not stop later examples.
+
+Evaluation reuses the unchanged TF-IDF scorer and aggregates for MAP, MRR,
+Hit@1/5/10, single-file Recall@1, multiple-file Recall@2/Precision@2 and macro
+F1 (k=1 for single-file, k=2 otherwise; not verified equivalent to paper F1).
+Metrics include **all completed BM25 fallbacks**. Each report records selected,
+evaluated and missing indices; only 50 valid predictions are labelled complete.
+Metric groups state their denominators. Retrieval coverage before/after packing
+is reported against both eligible candidate gold files and all raw gold files.
+Counts, available usage, transport retries and latency are recorded. Failed
+attempts may have unreported token usage. Explicit retries' older attempts are
+archived; aggregate metrics describe the current saved prediction per issue.
+
+TF-IDF comparison defaults to `bug_localization/outputs/tfidf_python50`, or
+accepts an explicit `--tfidf-summary` (summary, run folder or latest-run parent).
+The evaluator verifies dataset identity/fingerprint, split, raw-label policy,
+issue identity, buggy commit, candidate universe and gold labels. Unavailable
+or incompatible baselines are reported with an empty TF-IDF metric row.
+Compatible partial baselines use **only common examples for all three CSV
+rows**, with exact indices and denominators. Main BM25/RAG metrics still cover
+all completed RAG predictions. No remembered scores are inserted.
+
+### Commands (paid commands are provided for manual execution only)
+
+Use this checkout's root `.venv` (Python 3.11). The RAG dependency subset is
+[`../requirements-rag.txt`](../requirements-rag.txt); it reuses the pins in
+`requirements.txt`, including `openai==1.60.1`, without installing unrelated
+baseline backends. It also bounds PyArrow below 21 for `datasets==2.15.0`'s
+`PyExtensionType` compatibility. Conda base's Python 3.13 cannot install the
+project's pinned NumPy 1.26.4. The sibling `lca-baselines/.venv` is a separate
+checkout's environment and is not required for this setup.
+
+From **`bug_localization`**, install or repair this environment with:
+
+```powershell
+& ..\.venv\Scripts\python.exe -m pip install -r .\requirements-rag.txt
+& ..\.venv\Scripts\python.exe -m pip check
+```
+
+Enter the key through a masked prompt, then launch from the same terminal.
+The `-m bug_localization...` module command requires the repository root on
+Python's import path, so this block temporarily moves there and returns to
+`bug_localization` afterwards. Activation is not needed, even with Conda base
+active. The following block launches paid inference only when you execute it:
+
+```powershell
+$keyInput = Read-Host 'OPENAI_API_KEY' -AsSecureString
+$env:OPENAI_API_KEY = [System.Net.NetworkCredential]::new('', $keyInput).Password
+Remove-Variable keyInput
+Write-Host ('OPENAI_API_KEY available: ' + [bool]$env:OPENAI_API_KEY)
+
+Push-Location ..
+try {
+    & .\.venv\Scripts\python.exe -m bug_localization.rag.run_benchmark --all --model gpt-4 --resume --prepared-cache-dir bug_localization/rag/outputs/step5_caches/prepared --index-cache-dir bug_localization/rag/outputs/step5_caches/indexes
+}
+finally {
+    Pop-Location
+}
+```
+
+The explicit cache paths use the writable cache directories verified locally;
+they do not change retrieval or ranking settings. Matching completed results
+are reused, final saved rankings are evaluated, and the absolute run directory
+is printed. Model access requires a live request and is not established by
+an import/CLI check. The environment key is read without loading a `.env` file.
+
+Use an environment with the existing `datasets`, `GitPython` and OpenAI
+dependencies. `tiktoken` is optional; `--tokenizer bytes` explicitly selects
+the existing conservative byte counter. Credentials come only from
+`OPENAI_API_KEY`; they are never written to artifacts.
+
+```powershell
+# Dry run: retrieve and save one prompt; no model calls.
+python -m bug_localization.rag.run_benchmark --dry-run --limit 1
+
+# Paid smoke run: two original examples, then evaluate saved rankings.
+python -m bug_localization.rag.run_benchmark --limit 2
+
+# Paid full run: all 50 examples, then evaluate.
+python -m bug_localization.rag.run_benchmark --all
+
+# Resume that full configuration, preserving completed fallbacks too.
+python -m bug_localization.rag.run_benchmark --all --resume
+
+# Optional: explicitly retry completed fallbacks in the same run.
+python -m bug_localization.rag.run_benchmark --all --resume --retry-fallbacks
+
+# Evaluate a saved non-dry run; no inference or repository access.
+python -m bug_localization.rag.run_benchmark --evaluate-only bug_localization/outputs/rag_python50/<run_id>
+```
+
+Preserve the same configuration, dataset loading mode and subset when resuming.
+Both startup and completion print the absolute run directory. `--dataset-file`
+loads an existing Arrow file for offline work; its available fingerprint can
+differ from `load_dataset` and will then explicitly prevent baseline comparison.
+`--repository-cache-dir` reads existing clones without fetching; prepared/index
+cache locations can be overridden without changing experiment settings.
+
+Verification: mocked integration tests cover label isolation, complete rankings,
+50-example evaluation, partial/common-example comparison, failures, fallback
+preservation/retry archives, model/prompt isolation, corruption recovery,
+evaluate-only and atomic write interruption. A real-data offline example-0 dry
+run retrieved 30 chunks from 23 files in a 195-file candidate universe. No live
+model calls or paid full benchmark were launched. The local default cache had
+write-permission problems, so verification used fresh `step5_caches` directories.
+The read-only clone required a process-scoped Git safe-directory setting.
+
+Exact local offline verification command (PowerShell, repository root):
+
+```powershell
+$py = 'C:/Users/Admin/Desktop/Projects/lca-baselines/.venv/Scripts/python.exe'
+$data = 'C:/Users/Admin/.cache/huggingface/datasets/JetBrains-Research___lca-bug-localization/py/0.0.0/f2bb26a1c3320ccc1d7b02d2630077ff327a80f6/lca-bug-localization-test.arrow'
+$repos = 'C:/Users/Admin/Desktop/Projects/lca-baselines/bug_localization/repos'
+# Scope this setting to the current PowerShell process; no global Git changes.
+$env:GIT_CONFIG_COUNT = '1'
+$env:GIT_CONFIG_KEY_0 = 'safe.directory'
+$env:GIT_CONFIG_VALUE_0 = "$repos/thealgorithms__python"
+& $py -m bug_localization.rag.run_benchmark --dry-run --limit 1 --tokenizer bytes --dataset-file $data --repository-cache-dir $repos --prepared-cache-dir bug_localization/rag/outputs/step5_caches/prepared --index-cache-dir bug_localization/rag/outputs/step5_caches/indexes
+```
+
+The inspected offline Arrow fingerprint was `f3b750dd56376f44`; the available
+sibling TF-IDF run (`lca-baselines/bug_localization/outputs/tfidf_python50/ca1cf6b4dcc4`)
+records `61031751de66717d`. These cannot be compared under the strict fingerprint
+policy. For comparison, use the same `load_dataset` loading mode/data revision
+as the baseline, and supply its actual `--tfidf-summary` location.
+
 ## LLM integration and RAG file ranking (step 4)
 
 [`run_ranking.py`](run_ranking.py) consumes **saved step-3 predictions**. It does
@@ -563,9 +741,9 @@ options. The dataset is opened only after all predictions have been saved.
 
 ### Model configuration and reuse decisions
 
-[`ranking_config.json`](ranking_config.json) follows the existing backbone's
-`model_name`, temperature **0**, and seed **76097149** conventions. Its 16,384
-token context is an experiment budget, not a claim about a provider's maximum.
+[`ranking_config.json`](ranking_config.json) defaults to **gpt-4**, temperature
+**0**, and an **8,192** token context window. Seed is omitted for this legacy
+model. GPT-4 requests use `max_tokens` for the output budget.
 CLI options override JSON fields: `--backend openai`, `--model`,
 `--context-window`, `--max-output-tokens`, `--temperature`, `--top-p`, `--seed`,
 `--timeout-seconds`, `--max-retries`, `--response-format`, `--tokenizer`, and
@@ -586,10 +764,12 @@ capped at 8. Every attempt and available request ID is recorded. Other request
 errors return a BM25 fallback immediately. Exception bodies, headers, and
 credentials are never persisted.
 
-The default uses a strict JSON schema through Chat Completions, as documented
-in the [official OpenAI structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs).
-`--response-format json_object` or `text` selects a mode for models without
-schema support; there is no automatic parameter switch or LLM repair loop.
+The default uses text output through Chat Completions, with the prompt requiring
+a JSON ranking object. [GPT-4](https://developers.openai.com/api/docs/models/gpt-4)
+has an 8,192 token context window and does not support structured outputs.
+Text mode omits the API `response_format` parameter. Other models can explicitly
+select `--response-format json_schema` or `json_object` when supported;
+there is no automatic format switch or LLM repair loop.
 Refusals, truncated completions, malformed JSON, and unusable lists fall back to
 the original BM25 ranking. Unsupported model settings fail explicitly.
 

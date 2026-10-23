@@ -66,12 +66,17 @@ def evaluate_run(summary_path, dataset, tfidf_summary=None):
         seen.add(index)
         prediction = result["retrieval_prediction"]
         expected = {"run_signature": summary["run_signature"], "example_index": index,
-                    "retrieval_sha256": manifest["retrieval_inputs"][str(index)]}
+                    "retrieval_sha256": digest(prediction) if manifest.get("benchmark_version") else
+                    manifest["retrieval_inputs"][str(index)]}
         if digest(prediction) != expected["retrieval_sha256"]:
             raise ValueError("Saved retrieval input differs from manifest")
-        source_manifest = manifest["retrieval_manifest"]
-        source_summary = {"run_signature": manifest["retrieval_run_signature"],
+        source_manifest = (result["retrieval_source_manifest"] if manifest.get("benchmark_version")
+                           else manifest["retrieval_manifest"])
+        source_summary = {"run_signature": digest(source_manifest),
                           "example_indices": source_manifest["example_indices"]}
+        if manifest.get("benchmark_version"):
+            from bug_localization.rag.run_benchmark import validate_saved
+            validate_saved(result, manifest, summary["run_signature"])
         validate_retrieval(prediction, source_summary, source_manifest)
         validate_result(result, expected, prediction)
         # Labels and full dataset rows are accessed only now, after saved predictions.

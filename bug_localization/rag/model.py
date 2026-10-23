@@ -17,15 +17,15 @@ RANKING_SCHEMA = {
 @dataclass(frozen=True)
 class ModelSettings:
     backend: str = "openai"
-    model_name: str = "gpt-4o-mini"
-    context_window: int = 16384
+    model_name: str = "gpt-4"
+    context_window: int = 8192
     max_output_tokens: int = 2048
     temperature: float | None = 0.0
     top_p: float | None = 1.0
-    seed: int | None = 76097149
+    seed: int | None = None
     timeout_seconds: float = 60.0
     max_retries: int = 2
-    response_format: str = "json_schema"
+    response_format: str = "text"
     tokenizer: str = "auto"
     safety_margin: int = 256
 
@@ -68,8 +68,11 @@ class ModelSettings:
         return {"type": self.response_format}
 
     def request_parameters(self):
-        parameters = {"model": self.model_name, "max_completion_tokens": self.max_output_tokens,
-                      "response_format": self.format_parameter(), "n": 1, "stream": False}
+        token_parameter = "max_tokens" if self.model_name in ("gpt-4", "gpt-4-0613", "gpt-4-0314") else "max_completion_tokens"
+        parameters = {"model": self.model_name, token_parameter: self.max_output_tokens,
+                      "n": 1, "stream": False}
+        if self.response_format != "text":
+            parameters["response_format"] = self.format_parameter()
         for name in ("temperature", "top_p", "seed"):
             if getattr(self, name) is not None:
                 parameters[name] = getattr(self, name)

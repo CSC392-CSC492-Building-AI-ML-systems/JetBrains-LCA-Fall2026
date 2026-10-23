@@ -294,6 +294,12 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(result.usage["prompt_tokens"], 5)
         self.assertEqual(sdk.OpenAI.call_args.kwargs["max_retries"], 0)
         self.assertEqual(client.chat.completions.create.call_args.kwargs["temperature"], 0)
+        parameters = client.chat.completions.create.call_args.kwargs
+        self.assertEqual(parameters["model"], "gpt-4")
+        self.assertEqual(parameters["max_tokens"], 2048)
+        self.assertNotIn("max_completion_tokens", parameters)
+        self.assertNotIn("response_format", parameters)
+        self.assertNotIn("seed", parameters)
         self.assertNotIn("SECRET", json.dumps(result.__dict__))
         client.close.assert_called_once()
 
