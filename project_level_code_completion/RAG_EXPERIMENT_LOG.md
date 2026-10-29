@@ -2116,6 +2116,9 @@ Machine: vast.ai instance 58294351, RTX 5090, $0.69/h, code from commit `7c2538c
 **e4_zero (CodeLlama-7B, medium, 224 datapoints, 8,676 lines, no repository context):** EM all 0.3870 (infile 0.3709, inproject 0.3201, non_informative 0.3106, random 0.5004, common 0.3113, commited 0.3781); ES all 73.93.
 Cost block: 2,951 input tokens per line (25.6 M total), 16.9 output tokens per line; generation p50 555 ms, p95 1,264 ms; wall 7,087 s (0.82 s per line); peak GPU memory 23.4 GB;
 truncated 0.37 % of lines; hit max_new_tokens 0.09 %; arm cost $1.36. Next in the queue: path_distance and F at N = 256.
+**e4_pd_N256 (path_distance, last 256 tokens of repository context, same 8,676 lines):** EM all 0.3952 (infile 0.3683, inproject 0.3280, non_informative 0.3181, random 0.5085, common 0.3144, commited 0.3752); ES all 74.49.
+Against e4_zero: +0.8 points EM overall (point estimate only; paired bootstrap not yet run). 3,207 input tokens per line (256 more than zero, plus completion-file differences), generation p50 571 ms, p95 1,279 ms,
+wall 7,086 s, peak GPU memory 23.4 GB, truncated 0.45 %, arm cost $1.36. Wall time per arm is almost identical at the two sizes because the run is dominated by generating about 17 tokens per line, not by prompt length.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
