@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 import random
+import time
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
@@ -152,22 +153,34 @@ class LineGeneratorHF(SpecificLineGenerator):
             self.generation_results[sc_name] = GenerationResults(list(), list())
             for line_num in list_of_lines:
                 retrieval_info = None
+                context_started = time.perf_counter()
                 if use_zero_context:
                     context, gt_line = self._get_zero_context(datapoint, line_num)
                 elif context_provider is not None:
                     context, gt_line, retrieval_info = context_provider(datapoint, line_num)
                 else:
                     context, gt_line = self._get_context(datapoint, line_num)
+                context_ms = (time.perf_counter() - context_started) * 1000
                 # When the context is too long, we want to crop the beginning for more efficient tokenization
-                if len(context) > self.max_seq_len * 6:
+                truncated = len(context) > self.max_seq_len * 6
+                if truncated:
                     context = context[-self.max_seq_len * 6:]
-                input_ids = self.tokenize(context)[..., -self.max_seq_len:]
+                all_ids = self.tokenize(context)
+                truncated = truncated or all_ids.size(-1) > self.max_seq_len
+                input_ids = all_ids[..., -self.max_seq_len:]
                 if input_ids.size(-1) < 1:
                     new_size = torch.Size(list(input_ids.size())[:-1] + [1])
                     input_ids = torch.full(new_size, self._tokenizer.bos_token_id)
                 input_ids = input_ids.to(self.device)
+                self._synchronize()
+                generation_started = time.perf_counter()
                 out = self.model.generate(input_ids, **gen_config)
+                self._synchronize()
+                gen_ms = (time.perf_counter() - generation_started) * 1000
                 out = out[..., input_ids.size(-1):]
+                metrics = {'input_tokens': int(input_ids.size(-1)), 'output_tokens': int(out.size(-1)),
+                           'context_ms': round(context_ms, 2), 'gen_ms': round(gen_ms, 2), 'truncated': truncated,
+                           'hit_max_new_tokens': int(out.size(-1)) >= gen_config['max_new_tokens']}
                 prediction = self.decode(out)
                 prediction = prediction.strip("\n")
                 prediction_line = prediction.split("\n")[0]
@@ -178,6 +191,7 @@ class LineGeneratorHF(SpecificLineGenerator):
                     result['repo'] = datapoint.repo_name
                 if retrieval_info is not None:
                     result['retrieval'] = retrieval_info
+                result['metrics'] = metrics  # cost and latency of this line (eval/run_metrics.py)
                 self.save_results(result)
                 self.generation_results[sc_name].append_result(prediction=prediction_line, gt=gt_line)
 
@@ -186,6 +200,11 @@ class LineGeneratorHF(SpecificLineGenerator):
 
     def _load_tokenizer(self):
         self._tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_path)
+
+    def _synchronize(self):
+        """Wait for queued GPU work so that wall-clock timings measure the finished computation."""
+        if str(self.device).startswith('cuda') and torch.cuda.is_available():
+            torch.cuda.synchronize()
 
     def tokenize(self, text):
         return self._tokenizer(text, return_tensors='pt', padding=False)['input_ids']

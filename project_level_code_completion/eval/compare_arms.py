@@ -15,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import hydra
+import torch
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 
@@ -23,6 +24,7 @@ from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generati
 from eval.proxy_metrics import targeted_lines
 from eval.preprocess import preprocess
 from eval.preprocessors import load_datapoints
+from eval.run_metrics import cost_block, crop_to_last_tokens
 from rag.provider import make_rag_provider_factory
 
 # Same reserve the main pipeline leaves for the generated line.
@@ -52,6 +54,12 @@ def validate(cfg: DictConfig) -> None:
         raise ValueError(f"split must be all, dev or heldout, got {cfg.split!r}")
     if cfg.split != 'all' and cfg.limit_datapoints is not None:
         raise ValueError("limit_datapoints cannot be combined with split=dev/heldout (use dev_size)")
+    cap = cfg.get('context_cap')  # absent in older configs
+    if cap is not None:
+        if cap < 1:
+            raise ValueError(f"context_cap must be a positive number of tokens, got {cap!r}")
+        if cfg.arm not in ('zero', 'rag') and cfg.static_mode != 'provider':
+            raise ValueError("context_cap needs static_mode=provider for static composers")
 
 
 def datapoint_selection(cfg: DictConfig) -> dict:
@@ -64,7 +72,7 @@ def datapoint_selection(cfg: DictConfig) -> dict:
     return {'limit': cfg.limit_datapoints}
 
 
-def static_provider_factory(kind: str, composer_args: dict):
+def static_provider_factory(kind: str, composer_args: dict, cap_tokens=None, tokenizer=None):
     """Provider factory for a static composer: the composed context string, a newline, then the prefix.
 
     This is the text the generator builds from a preprocessed datapoint (`"\\n".join([context, prefix])`), without
@@ -75,6 +83,8 @@ def static_provider_factory(kind: str, composer_args: dict):
 
     def factory(datapoint):
         context = composer.context_composer(datapoint)
+        if cap_tokens:
+            context = crop_to_last_tokens(context, cap_tokens, tokenizer)
         return lambda dp, line_num: ("\n".join([context, dp.get_prefix(line_num)]), dp.get_line(line_num), None)
 
     return factory
@@ -94,6 +104,7 @@ def git_state() -> dict:
 
 def run_arm(cfg: DictConfig):
     validate(cfg)
+    context_cap = cfg.get('context_cap')
     arm_dir = arm_directory(cfg)
     results_path = arm_dir / 'generation_results.jsonl'
     if results_path.exists():
@@ -117,7 +128,9 @@ def run_arm(cfg: DictConfig):
         kwargs['input_data'] = load_datapoints(cfg.dataset)
     elif cfg.static_mode == 'provider':
         kwargs['input_data'] = load_datapoints(cfg.dataset)
-        kwargs['context_provider_factory'] = static_provider_factory(cfg.arm, dict(cfg.composers_config))
+        cap_tokenizer = AutoTokenizer.from_pretrained(tokenizer_path) if context_cap else None
+        kwargs['context_provider_factory'] = static_provider_factory(
+            cfg.arm, dict(cfg.composers_config), cap_tokens=context_cap, tokenizer=cap_tokenizer)
     else:
         # Static composer: preprocess the whole dataset with it, exactly as the main pipeline does.
         in_dir = arm_dir / 'in'
@@ -129,12 +142,17 @@ def run_arm(cfg: DictConfig):
         generator_config.input_data_path = preprocess(preprocess_args, cfg.composers_config)
     if cfg.arm == 'rag':
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        rag_options = OmegaConf.to_container(cfg.rag)
+        if context_cap is not None:
+            rag_options['max_context_tokens'] = context_cap  # same context size N as the static composers
         kwargs['context_provider_factory'] = make_rag_provider_factory(
             lambda text: len(tokenizer(text, add_special_tokens=False)['input_ids']), budget,
             extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
-            meta_sep=cfg.composers_config.meta_info_sep_symbol, **OmegaConf.to_container(cfg.rag),
+            meta_sep=cfg.composers_config.meta_info_sep_symbol, **rag_options,
         )
 
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
     started = time.time()
     if cfg.lines == 'targeted':
         # Only lines whose needed names are defined in other files (log section 8.13); computed from the snapshot.
@@ -145,11 +163,17 @@ def run_arm(cfg: DictConfig):
 
     scores, score_lists, em_diff, line_counts = evaluate_generation(generator_config, **kwargs)
 
+    wall_seconds = round(time.time() - started, 1)
+    has_gpu = torch.cuda.is_available()
+    cost = cost_block(str(results_path), wall_seconds,
+                      torch.cuda.get_device_name(0) if has_gpu else None,
+                      round(torch.cuda.max_memory_allocated() / 1e9, 2) if has_gpu else None)
     summary = {'arm': cfg.arm, 'arm_name': cfg.arm_name or cfg.arm, 'dataset': dataset_name(cfg),
-               'model': inference_params['model'], 'token_budget': budget, 'limit_datapoints': cfg.limit_datapoints,
+               'model': inference_params['model'], 'token_budget': budget, 'context_cap': context_cap,
+               'limit_datapoints': cfg.limit_datapoints,
                'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra, 'lines': cfg.lines,
                'static_mode': cfg.static_mode,
-               'code': git_state(), 'wall_seconds': round(time.time() - started, 1),
+               'code': git_state(), 'wall_seconds': wall_seconds, 'cost': cost,
                'scores': scores, 'em_difference_vs_zero': em_diff, 'line_counts': line_counts}
     (arm_dir / 'summary.json').write_text(json.dumps(summary, indent=4))
     (arm_dir / 'per_datapoint_scores.json').write_text(json.dumps(score_lists))
