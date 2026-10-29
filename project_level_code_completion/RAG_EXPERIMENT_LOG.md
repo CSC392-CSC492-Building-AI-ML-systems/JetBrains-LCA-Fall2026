@@ -2109,6 +2109,13 @@ the cropping and the cost block.
 to those of the three rented machines: zero `8fe8932f2bdd2507cbb637e43efe795a`, v1 `6941beca9483433aadb95d7d68f172a3`. Sample of the new fields (158 lines): zero 1,386 input tokens per line; v1 10,721 input tokens per line,
 generation p50 1.2 s, context building 9 ms, peak GPU memory 23.4 GB (zero: 15.8 GB). **Arms to run with the new logging (all 224 medium datapoints):** zero and F at 16K, plus path_distance and F at N = 256, 1,753, 12,000 and the 16K window; the existing
 16K arms have no per-line latency or token data, so they are rerun with it. Where they run is undecided.
+
+### 8.73 E4 run started on one rented machine; anchors match; first arm (e4_zero) done (2026-10-29)
+Machine: vast.ai instance 58294351, RTX 5090, $0.69/h, code from commit `7c2538c`, `run_E4.sh` (10 arms, cheapest first, `LCA_USD_PER_HOUR=0.69`).
+**Cross-machine check passed:** on the new machine the 5-datapoint anchors gave zero `8fe8932f2bdd2507cbb637e43efe795a` and v1 `6941beca9483433aadb95d7d68f172a3`, identical to the earlier machines and to the local rerun, so the new logging changes no prediction.
+**e4_zero (CodeLlama-7B, medium, 224 datapoints, 8,676 lines, no repository context):** EM all 0.3870 (infile 0.3709, inproject 0.3201, non_informative 0.3106, random 0.5004, common 0.3113, commited 0.3781); ES all 73.93.
+Cost block: 2,951 input tokens per line (25.6 M total), 16.9 output tokens per line; generation p50 555 ms, p95 1,264 ms; wall 7,087 s (0.82 s per line); peak GPU memory 23.4 GB;
+truncated 0.37 % of lines; hit max_new_tokens 0.09 %; arm cost $1.36. Next in the queue: path_distance and F at N = 256.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
