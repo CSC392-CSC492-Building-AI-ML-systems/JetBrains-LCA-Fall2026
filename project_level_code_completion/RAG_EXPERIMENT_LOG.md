@@ -2089,6 +2089,26 @@ datapoints: pooled F16 about 0.510 vs path_distance about 0.465 (datapoint-weigh
 predictions (§8.39) are therefore untested, not missed.** Not retried. Options if wanted: a 48 GB+ GPU, or an altered inference batch size (which would deviate from the unmodified pipeline).
 
 All of C's 16 arms were synced to `~/lca_remote/C` and verified (every predictions-file size and summary hash identical); small files are in `rag_results/rented/C/`. C was idle from 07:50 UTC (about 8 h of billing, about $5) until it could be reviewed.
+### 8.72 E4 design (follow the paper) and the cost/latency/error logging added before any E4 run (2026-10-29)
+
+**Context.** Garima Dabur (LLM and long-context lead) dropped the course; the user now owns E4 (proposal timeline: retrieval against supplying larger context directly). Decision (user): follow the paper's approach, i.e. hold the
+models, datapoints, baselines and metric fixed and vary only the approach. Weeks 6-8 need cost, latency and error data for every approach, so it is logged now instead of rerunning later.
+
+**Paper's definition of context size (verified in code).** In the benchmark's perplexity stage, `model_hub/model_inference.py:60-63`, the context size N is the number of *repository context tokens kept* (the last N tokens of the composed
+context) and the completion file is handled separately; the pipeline's ladder is N = 256, about 1,753 and about 12,000 (`eval/eval_pipeline.py:206-242`); line completion uses the full window (16,000 - 100). E4 therefore uses N in
+{256, 1,753, 12,000} plus the full 16K window, for static `path_distance` and for our RAG (F) with the same cap N (static: last N tokens of its composed context; RAG: at most N tokens spent on retrieved chunks; the whole prefix is
+kept in both), on all 224 medium datapoints, CodeLlama-7B first. This replaces my earlier proposal of 8K/4K total-budget arms with a half-budget prefix cap. Optional second track: the paper's own perplexity pipeline with RAG added as a composer (needs a
+48 GB+ GPU after the T10 out-of-memory failure, §8.71).
+
+**Code added (nothing about generation changed).** `eval/run_metrics.py` (shared schema, also for the agent; summary and cost block; `crop_to_last_tokens`); per-line `metrics` in `generation_results.jsonl` (`input_tokens`, `output_tokens`,
+`context_ms`, `gen_ms` with the GPU synchronized, `truncated`, `hit_max_new_tokens`); a `cost` block in `summary.json` (token totals and means, p50/p95 latency, GPU, peak memory, and dollars when `LCA_USD_PER_HOUR` is set); the option
+`context_cap` in `eval/config/compare_arms.yaml`. Static composers' included files are not logged: they are deterministic and are recomputed offline for the failure taxonomy. 183 unit tests pass (13 skipped as before), including new ones for the logging,
+the cropping and the cost block.
+
+**Verification that logging changes nothing:** the two 5-datapoint anchor arms (CodeLlama-7B, medium; zero and plain retrieval `rag=v1 prefix_cap=15900`) were rerun on the local GPU with the new code and give prediction hashes identical
+to those of the three rented machines: zero `8fe8932f2bdd2507cbb637e43efe795a`, v1 `6941beca9483433aadb95d7d68f172a3`. Sample of the new fields (158 lines): zero 1,386 input tokens per line; v1 10,721 input tokens per line,
+generation p50 1.2 s, context building 9 ms, peak GPU memory 23.4 GB (zero: 15.8 GB). **Arms to run with the new logging (all 224 medium datapoints):** zero and F at 16K, plus path_distance and F at N = 256, 1,753, 12,000 and the 16K window; the existing
+16K arms have no per-line latency or token data, so they are rerun with it. Where they run is undecided.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
