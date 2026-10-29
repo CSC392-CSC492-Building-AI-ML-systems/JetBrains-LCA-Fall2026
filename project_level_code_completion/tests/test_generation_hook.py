@@ -106,6 +106,32 @@ class GeneratorHookTests(unittest.TestCase):
         self.generator.generate_line(make_datapoint(), use_zero_context=True, context_provider=provider)
         self.assertEqual(self.model.prompts[0], "line0")  # prefix only
 
+    def test_cost_and_latency_metrics_are_saved_for_every_line(self):
+        from eval.run_metrics import LINE_METRIC_FIELDS
+        self.generator.generate_line(make_datapoint())
+        for row in self.saved():
+            self.assertEqual(set(row["metrics"]), set(LINE_METRIC_FIELDS))
+        first = self.saved()[0]["metrics"]
+        self.assertEqual(first["input_tokens"], len("CTX\nline0"))  # the prompt the model received
+        self.assertEqual(first["output_tokens"], 5)  # the stub generates "pred\n"
+        self.assertFalse(first["truncated"])
+        self.assertFalse(first["hit_max_new_tokens"])
+        self.assertGreaterEqual(first["gen_ms"], 0.0)
+        self.assertGreaterEqual(first["context_ms"], 0.0)
+
+    def test_metrics_do_not_change_the_prompt_or_the_prediction(self):
+        self.generator.generate_line(make_datapoint())
+        self.assertEqual(self.model.prompts[0], "CTX\nline0")
+        self.assertEqual(self.saved()[0]["prediction_line"], "pred")
+
+    def test_truncation_is_flagged_when_the_window_cuts_the_prompt(self):
+        short = LineGeneratorHF(self.model, "cpu", max_seq_len=3, results_path=self.results_path,
+                                tokenizer_path="unused")
+        short.generate_line(make_datapoint())
+        metrics = self.saved()[0]["metrics"]
+        self.assertTrue(metrics["truncated"])
+        self.assertEqual(metrics["input_tokens"], 3)
+
 
 class RagProviderTests(unittest.TestCase):
     def test_provider_builds_prompt_and_logs_retrieval(self):
