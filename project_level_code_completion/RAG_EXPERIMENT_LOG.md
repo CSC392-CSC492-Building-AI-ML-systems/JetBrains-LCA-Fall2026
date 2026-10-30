@@ -2131,6 +2131,10 @@ generation p50 698 ms, p95 1,425 ms, wall 8,888 s, truncated 0.38 %, peak GPU me
 Against e4_pd_N1753: +7.3 points EM (point estimate); still 3.7 below e4_F_N1753 (0.5252) with a seventh of the retrieved-context budget. 14,247 input tokens per line, generation p50 1,733 ms, p95 2,296 ms,
 wall 17,538 s (2.0 times the 1,753 arm), peak GPU memory 23.4 GB, arm cost $3.36. **24.6 % of lines were truncated** (the 12,000-token context plus the completion-file prefix exceeds the 16K window and is cropped
 from the left), which has to be kept in mind when reading this arm and is a failure-taxonomy item for week 8.
+**e4_F_N12000 (RAG F, at most 12,000 tokens of retrieved chunks):** EM all 0.5366 (infile 0.4833, inproject 0.5372, non_informative 0.4636, random 0.6231, common 0.5148, commited 0.4463); ES all 80.50.
+Against e4_pd_N12000 at the same budget: +4.9 points EM overall (point estimate); against e4_F_N1753: +1.1, for about three times the input tokens (13,996 vs 4,705 per line), so retrieval saturates early.
+Context building p50 24 ms / p95 146 ms, generation p50 1,720 ms, p95 2,288 ms, wall 17,696 s, peak GPU memory 23.4 GB, arm cost $3.39 (pd $3.36). Truncated only 0.69 % (pd 24.6 %): RAG fills the budget with
+whole chunks and the whole prefix is kept, so it does not overflow the window the way the static concatenation does. Paired bootstrap still to run for all E4 comparisons.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
