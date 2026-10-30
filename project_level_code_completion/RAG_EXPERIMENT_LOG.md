@@ -2122,6 +2122,8 @@ wall 7,086 s, peak GPU memory 23.4 GB, truncated 0.45 %, arm cost $1.36. Wall ti
 **e4_F_N256 (RAG F, at most 256 tokens of retrieved chunks, same 8,676 lines):** EM all 0.4079 (infile 0.3699, inproject 0.3448, non_informative 0.3559, random 0.5163, common 0.3344, commited 0.3894); ES all 74.79.
 Against e4_pd_N256 at the same budget: +1.3 points EM overall (point estimate; paired bootstrap not yet run); against e4_zero: +2.1. Input tokens per line 3,221 (pd 3,207), context building p50 8.4 ms / p95 139 ms (pd 0.08 / 0.24 ms),
 generation p50 573 ms, p95 1,286 ms, wall 7,699 s (pd 7,086 s, the difference being retrieval), truncated 0.38 %, arm cost $1.48 (pd $1.36).
+**e4_pd_N1753 (path_distance, last 1,753 tokens of repository context):** EM all 0.4147 (infile 0.3741, inproject 0.3600, non_informative 0.3324, random 0.5253, common 0.3304, commited 0.3958); ES all 75.46.
+Against e4_pd_N256: +1.9 points EM (point estimate). 4,695 input tokens per line, generation p50 690 ms, p95 1,414 ms, wall 8,332 s, truncated 0.83 %, peak GPU memory 23.4 GB, arm cost $1.60.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
