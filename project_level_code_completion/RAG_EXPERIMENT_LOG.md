@@ -2135,6 +2135,9 @@ from the left), which has to be kept in mind when reading this arm and is a fail
 Against e4_pd_N12000 at the same budget: +4.9 points EM overall (point estimate); against e4_F_N1753: +1.1, for about three times the input tokens (13,996 vs 4,705 per line), so retrieval saturates early.
 Context building p50 24 ms / p95 146 ms, generation p50 1,720 ms, p95 2,288 ms, wall 17,696 s, peak GPU memory 23.4 GB, arm cost $3.39 (pd $3.36). Truncated only 0.69 % (pd 24.6 %): RAG fills the budget with
 whole chunks and the whole prefix is kept, so it does not overflow the window the way the static concatenation does. Paired bootstrap still to run for all E4 comparisons.
+**e4_pd_16k (path_distance, no cap, the full 16K window filled from the left-cropped composed context):** EM all 0.4920 (infile 0.4290, inproject 0.4840, non_informative 0.4470, random 0.5787, common 0.4386, commited 0.4204); ES all 78.71.
+Against e4_pd_N12000: +0.4 points EM (point estimate), for 1,653 more input tokens per line (15,900 vs 14,247) and +$0.31. Every prompt is cut to the 15,900-token budget (truncated share 1.0 by construction: the composed
+context is longer than the window), so this arm measures "fill the window", not "the whole repository". Generation p50 1,914 ms, p95 2,388 ms, wall 19,135 s, peak GPU memory 23.4 GB, arm cost $3.67.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
