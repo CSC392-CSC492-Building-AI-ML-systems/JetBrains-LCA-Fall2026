@@ -2119,6 +2119,9 @@ truncated 0.37 % of lines; hit max_new_tokens 0.09 %; arm cost $1.36. Next in th
 **e4_pd_N256 (path_distance, last 256 tokens of repository context, same 8,676 lines):** EM all 0.3952 (infile 0.3683, inproject 0.3280, non_informative 0.3181, random 0.5085, common 0.3144, commited 0.3752); ES all 74.49.
 Against e4_zero: +0.8 points EM overall (point estimate only; paired bootstrap not yet run). 3,207 input tokens per line (256 more than zero, plus completion-file differences), generation p50 571 ms, p95 1,279 ms,
 wall 7,086 s, peak GPU memory 23.4 GB, truncated 0.45 %, arm cost $1.36. Wall time per arm is almost identical at the two sizes because the run is dominated by generating about 17 tokens per line, not by prompt length.
+**e4_F_N256 (RAG F, at most 256 tokens of retrieved chunks, same 8,676 lines):** EM all 0.4079 (infile 0.3699, inproject 0.3448, non_informative 0.3559, random 0.5163, common 0.3344, commited 0.3894); ES all 74.79.
+Against e4_pd_N256 at the same budget: +1.3 points EM overall (point estimate; paired bootstrap not yet run); against e4_zero: +2.1. Input tokens per line 3,221 (pd 3,207), context building p50 8.4 ms / p95 139 ms (pd 0.08 / 0.24 ms),
+generation p50 573 ms, p95 1,286 ms, wall 7,699 s (pd 7,086 s, the difference being retrieval), truncated 0.38 %, arm cost $1.48 (pd $1.36).
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
