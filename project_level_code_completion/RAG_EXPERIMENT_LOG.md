@@ -2127,6 +2127,10 @@ Against e4_pd_N256: +1.9 points EM (point estimate). 4,695 input tokens per line
 **e4_F_N1753 (RAG F, at most 1,753 tokens of retrieved chunks):** EM all 0.5252 (infile 0.4733, inproject 0.5214, non_informative 0.4554, random 0.6170, common 0.4932, commited 0.4652); ES all 79.98.
 Against e4_pd_N1753 at the same budget: +11.0 points EM overall (point estimate; paired bootstrap not yet run); against e4_F_N256: +11.7. 4,705 input tokens per line (pd 4,695), context building p50 10 ms / p95 140 ms,
 generation p50 698 ms, p95 1,425 ms, wall 8,888 s, truncated 0.38 %, peak GPU memory 23.4 GB, arm cost $1.70 (pd $1.60).
+**e4_pd_N12000 (path_distance, last 12,000 tokens of repository context):** EM all 0.4878 (infile 0.4292, inproject 0.4787, non_informative 0.4378, random 0.5798, common 0.4392, commited 0.4165); ES all 78.51.
+Against e4_pd_N1753: +7.3 points EM (point estimate); still 3.7 below e4_F_N1753 (0.5252) with a seventh of the retrieved-context budget. 14,247 input tokens per line, generation p50 1,733 ms, p95 2,296 ms,
+wall 17,538 s (2.0 times the 1,753 arm), peak GPU memory 23.4 GB, arm cost $3.36. **24.6 % of lines were truncated** (the 12,000-token context plus the completion-file prefix exceeds the 16K window and is cropped
+from the left), which has to be kept in mind when reading this arm and is a failure-taxonomy item for week 8.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
