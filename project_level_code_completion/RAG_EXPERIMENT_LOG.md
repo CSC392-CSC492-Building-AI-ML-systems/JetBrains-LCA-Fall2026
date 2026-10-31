@@ -2212,6 +2212,16 @@ Reading:
 - **About a fifth are near misses**, and they are the main way F loses to `path_distance` (13 of 25 sampled): a missing default, a keyword argument, a different literal (`default=4085` for 4092), `draw` for `redraw`. Under exact match these count as fully wrong although the line is close; ES (edit similarity) would give partial credit.
 - **A small share is unfair under exact match:** valid alternatives (D) and free-text comments or docstrings (E) are about 15 % together, so a share of the "wrong" lines are not errors a developer would fix.
 - Identical wrong lines from F and `path_distance` are common in these samples (the two models often fail the same way), consistent with most failures being about the model, not the context.
+
+### 8.78 E4 figures and results table for the report
+Script `rag_results/scripts/make_e4_figures.py` (reads the synced arms in `~/lca_remote/E4`, writes `rag_results/figures/E4/`, PNG at 200 dpi and vector PDF for LaTeX). Palette: dataviz categorical slots 1 (blue, path_distance) and 2 (orange, RAG F), checked with the palette validator
+(slots 1-4 pass lightness, chroma and colour-blind separation; the aqua and yellow slots used in the failure chart are below 3:1 contrast on the light surface, so that chart prints a value on every segment and the table carries the same numbers).
+- `fig_em_vs_context`: exact match against the budget N for both approaches, with 95 % bootstrap bands (10,000 resamples over the 224 datapoints, seed 0) and the no-context line. The x-axis is the paper's ladder spaced evenly.
+- `fig_cost_vs_em`: accuracy against the GPU cost of each arm (cost is wall time at $0.69/h; one RTX 5090). Reads: RAG at 1,753 tokens ($1.70, EM 0.525) is above `path_distance` at 12,000 ($3.36, 0.488) and at 16K ($3.67, 0.492).
+- `fig_latency`: median and 95th-percentile seconds per line (context building plus generation); retrieval adds 0.02-0.03 s at the median; latency tracks prompt length (0.6 s at 3K tokens, 1.9 s at 16K).
+- `fig_failure_split`: the four-class split of §8.76 for the six arms.
+- `e4_results_table.{csv,md,tex}`: the nine arms with EM and its 95 % CI, ES, tokens per line, p50 and p95 seconds per line, truncated share and cost; the csv also has the six per-category EMs and wall hours.
+Per-arm confidence intervals are about +/-0.02-0.03 EM (they are wide because they ignore the pairing; the paired differences in §8.74 are much tighter), so the figure bands overlap where the paired tests are significant.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
