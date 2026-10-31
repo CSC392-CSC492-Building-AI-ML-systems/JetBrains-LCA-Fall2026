@@ -2191,6 +2191,27 @@ Findings (lexical screen, not a proof):
 - **Name visible is not definition visible:** all names appear in 94-98 % of prompts, but their definitions appear in only 16 % (F N1753) to 39 % (F 16K), 6 % (pd N1753) to 34 % (pd 16K). Many reasoning failures are plausibly lines where the model sees a name but not its definition (not tested here).
 - **Self-contained lines also gain from context:** EM on lines with X(L) empty is 0.487-0.495 for F against 0.416-0.457 for pd, so part of the benefit is general (similar code, conventions) and not limited to resolving names.
 Next for the report: sample the wrong self-contained and reasoning lines by hand for a qualitative failure list (wrong API/arguments, wrong variable, style, off-by-one), per week 8.
+
+### 8.77 E4 hand-read failure list (RAG F at 12,000 tokens)
+A qualitative read, not a measurement. Script `rag_results/scripts/sample_wrong_lines.py` (random sample with seed 0 from the wrong lines of e4_F_N12000: 25 retrieval misses of 51, 25 reasoning of 1,279, 25 self-contained of 2,721, plus 25 of the 170 lines where `path_distance` is right and F wrong);
+all 100 shown with ground truth, F and `path_distance` predictions in `rag_results/reports/E4/failure_samples_F_N12000.txt`. One reader (the assistant), so the labels are subjective; 25 per group, so the shares below are rough (a few percentage points of noise per category at best).
+Categories of what is wrong in the F prediction: **A wrong name** (a different attribute, method, class, import or constant than the repository defines); **B different statement** (plausible code, but not the next statement of the file);
+**C near miss** (right idea, small deviation: missing or extra argument, wrong literal or default, casing, quote or spacing style, a missing wrapper or `self.`); **D equivalent alternative** (a valid variable name or expression that differs from the ground truth, so it counts as wrong under exact match);
+**E free text** (comment or docstring wording); **F data** (numbers in a table, a continuation fragment).
+| group (lines in it) | A name | B statement | C near miss | D equivalent | E free text | F data |
+|---|---|---|---|---|---|---|
+| retrieval miss (51) | 15 | 5 | 3 | 0 | 0 | 2 |
+| reasoning, names visible (1,279) | 2 | 15 | 6 | 1 | 0 | 1 |
+| self-contained (2,721) | 2 | 13 | 5 | 2 | 3 | 0 |
+| weighted by group size, all 4,051 wrong lines | about 9 % | about 54 % | about 21 % | about 7 % | about 8 % | about 1 % |
+| F wrong, `path_distance` right (170), unweighted | 2 | 7 | 13 | 1 | 2 | 0 |
+Reading:
+- **The typical failure is "plausible but not what this file does next" (about half of wrong lines)**: the model writes a reasonable statement that is not the one the author wrote (a different loop, a different call, a comment instead of code). Retrieving more context does not fix these;
+  they are open-ended next-step choices that exact match penalises and that no snippet in the prompt determines.
+- **Retrieval misses are mostly wrong names (15 of 25):** the line calls a method or imports a symbol that exists only in a file the prompt did not show; the model invents a plausible one (`encode` for `get_text_embedding`, `NodeType` for `NodeEventType`, `on_task_timeout` for `remove_worker`). This is the failure RAG can fix, and it is rare for F (0.6 % of lines).
+- **About a fifth are near misses**, and they are the main way F loses to `path_distance` (13 of 25 sampled): a missing default, a keyword argument, a different literal (`default=4085` for 4092), `draw` for `redraw`. Under exact match these count as fully wrong although the line is close; ES (edit similarity) would give partial credit.
+- **A small share is unfair under exact match:** valid alternatives (D) and free-text comments or docstrings (E) are about 15 % together, so a share of the "wrong" lines are not errors a developer would fix.
+- Identical wrong lines from F and `path_distance` are common in these samples (the two models often fail the same way), consistent with most failures being about the model, not the context.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
