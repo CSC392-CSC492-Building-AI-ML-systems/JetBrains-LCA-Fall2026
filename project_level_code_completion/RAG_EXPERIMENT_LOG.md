@@ -2155,6 +2155,21 @@ Full per-category tables (EM and ES) are saved in `rag_results/reports/E4/vs_<re
 - ES agrees in direction and significance on every "all" comparison above except that pd N12000 to 16K ES is +0.214 [-0.096, +0.583] (not significant), as for EM.
 Reading: RAG's advantage is significant at every budget and largest at 1,753 tokens; brute-force context stops helping at about 12,000 tokens (the 16K window adds nothing for either approach); RAG needs only about 1,753 tokens to
 beat static context at 12,000. Single run per arm, one model (CodeLlama-7B), medium dataset only, so these are the E4 conclusions for this setting, not for other models or sizes.
+
+### 8.75 E4 failure analysis, first pass (line level, from generation_results.jsonl)
+Script `failure_e4.py` (scratchpad), report `rag_results/reports/E4/failure_analysis.md` (8 tables). Line-level exact match pooled over lines (slightly different from the per-datapoint EM above). Findings:
+- **Who is right, F vs pd, same budget (lines only one gets right):** N256 252 vs 132; N1753 1,261 vs 182; N12000 649 vs 170; 16K 621 vs 177. F wins in every line category at every budget (smallest net gain at N12000
+  non_informative, +26 lines of 858); the largest gains are inproject (N1753: +451 net) and infile (+276). The 182 lines where only pd is right at N1753 are the cases where retrieval did not help or distracted.
+- **Context helps and hurts:** against no context, F N12000 fixes 1,551 lines and breaks 170; pd N12000 fixes 1,038 and breaks 136. Retrieval is much better at helping and about equally rarely harmful.
+- **Truncation is not what limits path_distance at 12,000.** 2,130 pd lines (24.6 %) were truncated, but they score 0.469 against 0.481 for the others, so the left-crop explains almost none of the gap to F. The correction to the §8.73 reading: the window overflow is real but not the cause.
+  F truncates only 60 lines at N12000 (124 at 16K), and those score lower (0.350 / 0.460 vs 0.534), so truncation does hurt, only little in total.
+- **Error kinds (wrong lines):** 93-95 % "different line" for every arm; empty, too short, too long and whitespace-only together are 5-7 %. F makes slightly more empty outputs (21-35 vs 8-26) but fewer wrong lines overall
+  (4,051 vs 4,530 at N12000). So the failures are content failures, not formatting or length problems; only 2-5 lines per arm hit the 100-token cap.
+- **Retrieval signal is informative:** for F at N1753/N12000, the median BM25 top score is 51.7 on lines it gets right against 31.5 on lines it gets wrong. 26 lines had no retrieval hit (fallback), and F gets 0-1 of them right.
+  So the score could serve as a confidence signal (to decide when to give more context or call the agent), which is a candidate for the three-way comparison.
+- **Repository level:** F's largest net gains are in cray-hpe/docs-csm (+65 lines), pnxenopoulos/awpy (+64), italia/spid-cie-oidc-django (+64); F loses by at most 6 lines in any repository (huggingface/diffusers -6).
+- **Limit of this pass:** the split of failures into retrieval failure (the needed code was not in the prompt) and reasoning failure (it was there, the model still got it wrong) needs the text of the retrieved chunks. The run logged only chunk paths,
+  line ranges and scores, not text, so that split has to be recomputed offline from the dataset's repository snapshots. Not done yet.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
