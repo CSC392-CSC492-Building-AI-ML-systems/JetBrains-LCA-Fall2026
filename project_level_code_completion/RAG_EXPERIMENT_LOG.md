@@ -2138,6 +2138,11 @@ whole chunks and the whole prefix is kept, so it does not overflow the window th
 **e4_pd_16k (path_distance, no cap, the full 16K window filled from the left-cropped composed context):** EM all 0.4920 (infile 0.4290, inproject 0.4840, non_informative 0.4470, random 0.5787, common 0.4386, commited 0.4204); ES all 78.71.
 Against e4_pd_N12000: +0.4 points EM (point estimate), for 1,653 more input tokens per line (15,900 vs 14,247) and +$0.31. Every prompt is cut to the 15,900-token budget (truncated share 1.0 by construction: the composed
 context is longer than the window), so this arm measures "fill the window", not "the whole repository". Generation p50 1,914 ms, p95 2,388 ms, wall 19,135 s, peak GPU memory 23.4 GB, arm cost $3.67.
+**e4_F_16k (RAG F, 16K window, prefix cap 15,900):** EM all 0.5369 (infile 0.4857, inproject 0.5354, non_informative 0.4648, random 0.6293, common 0.5125, commited 0.4355); ES all 80.43.
+Against e4_pd_16k: +4.5 points EM (point estimate); against e4_F_N12000: +0.0 (0.5369 vs 0.5366), at 15,089 vs 13,996 input tokens per line, so RAG gains nothing from the extra 4K of window. Context building p50 25 ms / p95 143 ms,
+generation p50 1,866 ms, p95 2,389 ms, wall 18,949 s, truncated 1.43 %, peak GPU memory 23.4 GB, arm cost $3.63 (pd $3.67). **All 9 E4 arms are finished** (zero, plus path_distance and F at 4 sizes each = 9; earlier messages and §8.72 planning said "10" by miscount; `MACHINE E4 complete` at 03:14:59 box time).
+Sum of the nine arm costs $21.55 at $0.69/h (plus about $0.4 for the two 5-datapoint anchors and setup). E4 table (EM all): zero 0.387; pd 0.395 / 0.415 / 0.488 / 0.492 at N = 256 / 1,753 / 12,000 / 16K; F 0.408 / 0.525 / 0.537 / 0.537.
+Paired bootstrap, per-category tables and failure analysis follow once results are synced to this machine.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
