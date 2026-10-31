@@ -2143,6 +2143,18 @@ Against e4_pd_16k: +4.5 points EM (point estimate); against e4_F_N12000: +0.0 (0
 generation p50 1,866 ms, p95 2,389 ms, wall 18,949 s, truncated 1.43 %, peak GPU memory 23.4 GB, arm cost $3.63 (pd $3.67). **All 9 E4 arms are finished** (zero, plus path_distance and F at 4 sizes each = 9; earlier messages and §8.72 planning said "10" by miscount; `MACHINE E4 complete` at 03:14:59 box time).
 Sum of the nine arm costs $21.55 at $0.69/h (plus about $0.4 for the two 5-datapoint anchors and setup). E4 table (EM all): zero 0.387; pd 0.395 / 0.415 / 0.488 / 0.492 at N = 256 / 1,753 / 12,000 / 16K; F 0.408 / 0.525 / 0.537 / 0.537.
 Paired bootstrap, per-category tables and failure analysis follow once results are synced to this machine.
+
+### 8.74 E4 paired bootstrap (all 9 arms, 224 datapoints, 8,676 lines each, 10,000 resamples over datapoints, 95 % CI, seed 0)
+Full per-category tables (EM and ES) are saved in `rag_results/reports/E4/vs_<reference>.md`; the script is `analyze_e4.sh` (scratchpad). Δ is EM (fraction), `*` = CI excludes 0. "all" row:
+- **Any repository context vs none (ref e4_zero):** pd N256 +0.008 [+0.003, +0.015]; pd N1753 +0.028 [+0.017, +0.040]; pd N12000 +0.101 [+0.076, +0.127]; pd 16K +0.105 [+0.080, +0.132];
+  F N256 +0.021 [+0.013, +0.030]; F N1753 +0.138 [+0.110, +0.169]; F N12000 +0.150 [+0.120, +0.180]; F 16K +0.150 [+0.120, +0.180]. All significant.
+- **RAG F vs path_distance at the same budget:** N256 +0.013 [+0.006, +0.020]; N1753 +0.110 [+0.085, +0.137]; N12000 +0.049 [+0.031, +0.069]; 16K +0.045 [+0.027, +0.064]. All significant.
+- **More context for the same approach:** pd N256 to N1753 +0.019 [+0.011, +0.029], to N12000 +0.093 [+0.069, +0.117]; pd N12000 to 16K +0.004 [-0.002, +0.011] (not significant).
+  F N1753 to N12000 +0.011 [+0.007, +0.016], to 16K +0.012 [+0.007, +0.017] (significant but small); F N12000 to 16K +0.000 [-0.002, +0.003] (no difference).
+- **Cross-budget:** F at 1,753 tokens beats pd at 1,753 by +0.110 and also beats pd at 12,000 tokens (0.525 vs 0.488; +0.037 [+0.020, +0.057], ES +1.454 [+0.607, +2.385]; report `vs_e4_pd_N12000_F_N1753.md`); F N12000 vs pd N1753 +0.122 [+0.095, +0.149].
+- ES agrees in direction and significance on every "all" comparison above except that pd N12000 to 16K ES is +0.214 [-0.096, +0.583] (not significant), as for EM.
+Reading: RAG's advantage is significant at every budget and largest at 1,753 tokens; brute-force context stops helping at about 12,000 tokens (the 16K window adds nothing for either approach); RAG needs only about 1,753 tokens to
+beat static context at 12,000. Single run per arm, one model (CodeLlama-7B), medium dataset only, so these are the E4 conclusions for this setting, not for other models or sizes.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
