@@ -2170,6 +2170,27 @@ Script `failure_e4.py` (scratchpad), report `rag_results/reports/E4/failure_anal
 - **Repository level:** F's largest net gains are in cray-hpe/docs-csm (+65 lines), pnxenopoulos/awpy (+64), italia/spid-cie-oidc-django (+64); F loses by at most 6 lines in any repository (huggingface/diffusers -6).
 - **Limit of this pass:** the split of failures into retrieval failure (the needed code was not in the prompt) and reasoning failure (it was there, the model still got it wrong) needs the text of the retrieved chunks. The run logged only chunk paths,
   line ranges and scores, not text, so that split has to be recomputed offline from the dataset's repository snapshots. Not done yet.
+
+### 8.76 E4 failure split: retrieval failure or reasoning failure (offline, all 224 datapoints)
+New code `eval/failure_split.py` (+ `tests/test_failure_split.py`, 5 tests OK), report `rag_results/reports/E4/failure_split.md`. The prompts of six arms are rebuilt with the evaluation's own code paths (CPU only, nothing re-generated) and checked against the logged token counts (98.6-99.6 % identical on
+uncropped arms; the cropped ones differ by exactly the BOS token, see report). X(L) = names the line uses that another file of the repository defines (`eval.proxy_metrics`, loose definition). Classes: right; wrong with X(L) empty (**self-contained**, a model failure);
+wrong with a name of X(L) missing from the prompt (**retrieval miss**); wrong with every name visible (**reasoning**). Share of all 8,676 lines:
+| arm | right | wrong, self-contained | wrong, retrieval miss | wrong, reasoning |
+|---|---|---|---|---|
+| F N1753 | 52.1 % | 31.8 % | 2.0 % | 14.1 % |
+| pd N1753 | 39.7 % | 36.2 % | 5.9 % | 18.2 % |
+| F N12000 | 53.3 % | 31.4 % | 0.6 % | 14.7 % |
+| pd N12000 | 47.8 % | 33.6 % | 2.3 % | 16.3 % |
+| F 16K | 53.3 % | 31.3 % | 0.5 % | 14.9 % |
+| pd 16K | 48.2 % | 33.6 % | 2.0 % | 16.2 % |
+Findings (lexical screen, not a proof):
+- **Most failures are not about retrieval.** Only 38.1 % of lines need a cross-file name at all; the other 61.9 % need nothing from other files and are still wrong in about half of the cases (31-36 % of all lines). Of the wrong lines that do need one, most have every name visible:
+  reasoning failures are 14-18 % of all lines against retrieval misses of 0.5-6 %. At 12,000 tokens RAG F misses a needed name in 57 of 3,303 lines (1.7 %), `path_distance` in 224 (6.8 %).
+- **Retrieval is where F wins at small budgets:** at 1,753 tokens `path_distance` is missing a needed name on 17.4 % of the lines that need one (576 of 3,303), F on 5.7 % (189). When a name is missing, EM is about 0.10 for every arm; when all names are visible F reaches 0.606 and `path_distance` 0.421 (N1753), 0.540 (N12000), 0.547 (16K).
+  So the budget gap closes as `path_distance` fits more of the repository, but F is still ahead by 6-7 points on lines with every name visible at 12,000 tokens: what F puts in the prompt is more useful than the same names in concatenated files.
+- **Name visible is not definition visible:** all names appear in 94-98 % of prompts, but their definitions appear in only 16 % (F N1753) to 39 % (F 16K), 6 % (pd N1753) to 34 % (pd 16K). Many reasoning failures are plausibly lines where the model sees a name but not its definition (not tested here).
+- **Self-contained lines also gain from context:** EM on lines with X(L) empty is 0.487-0.495 for F against 0.416-0.457 for pd, so part of the benefit is general (similar code, conventions) and not limited to resolving names.
+Next for the report: sample the wrong self-contained and reasoning lines by hand for a qualitative failure list (wrong API/arguments, wrong variable, style, off-by-one), per week 8.
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
