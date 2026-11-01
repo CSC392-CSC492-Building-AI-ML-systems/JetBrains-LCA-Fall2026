@@ -2222,6 +2222,15 @@ Script `rag_results/scripts/make_e4_figures.py` (reads the synced arms in `~/lca
 - `fig_failure_split`: the four-class split of §8.76 for the six arms.
 - `e4_results_table.{csv,md,tex}`: the nine arms with EM and its 95 % CI, ES, tokens per line, p50 and p95 seconds per line, truncated share and cost; the csv also has the six per-category EMs and wall hours.
 Per-arm confidence intervals are about +/-0.02-0.03 EM (they are wide because they ignore the pairing; the paired differences in §8.74 are much tighter), so the figure bands overlap where the paired tests are significant.
+
+### 8.79 Training-data overlap check, step 1: when were the benchmark commits made (2026-11-01)
+Why: the ethics report marker said auditing the training data would be beneficial; our limitation paragraph said overlap "is possible and is unknown". This is the first, offline step. Nothing was run on a GPU.
+- The medium dataset has 224 datapoints from 80 repositories and 176 distinct (repo, commit) pairs. The dataset gives `repo` and `commit_hash` but no dates, so the commit dates were fetched from GitHub with `git fetch --depth=1 --filter=blob:none <url> <sha>` and `git log -1 --format=%cI` (public read access, no token). 175 of 176 commits were found. The missing one is `mindspore-lab/mindcv` (repository not found, probably renamed or deleted). Dates are saved in `rag_results/reports/E4/medium_commit_dates.json` (committer and author date per commit).
+- Result: commit dates run from 2022-01-03 to 2023-08-24, median 2022-07-11. 152 of the 175 (87%) are dated before February 2023 and 23 are later (monthly counts: 14, 8, 16, 12, 19, 17, 10, 11, 11, 6, 13, 12 for Jan-Dec 2022, then 3, 5, 4, 2, 3, 3, 3, 3 for Jan-Aug 2023).
+- What the published data descriptions say (web search, not read from the papers themselves): DeepSeek-Coder crawled public GitHub repositories created before February 2023; StarCoder trains on The Stack v1.2 (opt-outs honoured up to 2023-02-09); Code Llama says only "publicly available code", with no code cutoff stated by Meta (a secondary paper puts the Llama 2 data window at Jan-Jul 2023, which is not a Meta figure). Only The Stack is a released dataset.
+- Reading: the commit dates do not rule out overlap, they make it plausible. 87% of the benchmark commits are older than the earliest cutoff above (February 2023), so the models could have seen those versions of the files. A commit being newer than a cutoff would not prove the repo was unseen either, because the DeepSeek cutoff is by repository creation date and older versions of the same files would still be in the crawl. Repository creation dates were not fetched.
+- Still open: (a) look the repositories up in The Stack for StarCoder (needs the gated HF dataset); (b) split no-context EM by commit date and by repository as a memorization probe (per-datapoint scores are already synced); (c) rewrite the limitation paragraph.
+
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**
