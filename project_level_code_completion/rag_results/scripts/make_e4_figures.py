@@ -38,13 +38,17 @@ def load_arm(base, arm):
     em = scores.get("em_list") or scores["em_zero_list"]
     es = scores.get("es_list") or scores["es_zero_list"]
     end_to_end = []
+    n_lines = n_wrong = 0
     with open(os.path.join(folder, "generation_results.jsonl"), encoding="utf8") as f:
         for line in f:
-            m = json.loads(line)["metrics"]
+            row = json.loads(line)
+            m = row["metrics"]
             end_to_end.append((m["context_ms"] + m["gen_ms"]) / 1000)
+            n_lines += 1
+            n_wrong += row["prediction_line"].strip() != row["ground_truth"].strip()  # same rule as eval/failure_split.py
     score = summary["scores"].get("em") or summary["scores"]["em_zero"]
     return {
-        "arm": arm, "em": np.array(em["all"]), "es_all": float(np.mean(es["all"])),
+        "arm": arm, "em": np.array(em["all"]), "es_all": float(np.mean(es["all"])), "n_lines": n_lines, "n_wrong": n_wrong,
         "per_category": {c: score[c] for c in CATEGORIES}, "cost": summary["cost"],
         "p50": float(np.percentile(end_to_end, 50)), "p95": float(np.percentile(end_to_end, 95)),
     }
@@ -179,7 +183,20 @@ def fig_failures(split_path, out):
     save(fig, out, "fig_failure_split")
 
 
-def results_table(arms, out):
+def split_counts(split_path):
+    """Per-arm retrieval-miss and reasoning failure counts (only the six arms that have a failure split)."""
+    counts = {}
+    with open(split_path) as f:
+        for line in f:
+            r = json.loads(line)
+            arm_counts = counts.setdefault(r["arm"], {"retrieval": 0, "reasoning": 0})
+            if r["cls"] in arm_counts:
+                arm_counts[r["cls"]] += 1
+    return counts
+
+
+def results_table(arms, out, split_path):
+    counts = split_counts(split_path)
     rows = []
     for name, approach, budget in [("e4_zero", "no context", "-")] + [
             (prefix + key, approach, label) for label, key in SIZES
@@ -190,6 +207,8 @@ def results_table(arms, out):
         rows.append({
             "arm": name, "approach": approach, "budget_N": budget, "em_all": round(a["em"].mean(), 4),
             "em_ci_low": round(lo, 4), "em_ci_high": round(hi, 4), "es_all": round(a["es_all"], 2),
+            "lines": a["n_lines"], "wrong_lines": a["n_wrong"],
+            "retrieval_miss_lines": counts.get(name, {}).get("retrieval", ""), "reasoning_lines": counts.get(name, {}).get("reasoning", ""),
             **{f"em_{k}": round(a["per_category"][k], 4) for k in CATEGORIES},
             "input_tokens_per_line": round(c["input_tokens_mean"]), "gen_p50_s": round(c["gen_ms_p50"] / 1000, 2),
             "gen_p95_s": round(c["gen_ms_p95"] / 1000, 2), "line_p50_s": round(a["p50"], 2), "line_p95_s": round(a["p95"], 2),
@@ -202,15 +221,18 @@ def results_table(arms, out):
         writer.writerows(rows)
     cols = ["approach", "budget_N", "em_all", "es_all", "input_tokens_per_line", "line_p50_s", "line_p95_s", "truncated_share", "arm_cost_usd"]
     with open(os.path.join(out, "e4_results_table.md"), "w") as f:
-        f.write("| approach | N | EM (95% CI) | ES | input tokens/line | p50 s/line | p95 s/line | truncated | cost USD |\n|---|---|---|---|---|---|---|---|---|\n")
+        f.write("| approach | N | EM (95% CI) | ES | wrong lines (of 8,676) | retrieval miss | input tokens/line | p50 s/line | p95 s/line | truncated | cost USD |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
         for r in rows:
+            miss = f"{r['retrieval_miss_lines']:,}" if r["retrieval_miss_lines"] != "" else "-"
             f.write(f"| {r['approach']} | {r['budget_N']} | {r['em_all']:.3f} [{r['em_ci_low']:.3f}, {r['em_ci_high']:.3f}] | {r['es_all']:.1f} | "
+                    f"{r['wrong_lines']:,} | {miss} | "
                     f"{r['input_tokens_per_line']:,} | {r['line_p50_s']:.2f} | {r['line_p95_s']:.2f} | {r['truncated_share'] * 100:.1f}% | {r['arm_cost_usd']:.2f} |\n")
     with open(os.path.join(out, "e4_results_table.tex"), "w") as f:
-        f.write("\\begin{tabular}{llrrrrrr}\n\\toprule\nApproach & $N$ & EM [95\\% CI] & ES & Tokens/line & p50 s & p95 s & Cost \\$ \\\\\n\\midrule\n")
+        f.write("\\begin{tabular}{llrrrrrrr}\n\\toprule\nApproach & $N$ & EM [95\\% CI] & ES & Wrong lines & Retr. miss & Tokens/line & p50 s & p95 s & Cost \\$ \\\\\n\\midrule\n")
         for r in rows:
+            miss = f"{r['retrieval_miss_lines']:,}" if r["retrieval_miss_lines"] != "" else "--"
             f.write(f"{r['approach'].replace('_', chr(92) + '_')} & {r['budget_N']} & {r['em_all']:.3f} [{r['em_ci_low']:.3f}, {r['em_ci_high']:.3f}] & "
-                    f"{r['es_all']:.1f} & {r['input_tokens_per_line']:,} & {r['line_p50_s']:.2f} & {r['line_p95_s']:.2f} & {r['arm_cost_usd']:.2f} \\\\\n")
+                    f"{r['es_all']:.1f} & {r['wrong_lines']:,} & {miss} & {r['input_tokens_per_line']:,} & {r['line_p50_s']:.2f} & {r['line_p95_s']:.2f} & {r['arm_cost_usd']:.2f} \\\\\n")
         f.write("\\bottomrule\n\\end{tabular}\n")
     return rows
 
@@ -229,8 +251,8 @@ def main():
     fig_cost(arms, args.out)
     fig_latency(arms, args.out)
     fig_failures(args.split, args.out)
-    for r in results_table(arms, args.out):
-        print(r["arm"], r["em_all"], r["arm_cost_usd"], r["line_p50_s"], r["line_p95_s"])
+    for r in results_table(arms, args.out, args.split):
+        print(r["arm"], r["em_all"], r["wrong_lines"], r["retrieval_miss_lines"], r["arm_cost_usd"], r["line_p50_s"], r["line_p95_s"])
 
 
 if __name__ == "__main__":

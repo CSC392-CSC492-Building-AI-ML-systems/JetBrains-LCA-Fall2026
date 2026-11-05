@@ -14,17 +14,19 @@ Does retrieving the relevant parts of a repository beat simply giving the model 
 
 ## Results
 
-| approach | N | EM (95% CI) | tokens/line | p50 s/line | cost |
-|---|---|---|---|---|---|
-| no context | - | 0.387 [0.365, 0.409] | 2,951 | 0.56 | $1.36 |
-| path_distance | 256 | 0.395 [0.372, 0.418] | 3,207 | 0.57 | $1.36 |
-| RAG F | 256 | 0.408 [0.385, 0.431] | 3,221 | 0.59 | $1.48 |
-| path_distance | 1,753 | 0.415 [0.391, 0.439] | 4,695 | 0.69 | $1.60 |
-| RAG F | 1,753 | 0.525 [0.492, 0.558] | 4,705 | 0.72 | $1.70 |
-| path_distance | 12,000 | 0.488 [0.458, 0.519] | 14,247 | 1.73 | $3.36 |
-| RAG F | 12,000 | 0.537 [0.503, 0.570] | 13,996 | 1.76 | $3.39 |
-| path_distance | 16K | 0.492 [0.461, 0.524] | 15,900 | 1.91 | $3.67 |
-| RAG F | 16K | 0.537 [0.503, 0.571] | 15,088 | 1.92 | $3.63 |
+| approach | N | EM (95% CI) | wrong lines (of 8,676) | retrieval miss | tokens/line | p50 s/line | cost |
+|---|---|---|---|---|---|---|---|
+| no context | - | 0.387 [0.365, 0.409] | 5,432 | - | 2,951 | 0.56 | $1.36 |
+| path_distance | 256 | 0.395 [0.372, 0.418] | 5,390 | - | 3,207 | 0.57 | $1.36 |
+| RAG F | 256 | 0.408 [0.385, 0.431] | 5,270 | - | 3,221 | 0.59 | $1.48 |
+| path_distance | 1,753 | 0.415 [0.391, 0.439] | 5,232 | 514 | 4,695 | 0.69 | $1.60 |
+| RAG F | 1,753 | 0.525 [0.492, 0.558] | 4,153 | 171 | 4,705 | 0.72 | $1.70 |
+| path_distance | 12,000 | 0.488 [0.458, 0.519] | 4,530 | 199 | 14,247 | 1.73 | $3.36 |
+| RAG F | 12,000 | 0.537 [0.503, 0.570] | 4,051 | 51 | 13,996 | 1.76 | $3.39 |
+| path_distance | 16K | 0.492 [0.461, 0.524] | 4,495 | 170 | 15,900 | 1.91 | $3.67 |
+| RAG F | 16K | 0.537 [0.503, 0.571] | 4,051 | 45 | 15,088 | 1.92 | $3.63 |
+
+"Wrong lines" counts lines whose prediction differs from the ground truth after stripping whitespace; it is a line count, so it does not map exactly onto EM, which averages per datapoint. "Retrieval miss" is the number of wrong lines where a name the line needs from another file was not in the prompt (a lexical screen); it is only computed for the six arms with a failure split.
 
 (Figures: `fig_em_vs_context`, `fig_cost_vs_em`, `fig_latency`, `fig_failure_split` in `rag_results/figures/E4/`.)
 
