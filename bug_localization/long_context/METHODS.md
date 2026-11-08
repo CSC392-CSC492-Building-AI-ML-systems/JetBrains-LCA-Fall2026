@@ -94,4 +94,5 @@ every scored issue. Metrics call the unchanged
 `baseline_eval.evaluate_tfidf.score_example/aggregate`: AP divides by **all** gold
 files, MRR uses the first gold rank, and Hit@k means at least one gold path in top k.
 Pipeline fallbacks count toward evaluation coverage but never model-success counts.
-No 50-example benchmark scores are claimed until those runs are completed.
+See [RESULTS.md](RESULTS.md) for the completed 50-example evaluation and its
+token-estimation and fallback qualifications.

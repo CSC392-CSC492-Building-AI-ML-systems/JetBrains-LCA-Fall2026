@@ -2,7 +2,8 @@
 
 Run from the repository root in PowerShell with Python 3.11. All implementation,
 tests, documentation and default experiment artifacts live here. Existing RAG and
-TF-IDF entry points are unchanged. No full API runs are included in this change.
+TF-IDF entry points are unchanged. See [RESULTS.md](RESULTS.md) for the completed
+five-condition evaluation on all 50 Python test examples.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r bug_localization/requirements-rag.txt
@@ -22,6 +23,22 @@ or offline smoke. The example configuration below requires an available API mode
 adjust it once for your account before running, then keep it fixed for every arm.
 
 ## Benchmark commands
+
+To run the full five-condition evaluation with one command (50 examples per
+condition), set `OPENAI_API_KEY` in the environment, then run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File bug_localization/long_context/evaluate_all.ps1
+```
+
+This verifies the cached test split, runs each condition with resume enabled, and
+writes `outputs/evaluation50/comparison/comparison.md` plus JSON metrics and
+per-example artifacts. It checks the process and Windows user/machine environment
+for the key; `-CredentialsFile path/to/local.env` can load only `OPENAI_API_KEY`
+from a local dotenv file without printing it. `-PrepareOnly` prepares all prompts
+without model calls or scores. `-DatasetFile path/to/test.arrow`, `-Config`, and
+`-OutputDir` make the inputs and output location explicit. Missing credentials
+stop live runs before any requests, rather than creating 250 request fallbacks.
 
 The default dataset is `JetBrains-Research/lca-bug-localization`, configuration
 `py`, split `test`, indices 0–49 (`--limit 50`). `--limit 1` or `--limit 2` makes a
@@ -46,7 +63,7 @@ First inspect one prompt without calling the API:
 
 For a live smoke run, use any full-run command below with `--limit 2` and a separate
 `--output-dir`, such as `outputs/live_smoke/direct_small`. The five full 50-example
-API runs are intentionally left for the user to launch:
+API runs can also be reproduced individually with these commands:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bug_localization.long_context.run --mode direct --repo-token-budget 8192 --config bug_localization/long_context/settings.example.json --output-dir bug_localization/long_context/outputs/direct_small
