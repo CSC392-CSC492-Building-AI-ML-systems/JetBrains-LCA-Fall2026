@@ -53,3 +53,10 @@ You can access the data using the [datasets](https://huggingface.co/docs/dataset
 * Chat-based:
   * [GPT3.5](https://platform.openai.com/docs/models/gpt-3-5-turbo);
   * [GPT4](https://platform.openai.com/docs/models/gpt-4).
+
+## RAG approach
+
+Repository preparation, tokenization, BM25 indexing, bug-report retrieval,
+file ranking, LLM evidence packing and reranking, evaluation, tests, and generated caches
+are grouped under [`rag/`](rag/README.md). See its README for build, diagnostic
+query, and verification commands.
