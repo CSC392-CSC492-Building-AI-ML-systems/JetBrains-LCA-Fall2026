@@ -1,17 +1,15 @@
 from ..context.rag_retriever import DEFAULT_EMBEDDING_MODEL, OpenAIEmbedder, RAGRetriever
 from .openai_model import OpenAIModel
+from .together_model import TogetherModel
 
 
-class RAGModel(OpenAIModel):
-    """Same generation call and prompt as the official baseline; only retrieval differs."""
+class _RAGMixin:
+    """Retrieval step shared by every provider."""
 
-    def __init__(self, model_name: str, k: int = 20, mode: str = "dense",
-                 embedding_model: str = DEFAULT_EMBEDDING_MODEL,
-                 bm25_tokenizer: str = "official", rrf_k: int = 60, embedder=None):
-        super().__init__(model_name, use_bm25=True)  # reuses the existing project_apis plumbing
+    def _init_rag(self, k, mode, embedding_model, bm25_tokenizer, rrf_k, embedder):
         self.k, self.mode, self.rrf_k = k, mode, rrf_k
         self.embedding_model, self.bm25_tokenizer = embedding_model, bm25_tokenizer
-        self.embedder = embedder or OpenAIEmbedder(embedding_model)
+        self.embedder = embedder or OpenAIEmbedder(embedding_model)  # embeddings always via OpenAI
         self._retrievers = {}  # one index per library, not per task
 
     def get_bm25_prompt(self, instruction: str, project_apis: list[str], n_selections: int = 20):
@@ -44,3 +42,23 @@ class RAGModel(OpenAIModel):
             "bm25_tokenizer": self.bm25_tokenizer if hybrid else None,
             "rrf_k": self.rrf_k if hybrid else None,
         }
+
+
+class RAGModel(_RAGMixin, OpenAIModel):
+    """RAG with an OpenAI generator."""
+
+    def __init__(self, model_name: str, k: int = 20, mode: str = "dense",
+                 embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+                 bm25_tokenizer: str = "official", rrf_k: int = 60, embedder=None):
+        OpenAIModel.__init__(self, model_name, use_bm25=True)  # reuses the project_apis plumbing
+        self._init_rag(k, mode, embedding_model, bm25_tokenizer, rrf_k, embedder)
+
+
+class TogetherRAGModel(_RAGMixin, TogetherModel):
+    """RAG with a Together.AI generator."""
+
+    def __init__(self, model_name: str, k: int = 20, mode: str = "dense",
+                 embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+                 bm25_tokenizer: str = "official", rrf_k: int = 60, embedder=None):
+        TogetherModel.__init__(self, model_name, use_bm25=True)
+        self._init_rag(k, mode, embedding_model, bm25_tokenizer, rrf_k, embedder)

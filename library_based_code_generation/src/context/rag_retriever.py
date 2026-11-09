@@ -14,7 +14,7 @@ class OpenAIEmbedder:
     """Embeds texts with OpenAI, caching each text on disk so re-runs cost nothing."""
 
     def __init__(self, model: str = DEFAULT_EMBEDDING_MODEL, cache_dir: str = ".cache/embeddings"):
-        from openai import OpenAI  # lazy import so the retriever can be tested without it
+        from openai import OpenAI 
 
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.model = model
@@ -38,27 +38,22 @@ def _normalize(m: np.ndarray) -> np.ndarray:
     return m / (np.linalg.norm(m, axis=-1, keepdims=True) + 1e-12)
 
 
-# ---- BM25 tokenization ------------------------------------------------------
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def normalized_tokens(text: str) -> list[str]:
-    """One tokenizer for BOTH API names and instructions.
-
-    Splits camelCase / PascalCase / snake_case / dotted paths, lowercases, and keeps
-    alphanumeric runs: 'DataFrame.merge' -> [data, frame, merge], 'read_csv' -> [read, csv].
-    """
+    """One tokenizer for BOTH API names. """
     return re.findall(r"[a-z0-9]+", _CAMEL_BOUNDARY.sub(" ", text).lower())
 
 
 def official_query_tokens(instruction: str) -> list[str]:
-    """The official baseline's query tokenization (kept for like-for-like comparisons)."""
+    """The official baseline's query tokenization."""
     return "".join(c for c in instruction if c.isalnum() or c == " ").lower().split(" ")
 
 
-# ---- fusion -----------------------------------------------------------------
+
 def reciprocal_rank_fusion(rankings: list[np.ndarray], rrf_k: int = 60) -> np.ndarray:
-    """Each ranking is an array of item indices, best first. Ranks are one-based:
+    """Each ranking is an array of item indices, best first.
     fused[i] = sum over rankings of 1 / (rrf_k + rank_of_i)."""
     n = len(rankings[0])
     fused = np.zeros(n)
@@ -68,15 +63,7 @@ def reciprocal_rank_fusion(rankings: list[np.ndarray], rrf_k: int = 60) -> np.nd
 
 
 class RAGRetriever:
-    """Retrieves the top-k API entries for an instruction.
-
-    mode="dense":  cosine similarity between instruction and API embeddings.
-    mode="hybrid": RRF of the dense ranking and a BM25 ranking over the SAME API list.
-    bm25_tokenizer: "official" (repo's split_identifier + space split; same as the BM25
-                    baseline) or "normalized" (one shared tokenizer for index and query).
-    `docs` may hold richer text per API (signature + docstring); if omitted, the API name
-    is embedded.
-    """
+    """Retrieves the top-k API entries for an instruction. """
 
     def __init__(self, apis: list[str], embedder, mode: str = "dense",
                  docs: list[str] | None = None, rrf_k: int = 60,
