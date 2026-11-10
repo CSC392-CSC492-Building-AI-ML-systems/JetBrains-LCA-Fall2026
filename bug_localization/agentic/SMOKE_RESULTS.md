@@ -68,6 +68,7 @@ cached Git history and network access for the API; no repository source was
 checked out or executed. No extra model setup remains in this environment.
 
 Generated artifacts are retained locally under the ignored `outputs/` directory.
-The complete 50-issue paid evaluation was **not run**. Use the README commands to
-measure whether the agent improves over matched one-shot RAG/direct runs;
+The complete 50-issue paid evaluation was **not run during smoke verification**.
+It was subsequently run at the user's request; see [RESULTS.md](RESULTS.md).
+Matched one-shot RAG/direct runs are still required to measure improvement;
 this single smoke result does not establish an improvement.
