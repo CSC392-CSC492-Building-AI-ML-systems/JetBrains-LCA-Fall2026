@@ -1,0 +1,135 @@
+Permutation Feature Importance
+==============================
+
+Permutation feature importance is a model inspection technique that can be used to estimate the importance of features for a fitted estimator. It is particularly useful for understanding the influence of each feature on the predictive performance of a model.
+
+Overview
+--------
+
+Given a fitted estimator and a dataset (which can be the training set or a separate validation set), permutation importance measures the increase in the prediction error after permuting the feature’s values, which breaks the relationship between the feature and the target. The intuition is that if permuting the values of a feature decreases the model performance significantly, the feature is important for the model.
+
+The permutation importance of a feature is computed as follows:
+
+1. Evaluate a baseline metric (defined by the scoring parameter) on the dataset.
+2. Permute the values of one feature column in the dataset.
+3. Re-evaluate the metric on the permuted dataset.
+4. The importance of the feature is the difference between the baseline metric and the metric after permutation.
+
+This process is repeated multiple times (`n_repeats`) to obtain a distribution of importance scores for each feature.
+
+Usage
+-----
+
+```python
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.impute import SimpleImputer
+import numpy as np
+
+# Example with logistic regression and missing values
+X = np.array([[1.0, 2.0, 3.0, np.nan], [2, 1, 2, 1]]).T
+y = np.array([0, 1, 0, 1])
+
+clf = make_pipeline(SimpleImputer(), LogisticRegression(solver="lbfgs"))
+clf.fit(X, y)
+
+result = permutation_importance(clf, X, y, n_repeats=4, random_state=42)
+
+print(result.importances_mean)  # Mean importance for each feature
+```
+
+Parameters
+----------
+
+- **estimator** : object  
+  A fitted estimator compatible with the scoring function.
+
+- **X** : ndarray or DataFrame, shape (n_samples, n_features)  
+  Data on which permutation importance will be computed.
+
+- **y** : array-like or None, shape (n_samples,) or (n_samples, n_classes)  
+  Target values for supervised learning or None for unsupervised.
+
+- **scoring** : str, callable, list, tuple, or dict, default=None  
+  Scorer to use for evaluating the model performance.
+
+- **n_repeats** : int, default=5  
+  Number of times to permute a feature.
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the randomness of the permutation.
+
+- **n_jobs** : int or None, default=None  
+  Number of jobs to run in parallel.
+
+- **max_samples** : int or float, default=None  
+  If not None, randomly sample max_samples samples to speed up computation.
+
+Returns
+-------
+
+- **result** : Bunch object with the following attributes:  
+  - `importances` : ndarray of shape (n_features, n_repeats)  
+    Raw permutation importance scores for each feature and repeat.  
+  - `importances_mean` : ndarray of shape (n_features,)  
+    Mean importance score for each feature.  
+  - `importances_std` : ndarray of shape (n_features,)  
+    Standard deviation of importance scores for each feature.
+
+Examples
+--------
+
+### Linear Regression Example
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import scale
+from sklearn.inspection import permutation_importance
+import numpy as np
+
+X, y = make_regression(n_samples=500, n_features=10, random_state=0)
+X = scale(X)
+y = scale(y)
+
+lr = LinearRegression().fit(X, y)
+
+expected_importances = 2 * lr.coef_**2
+results = permutation_importance(lr, X, y, n_repeats=50, scoring="neg_mean_squared_error")
+
+np.testing.assert_allclose(expected_importances, results.importances_mean, rtol=1e-1, atol=1e-6)
+```
+
+### Parallel Computation
+
+Permutation importance supports parallel computation using multiple processes or threads:
+
+```python
+from sklearn.utils import parallel_backend
+
+importance_processes = permutation_importance(lr, X, y, n_repeats=5, random_state=0, n_jobs=2)
+
+with parallel_backend("threading"):
+    importance_threading = permutation_importance(lr, X, y, n_repeats=5, random_state=0, n_jobs=2)
+```
+
+Notes
+-----
+
+- The estimator must be fitted before calling `permutation_importance`.
+- The method works with any estimator that supports the scoring function.
+- The choice of scoring metric affects the interpretation of importance values.
+- When features are correlated, permutation importance can be biased.
+- The `max_samples` parameter can be used to speed up computation by subsampling the dataset.
+- Permutation importance can handle datasets with missing values when used with appropriate pipelines.
+
+References
+----------
+
+.. [BRE] Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5–32.
+
+See Also
+--------
+
+- :ref:`User Guide <permutation_importance>` for detailed explanation and examples.

@@ -1,0 +1,88 @@
+collection_api module
+=====================
+
+Overview
+--------
+
+The `collection_api` module provides the infrastructure for bridging between the SQLAlchemy ORM and arbitrary Python collections. It defines the `CollectionAdapter` class, which proxies base-level collection operations such as append, remove, and iterate to the underlying Python collection, while emitting add/remove events for entities entering or leaving the collection. This mechanism allows the ORM to interact seamlessly with various collection types.
+
+Key Components
+--------------
+
+collection_adapter
+~~~~~~~~~~~~~~~~~~
+
+A utility to fetch the `CollectionAdapter` for a given collection. Depending on the environment, it either provides a function to retrieve the adapter or uses an attribute getter.
+
+CollectionAdapter
+~~~~~~~~~~~~~~~~~
+
+The central class in this module, `CollectionAdapter` acts as a bridge between the ORM and Python collections.
+
+**Purpose:**
+
+- Proxies collection operations (append, remove, iterate) to the underlying collection.
+- Emits events when entities are added or removed.
+- Used exclusively by the ORM for managing entity collections.
+
+**Attributes:**
+
+- `attr` (`CollectionAttributeImpl`): The collection attribute implementation associated with this adapter.
+- `_key` (`str`): The key identifying the collection attribute.
+- `_data` (`Callable[..., _AdaptedCollectionProtocol]`): A weak reference to the adapted collection.
+- `owner_state` (`InstanceState[Any]`): The state of the owner instance of the collection.
+- `_converter` (`_CollectionConverterProtocol`): Converter protocol for adapting collections.
+- `invalidated` (`bool`): Flag indicating if the collection has been invalidated.
+- `empty` (`bool`): Flag indicating if the collection is empty.
+
+**Methods:**
+
+- `__init__(attr, owner_state, data)`: Initializes the adapter with the collection attribute, owner state, and adapted collection data.
+- `_warn_invalidated()`: Issues a warning if the collection has been invalidated.
+- `data`: Property returning the adapted collection.
+
+Decorators for Collection Methods
+---------------------------------
+
+The module provides decorators to mark collection methods that modify the collection, enabling the ORM to emit appropriate events.
+
+- `removes_return()`: Marks a method as one that removes an entity from the collection. The return value of the method is considered the entity to remove. Example usage:
+
+  ```python
+  @collection.removes_return()
+  def pop(self):
+      ...
+  ```
+
+  This decorator adds "remove from collection" handling to the method without inspecting its arguments.
+
+Additional Utilities and Imports
+-------------------------------
+
+The module imports and exposes several utilities and collection types to support collection instrumentation and mapping:
+
+- `keyfunc_mapping`
+- `column_keyed_dict`
+- `attribute_keyed_dict`
+- `MappedCollection`
+- `KeyFuncDict`
+
+These utilities assist in managing collections keyed by attributes or columns, and provide mapped collection implementations.
+
+Instrumentation
+---------------
+
+The module ensures that built-in collection classes such as `InstrumentedList`, `InstrumentedSet`, and `KeyFuncDict` are properly instrumented for ORM usage. This instrumentation allows subclasses of these collections to inherit ORM-aware behavior.
+
+Type Variables and Protocols
+----------------------------
+
+Several type variables and protocols are defined to support typing and interface contracts:
+
+- `_CollectionConverterProtocol`: Protocol for collection converter callables.
+- `_AdaptedCollectionProtocol`: Protocol defining the interface for adapted collections, including adapter reference and methods for appending, removing, and iterating.
+
+Summary
+-------
+
+The `collection_api` module is a foundational component of SQLAlchemy's ORM collection handling system. It abstracts the interaction between the ORM and Python collections, providing event emission and instrumentation to maintain synchronization between object state and database state. Through `CollectionAdapter` and associated utilities, it supports a wide range of collection types and usage patterns within the ORM.

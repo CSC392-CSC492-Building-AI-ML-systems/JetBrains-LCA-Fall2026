@@ -1,0 +1,76 @@
+Using SQLite and asyncio Effectively
+====================================
+
+Overview
+--------
+
+This module provides utilities and adapters to facilitate effective use of SQLite with asyncio in Python applications. It includes type conversion functions to ensure compatibility between SQLite's data types and Python's native types, especially when working asynchronously with the `aiosqlite` library. The module also defines an asynchronous batch processing class to handle batched database operations efficiently.
+
+Type Conversion Adapters
+------------------------
+
+SQLite has limited native support for some Python data types, and this module registers custom adapters and converters to bridge this gap. These conversions ensure that data stored and retrieved from SQLite databases maintain consistency and compatibility, particularly when compared to PostgreSQL behavior.
+
+### Input Converters (Python to SQLite)
+
+- **Decimal to float**: Converts `Decimal` instances to `float` for storage.
+- **UUID to string**: Converts `uuid.UUID` instances to their string representation.
+- **datetime.time to ISO string**: Converts `datetime.time` objects to ISO 8601 formatted strings.
+- **datetime.date to ISO string**: Converts `datetime.date` objects to ISO 8601 formatted strings.
+- **datetime.datetime to string**: Converts `datetime.datetime` objects to strings, converting timezone-aware datetimes to UTC.
+- **datetime.timedelta to total seconds**: Converts `timedelta` objects to total seconds as a float.
+- **List to JSON string**: Serializes lists containing strings, integers, or floats into JSON strings.
+
+### Output Converters (SQLite to Python)
+
+- **Numeric to Decimal**: Converts numeric SQLite values back to `Decimal`.
+- **Integer to int**: Ensures integer values are returned as Python `int`.
+- **UUID string to UUID**: Converts UUID strings back to `uuid.UUID` instances.
+- **Date string to datetime.date**: Parses ISO 8601 date strings into `datetime.date`.
+- **Time string to datetime.time**: Parses ISO 8601 time strings into `datetime.time`.
+- **Seconds to timedelta**: Converts seconds stored as floats back to `datetime.timedelta`.
+- **Boolean string to bool**: Converts SQLite boolean representations ("1" or "0") to Python `bool`.
+- **Timestamp string to datetime.datetime**: Parses ISO 8601 timestamp strings into `datetime.datetime`.
+- **Timestamptz string to datetime.datetime with UTC timezone**: Parses timestamp with timezone strings and sets timezone to UTC.
+- **Array string to list**: Deserializes JSON strings back into Python lists.
+- **M2M string to list**: Splits comma-separated strings into lists for many-to-many relationships.
+
+These adapters and converters are registered with the `sqlite3` module to automatically handle conversions during database operations.
+
+Asynchronous Batch Processing
+-----------------------------
+
+The module defines an `AsyncBatch` class, which extends a base `Batch` class to support asynchronous batch execution of SQL queries using `aiosqlite`. This class manages an asynchronous database connection and cursor, allowing efficient execution of batched queries with a specified batch size.
+
+### AsyncBatch Class
+
+- **Attributes**:
+  - `connection`: An `aiosqlite.Connection` instance representing the asynchronous database connection.
+  - `query`: The SQL query or `Query` object to be executed in batches.
+  - `batch_size`: The number of records to process per batch.
+  - `_cursor`: Internal attribute holding the asynchronous cursor; initialized lazily.
+
+- **Properties**:
+  - `cursor`: Provides access to the asynchronous cursor, raising an error if accessed before initialization.
+
+This class is designed to integrate seamlessly with asyncio event loops, enabling non-blocking database operations and improving application responsiveness.
+
+Dependencies
+------------
+
+- `aiosqlite`: Lazily loaded to provide asynchronous SQLite support.
+- `piccolo`: Utilized for query construction and database engine abstractions.
+- Standard Python libraries: `datetime`, `uuid`, `decimal`, `contextvars`, `enum`, `os`, `sqlite3`, and typing utilities.
+
+Usage Notes
+-----------
+
+- The module ensures that timezone-aware datetime objects are converted to UTC before storage, aligning SQLite behavior with PostgreSQL standards.
+- Lists stored in SQLite are serialized as JSON strings and deserialized upon retrieval, supporting array-like data structures.
+- Boolean values are stored as strings ("1" or "0") and converted back to Python booleans transparently.
+- The asynchronous batch processing class requires an active `aiosqlite` connection and is intended for use within asyncio applications.
+
+Summary
+-------
+
+This module enhances SQLite's compatibility with Python's rich data types and asynchronous programming paradigms. By providing robust type adapters and an asynchronous batch processing mechanism, it enables developers to use SQLite effectively in modern, async Python applications while maintaining data integrity and performance.

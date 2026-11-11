@@ -1,0 +1,148 @@
+Feature Extraction Module
+=========================
+
+Overview
+--------
+
+This module provides utilities to create feature extractors from PyTorch models by rewriting their computation graphs using FX. It enables users to obtain intermediate activations (features) from specified nodes within a model, facilitating tasks such as feature visualization, transfer learning, and debugging.
+
+The core functionality revolves around creating a new graph module that returns intermediate nodes from a given model as a dictionary. The keys of this dictionary are user-specified strings, and the values are the corresponding outputs of the requested nodes.
+
+Key Features
+------------
+
+- **Selective Feature Extraction**: Extract outputs from any intermediate node in the model by specifying node names.
+- **Graph Rewriting via FX**: Uses PyTorch FX to trace and rewrite the model’s computation graph to return desired nodes.
+- **Automatic Pruning**: Removes unused nodes and their parameters from the rewritten graph.
+- **Support for Leaf Modules and Functions**: Allows specifying modules or functions that should be treated as atomic units during tracing.
+- **Dual-mode Tracing**: Traces the model in both training and evaluation modes, returning node names for both.
+- **Utility to List Node Names**: Provides a helper function to list all node names in execution order, aiding in selecting nodes for extraction.
+
+Node Naming Conventions
+------------------------
+
+Desired output nodes must be specified as a dot-separated path that walks the module hierarchy from the top-level module down to the leaf operation or leaf module. For example, `"layer1.0.conv1"` refers to the `conv1` submodule of the first block in `layer1`.
+
+Repeated applications of the same operation or leaf module are distinguished by appending a counter postfix, e.g., `"conv2_1"`, `"conv2_2"`, etc.
+
+For detailed information on node naming conventions, please refer to the relevant section in the official documentation:  
+https://pytorch.org/vision/stable/feature_extraction.html#about-node-names
+
+Functions
+----------
+
+### create_feature_extractor(model, return_nodes, tracer_kwargs=None, suppress_diff_warning=False) → fx.GraphModule
+
+Creates a new graph module that returns intermediate nodes from the given model as specified by `return_nodes`.
+
+**Parameters:**
+
+- `model` (`nn.Module`): The PyTorch model from which to extract features.
+- `return_nodes` (`Dict[str, str]`): A dictionary mapping original node names (or partial names) to user-defined output names.
+- `tracer_kwargs` (`Optional[Dict[str, Any]]`): Optional keyword arguments passed to the FX tracer. This can include:
+  - `leaf_modules`: List of modules to treat as leaf modules (not traced through).
+  - `autowrap_modules`: Modules whose functions should be automatically wrapped.
+  - `autowrap_functions`: Functions to treat as leaf functions.
+- `suppress_diff_warning` (`bool`): If `True`, suppresses warnings about differences between train and eval graphs.
+
+**Returns:**
+
+- `fx.GraphModule`: A new FX graph module that outputs the requested intermediate features as a dictionary.
+
+**Notes:**
+
+- The model is traced twice: once in training mode and once in evaluation mode. Both sets of node names are returned.
+- Not all models are FX traceable out-of-the-box. You may need to specify leaf modules or functions to avoid tracing through problematic parts.
+- Some Python built-in functions (e.g., `int`) may cause tracing errors and should be wrapped or treated as leaf functions.
+
+### get_graph_node_names(model, tracer_kwargs=None, suppress_diff_warning=False) → Tuple[List[str], List[str]]
+
+Utility function to return the names of nodes in the order they are executed during a forward pass.
+
+**Parameters:**
+
+- `model` (`nn.Module`): The model to inspect.
+- `tracer_kwargs` (`Optional[Dict[str, Any]]`): Optional tracer keyword arguments.
+- `suppress_diff_warning` (`bool`): If `True`, suppresses warnings about differences between train and eval graphs.
+
+**Returns:**
+
+- Tuple containing two lists of strings:
+  - Node names from the training mode trace.
+  - Node names from the evaluation mode trace.
+
+This function is useful for discovering which node names are available for feature extraction.
+
+Usage Examples
+--------------
+
+Extracting features from a ResNet model:
+
+```python
+import torch
+import torchvision
+from torchvision.models.feature_extraction import create_feature_extractor
+
+# Load a pretrained ResNet18 model
+model = torchvision.models.resnet18(pretrained=True)
+
+# Specify the nodes to extract features from
+return_nodes = {
+    'layer1': 'feat1',
+    'layer3': 'feat2'
+}
+
+# Create a feature extractor
+feature_extractor = create_feature_extractor(model, return_nodes)
+
+# Forward pass with a dummy input
+input_tensor = torch.rand(1, 3, 224, 224)
+features = feature_extractor(input_tensor)
+
+# Print the shapes of the extracted features
+for name, feature in features.items():
+    print(f"{name}: {feature.shape}")
+```
+
+Expected output:
+
+```
+feat1: torch.Size([1, 64, 56, 56])
+feat2: torch.Size([1, 256, 14, 14])
+```
+
+Specifying leaf modules and leaf functions to handle tracing issues:
+
+```python
+import torch
+from torchvision.models.feature_extraction import create_feature_extractor
+
+def leaf_function(x):
+    # This function would raise a TypeError if traced through
+    return int(x)
+
+class LeafModule(torch.nn.Module):
+    def forward(self, x):
+        # Some custom forward logic
+        return x
+
+model = ...  # Your model here
+
+tracer_kwargs = {
+    'leaf_modules': [LeafModule],
+    'autowrap_functions': [leaf_function]
+}
+
+feature_extractor = create_feature_extractor(model, {'some_node': 'output'}, tracer_kwargs=tracer_kwargs)
+```
+
+Additional Information
+----------------------
+
+- For more details on FX tracing and customization, see the official PyTorch FX documentation:  
+  https://pytorch.org/docs/stable/fx.html
+
+- For comprehensive guidance on node naming and feature extraction, refer to the torchvision feature extraction documentation:  
+  https://pytorch.org/vision/stable/feature_extraction.html
+
+This module is a powerful tool for introspecting and utilizing intermediate representations within deep learning models, enabling advanced workflows in model analysis and development.

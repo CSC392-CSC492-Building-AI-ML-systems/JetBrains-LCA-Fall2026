@@ -1,0 +1,165 @@
+Postgres Engine
+===============
+
+This module provides an asynchronous PostgreSQL engine implementation for Piccolo ORM, enabling efficient database interactions with support for transactions, batching, and savepoints.
+
+Classes
+-------
+
+AsyncBatch
+~~~~~~~~~~
+
+An asynchronous batch processor for executing queries in batches using a PostgreSQL connection.
+
+**Attributes:**
+
+- `connection: Connection`  
+  The active asyncpg connection used for executing queries.
+
+- `query: Query`  
+  The Piccolo query object to be executed in batches.
+
+- `batch_size: int`  
+  Number of rows to fetch per batch.
+
+- `_transaction`  
+  Internal transaction object managing the batch lifecycle.
+
+- `_cursor: Optional[Cursor]`  
+  Asyncpg cursor used to fetch query results incrementally.
+
+**Properties:**
+
+- `cursor`  
+  Returns the active cursor; raises `ValueError` if not set.
+
+**Methods:**
+
+- `async next() -> List[Dict]`  
+  Fetches the next batch of results asynchronously and processes them.
+
+- `__aiter__()`  
+  Returns the asynchronous iterator (self).
+
+- `async __anext__()`  
+  Retrieves the next batch of results or raises `StopAsyncIteration` if no more data.
+
+- `async __aenter__()`  
+  Starts a transaction and initializes the cursor for batch fetching.
+
+- `async __aexit__(exception_type, exception, traceback)`  
+  Commits or rolls back the transaction depending on exceptions and closes the connection.
+
+Atomic
+~~~~~~
+
+A helper class to build and run transactions programmatically by adding multiple queries.
+
+**Usage example:**
+
+```python
+transaction = engine.atomic()
+transaction.add(Foo.create_table())
+
+# Run synchronously
+transaction.run_sync()
+
+# Or run asynchronously
+await transaction.run()
+```
+
+**Attributes:**
+
+- `engine: PostgresEngine`  
+  The engine instance used to run the transaction.
+
+- `queries: List[Query]`  
+  List of queries added to the transaction.
+
+**Methods:**
+
+- `add(*query: Query)`  
+  Adds one or more queries to the transaction.
+
+- `async run()`  
+  Executes all added queries within a transaction asynchronously. Clears queries after execution.
+
+- `run_sync()`  
+  Runs the transaction synchronously by wrapping the async `run()` method.
+
+- `__await__()`  
+  Allows awaiting the Atomic instance directly to run the transaction.
+
+Savepoint
+~~~~~~~~~
+
+Represents a database savepoint within a transaction, allowing partial rollbacks.
+
+**Attributes:**
+
+- `name: str`  
+  The savepoint identifier.
+
+- `transaction: PostgresTransaction`  
+  The parent transaction managing this savepoint.
+
+**Methods:**
+
+- `async rollback_to()`  
+  Rolls back the transaction to this savepoint.
+
+- `async release()`  
+  Releases the savepoint, making it no longer available for rollback.
+
+PostgresTransaction
+~~~~~~~~~~~~~~~~~~~
+
+Manages PostgreSQL transactions using an asynchronous context manager.
+
+**Usage example:**
+
+```python
+async with engine.transaction():
+    await Band.select().run()
+```
+
+**Attributes:**
+
+- `engine: PostgresEngine`  
+  The engine instance managing the transaction.
+
+- `transaction`  
+  The underlying asyncpg transaction object.
+
+- `context`  
+  Context variable for managing nested transactions.
+
+- `connection`  
+  The active asyncpg connection used in the transaction.
+
+- `_savepoint_id`  
+  Internal counter for generating savepoint names.
+
+- `_parent`  
+  Reference to a parent transaction if nested.
+
+- `_committed`  
+  Flag indicating if the transaction has been committed.
+
+- `_rolled_back`  
+  Flag indicating if the transaction has been rolled back.
+
+**Constructor Parameters:**
+
+- `engine: PostgresEngine`  
+  The engine instance to use.
+
+- `allow_nested: bool` (default `True`)  
+  Controls behavior when nested transactions are created.  
+  - If `True`, nested transactions are treated as no-ops.  
+  - If `False`, attempting to create a nested transaction raises a `TransactionError`.
+
+Summary
+-------
+
+This module integrates asyncpg with Piccolo ORM to provide robust asynchronous PostgreSQL support. It includes facilities for batch processing, atomic transactions, savepoints, and nested transaction management, enabling efficient and safe database operations in asynchronous Python applications.

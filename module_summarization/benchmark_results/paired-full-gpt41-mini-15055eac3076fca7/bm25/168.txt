@@ -1,0 +1,119 @@
+Feature Extraction for Model Inspection
+=======================================
+
+Feature extraction is a powerful technique for inspecting intermediate representations within a neural network model. It allows you to extract outputs from specified internal nodes of a model, enabling deeper understanding, debugging, and visualization of learned features.
+
+Overview
+--------
+
+The feature extraction utility creates a new graph module that returns intermediate nodes from a given model as a dictionary. The keys of this dictionary are user-specified strings, and the values are the corresponding outputs of the requested nodes. This is achieved by rewriting the computation graph of the model via PyTorch FX to return the desired nodes as outputs. All unused nodes and their corresponding parameters are removed from the resulting graph module.
+
+Node Naming Conventions
+-----------------------
+
+Desired output nodes must be specified as a dot-separated path walking the module hierarchy from the top-level module down to the leaf operation or leaf module. For example, to extract features from `layer1` and `layer3` of a ResNet model, you would specify:
+
+```python
+{'layer1': 'feat1', 'layer3': 'feat2'}
+```
+
+This will rename the outputs to `'feat1'` and `'feat2'` respectively.
+
+For more details on node naming conventions, please refer to the relevant subheading in the official documentation:  
+https://pytorch.org/vision/stable/feature_extraction.html
+
+Tracing Modes
+-------------
+
+The model is traced twice: once in training mode and once in evaluation mode. Both sets of node names are returned. This is important because the computation graph may differ between these modes, and you may need to specify output nodes separately for train and eval modes.
+
+If discrepancies are detected between the train and eval graphs, a warning is issued to help you adjust your feature extraction accordingly.
+
+Usage
+-----
+
+### Basic Feature Extraction
+
+```python
+import torchvision
+from torchvision.models.feature_extraction import create_feature_extractor
+
+model = torchvision.models.resnet18()
+# Extract features from layer1 and layer3, naming them 'feat1' and 'feat2'
+feature_extractor = create_feature_extractor(
+    model, {'layer1': 'feat1', 'layer3': 'feat2'}
+)
+inputs = torch.rand(1, 3, 224, 224)
+outputs = feature_extractor(inputs)
+print([(k, v.shape) for k, v in outputs.items()])
+# Output:
+# [('feat1', torch.Size([1, 64, 56, 56])),
+#  ('feat2', torch.Size([1, 256, 14, 14]))]
+```
+
+### Handling Non-Tracable Submodules
+
+Not all models or submodules are FX traceable by default. To handle problematic submodules, you can specify them as "leaf modules" in the tracer keyword arguments. Leaf modules are not traced through; instead, they are treated as atomic operations in the graph.
+
+```python
+def leaf_function(x):
+    # This function would raise a TypeError if traced through
+    return int(x)
+
+class LeafModule(torch.nn.Module):
+    def forward(self, x):
+        # Custom forward logic
+        return x
+
+# When creating the feature extractor, specify leaf modules/functions:
+tracer_kwargs = {
+    "leaf_modules": [LeafModule],
+    "autowrap_modules": (math, torchvision.ops),
+}
+feature_extractor = create_feature_extractor(
+    model, return_nodes={'some_node': 'output'}, tracer_kwargs=tracer_kwargs
+)
+```
+
+Tracer Keyword Arguments
+------------------------
+
+The feature extraction utility accepts optional `tracer_kwargs` to customize the behavior of the underlying FX tracer (`torch.fx.Tracer`). By default, it wraps and treats all torchvision operations as leaf modules to improve tracing robustness.
+
+Default tracer kwargs include:
+
+- `autowrap_modules`: Modules to automatically wrap during tracing (e.g., `math`, `torchvision.ops`).
+- `leaf_modules`: Modules treated as leaves during tracing (e.g., torchvision ops).
+
+If you provide your own `tracer_kwargs`, the default modules are appended to your lists to maintain compatibility.
+
+Developer Utilities
+-------------------
+
+### Getting Node Names
+
+To assist in selecting nodes for feature extraction, a utility function is provided to return node names in order of execution for both train and eval modes:
+
+```python
+from torchvision.models.feature_extraction import get_graph_node_names
+
+train_nodes, eval_nodes = get_graph_node_names(model)
+print("Train mode nodes:", train_nodes)
+print("Eval mode nodes:", eval_nodes)
+```
+
+This helps identify which nodes are available for extraction and understand differences between train and eval graphs.
+
+Tips for Successful Feature Extraction
+--------------------------------------
+
+- If you encounter issues tracing a submodule, consider marking it as a leaf module.
+- Be aware that the computation graph may differ between training and evaluation modes; specify output nodes accordingly.
+- Use the node name utility to explore available nodes before specifying them.
+- Not all models are FX traceable out-of-the-box; some may require modifications or custom tracer settings.
+
+References
+----------
+
+- PyTorch FX Tracer: https://pytorch.org/docs/stable/fx.html#torch.fx.Tracer  
+- Official Feature Extraction Documentation: https://pytorch.org/vision/stable/feature_extraction.html

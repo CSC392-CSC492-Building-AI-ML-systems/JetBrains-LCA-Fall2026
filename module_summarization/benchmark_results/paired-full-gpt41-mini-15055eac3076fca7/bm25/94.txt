@@ -1,0 +1,110 @@
+# Scale Schedule Module Documentation
+
+This module provides functionality for learning rate scheduling in training workflows, specifically focusing on scaling schedules that modify the learning rate multiplier over time.
+
+## Overview
+
+Learning rate schedulers in this module output a multiplier, denoted as :math:`\alpha(t)`, which is applied to the optimizer's base learning rate :math:`\eta_i` to produce the effective learning rate at time :math:`t`:
+
+\[
+\eta(t) = \eta_i \times \alpha(t)
+\]
+
+This design allows flexible control over the learning rate during training by adjusting the multiplier according to a schedule.
+
+### Multiple Schedulers
+
+It is possible to use multiple schedulers simultaneously. In such cases, their effects stack multiplicatively, meaning the final learning rate multiplier is the product of the individual schedulers' multipliers.
+
+### Scale Schedule Ratio (SSR)
+
+The module supports a concept called the *scale schedule ratio* (SSR), denoted as :math:`\sigma`. SSR allows the schedule to be "stretched" or compressed in time. Formally, if :math:`\alpha(t)` is the original scheduler output at time :math:`t`, then the scaled scheduler output is:
+
+\[
+\alpha_{\sigma}(t) = \alpha\left(\frac{t}{\sigma}\right)
+\]
+
+This enables dynamic adjustment of the schedule's pace without modifying the scheduler logic itself.
+
+## Key Components
+
+### Lambda Scheduler
+
+A utility that wraps a user-defined scheduler function into a PyTorch `LambdaLR` scheduler. The scheduler function should accept the current training state and optionally the SSR parameter. If the scheduler function only accepts one argument (the state), SSR must be 1.0; otherwise, an error is raised.
+
+### StepScheduler
+
+`StepScheduler` is a concrete implementation of a learning rate scheduler that decays the learning rate discretely at fixed intervals.
+
+#### Behavior
+
+- The learning rate multiplier changes in steps at predefined intervals.
+- It supports a warmup period during which the learning rate multiplier increases from an initial value to the starting multiplier.
+- After warmup, the multiplier decays towards a final value over the duration of the schedule.
+
+#### Parameters
+
+- `t_warmup` (`str` or `Time`): Duration of the warmup period.
+- `t_max` (`str` or `Time`): Total duration of the scheduler (default is `"1dur"`).
+- `alpha_i` (`float`): Initial learning rate multiplier at the start of warmup (default is `1.0`).
+- `alpha_f` (`float`): Final learning rate multiplier after decay (default is `0.0`).
+- `scale_warmup` (`bool`): Whether to scale the warmup period according to SSR (default is `False`).
+
+#### Notes
+
+- By default, the warmup period is **not** scaled by SSR, which means the warmup duration remains fixed even if the rest of the schedule is scaled. This can cause slight distortion in the schedule slope after warmup.
+- To scale the entire schedule including warmup, set `scale_warmup=True`.
+
+#### Mathematical Definition
+
+Given:
+
+- :math:`t` — current time,
+- :math:`t_{warmup}` — warmup duration,
+- :math:`t_{max}` — total scheduler duration,
+- :math:`\alpha_i` — initial multiplier,
+- :math:`\alpha_f` — final multiplier,
+
+the fraction of post-warmup time elapsed is:
+
+\[
+\tau_w = \frac{t - t_{warmup}}{t_{max}}
+\]
+
+The learning rate multiplier is defined piecewise as:
+
+\[
+\alpha(t) = 
+\begin{cases}
+\text{warmup schedule} & t < t_{warmup} \\
+\text{decay schedule} & t \geq t_{warmup}
+\end{cases}
+\]
+
+where the warmup schedule typically increases linearly from 0 to :math:`\alpha_i`, and the decay schedule decreases from :math:`\alpha_i` to :math:`\alpha_f`.
+
+## Usage Example
+
+```python
+from composer.schedulers import StepScheduler
+
+# Create a scheduler with 5 epochs warmup, decaying over 10 epochs to 0.1 multiplier
+scheduler = StepScheduler(
+    t_warmup='5ep',
+    t_max='10ep',
+    alpha_f=0.1,
+    scale_warmup=True
+)
+
+# Use scheduler in training loop or pass to Trainer
+```
+
+## Important Notes
+
+- All schedulers in this module return a multiplier to be applied to the optimizer's base learning rate, not the absolute learning rate.
+- When using SSR, ensure that your scheduler functions accept the SSR parameter if you intend to scale the schedule.
+- The module is designed to integrate with the Composer Trainer state, which provides timing and progress information necessary for scheduling.
+
+---
+
+This documentation covers the core concepts and usage of the scale schedule module, enabling users to implement and customize learning rate schedules effectively in their training workflows.

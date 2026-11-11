@@ -1,0 +1,72 @@
+Memory Alignment
+================
+
+Memory alignment is a critical aspect of how structured arrays and data types are stored and accessed in memory. Proper alignment can improve performance and ensure compatibility with hardware requirements.
+
+Structured Data Types and Memory Layout
+---------------------------------------
+
+Structured datatypes in NumPy allow fields to be placed at arbitrary byte offsets within a data structure. This flexibility means that:
+
+- Fields can be separated by padding bytes.
+- Field offsets may not be monotonically increasing.
+- Fields can even overlap in memory.
+
+While this layout provides flexibility, it can lead to inefficient memory usage or hardware alignment issues.
+
+Repacking Fields for Alignment
+------------------------------
+
+The `repack_fields` function provides a way to reorder and repack the fields of a structured array or dtype in memory to achieve a desired memory layout.
+
+```python
+repack_fields(a, align=False, recurse=False)
+```
+
+- **Parameters:**
+  - `a` : ndarray or dtype  
+    The array or dtype whose fields are to be repacked.
+  - `align` : bool, optional  
+    If `False` (default), produces a "packed" memory layout where fields start immediately after the previous field ends, removing any padding bytes.  
+    If `True`, produces an "aligned" memory layout where each field's offset is a multiple of its alignment, and the total item size is a multiple of the largest alignment, adding padding bytes as necessary.
+  - `recurse` : bool, optional  
+    If `True`, applies repacking recursively to nested structured dtypes.
+
+- **Returns:**  
+  A new array or dtype with fields reordered and repacked according to the specified alignment.
+
+This function removes any overlaps and ensures fields have increasing byte offsets, adjusting padding bytes based on the `align` parameter.
+
+Aligned Memory Allocation
+-------------------------
+
+Allocating arrays with specific memory alignment can be important for performance optimizations and hardware requirements. The `_aligned_zeros` function allocates a new ndarray with aligned memory:
+
+- The allocated memory is guaranteed *not* to be aligned to twice the requested alignment. For example, if `align=4`, the memory is guaranteed not to be aligned to 8.
+- If `align` is `None`, the alignment defaults to the dtype's alignment.
+
+This function handles object arrays differently, as alignment for object arrays is not supported.
+
+Memory Alignment Guarantees and Checks
+--------------------------------------
+
+- The alignment of a dtype can be accessed via `dtype.alignment`.
+- Proper alignment ensures that the memory address of the data and all strides are multiples of the alignment value.
+- For structured arrays, alignment ensures that each field starts at an offset that is a multiple of its alignment requirement.
+- The total size of an aligned structured dtype is a multiple of the largest alignment among its fields.
+
+Testing and Validation
+----------------------
+
+Tests such as those in `TestAlignment` verify that unusual memory alignments do not cause errors or assertions within NumPy, especially in scenarios involving:
+
+- Size-0 arrays.
+- Relaxed strides.
+- Various shapes, dtypes, and memory orders.
+
+These tests ensure that NumPy's internal handling of memory alignment is robust and reliable.
+
+Summary
+-------
+
+Memory alignment in NumPy structured arrays affects how fields are laid out in memory, impacting performance and correctness. Functions like `repack_fields` and `_aligned_zeros` provide mechanisms to control and enforce alignment, ensuring that arrays meet specific memory layout requirements. Proper alignment is essential for efficient computation and compatibility with hardware constraints.

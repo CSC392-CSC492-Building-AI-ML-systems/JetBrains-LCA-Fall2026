@@ -1,0 +1,57 @@
+Scheduling Policies in Dask Distributed
+=======================================
+
+Overview
+--------
+
+Dask's distributed scheduler employs a set of sophisticated policies to determine the preference of tasks and workers during task scheduling. These policies are designed to optimize task execution by considering factors such as data locality, worker load, resource availability, and task priorities. The goal is to efficiently allocate tasks to workers to minimize latency, maximize throughput, and balance resource utilization across the cluster.
+
+Task Preference Policies
+------------------------
+
+The scheduler maintains detailed state information about each task, including its dependencies, current state, and which clients or workers are interested in its result. Tasks transition through various states such as `waiting`, `queued`, `processing`, `memory`, and `erred`. The scheduler uses these states to prioritize tasks that are ready to run and to manage retries or error handling.
+
+Key aspects of task preference include:
+
+- **Data Locality:** Tasks are preferentially scheduled on workers that already hold the required input data in memory, reducing data transfer overhead.
+- **Task Dependencies:** Tasks are only scheduled when all their dependencies have been satisfied, ensuring correctness.
+- **Client Interests:** Tasks that clients want to keep in memory (tracked via `wants_what`) are prioritized to facilitate quick result retrieval.
+- **Task Size and Resource Requirements:** The scheduler considers the expected data size and resource demands of tasks to avoid overloading workers.
+
+Worker Preference Policies
+--------------------------
+
+Worker selection policies aim to assign tasks to the most suitable workers based on current cluster state and worker capabilities. Important considerations include:
+
+- **Worker Load:** Tasks are assigned to workers with available capacity to balance the workload evenly.
+- **Worker Health and Status:** Workers that are healthy and responsive are preferred to avoid task failures.
+- **Resource Availability:** The scheduler accounts for memory, CPU, and other resource constraints on workers.
+- **Work Stealing:** The scheduler supports work stealing mechanisms where idle workers can take tasks from busy workers to improve cluster utilization.
+
+Extensions and Plugins
+----------------------
+
+Dask's scheduler is extensible via a variety of built-in extensions and plugins that enhance scheduling policies:
+
+- **WorkStealing:** Implements work stealing to dynamically balance load.
+- **ActiveMemoryManagerExtension:** Manages memory usage actively to prevent worker overload.
+- **ShuffleSchedulerPlugin:** Optimizes shuffle operations by coordinating task placement.
+- **SpansSchedulerExtension:** Provides tracing and profiling support for scheduling decisions.
+
+These extensions integrate seamlessly with the core scheduler to refine task and worker preferences based on runtime metrics and cluster dynamics.
+
+Client Interaction
+------------------
+
+Clients interact with the scheduler by submitting tasks and expressing preferences for task retention in memory. The scheduler tracks client states, including:
+
+- Unique client identifiers.
+- Sets of tasks clients want to keep in memory (`wants_what`).
+- Client version information and heartbeat timestamps.
+
+This information helps the scheduler prioritize tasks that are important to active clients and manage resource cleanup when clients disconnect or no longer require certain results.
+
+Conclusion
+----------
+
+The scheduling policies in Dask's distributed scheduler are central to its ability to efficiently execute complex, distributed computations. By carefully selecting task and worker preferences based on data locality, resource availability, client demands, and dynamic cluster conditions, the scheduler achieves high performance and robustness in diverse computing environments.

@@ -1,0 +1,83 @@
+Piccolo Projects Module
+=======================
+
+Overview
+--------
+This module provides core functionality for managing Piccolo applications, including app configuration, table discovery, and migration handling. It defines key classes and functions to facilitate the registration and discovery of database tables, app commands, and migration modules within a Piccolo project.
+
+Key Components
+--------------
+
+MigrationModule
+---------------
+A specialized module type representing a database migration. It includes metadata attributes such as:
+
+- `ID`: A unique identifier for the migration.
+- `VERSION`: The version of the migration.
+- `DESCRIPTION`: A brief description of the migration.
+
+It also defines an asynchronous static method:
+
+- `forwards()`: A coroutine to apply the migration forwards.
+
+PiccoloAppModule
+----------------
+A specialized module type representing a Piccolo application module. It contains:
+
+- `APP_CONFIG`: An instance of `AppConfig` that holds the configuration for the app.
+
+AppConfig
+---------
+A dataclass representing the configuration for a Piccolo app. Each app requires an `AppConfig` instance, typically defined in `piccolo_app.py`. It includes:
+
+- `app_name` (str): The name of the app (e.g., `'article'`).
+- `migrations_folder_path` (str): The filesystem path to the folder containing the app's migration files.
+- `table_classes` (List[Type[Table]]): A list of Piccolo `Table` subclasses registered with the app. This enables Piccolo's auto migrations to detect changes to tables.
+- `migration_dependencies` (List[str]): A list of other Piccolo apps whose migrations this app depends on. Migrations for these apps will be run before this app's migrations.
+- `commands` (List[Union[Callable, Command]]): A list of functions or `Command` instances registered with the Piccolo CLI. Commands can be invoked via the CLI using the app name and command name.
+
+Command
+-------
+A dataclass representing a CLI command for a Piccolo app. It includes:
+
+- `callable`: The function or coroutine to execute.
+- `aliases`: A list of alternative names for the command.
+
+table_finder
+------------
+A utility function to discover and import Piccolo `Table` subclasses from specified modules. This function can be used as an alternative to explicitly importing and registering table classes with an `AppConfig`.
+
+Parameters:
+
+- `modules` (Sequence[str]): A list of module paths to search for `Table` subclasses (e.g., `['blog.tables']`). Paths should be absolute from the project root.
+- `include_tags` (Sequence[str], optional): Tags to filter which `Table` subclasses to include. The special tag `'__all__'` includes all tables found. Defaults to `['__all__']`.
+- `exclude_tags` (Sequence[str], optional): Tags to exclude tables from being imported. This overrides `include_tags`.
+- `exclude_imported` (bool, optional): If `True`, only tables defined within the specified modules are included; tables imported from other modules are ignored.
+
+Behavior:
+
+- Imports each specified module.
+- Iterates over all classes in the module.
+- Selects subclasses of `Table` that meet the tag criteria.
+- Returns a list of matching `Table` subclasses.
+
+Example usage:
+
+.. code-block:: python
+
+    tables = table_finder(
+        modules=['blog.tables'],
+        include_tags=['public'],
+        exclude_tags=['deprecated'],
+        exclude_imported=True,
+    )
+
+Notes
+-----
+- The module guards against incorrect usage by converting single string module paths into a list.
+- Import errors during module loading are raised with informative messages.
+- The `table_finder` function supports fine-grained control over which tables are included based on tags and module origin.
+
+Summary
+-------
+This module is essential for Piccolo projects to manage app configurations, discover database tables dynamically, handle migrations, and register CLI commands. It streamlines the integration of database schema changes and app-specific commands within the Piccolo ecosystem.

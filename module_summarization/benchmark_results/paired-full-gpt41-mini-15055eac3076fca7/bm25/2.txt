@@ -1,0 +1,78 @@
+Encoding media
+==============
+
+The `encode_media` method allows you to create a new Job that encodes media files to formats playable in web browsers.
+
+Usage
+-----
+
+```python
+job = encode_media(media, version_id=None, keep_original='auto')
+```
+
+Parameters
+----------
+
+- **media**  
+  The media to encode. This can be either:
+  - A path to a media file on disk.
+  - A `FileComponent` instance from the `ftrack.server` location.
+
+- **version_id** (optional)  
+  The ID of the AssetVersion to associate the encoded components with.  
+  Note: A server version 3.3.32 or higher is required for this argument to function properly.  
+  If not provided, the encoded components will not be associated with any version, even if the supplied media belongs to one.
+
+- **keep_original** (optional, default `'auto'`)  
+  Controls whether the original media is kept after encoding.  
+  - If `'auto'` (default), the original media will be kept if it is a `FileComponent`, and deleted if it is a file path.  
+  - You can explicitly set this to `True` or `False` to override this behavior.
+
+Returns
+-------
+
+A new Job object representing the encoding task.
+
+Details
+-------
+
+The encoding job will process the media based on its file type. The job data contains information about the encoding results in the following format:
+
+```python
+{
+    'output': [{
+        'format': 'video/mp4',
+        'component_id': 'e2dc0524-b576-11d3-9612-080027331d74'
+    }, {
+        'format': 'image/jpeg',
+        'component_id': '07b82a97-8cf9-11e3-9383-20c9d08...'
+    }]
+}
+```
+
+This output lists the encoded components along with their formats and component IDs.
+
+Behavior
+--------
+
+- If `media` is a file path, a new component will be created on the server in the server location.  
+- If `media` is a `FileComponent`, it will be used directly.  
+- The method will automatically commit the new component to ensure it exists on the server before encoding.  
+- If the server does not support the `encode_media` action, a `ServerCompatibilityError` will be raised with a message indicating that the server version needs to be updated.
+
+Error Handling
+--------------
+
+- If the server reports an error during encoding, a `ServerError` will be raised with details from the server response.  
+- If the `media` parameter is not a recognized type (neither a file path nor a `FileComponent`), a `ValueError` will be raised.
+
+Requirements
+------------
+
+- Server version 3.3.32 or higher is required to use the `version_id` argument.  
+- The server must support the `encode_media` action; otherwise, an error will be raised advising to update the server.
+
+Summary
+-------
+
+The `encode_media` method provides a convenient way to encode media files into browser-playable formats, managing the creation of components and jobs on the server, with options to keep or discard the original media and associate the results with specific asset versions.

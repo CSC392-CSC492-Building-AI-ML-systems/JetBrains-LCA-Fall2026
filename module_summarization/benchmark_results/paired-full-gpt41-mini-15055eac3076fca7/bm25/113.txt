@@ -1,0 +1,131 @@
+Generate Documentation for Scan and Spiral Plans
+==================================================
+
+This module provides a collection of plans for performing various scanning and spiral motion patterns using motors and detectors. These plans are designed to be used within the Bluesky framework for experimental control and data acquisition.
+
+Key Plans and Utilities
+-----------------------
+
+### Spiral Square Scan (`spiral_square`)
+
+Performs a spiral square scan pattern over a 2D grid defined by x and y motors.
+
+**Parameters:**
+
+- `detectors` (list): List of 'readable' detector objects.
+- `x_motor` (object): Any 'settable' object controlling the x-axis (e.g., motor, temperature controller).
+- `y_motor` (object): Any 'settable' object controlling the y-axis.
+- `x_center` (float): Center position on the x-axis.
+- `y_center` (float): Center position on the y-axis.
+- `x_range` (float): Width of the spiral along the x-axis.
+- `y_range` (float): Width of the spiral along the y-axis.
+- `x_num` (float): Number of points along the x-axis.
+- `y_num` (float): Number of points along the y-axis.
+- `per_step` (callable, optional): Hook for customizing actions at each step of the inner loop. See `bluesky.plans.one_nd_step` for details.
+- `md` (dict, optional): Metadata dictionary.
+
+**See Also:**
+
+- `bluesky.plans.spiral_square`
+- `bluesky.plans.spiral`
+- `bluesky.plans.relative_spiral`
+- `bluesky.plans.spiral_fermat`
+- `bluesky.plans.relative_spiral_fermat`
+
+---
+
+### Relative Spiral Square Scan (`rel_spiral_square`)
+
+A relative version of the spiral square scan that moves relative to the current motor positions.
+
+**Parameters:**
+
+- Same as `spiral_square`, except the scan is relative to the current motor positions.
+
+**Metadata:**
+
+- Adds `'plan_name': 'rel_spiral_square'` to the metadata.
+
+**Decorators:**
+
+- Uses `reset_positions_decorator` and `relative_set_decorator` to manage motor positions.
+
+**See Also:**
+
+- `bluesky.plans.relative_spiral_square`
+- `bluesky.plans.spiral`
+- `bluesky.plans.relative_spiral`
+- `bluesky.plans.spiral_fermat`
+- `bluesky.plans.relative_spiral_fermat`
+
+---
+
+### Plan Chain (`pchain`)
+
+Chains multiple plans together, yielding messages from each plan in sequence.
+
+**Parameters:**
+
+- `*args`: Generators (plans) to be chained.
+
+**Yields:**
+
+- `Msg`: Messages from each plan in turn.
+
+**Description:**
+
+This function behaves like `itertools.chain` but uses `yield from` to ensure that `.send()` works as expected and that underlying plans receive return values properly.
+
+---
+
+### Print Summary Wrapper (`print_summary_wrapper`)
+
+Wraps a plan to print a minimal summary of its execution, showing only motor moves and event creation points.
+
+**Parameters:**
+
+- `plan` (iterable): An iterable yielding `Msg` objects.
+
+**Yields:**
+
+- `msg`: The same messages yielded by the wrapped plan.
+
+**Description:**
+
+This wrapper is useful for debugging or monitoring the progress of a plan by printing concise information about its actions without altering the messages.
+
+---
+
+### Scan Plan (Partial)
+
+The scan plan allows scanning over a range of motor positions with specified numbers of points.
+
+**Parameters:**
+
+- `detectors` (list): List of detectors.
+- `motor` (object): Motor or settable object to scan.
+- `start` (float): Start position.
+- `stop` (float): Stop position.
+- `num` (int): Number of points to scan.
+
+**Notes:**
+
+- The number of points (`num`) can be provided as the last positional argument or as a keyword argument.
+- Validates that `num` is a positive integer.
+
+**See Also:**
+
+- `bluesky.plans.relative_inner_product_scan`
+- `bluesky.plans.grid_scan`
+- `bluesky.plans.scan_nd`
+
+---
+
+### Additional Notes
+
+- Metadata dictionaries (`md`) are used throughout to store plan arguments and other relevant information.
+- Motor and detector objects are often replaced with their string representations (`repr`) when included in metadata to avoid serialization issues.
+- The plans use decorators from `bluesky.plan_stubs` (aliased as `bpp`) to manage motor positions and relative movements.
+- The module supports extensibility through hooks like `per_step` for custom actions during scans.
+
+This collection of plans and utilities provides flexible and powerful tools for orchestrating complex scanning routines in experimental setups, facilitating precise control and data acquisition workflows.

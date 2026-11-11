@@ -1,0 +1,88 @@
+Transforming the Prediction Target
+===================================
+
+In many machine learning tasks, it is often necessary to transform the prediction target (`y`) before fitting a model. This preprocessing step can help adapt the target variable to the requirements of specific algorithms or improve model performance. Scikit-learn provides several transformers designed specifically for transforming prediction targets in classification and regression problems.
+
+Label Binarization
+------------------
+
+The `LabelBinarizer` class allows you to binarize labels in a one-vs-all fashion. This is particularly useful when extending binary classifiers or regressors to multi-class classification problems using the one-vs-all scheme.
+
+- **Purpose**: Convert multi-class labels into binary labels indicating membership to each class.
+- **Usage**: At training time, it transforms multi-class labels into binary format for each class. At prediction time, it can invert the transformation to recover the original multi-class labels.
+- **Key Methods**:
+  - `transform`: Converts multi-class labels to binary labels.
+  - `inverse_transform`: Converts binary labels back to multi-class labels.
+- **Parameters**:
+  - `neg_label` (int, default=0): Value to encode negative labels.
+  - `pos_label` (int, default=1): Value to encode positive labels.
+  - `sparse_output` (bool, default=False): Whether to return a sparse matrix from `transform`.
+- **Example**:
+
+  ```python
+  from sklearn.preprocessing import LabelBinarizer
+
+  lb = LabelBinarizer()
+  y = [1, 2, 6, 4]
+  y_bin = lb.fit_transform(y)
+  y_orig = lb.inverse_transform(y_bin)
+  ```
+
+Label Encoding
+--------------
+
+The `LabelEncoder` class encodes target labels with values between `0` and `n_classes - 1`. This transformer is intended for encoding the target variable `y` and not the input features `X`.
+
+- **Purpose**: Normalize labels by converting categorical labels to integer values.
+- **Attributes**:
+  - `classes_`: Array of shape `(n_classes,)` holding the label for each class.
+- **Notes**:
+  - This encoding is useful for transforming categorical target labels into a format suitable for many algorithms.
+  - It should not be confused with feature encoders like `OrdinalEncoder` or `OneHotEncoder`.
+- **Example**:
+
+  ```python
+  from sklearn.preprocessing import LabelEncoder
+
+  le = LabelEncoder()
+  y = ['cat', 'dog', 'fish']
+  y_encoded = le.fit_transform(y)
+  ```
+
+Target Encoding
+---------------
+
+The `TargetEncoder` is a supervised encoding technique for categorical features based on the target variable. It replaces each category with a shrunk estimate of the average target value for observations belonging to that category.
+
+- **Purpose**: Encode categorical features by leveraging the target variable, useful for both regression and classification tasks.
+- **Encoding Scheme**: Combines the global target mean with the category-specific target mean, applying shrinkage to reduce overfitting.
+- **Handling Missing and Unseen Categories**:
+  - Missing values (`np.nan`, `None`) are treated as a separate category.
+  - Categories not seen during fitting are encoded with the global target mean.
+- **Cross-Fitting**:
+  - The encoder uses an internal cross-fitting scheme to avoid target leakage.
+  - Note that `fit(X, y).transform(X)` is not equivalent to `fit_transform(X, y)` due to this scheme.
+- **Attributes**:
+  - `categories_`: List of categories for each feature.
+  - `target_type_`: Type of the target variable.
+  - `target_mean_`: Overall mean of the target.
+- **References**:
+  - Micci-Barreca, Daniele. "A preprocessing scheme for high-cardinality categorical attributes in classification and prediction problems." SIGKDD Explor. Newsl. 3, 1 (July 2001), 27–32.
+- **Example**:
+
+  ```python
+  import numpy as np
+  from sklearn.preprocessing import TargetEncoder
+
+  X = np.array([["dog"] * 20 + ["cat"] * 30 + ["snake"] * 38], dtype=object).T
+  y = [90.3] * 5 + [80.1] * 15 + [20.4] * 5 + [20.1] * 25 + [21.2] * 8 + [49] * 30
+  enc = TargetEncoder(smooth="auto")
+  X_trans = enc.fit_transform(X, y)
+  ```
+
+Summary
+-------
+
+Transforming the prediction target is a crucial step in preparing data for machine learning models, especially when dealing with categorical or multi-class targets. Scikit-learn provides a suite of transformers such as `LabelBinarizer`, `LabelEncoder`, and `TargetEncoder` to facilitate these transformations, each suited for different scenarios and types of targets.
+
+For more detailed information and examples, please refer to the :ref:`User Guide <preprocessing_targets>` and the specific documentation pages for each transformer.

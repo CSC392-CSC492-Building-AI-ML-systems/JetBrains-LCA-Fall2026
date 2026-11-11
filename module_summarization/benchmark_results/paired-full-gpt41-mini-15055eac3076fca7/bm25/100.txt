@@ -1,0 +1,115 @@
+Managers Module
+===============
+
+Overview
+--------
+This module provides classes for managing JSON-RPC requests to an Ethereum node or similar blockchain provider. It supports both synchronous (blocking) and asynchronous request handling, transaction nonce management, and wrapping of request managers for extended functionality.
+
+Classes
+-------
+
+RequestManager
+--------------
+Handles sending requests to a blockchain provider and receiving responses.
+
+**Constructor:**
+- `__init__(provider)`
+  - Initializes the manager with a given provider.
+  - `provider`: An object responsible for making the actual JSON-RPC requests.
+
+**Methods:**
+- `setProvider(provider)`
+  - Sets or updates the provider used for requests.
+
+- `request_blocking(method, params)`
+  - Sends a synchronous JSON-RPC request.
+  - `method`: The RPC method name as a string.
+  - `params`: A list of parameters for the RPC call.
+  - Returns the result of the RPC call.
+  - Raises `ValueError` if the response contains an error.
+
+- `request_async(method, params)`
+  - Sends an asynchronous JSON-RPC request.
+  - Returns a unique request ID (UUID) that can be used to retrieve the result later.
+
+- `receive_blocking(request_id, timeout=None)`
+  - Waits for and retrieves the result of an asynchronous request.
+  - `request_id`: The UUID returned by `request_async`.
+  - `timeout`: Optional timeout in seconds.
+  - Returns the result of the RPC call.
+  - Raises `KeyError` if the request ID is not found.
+  - Raises `ValueError` if the response contains an error.
+
+- `receive_async(request_id, *args, **kwargs)`
+  - Placeholder for callback-based asynchronous response handling.
+  - Not implemented and raises `NotImplementedError`.
+
+ManagerWrapper
+--------------
+A wrapper class that delegates all calls to an underlying `RequestManager` instance. Useful for extending or modifying behavior without changing the original manager.
+
+**Constructor:**
+- `__init__(wrapped_manager)`
+  - `wrapped_manager`: An instance of a manager to wrap.
+
+**Properties:**
+- `provider`
+- `pending_requests`
+
+**Methods:**
+- `setProvider(provider)`
+- `request_blocking(*args, **kwargs)`
+- `request_async(*args, **kwargs)`
+- `receive_blocking(*args, **kwargs)`
+- `receive_async(*args, **kwargs)`
+
+BaseSendRawTransactionMixin
+---------------------------
+Mixin class that extends a manager with functionality to manage raw transactions and nonces for Ethereum accounts.
+
+**Constructor:**
+- `__init__(*args, **kwargs)`
+  - Initializes internal tracking structures for known transactions and nonces.
+
+**Internal Attributes:**
+- `_known_transactions`: A dictionary mapping addresses to sets of known transaction hashes.
+- `_known_nonces`: A dictionary mapping addresses to sets of known nonces.
+
+**Methods:**
+- `_get_nonces_and_cleanup(addr, chain_nonce)`
+  - Retrieves all known nonces for an address, cleaning up those that are outdated compared to the current chain nonce.
+  - `addr`: Ethereum address as a string.
+  - `chain_nonce`: The current nonce from the blockchain.
+  - Yields nonces that are still relevant.
+
+- `get_chain_nonce(addr)`
+  - Queries the blockchain for the current transaction count (nonce) for the given address, including pending transactions.
+  - Returns the nonce as an integer.
+
+- `get_nonce(addr)`
+  - Determines the next nonce to use for a transaction from the given address.
+  - Considers both the chain nonce and tracked nonces from known transactions.
+  - Returns the next nonce as an integer.
+
+Notes
+-----
+- The module relies on external libraries such as `gevent` for asynchronous execution and `web3.utils` for Ethereum-specific utilities.
+- Error handling is performed by raising exceptions when JSON-RPC responses contain errors.
+- The asynchronous request pattern uses greenlets to spawn concurrent requests.
+- The `BaseSendRawTransactionMixin` is designed to be combined with other manager classes to add raw transaction sending capabilities and nonce management.
+
+Usage Example
+-------------
+```python
+provider = SomeProvider()
+manager = RequestManager(provider)
+
+# Synchronous request
+balance = manager.request_blocking('eth_getBalance', ['0xaddress', 'latest'])
+
+# Asynchronous request
+request_id = manager.request_async('eth_getBalance', ['0xaddress', 'latest'])
+balance = manager.receive_blocking(request_id, timeout=10)
+```
+
+This module is intended for use in Ethereum client libraries or applications that require robust management of JSON-RPC requests and transaction handling.

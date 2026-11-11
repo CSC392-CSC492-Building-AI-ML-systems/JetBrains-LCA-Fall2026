@@ -1,0 +1,106 @@
+Generate Documentation for Migration Backwards Module
+=======================================================
+
+Overview
+--------
+
+This module provides functionality to manage and run backwards database migrations for Piccolo ORM applications. It allows reversing one or more migrations for a specified app, with options for automatic confirmation, previewing migrations, and cleaning up migration files.
+
+Key Components
+--------------
+
+### BackwardsMigrationManager
+
+`BackwardsMigrationManager` is the main class responsible for handling backwards migrations. It inherits from `BaseMigrationManager` and provides methods to:
+
+- Initialize with parameters such as the app name, migration ID to reverse to, and flags for auto agreement, cleaning, and previewing.
+- Retrieve migration modules from the app's migrations folder.
+- Determine which migrations have already been run.
+- Reverse migrations in the correct order, either a specific migration, all migrations, or the first migration.
+- Optionally preview migrations without applying changes.
+- Optionally clean up migration files after reversing.
+- Provide user prompts for confirmation unless auto agreement is enabled.
+- Return a `MigrationResult` indicating success or failure of the operation.
+
+#### Initialization Parameters
+
+- `app_name` (`str`): The name of the Piccolo app whose migrations are to be reversed.
+- `migration_id` (`str`): The target migration ID to reverse to. Special values include `"all"` to reverse all migrations and `"1"` to reverse the first migration.
+- `auto_agree` (`bool`): If `True`, skips user confirmation prompts.
+- `clean` (`bool`): If `True`, deletes migration files after reversing.
+- `preview` (`bool`): If `True`, previews the migration steps without applying changes.
+
+#### Important Methods
+
+- `run_migrations_backwards(app_config: AppConfig) -> MigrationResult`  
+  Runs the backwards migrations for the given app configuration. Handles user confirmation, migration ordering, and cleanup.
+
+- `run() -> MigrationResult`  
+  Entry point to create the migration table if necessary, retrieve app configuration, and execute backwards migrations.
+
+### run_backwards Function
+
+An asynchronous helper function to run backwards migrations for a given app name and migration ID with options for auto agreement, cleaning, and previewing.
+
+Parameters:
+
+- `app_name` (`str`): The app name or `"all"` to run for all apps.
+- `migration_id` (`str`): The migration ID to reverse to, defaulting to `"1"`.
+- `auto_agree` (`bool`): Automatically agree to prompts.
+- `clean` (`bool`): Clean migration files after reversing.
+- `preview` (`bool`): Preview migrations without applying.
+
+Usage
+-----
+
+To reverse migrations for a specific app, instantiate `BackwardsMigrationManager` with the desired parameters and call its `run()` method asynchronously. Alternatively, use the `run_backwards` function for a simpler interface.
+
+Example:
+
+```python
+from piccolo.apps.migrations.commands.backwards import BackwardsMigrationManager
+
+manager = BackwardsMigrationManager(
+    app_name="my_app",
+    migration_id="all",
+    auto_agree=True,
+    clean=True,
+    preview=False,
+)
+
+result = await manager.run()
+if result.success:
+    print("Migrations reversed successfully.")
+else:
+    print(f"Failed to reverse migrations: {result.message}")
+```
+
+Features
+--------
+
+- Supports reversing all migrations or up to a specific migration.
+- Handles dependencies and ordering of migrations.
+- Provides user prompts with option to auto-confirm.
+- Supports preview mode to simulate migration reversal.
+- Cleans up migration files if requested.
+- Returns detailed results indicating success or failure.
+
+Error Handling
+--------------
+
+- If no migrations have been run, the manager reports that there are no migrations to reverse.
+- If an unrecognized migration ID is provided, an error message is printed and the operation is aborted.
+- User can cancel the operation at confirmation prompt.
+- Errors and messages are printed to standard error where appropriate.
+
+Dependencies
+------------
+
+- Piccolo ORM migration modules and tables.
+- Python standard libraries: `os`, `sys`, `typing`.
+- Piccolo utilities for printing and configuration.
+
+Summary
+-------
+
+This module is designed to facilitate safe and controlled reversal of database migrations in Piccolo ORM projects. It provides both a class-based interface and a helper function to accommodate different usage scenarios, with features to preview, confirm, and clean migrations as needed.

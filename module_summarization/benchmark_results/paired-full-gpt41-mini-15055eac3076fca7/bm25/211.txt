@@ -1,0 +1,97 @@
+Generalized Linear Mixed Effects Models
+========================================
+
+Bayesian Inference for Generalized Linear Mixed Models
+-------------------------------------------------------
+
+This module provides tools for Bayesian inference in generalized linear mixed models (GLMMs). Currently, it supports families without additional scale or shape parameters, specifically binomial and Poisson families.
+
+Two estimation approaches are implemented:
+
+- **Laplace approximation** (maximum a posteriori estimation)
+- **Variational Bayes** (mean field approximation to the posterior distribution)
+
+All random effects realizations are modeled as mutually independent Gaussian variables with mean zero and unknown standard deviations.
+
+Model Specification
+-------------------
+
+The model is specified by the joint density of the data and parameters:
+
+.. math::
+
+    p(y \mid vc, fep) \, p(vc \mid vcp) \, p(vcp) \, p(fe)
+
+where:
+
+- :math:`y` is the observed response,
+- :math:`vc` are the random effects realizations,
+- :math:`fep` are the fixed effects parameters,
+- :math:`vcp` are the standard deviations of the random effects,
+- :math:`fe` denotes the fixed effects prior.
+
+Random Effects Design Matrix
+----------------------------
+
+The design matrix for the random effects, `exog_vc`, has one column per independent realization of a random effect. Each random effect is assumed to have mean zero and an unknown standard deviation. The standard deviations are constrained to be equal within subsets of columns, identified by the `ident` parameter.
+
+- When formulas are used, columns derived from a common formula share the same standard deviation.
+- When formulas are not used, `ident` must be provided as a vector with the same length as the number of columns in `exog_vc`. Columns with the same `ident` value share the same standard deviation.
+
+Sparse matrices are supported for `exog_vc`. If a dense matrix is provided, it will be internally converted to a sparse matrix.
+
+Parameterization and Priors
+---------------------------
+
+- **Fixed effects parameters (`fe`)**: Gaussian prior with mean zero and standard deviation specified by `fe_p`.
+- **Random effects realizations (`vc`)**: Independent Gaussian variables with mean zero and standard deviations given by `vcp`.
+- **Random effects standard deviations (`vcp`)**: Log-normal prior with mean zero and standard deviation `vcp_p`.
+
+Estimation Methods
+------------------
+
+Two fitting methods are available:
+
+- **fit_map**: Fits the model using the Laplace approximation to find the posterior mode.
+- **fit_vb**: Fits the model using variational Bayes to approximate the posterior distribution.
+
+Note that for some families, such as the binomial family, finding the posterior mode can be numerically challenging if `vcp_p` is set too large. A value of `vcp_p = 0.5` is recommended.
+
+Usage Example
+-------------
+
+A binomial (logistic) random effects model with random intercepts for villages and random slopes for each year within each village can be specified as follows:
+
+.. code-block:: python
+
+    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    model = BinomialBayesMixedGLM.from_formula(
+        'y ~ year_cen',
+        random,
+        data=df
+    )
+    result = model.fit_map()
+
+References
+----------
+
+- Introduction to generalized linear mixed models:  
+  https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-generalized-linear-mixed-models
+
+- SAS documentation:  
+  https://support.sas.com/documentation/cdl/en/statug/63033/HTML/default/viewer.htm#statug_intromix_a0000000215.htm
+
+- An assessment of estimation methods for generalized linear mixed models with binary outcomes:  
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3866838/
+
+Notes
+-----
+
+- All random effects are modeled as independent Gaussian variables given the variance parameters.
+- The `ident` vector or formula-based grouping determines which random effects share the same variance.
+- The model supports sparse design matrices for random effects to improve computational efficiency.
+- The prior for the fixed effects is Gaussian with mean zero and standard deviation `fe_p`.
+- The prior for the random effects standard deviations is log-normal with parameters controlled by `vcp_p`.
+- The Laplace approximation and variational Bayes methods provide flexible options for inference depending on the application and computational resources.
+
+This framework enables flexible and efficient Bayesian modeling of complex hierarchical data structures using generalized linear mixed models.

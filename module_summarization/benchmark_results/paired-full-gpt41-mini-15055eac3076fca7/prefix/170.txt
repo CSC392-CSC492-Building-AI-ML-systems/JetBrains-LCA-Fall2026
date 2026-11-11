@@ -1,0 +1,72 @@
+Handling Large Datasets
+=======================
+
+When working with large spectral data cubes, efficient computation of moment maps is essential to handle the data without excessive memory usage or computational overhead. This documentation outlines several strategies implemented for computing moments along a specified axis of a data cube, each with different approaches to balance memory usage and performance.
+
+Moment Map Shape
+----------------
+
+The shape of the resulting moment map after collapsing a cube along a given axis can be obtained using the function:
+
+- **_moment_shp(cube, axis)**
+
+  Returns the shape of the moment map by removing the specified axis from the cube's shape.
+
+Moment Computation Strategies
+-----------------------------
+
+Three primary strategies are provided for computing moments of the data cube:
+
+1. **Slice-wise Computation**
+
+   Functions:
+   - `_slice0(cube, axis)` : Computes the 0th moment (integrated intensity) by iterating over slices along the axis.
+   - `_slice1(cube, axis)` : Computes the 1st moment (intensity-weighted coordinate) similarly slice-wise.
+   - `moment_slicewise(cube, order, axis)` : General function to compute moments of arbitrary order by accumulating results slice by slice.
+
+   Description:
+   This approach processes the cube one 2D slice at a time along the specified axis. It is memory efficient since only one slice is loaded and processed at a time, making it suitable for very large datasets that cannot fit entirely into memory.
+
+2. **Ray-wise Computation**
+
+   Function:
+   - `moment_raywise(cube, order, axis)`
+
+   Description:
+   This method computes moments by iterating over individual rays (1D arrays) along the axis. It accumulates the moment values one ray at a time. This approach can be more flexible and memory efficient when the cube is very large, as it avoids loading large slices or the entire cube into memory.
+
+3. **Cube-wise Computation**
+
+   Function:
+   - `moment_cubewise(cube, order, axis)`
+
+   Description:
+   This method computes moments by working with the entire data cube at once. It loads the full data into memory and performs vectorized operations to calculate the moments. While this approach is typically faster due to vectorization, it requires sufficient memory to hold the entire cube and may not be feasible for very large datasets.
+
+Moment Orders
+-------------
+
+- **0th Moment**: Represents the integrated intensity along the axis.
+- **1st Moment**: Represents the intensity-weighted coordinate (e.g., velocity centroid).
+- **Higher-order Moments**: Represent higher statistical moments such as variance, skewness, etc., computed relative to the 1st moment.
+
+Implementation Details
+----------------------
+
+- The computations take into account pixel sizes and pixel centers along the axis to correctly weight the data.
+- Missing or invalid data points are handled by filling with NaNs or zeros as appropriate.
+- The functions use masking to include only valid data points during computations.
+- The moment calculations are designed to be flexible with respect to the axis along which the moments are computed.
+
+Choosing the Right Strategy
+---------------------------
+
+- Use **slice-wise** or **ray-wise** methods when working with very large datasets that cannot fit into memory.
+- Use **cube-wise** method for smaller datasets where performance is critical and memory is sufficient.
+- The slice-wise method is straightforward and balances memory usage and speed.
+- The ray-wise method can be advantageous when fine control over data inclusion is needed or when the data cube has complex masking.
+
+Summary
+-------
+
+Efficient handling of large spectral cubes requires careful choice of moment computation strategy. The provided functions enable flexible and memory-conscious computation of moment maps, facilitating analysis of large datasets without overwhelming system resources.

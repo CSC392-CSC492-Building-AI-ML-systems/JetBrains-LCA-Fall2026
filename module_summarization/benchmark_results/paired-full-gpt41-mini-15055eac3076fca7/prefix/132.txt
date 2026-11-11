@@ -1,0 +1,108 @@
+Markov Chain Monte Carlo (MCMC) Framework
+=========================================
+
+Overview
+--------
+
+This module provides a comprehensive framework for performing equilibrium sampling from a specified thermodynamic state of a biomolecular system using Markov chain Monte Carlo (MCMC) methods. It supports a variety of MCMC moves and allows flexible composition of these moves to efficiently explore the state space.
+
+Supported Moves
+---------------
+
+The framework currently supports the following types of moves:
+
+- **Langevin Dynamics**: Simulates Langevin dynamics assuming no integration error (use with caution).
+- **Hybrid Monte Carlo (HMC)**: Combines molecular dynamics trajectories with Metropolis acceptance criteria.
+- **Generalized Hybrid Monte Carlo (GHMC)**: An extension of HMC with generalized momentum updates.
+- **Monte Carlo Barostat Moves**: For sampling volume changes in isobaric ensembles.
+
+These moves can be combined using the following classes:
+
+- **SequenceMove**: Executes a sequence of moves in order.
+- **WeightedMove**: Selects moves randomly according to specified probabilities.
+
+By default, MCMC moves utilize the fastest available OpenMM platform and a shared global `ContextCache` to minimize the overhead of creating and destroying OpenMM Contexts.
+
+Key Components
+--------------
+
+### MCMCMove
+
+An abstract base class defining the interface for all MCMC moves. Custom moves should inherit from this class and implement the `apply` method, which performs the move given a thermodynamic state and a sampler state.
+
+### MCMCSampler
+
+The main sampler class that manages the Markov chain. It holds the current thermodynamic and sampler states and applies the specified moves at each iteration to generate samples from the target distribution.
+
+Usage Examples
+--------------
+
+Creating an initial thermodynamic and sampler state for alanine dipeptide in vacuum:
+
+```python
+from simtk import unit
+from openmmtools import testsystems
+from openmmtools.states import ThermodynamicState, SamplerState
+
+test = testsystems.AlanineDipeptideVacuum()
+thermodynamic_state = ThermodynamicState(system=test.system, temperature=298*unit.kelvin)
+sampler_state = SamplerState(positions=test.positions)
+```
+
+Creating and running a sampler with a single GHMC move:
+
+```python
+ghmc_move = GHMCMove(timestep=1.0*unit.femtosecond, n_steps=50)
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=ghmc_move)
+sampler.minimize()
+sampler.run(n_iterations=1000)
+```
+
+Combining moves in sequence:
+
+```python
+langevin_move = LangevinDynamicsMove(n_steps=10)
+sequence_move = SequenceMove([ghmc_move, langevin_move])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=sequence_move)
+```
+
+Using weighted random selection of moves:
+
+```python
+weighted_move = WeightedMove([(ghmc_move, 0.5), (langevin_move, 0.5)])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=weighted_move)
+```
+
+Configuring Context Caches
+--------------------------
+
+By default, the framework uses a global `ContextCache` that creates OpenMM Contexts on the fastest available platform. You can customize the platform and cache behavior:
+
+```python
+import openmm
+from openmmtools import cache
+
+reference_platform = openmm.Platform.getPlatformByName('Reference')
+cache.global_context_cache.platform = reference_platform
+cache.global_context_cache.time_to_live = 10  # Number of read/write operations before cache eviction
+```
+
+Alternatively, you can create local caches or disable caching entirely:
+
+```python
+local_cache = cache.ContextCache(capacity=5, time_to_live=50)
+dummy_cache = cache.DummyContextCache(platform=reference_platform)
+
+ghmc_move = GHMCMove(context_cache=local_cache)
+langevin_move = LangevinDynamicsMove(context_cache=dummy_cache)
+```
+
+References
+----------
+
+Jun S. Liu. *Monte Carlo Strategies in Scientific Computing*. Springer, 2008.
+
+License
+-------
+
+All code in this framework is released under the MIT License. This software is provided "as is", without warranty of any kind. See the MIT License for details.

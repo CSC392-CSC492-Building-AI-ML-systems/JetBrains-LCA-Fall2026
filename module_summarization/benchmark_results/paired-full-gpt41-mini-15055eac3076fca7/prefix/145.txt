@@ -1,0 +1,65 @@
+File Objects
+============
+
+The `ObjectID` class represents an HDF5 identifier within the h5py library, which provides a Python interface to the HDF5 library. This class serves as a base for managing HDF5 objects by encapsulating their identifiers and ensuring safe and consistent access in a multi-threaded environment.
+
+Overview
+--------
+
+HDF5 identifiers are integral to managing objects such as files, groups, and datasets in the HDF5 format. However, due to the nature of the HDF5 library and its interaction with Python, special care must be taken to handle these identifiers correctly, especially in multi-threaded applications or when identifiers become invalid or "stale."
+
+Locking Mechanism
+-----------------
+
+To prevent concurrent access issues, h5py employs a global recursive lock (`_phil`) that serializes all calls to the low-level HDF5 API. This lock ensures that only one thread at a time can execute code that interacts with HDF5 identifiers, preventing race conditions and inconsistent states.
+
+- The locking mechanism is enabled by default (`USE_LOCKING = True`).
+- The decorator `with_phil` is provided to wrap functions that require this lock, ensuring thread-safe execution.
+
+Registry of Object Identifiers
+------------------------------
+
+HDF5 identifiers can be reused by the library once an object is closed, which can lead to "zombie" identifiers—Python objects that reference invalid or repurposed HDF5 IDs. To manage this, h5py maintains a registry of all live `ObjectID` instances using weak references.
+
+Key points about the registry:
+
+- The registry maps Python object IDs to weak references of `ObjectID` instances.
+- When an identifier is closed explicitly or invalidated remotely (e.g., when a file is closed with `H5F_CLOSE_STRONG`), the registry is scanned to invalidate stale identifiers by setting their `id` attribute to zero.
+- The function `nonlocal_close()` performs this cleanup and must be called explicitly, typically during file closure.
+- The registry and all operations on it are protected by the global lock to ensure thread safety.
+
+`ObjectID` Class
+----------------
+
+The `ObjectID` class encapsulates an HDF5 identifier and provides attributes and methods to interact with it safely.
+
+Attributes:
+
+- `id` (readonly): The HDF5 identifier (of type `hid_t`).
+- `locked` (public int): Indicates whether the object is locked and cannot be closed, either explicitly or automatically.
+- `_hash`: Internal attribute used for hashing.
+- `_pyid`: Internal attribute storing the Python object ID.
+- `__weakref__`: Supports weak references to `ObjectID` instances.
+
+Properties:
+
+- `fileno`: Returns a tuple representing the file number associated with the HDF5 object. This is obtained by querying the HDF5 library for object info.
+- `valid`: (property stub in the provided code) Intended to indicate whether the HDF5 identifier is currently valid.
+
+Usage Notes
+-----------
+
+- The locking and registry mechanisms are crucial for ensuring that HDF5 identifiers do not become invalid or reused unexpectedly while still referenced in Python.
+- Users should be aware that identifiers may become invalid due to actions outside the immediate control of the Python code (e.g., closing files or groups in HDF5).
+- The `ObjectID` class and its management infrastructure are primarily internal to h5py but are fundamental to the safe operation of higher-level objects such as files, groups, and datasets.
+
+Debugging and Inspection
+------------------------
+
+- The function `print_reg()` can be used to print a summary of the current registry state, including counts of live `FileID` and `GroupID` objects.
+- Debugging flags such as `DEBUG_ID` can be enabled to trace identifier invalidation events.
+
+Summary
+-------
+
+The `ObjectID` class and its associated locking and registry mechanisms provide a robust foundation for managing HDF5 object identifiers in a multi-threaded Python environment. They ensure that identifiers remain valid and consistent, preventing subtle bugs related to identifier reuse and concurrency.

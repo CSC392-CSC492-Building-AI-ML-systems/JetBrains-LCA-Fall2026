@@ -1,0 +1,72 @@
+Mixed Linear Models
+====================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data, allowing estimation of regression relationships involving both means and variances. These models are also referred to as multilevel linear models or hierarchical linear models.
+
+The primary class provided in this module is `MixedLM`, which fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when the data can be partitioned into independent groups. Models with crossed effects can sometimes be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups indexed by \(i\). For group \(i\), the probability model is:
+
+\[
+Y = X \beta + Z \gamma + \epsilon
+\]
+
+where:
+
+- \(n_i\) is the number of observations in group \(i\).
+- \(Y\) is an \(n_i\)-dimensional response vector (referred to as `endog` in `MixedLM`).
+- \(X\) is an \(n_i \times k_{fe}\) design matrix for the fixed effects (referred to as `exog` in `MixedLM`).
+- \(\beta\) is a \(k_{fe}\)-dimensional vector of fixed effects parameters (referred to as `fe_params` in `MixedLM`).
+- \(Z\) is a design matrix for the random effects with \(n_i\) rows (referred to as `exog_re` in `MixedLM`). The number of columns in \(Z\) can vary by group.
+- \(\gamma\) is a random vector with mean zero. The covariance matrix for the first \(k_{re}\) elements of \(\gamma\) (referred to as `cov_re` in `MixedLM`) is common to all groups. The remaining elements correspond to variance components, which are independent across groups.
+- \(\epsilon\) is an \(n_i\)-dimensional vector of independent and identically distributed normal errors with mean zero and variance \(\sigma^2\). The \(\epsilon\) values are independent both within and between groups.
+
+The marginal mean structure is given by:
+
+\[
+E[Y \mid X, Z] = X \beta
+\]
+
+If only the mean structure is of interest, generalized estimating equations (GEE) may be considered as an alternative.
+
+Random Effects
+--------------
+
+Two types of random effects are supported:
+
+1. **Standard random effects:** These are correlated with each other in arbitrary ways. Every group has the same number \(k_{re}\) of standard random effects, sharing the same joint distribution but with independent realizations across groups.
+
+2. **Variance components:** These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Estimation
+----------
+
+Parameters \(\beta\), \(\Psi\) (covariance matrix of random effects), and \(\sigma^2\) are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML) methods.
+
+The `MixedLM` class provides methods to fit the model, including options to specify starting parameters, choose between ML and REML estimation, and apply penalties to the covariance matrix of random effects.
+
+The parameter vector used in fitting contains fixed effects parameters, random effects parameters, and variance component parameters, arranged in that order. The lower triangle of the random effects covariance matrix is stored, and the random effects and variance components parameters are scaled by the unexplained variance parameter.
+
+References
+----------
+
+- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed-effects models for repeated-measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+- Additional documentation and resources can be found at:  
+  http://econ.ucsb.edu/~doug/245a
+
+Usage Notes
+-----------
+
+- The `MixedLM` class is optimized for data that can be partitioned into independent groups.
+- The design matrices \(X\) and \(Z\), as well as the response vector \(Y\), must be fully observed.
+- The module supports simulation of data from a specified mixed linear model distribution.
+- Post-estimation results include estimates of fixed effects, random effects covariance, scale parameters, convergence status, and other diagnostic information.
+
+This module is also utilized in mediation analysis and potentially other applications requiring mixed linear modeling.

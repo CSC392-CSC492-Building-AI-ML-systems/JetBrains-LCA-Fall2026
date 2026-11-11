@@ -1,0 +1,70 @@
+Gaussian Process Kernels
+========================
+
+This module provides a collection of kernels for Gaussian process regression and classification. The kernels are designed to support kernel engineering, allowing users to combine kernels using addition ("+") and multiplication ("*") operators, as well as exponentiation with a scalar ("**"). These operations enable the construction of complex kernel expressions that can include scalar values, which are automatically converted to constant kernels.
+
+Key Features
+------------
+
+- **Kernel Composability**: Kernels can be combined via addition and multiplication, and can be exponentiated by scalars to create new kernels.
+- **Automatic Conversion**: Scalar values in kernel expressions are automatically converted to constant kernels.
+- **Hyperparameter Optimization**: All kernels support analytic gradient-based hyperparameter optimization.
+- **Flexible Hyperparameter Specification**: Hyperparameters can be specified with lower and upper bounds defining a rectangular search space, or declared as fixed to exclude them from optimization.
+
+Hyperparameter Specification
+----------------------------
+
+Hyperparameters of kernels are specified using the `Hyperparameter` class, which encapsulates the following attributes:
+
+- **name** (`str`): The name of the hyperparameter. Kernels using a hyperparameter named `"x"` must have corresponding attributes `self.x` and `self.x_bounds`.
+- **value_type** (`str`): The type of the hyperparameter. Currently, only `"numeric"` hyperparameters are supported.
+- **bounds** (pair of floats or `"fixed"`): The lower and upper bounds for the hyperparameter values. For vector-valued hyperparameters (e.g., anisotropic length-scales), bounds can be specified as arrays. If `"fixed"` is specified, the hyperparameter value is not optimized.
+- **n_elements** (`int`, default=1): Number of elements in the hyperparameter value. A scalar hyperparameter has `n_elements=1`, while vector-valued hyperparameters have `n_elements > 1`.
+- **fixed** (`bool`, default=None): Indicates whether the hyperparameter is fixed during optimization. If `None`, this is inferred from the bounds.
+
+Example Usage
+-------------
+
+```python
+from sklearn.gaussian_process.kernels import ConstantKernel, Hyperparameter
+from sklearn.datasets import make_friedman2
+from sklearn.gaussian_process import GaussianProcessRegressor
+
+X, y = make_friedman2(n_samples=50, noise=0, random_state=0)
+kernel = ConstantKernel(constant_value=1.0, constant_value_bounds=(0.0, 10.0))
+
+# Access hyperparameters
+for hyperparameter in kernel.hyperparameters:
+    print(hyperparameter)
+
+# Output:
+# Hyperparameter(name='constant_value', value_type='numeric',
+# bounds=array([[ 0., 10.]]), n_elements=1, fixed=False)
+
+# Retrieve kernel parameters
+params = kernel.get_params()
+for key in sorted(params):
+    print(f"{key} : {params[key]}")
+
+# Output:
+# constant_value : 1.0
+# constant_value_bounds : (0.0, 10.0)
+```
+
+Internal Utilities
+------------------
+
+- `_check_length_scale(X, length_scale)`: Validates the length scale parameter for kernels, ensuring it matches the dimensionality of the input data `X`. Supports both isotropic and anisotropic length scales.
+
+Notes
+-----
+
+- This module is inspired by the kernel module of the `george` package.
+- It is designed to be compatible with scikit-learn's Gaussian process framework.
+- The kernels support efficient computation of gradients for hyperparameter tuning.
+
+Authors and License
+-------------------
+
+- Author: Jan Hendrik Metzen <jhm@informatik.uni-bremen.de>
+- License: BSD 3-Clause License

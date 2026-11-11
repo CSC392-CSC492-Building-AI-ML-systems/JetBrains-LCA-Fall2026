@@ -1,0 +1,131 @@
+# General HDF5 File Reader
+
+This document provides an overview of the general HDF5 file reader functionality implemented in the `masci_tools` package, specifically focusing on the `HDF5Reader` class and its associated transformation utilities.
+
+---
+
+## Overview
+
+The `HDF5Reader` class is designed to facilitate reading and processing of HDF5 files. It supports flexible transformations on datasets contained within HDF5 files, allowing users to manipulate and extract data efficiently.
+
+To enhance the functionality of the reader, a collection of predefined transformation functions is provided. These transformations can be applied to datasets to extract specific elements, slices, shapes, or metadata such as dataset names.
+
+---
+
+## Transformations
+
+Transformations are functions that operate on datasets retrieved from HDF5 files. They are designed to handle three primary cases gracefully:
+
+1. The dataset is an `h5py.Dataset` object and may need conversion to a NumPy array.
+2. The dataset is already a NumPy array.
+3. The dataset is a dictionary of datasets, which allows handling of arbitrary child datasets where not all keys are known in advance.
+
+Transformations can be applied either to individual datasets or to all datasets within a dictionary, depending on the use case.
+
+---
+
+## Transformation Registration
+
+Transformation functions are registered using the `@hdf5_transformation` decorator. This decorator manages the registration process and error handling for transformations.
+
+### Decorator Parameters
+
+- `attribute_needed` (bool): Indicates whether the transformation requires a previously processed attribute value. If `True`, the transformation is only available for entries in datasets that have attributes processed.
+
+### Error Handling
+
+If a transformation function raises an exception during execution, it is caught and re-raised as an `HDF5TransformationError` with a descriptive message indicating which transformation failed.
+
+---
+
+## Predefined Transformations
+
+The following transformations are provided by default:
+
+### `get_first_element(dataset)`
+
+Returns the first element of the dataset.
+
+- **Parameters:**
+  - `dataset`: The dataset to transform.
+- **Returns:** The first element of the dataset.
+
+### `index_dataset(dataset, index)`
+
+Returns the element at the specified index from the dataset.
+
+- **Parameters:**
+  - `dataset`: The dataset to transform.
+  - `index`: The index of the element to retrieve.
+- **Returns:** The element at the specified index.
+
+### `slice_dataset(dataset, slice_arg)`
+
+Returns a slice of the dataset according to the provided slice argument.
+
+- **Parameters:**
+  - `dataset`: The dataset to transform.
+  - `slice_arg`: The slice to apply (e.g., `slice(start, stop, step)`).
+- **Returns:** The sliced portion of the dataset.
+
+### `get_shape(dataset)`
+
+Returns the shape of the dataset.
+
+- **Parameters:**
+  - `dataset`: The dataset to query.
+- **Returns:** The shape of the dataset as a tuple.
+
+### `get_name(dataset, full_path=False)`
+
+Returns the name of the dataset. Optionally, the full path within the HDF5 file can be returned.
+
+- **Parameters:**
+  - `dataset`: The dataset to query.
+  - `full_path` (bool): If `True`, returns the full path to the dataset; otherwise, returns the dataset name.
+- **Returns:** The name or full path of the dataset.
+
+- **Notes:** This transformation requires the dataset to be an `h5py.Dataset` object. It raises a `ValueError` if the dataset is a list or NumPy array.
+
+---
+
+## Handling of Dictionary Datasets
+
+When the dataset is a dictionary (mapping keys to datasets), transformations are applied to each dataset in the dictionary individually. The result is a dictionary mapping the same keys to the transformed data.
+
+---
+
+## Exception Class
+
+- `HDF5TransformationError`: Custom exception raised when a transformation fails. It provides clear error messages to aid debugging.
+
+---
+
+## Usage Example
+
+```python
+from masci_tools.io.parsers.hdf5.reader import HDF5Reader
+
+# Initialize reader
+reader = HDF5Reader('path_to_file.h5')
+
+# Read dataset
+dataset = reader.read('some_dataset_path')
+
+# Apply transformation to get first element
+first_element = reader.apply_transformation('get_first_element', dataset)
+```
+
+---
+
+## Additional Information
+
+- The code is part of the Masci-tools package (Material Science Tools).
+- The package is maintained by Forschungszentrum Jülich GmbH, IAS-1/PGI-1, Germany.
+- The source code is hosted on GitHub: https://github.com/judftteam/masci-tools
+- For license details, refer to the LICENSE.txt file in the repository.
+- More information is available at http://judft.de/.
+
+---
+
+This general HDF5 file reader and its transformation framework provide a robust and extensible way to access and manipulate data stored in HDF5 files, supporting complex workflows in material science and related fields.

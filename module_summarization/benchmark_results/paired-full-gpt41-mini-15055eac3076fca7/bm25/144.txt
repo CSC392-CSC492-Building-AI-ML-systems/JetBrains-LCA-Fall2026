@@ -1,0 +1,56 @@
+Scheduling Policies
+===================
+
+Dask's distributed scheduler uses various policies to determine the preference of tasks and workers during scheduling. These policies influence the order in which tasks are executed and how workers are selected to perform computations, aiming to optimize performance and resource utilization.
+
+Task Scheduling Preferences
+---------------------------
+
+Tasks in Dask are prioritized based on a ranking system that typically involves a two-item tuple priority:
+
+- The first item corresponds to the submission time of the task. Generally, tasks submitted earlier take precedence.
+- The second item is client-determined and allows prioritization within a large task graph. This can highlight tasks on the critical path or those that help release many dependencies quickly.
+
+This priority system helps the scheduler decide which tasks to execute first, balancing fairness and efficiency.
+
+Dependencies and Execution Readiness
+------------------------------------
+
+Each task maintains a set of dependencies—other tasks that must complete before it can run. Only tasks that are still alive are listed as dependencies. If a task depends on a forgotten task, a flag (`has_lost_dependencies`) is set.
+
+A task becomes eligible for execution only when all its dependencies have successfully completed and their results are stored on at least one worker. The scheduler tracks this by progressively draining the `waiting_on` set of dependencies.
+
+Similarly, tasks keep track of their dependents—the tasks that rely on their completion—forming a reverse mapping of dependencies.
+
+Worker Selection Policies
+-------------------------
+
+The scheduler employs policies to select which workers should execute tasks or receive data. One such policy is the Least Recently Inserted (LRI) policy:
+
+- **Least Recently Inserted (LRI)**: This is a greedy policy that selects tasks or data based on their insertion order. It is efficient (O(1)) and simple to implement, relying on Python's dictionary insertion order. LRI is often sufficient for most cases.
+
+Alternative policies considered but not adopted include:
+
+- **Largest First**: Prioritizing the largest tasks first, which is more computationally expensive (O(n log n)) and can cause large data chunks to move excessively across the cluster.
+- **Least Recently Used (LRU)**: While conceptually appealing, LRU information is only available on workers and not easily replicated on the scheduler without significant network overhead. Dask's tendency to minimize intermediate key lifetimes makes LRI a close approximation to LRU.
+
+Adaptive Scheduling
+-------------------
+
+Dask supports adaptive scheduling, where the number of workers adjusts dynamically based on workload and memory usage. The scheduler estimates a desired number of workers by analyzing current running tasks and memory consumption. This estimation can be influenced by a target duration parameter, which specifies the desired computation time and affects scaling speed.
+
+Additional Components
+---------------------
+
+The scheduler integrates with various monitoring and logging components to provide insights into performance and system status, including:
+
+- **System Monitor**: Tracks system metrics such as CPU and memory usage.
+- **Scheduler Logs**: Records scheduler events and activities.
+- **Dashboard Tabs**: Visual interfaces to inspect tasks, workers, and scheduler state.
+
+Summary
+-------
+
+Dask's scheduling policies balance simplicity, efficiency, and adaptability. By prioritizing tasks based on submission time and client-defined importance, managing dependencies carefully, and selecting workers using practical heuristics like LRI, the scheduler achieves effective distributed computation. Adaptive scaling further enhances resource utilization by adjusting the cluster size to the workload dynamically.
+
+For more detailed information, see the :doc:`Scheduling Policy <scheduling-policies>` documentation.

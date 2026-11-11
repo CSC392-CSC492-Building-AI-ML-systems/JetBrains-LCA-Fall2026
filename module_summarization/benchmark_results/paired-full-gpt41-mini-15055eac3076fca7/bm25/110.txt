@@ -1,0 +1,93 @@
+Best Effort Callback
+====================
+
+The `BestEffortCallback` class provides a comprehensive callback implementation designed to handle live data visualization and tabular display during data acquisition runs. It is intended to be used in environments where real-time feedback on measurements is valuable, such as experimental control systems.
+
+Overview
+--------
+
+`BestEffortCallback` inherits from `QtAwareCallback` and integrates multiple features including live plotting, live tabular data display, and baseline data handling. It attempts to make a "best effort" to present meaningful visual and textual feedback based on the data streams and metadata provided during a run.
+
+Features
+--------
+
+- **Live Plotting:** Automatically generates plots for hinted fields from all streams except those explicitly excluded.
+- **Live Table:** Displays a live-updating table of key data points from the primary data stream.
+- **Baseline Display:** Prints fields from the 'baseline' stream to provide context or reference data.
+- **Configurable Output:** Users can enable or disable headings, tables, baseline printing, and plots independently.
+- **Peak Detection:** Integrates peak statistics computation for relevant data streams.
+- **Stream Handling:** Manages multiple data streams and attempts to intelligently guess plotting dimensions when hints are missing.
+- **Thread-Safe and Qt-Aware:** Designed to work smoothly in GUI applications using Qt.
+
+Usage
+-----
+
+The callback is typically instantiated and passed to a data acquisition or processing engine that calls it with documents describing the run, events, and data.
+
+Example instantiation:
+
+```python
+callback = BestEffortCallback(fig_factory=my_figure_factory, table_enabled=True)
+```
+
+Key Methods and Attributes
+--------------------------
+
+### Initialization
+
+```python
+BestEffortCallback(fig_factory=None, table_enabled=True, **kwargs)
+```
+
+- `fig_factory`: Optional factory function or object to create matplotlib figures.
+- `table_enabled`: Boolean flag to enable or disable the live table display.
+- Additional keyword arguments are passed to the base class.
+
+### Enabling and Disabling Features
+
+- `enable_heading()` / `disable_heading()`: Enable or disable printing of timestamp and IDs at the top of a run.
+- `enable_table()` / `disable_table()`: Enable or disable the live table display.
+- `enable_baseline()` / `disable_baseline()`: Enable or disable printing of baseline stream fields.
+- `enable_plots()` / `disable_plots()`: Enable or disable live plotting of data streams.
+
+### Callback Invocation
+
+```python
+__call__(name, doc, *args, **kwargs)
+```
+
+The main entry point for the callback. It processes incoming documents if any of the table, baseline, or plot features are enabled.
+
+### Run Start Handling
+
+```python
+start(doc)
+```
+
+Called at the start of a run. It initializes internal state, processes hints and dimensions from the run start document, and prints a heading with the scan ID and timestamp if enabled.
+
+Internal Behavior
+-----------------
+
+- Attempts to determine plotting dimensions from hints or falls back to heuristics based on motors or time.
+- Manages internal dictionaries mapping descriptor unique IDs to live plot, grid, and scatter plot instances.
+- Tracks streams seen during the run to manage plotting and table updates.
+- Uses `PeakStats` to compute peak-related statistics on data streams.
+- Supports overplotting and options to omit single-point plots.
+- Handles baseline toggling and buffering for clean table output.
+
+Notes
+-----
+
+- The callback is decorated with `make_class_safe` to ensure robust error handling and logging.
+- It relies on several internal modules (`core`, `mpl_plotting`, `fitting`) for plotting and data handling utilities.
+- For testing in a simulated environment, see the test script at `tests/interactive/best_effort_cb.py`.
+
+Logging
+-------
+
+The callback uses Python's standard logging module to report internal events and warnings. The logger is named according to the module's namespace.
+
+---
+
+This callback is a versatile tool for live data visualization and monitoring, designed to integrate seamlessly into data acquisition workflows that use document-based communication protocols.

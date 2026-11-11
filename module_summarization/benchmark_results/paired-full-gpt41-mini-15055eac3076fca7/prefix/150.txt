@@ -1,0 +1,82 @@
+# Supporting Data to Plotting Functions in Multiple Ways
+
+This module provides flexible support for supplying data to plotting functions, enabling them to accept a variety of data formats and structures seamlessly. The core idea is to allow plotting functions to work with raw lists, arrays, dictionaries, pandas DataFrames, or even specialized data containers like Bokeh's `ColumnDataSource`, while specifying which keys or columns to use for plotting.
+
+## Overview
+
+Plotting functions often require data in specific formats or structures, which can limit their usability or require cumbersome data preprocessing. This module introduces abstractions and utilities that allow plotting functions to accept data in multiple forms and extract the relevant subsets or columns dynamically.
+
+The main features include:
+
+- Support for multiple data container types such as dictionaries, pandas DataFrames, and Bokeh `ColumnDataSource` objects.
+- Ability to specify keys or columns for different plot dimensions (e.g., x, y, z, color, size).
+- Iteration over multiple plot data sets when lists of keys are provided, enabling plotting of multiple series with minimal code.
+- Optional enforcement of consistent data lengths across all data entries.
+- Copying and management of data to avoid unintended side effects.
+- Graceful handling of missing or extra keys depending on strictness settings.
+
+## Key Components
+
+### Data Containers Supported
+
+- **Dictionaries**: Standard Python dictionaries with keys mapping to data arrays or lists.
+- **Pandas DataFrames**: Columns can be accessed by their names.
+- **Bokeh ColumnDataSource** (optional): If Bokeh is installed, its `ColumnDataSource` objects are supported, allowing direct integration with Bokeh plotting.
+
+### `PlotData` Class
+
+The central class in this module is `PlotData`, which wraps the input data and provides an iterator interface to yield subsets of data corresponding to specified keys.
+
+#### Purpose
+
+`PlotData` enables plotting functions to accept flexible input data and key specifications. For example, if you have multiple y-series to plot against a common x-axis, you can specify a single x key and multiple y keys, and `PlotData` will iterate over each y-series paired with the x data.
+
+#### Usage Example
+
+```python
+from masci_tools.vis.data import PlotData
+import numpy as np
+
+# Define an energy grid and multiple functions on this grid
+x = np.linspace(-10, 10, 100)
+data = {'x': x, 'y1': np.sin(x), 'y2': np.cos(x), 'y3': x**2}
+
+# Create a PlotData instance specifying x and multiple y keys
+p = PlotData(data, x='x', y=['y1', 'y2', 'y3'])
+
+# Iterate over the PlotData object to get each y-series with the x data
+for entry in p:
+    print(entry.x)  # The x data
+    print(entry.y)  # Each y-series in turn: y1, then y2, then y3
+```
+
+#### Parameters
+
+- `data`: The data source, which can be a dictionary, pandas DataFrame, Bokeh `ColumnDataSource`, or a list of such objects.
+- `use_column_source`: If `True`, forces the use of Bokeh `ColumnDataSource` when available.
+- `same_length`: If `True` and the data sources are dictionaries, checks that all entries have the same length to ensure consistent plotting.
+- `strict_data_keys`: If `True`, disallows adding new data keys via the `copy_data()` method, enforcing strict control over data keys.
+- `copy_data`: If `True`, makes a copy of the input data to avoid side effects.
+- `**kwargs`: Keyword arguments specifying the keys or columns to use for different plot dimensions (e.g., `x='x'`, `y=['y1', 'y2']`).
+
+#### Behavior
+
+- If a single key is provided for a dimension, the iterator yields one namedtuple with that data.
+- If a list of keys is provided, the iterator yields multiple namedtuples, one for each key in the list, paired with the other fixed keys.
+- The namedtuple returned on iteration contains attributes corresponding to the specified keys, allowing easy access to the data arrays.
+- Supports additional plot-related keys such as `z`, `color`, and `size` for enhanced plotting capabilities.
+
+### Bokeh Integration
+
+If Bokeh is installed, the module can detect and handle `ColumnDataSource` objects transparently. It provides utility functions to check if data is a `ColumnDataSource` and to copy such objects safely.
+
+## Benefits
+
+- **Flexibility**: Plotting functions can accept a wide range of data formats without modification.
+- **Convenience**: Users can specify multiple series to plot with minimal code.
+- **Safety**: Optional copying and strict key enforcement prevent unintended data mutations.
+- **Compatibility**: Supports popular data structures used in scientific computing and visualization.
+
+## Summary
+
+This module enhances plotting functions by abstracting the data input layer, allowing them to work with diverse data sources and key specifications. The `PlotData` class is the primary interface, enabling iteration over multiple plot data sets derived from flexible input formats. This approach simplifies plotting workflows and increases code reuse and robustness in visualization tasks.

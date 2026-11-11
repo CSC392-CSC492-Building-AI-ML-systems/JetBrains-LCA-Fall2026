@@ -1,0 +1,89 @@
+Generate Documentation for Simulation Code
+===========================================
+
+This module provides utility functions to analyze and visualize scan plans typically used in experimental control and data acquisition workflows. The functions operate on iterable plans that yield `Msg` objects, which represent commands to control motors and devices.
+
+Functions
+---------
+
+plot_raster_path(plan, x_motor, y_motor, ax=None, probe_size=None, lw=2)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Plot the raster path for a given scan plan.
+
+Parameters
+~~~~~~~~~~
+- **plan** : iterable  
+  An iterable yielding `Msg` objects representing the scan plan. The plan must not be a coroutine.
+
+- **x_motor, y_motor** : str  
+  The names of the motors controlling the X and Y axes.
+
+- **ax** : matplotlib.axes.Axes, optional  
+  The matplotlib axes to plot on. If `None`, a new figure and axes are created.
+
+- **probe_size** : float, optional  
+  If provided, this value is used as the radius of the probe (in the same units as motor positions) and is visualized as circles at each point.
+
+- **lw** : float, optional  
+  The line width for the path connecting points.
+
+Returns
+~~~~~~~
+A dictionary with keys:
+- `'path'`: The matplotlib Line2D object representing the path.
+- `'events'`: The matplotlib collection or scatter plot of the points.
+
+Description
+~~~~~~~~~~~
+This function iterates through the plan to extract motor positions for the specified x and y motors. It then plots the trajectory of the scan path on the provided or newly created matplotlib axes. If `probe_size` is specified, circles representing the probe size are drawn at each point; otherwise, points are marked with scatter markers.
+
+summarize_plan(plan)
+^^^^^^^^^^^^^^^^^^^^^
+
+Print a summary of the scan plan.
+
+Parameters
+~~~~~~~~~~
+- **plan** : iterable  
+  An iterable yielding `Msg` objects representing the scan plan.
+
+Description
+~~~~~~~~~~~
+This function prints a minimal summary of the plan, showing only motor moves and where events are created. It uses the `print_summary_wrapper` from the `bluesky.preprocessors` module to generate the summary output.
+
+Note
+~~~~
+`summarize_plan` is also aliased as `print_summary` for backward compatibility.
+
+check_limits(plan)
+^^^^^^^^^^^^^^^^^^
+
+Check that a plan will not move devices outside of their limits.
+
+Parameters
+~~~~~~~~~~
+- **plan** : iterable  
+  An iterable yielding `Msg` objects representing the scan plan.
+
+Description
+~~~~~~~~~~~
+This function iterates through the plan and checks if any motor or device moves would exceed their allowed limits by calling their `check_value` method. If a device does not implement `check_value`, a warning is issued, and that device is ignored for subsequent checks.
+
+Warnings
+~~~~~~~~
+Devices without a `check_value()` method cannot be validated for limit violations, and a warning will be emitted for each such device encountered.
+
+Usage Example
+-------------
+
+.. code-block:: python
+
+    from simulation import plot_raster_path, summarize_plan, check_limits
+
+    # Assume `plan` is an iterable yielding Msg objects
+    plot_raster_path(plan, x_motor='x', y_motor='y', probe_size=0.5)
+    summarize_plan(plan)
+    check_limits(plan)
+
+This module is useful for visualizing scan trajectories, summarizing scan plans, and validating motor limits before execution to ensure safe and correct operation of experimental hardware.

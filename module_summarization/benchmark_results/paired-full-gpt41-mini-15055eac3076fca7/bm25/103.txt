@@ -1,0 +1,107 @@
+Code Generation Module
+======================
+
+Overview
+--------
+
+This module provides a framework for generating source code in multiple programming languages from symbolic expressions and routines. It supports generating code for languages such as C, Fortran 95, and Octave, with extensible support for other languages.
+
+The core functionality revolves around describing computational routines symbolically and then translating these descriptions into source code files suitable for compilation or execution.
+
+Key Components
+--------------
+
+### Routine
+
+The `Routine` class represents a generic evaluation routine for a set of expressions. It encapsulates all necessary information about a computational routine, including its name, arguments, results, local variables, and global variables.
+
+- **Initialization Parameters:**
+  - `name` (str): The name of the routine.
+  - `arguments` (list of `Argument`): Inputs to the routine, which may be input, output, or in-out arguments depending on the target language.
+  - `results` (list of `Result`): Outputs produced by the routine.
+  - `local_vars` (list): Variables local to the routine.
+  - `global_vars` (list): Variables with global scope.
+
+The `Routine` class serves as an intermediate representation that language-specific code generators translate into source code.
+
+### Argument and Result Classes
+
+These classes describe the inputs and outputs of routines, including their data types and how they are passed (e.g., by value or by reference).
+
+### CodeGen Base Class
+
+`CodeGen` is the abstract base class for all code generators. It defines the interface and common functionality for generating code files and interface files.
+
+- **Key Methods:**
+  - `write()`: Outputs the generated code and interface files to disk.
+  - Language-specific dump functions (e.g., `dump_c`, `dump_h`) are used internally to write code and header files.
+
+### Language-Specific Code Generators
+
+The module includes several subclasses of `CodeGen` tailored to specific programming languages:
+
+#### CCodeGen
+
+Generates C source code and header files. It handles C-specific syntax and conventions, including function prototypes and declarations.
+
+#### FCodeGen
+
+Generates Fortran 95 source code (`.f90`) and interface files (`.h`). It supports Fortran-specific features such as complex numbers and module interfaces.
+
+- **Attributes:**
+  - `code_extension`: File extension for source files (`f90`).
+  - `interface_extension`: File extension for interface files (`h`).
+
+- **Methods:**
+  - `_get_symbol(s)`: Returns the Fortran representation of a symbol.
+  - `_get_header()`: Generates a standard header comment for generated files, including version and project information.
+
+#### OctaveCodeGen
+
+Generates Octave `.m` files. Typically, one `.m` file contains a single function whose name matches the filename. Supports multiple functions by treating additional functions as private.
+
+- **Attributes:**
+  - `code_extension`: File extension for Octave source files (`m`).
+
+- **Methods:**
+  - `routine()`: Specialized routine creation for Octave, ensuring proper handling of inputs and outputs.
+
+Utility Functions
+-----------------
+
+### get_code_generator(language, project)
+
+Factory function that returns an instance of the appropriate `CodeGen` subclass based on the specified language. Supported languages include `'C'`, `'F95'`, and `'OCTAVE'`.
+
+### codegen(name_expr, language, prefix=None, project='project', ...)
+
+A user-friendly function to generate code from symbolic expressions. It accepts pairs of names and expressions, the target language, and optional parameters such as filename prefix and project name.
+
+Features and Limitations
+------------------------
+
+- Supports multiple return values in languages that allow them (e.g., Python), and raises exceptions for unsupported features in other languages (e.g., multiple returns in C or Fortran).
+- Handles complex numbers where supported (Fortran, Python).
+- Generates both code and interface files where applicable.
+- Includes metadata in generated file headers such as version, project name, date, user, hostname, and SHA1 hash.
+- Extensible to support additional languages and features such as Fortran 77, C++, and Python.
+
+Usage Example
+-------------
+
+```python
+from codegen import codegen
+
+# Define symbolic expressions and routines
+name_expr = [('myfunc', expr)]
+
+# Generate C code files with prefix 'output'
+codegen(name_expr, language='C', prefix='output', project='MyProject')
+```
+
+This will produce `output.c` and `output.h` files containing the generated C source code and header.
+
+Summary
+-------
+
+This code generation module provides a structured and extensible approach to translating symbolic mathematical expressions and routines into executable source code across multiple programming languages. It abstracts language-specific details while allowing customization and extension for new languages and features.

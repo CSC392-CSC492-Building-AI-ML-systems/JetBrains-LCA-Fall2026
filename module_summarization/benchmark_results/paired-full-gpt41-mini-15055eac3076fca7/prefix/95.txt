@@ -1,0 +1,99 @@
+Schedulers
+==========
+
+Stateless learning rate schedulers
+----------------------------------
+
+This module provides stateless learning rate schedulers designed to address some of the limitations of PyTorch's built-in schedulers found in :mod:`torch.optim.lr_scheduler`. The primary goal of these schedulers is to integrate seamlessly with Composer's :mod:`~composer.core.time` abstraction, allowing schedulers to be configured using explicit and arbitrary time units.
+
+Unlike traditional stateful schedulers, stateless schedulers compute the learning rate multiplier purely as a function of the current training state and time, without maintaining internal state. This design enables greater flexibility and composability, including the ability to combine multiple schedulers multiplicatively.
+
+Key Concepts
+------------
+
+- **ComposerScheduler Protocol**:  
+  The core specification for a stateless scheduler is defined by the `ComposerScheduler` protocol. Any callable matching its interface can serve as a scheduler. This includes simple functions or callable classes.
+
+- **Learning Rate Multiplier**:  
+  Each scheduler returns a multiplier :math:`\alpha` that scales the optimizer's initial learning rate :math:`\eta_i`. The effective learning rate at time :math:`t` is computed as:  
+  :math:`\eta(t) = \eta_i \times \alpha(t)`
+
+- **Scale Schedule Ratio (SSR)**:  
+  Schedulers support a scale schedule ratio parameter that allows the schedule to be stretched or compressed in time. Formally, for a scheduler output :math:`\alpha(t)`, the scaled output is:  
+  :math:`\alpha_{\sigma}(t) = \alpha(t / \sigma)`
+
+ComposerScheduler Protocol
+--------------------------
+
+The `ComposerScheduler` defines the interface for stateless schedulers. It requires implementing a callable with the signature:
+
+```python
+def __call__(self, state: State, ssr: float = 1.0) -> float:
+```
+
+- **Parameters**:  
+  - `state` (`State`): The current training state, including the current timestamp and other relevant information.  
+  - `ssr` (`float`, optional): The scale schedule ratio to stretch or compress the schedule. Defaults to 1.0.
+
+- **Returns**:  
+  - `float`: A multiplier to apply to the optimizer's base learning rate.
+
+Schedulers can be implemented as simple functions:
+
+```python
+def ten_epoch_decay_scheduler(state: State) -> float:
+    if state.timestamp.epoch < 10:
+        return 1.0
+    return 0.5
+```
+
+Or as callable classes for configurable schedulers:
+
+```python
+class VariableEpochDecayScheduler(ComposerScheduler):
+
+    def __init__(self, num_epochs: int):
+        self.num_epochs = num_epochs
+
+    def __call__(self, state: State) -> float:
+        if state.timestamp.epoch < self.num_epochs:
+            return 1.0
+        return 0.5
+
+ten_epoch_decay_scheduler = VariableEpochDecayScheduler(num_epochs=10)
+```
+
+Using multiple schedulers simultaneously results in their multipliers being combined multiplicatively.
+
+Available Schedulers
+--------------------
+
+The module exports a variety of scheduler implementations, including but not limited to:
+
+- `StepScheduler`  
+- `MultiStepScheduler`  
+- `ConstantScheduler`  
+- `LinearScheduler`  
+- `ExponentialScheduler`  
+- `CosineAnnealingScheduler`  
+- `CosineAnnealingWarmRestartsScheduler`  
+- `PolynomialScheduler`  
+- `MultiStepWithWarmupScheduler`  
+- `ConstantWithWarmupScheduler`  
+- `LinearWithWarmupScheduler`  
+- `CosineAnnealingWithWarmupScheduler`  
+- `PolynomialWithWarmupScheduler`  
+
+These schedulers provide common learning rate schedules with optional warmup phases and support for various time units.
+
+Integration with Composer
+------------------------
+
+Schedulers in this module are designed to work closely with Composer's training loop and time abstractions. By using explicit time units and stateless functions, they enable flexible and transparent learning rate scheduling that can adapt to complex training regimes.
+
+For more detailed usage and examples, see the documentation for :class:`~.ComposerScheduler` and the individual scheduler classes.
+
+License
+-------
+
+This module is licensed under the Apache License 2.0.

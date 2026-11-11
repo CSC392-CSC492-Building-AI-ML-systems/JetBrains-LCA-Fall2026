@@ -1,0 +1,51 @@
+{
+  "original_id": 45,
+  "repo": "teskalabs__asab",
+  "docfile_name": "log.rst",
+  "source_sha256": "a0c2cdf1a9598f48960b8b3fb5067afc62b6c09e90f2359849948af1de599203",
+  "context": "\"][\"sd_id\"],\n\t\t\t\tuse_color=False\n\t\t\t))\n\t\telse:\n\t\t\tself.ConsoleHandler.setFormatter(StructuredDataFormatter(\n\t\t\t\tfmt=Config[\"logging:console\"][\"format\"],\n\t\t\t\tdatefmt=Config[\"logging:console\"][\"datefmt\"],\n\t\t\t\tsd_id=Config[\"logging\"][\"sd_id\"],\n\t\t\t\tuse_color=True\n\t\t\t))\n\n\t\tself.ConsoleHandler.setLevel(logging.DEBUG)\n\t\tself.RootLogger.addHandler(self.ConsoleHandler)\n\n\nclass _StructuredDataLogger(logging.Logger):\n\t'''\nThis class extends a default python logger class, specifically by adding ``struct_data`` parameter to logging functions.\nIt means that you can use expressions such as ``logger.info(\"Hello world!\", struct_data={'key':'value'})``.\n\t'''\n\n\tdef _log(self, level, msg, args, exc_info=None, struct_data=None, extra=None, stack_info=False):\n\t\tif struct_data is not None:\n\t\t\tif extra is None:\n\t\t\t\textra = dict()\n\t\t\textra['_struct_data'] = struct_data\n\n\t\tsuper()._log(level, msg, args, exc_info=exc_info, extra=extra, stack_info=stack_info)\n\n\nlogging.setLoggerClass(_StructuredDataLogger)\n\n\nclass StructuredDataFormatter(logging.Formatter):\n\t'''\n\tThe logging formatter that renders log messages that includes structured data.\n\t\n\n ready at this moment, we need to create timer in a future\n\t\t\t\t\t\t\tasync def schedule(app, interval):\n\t\t\t\t\t\t\t\tself.LogRotatingTime = Timer(app, self._on_tick_rotate_check, autorestart=True)\n\t\t\t\t\t\t\t\tself.LogRotatingTime.start(i)\n\t\t\t\t\t\t\tasyncio.ensure_future(schedule(app, i))\n\n\t\t\t\t\telse:\n\t\t\t\t\t\tself.RootLogger.error(\"Invalid 'rotate_every' configuration value.\")\n\n\t\t\t# Initialize syslog\n\t\t\tif Config[\"logging:syslog\"].getboolean(\"enabled\"):\n\n\t\t\t\taddress = Config[\"logging:syslog\"][\"address\"]\n\n\t\t\t\tif address[:1] == '/':\n\t\t\t\t\tself.SyslogHandler = AsyncIOHandler(app.Loop, socket.AF_UNIX, socket.SOCK_DGRAM, address)\n\n\t\t\t\telse:\n\t\t\t\t\turl = urllib.parse.urlparse(address)\n\n\t\t\t\t\tif url.scheme == 'tcp':\n\t\t\t\t\t\tself.SyslogHandler = AsyncIOHandler(app.Loop, socket.AF_INET, socket.SOCK_STREAM, (\n\t\t\t\t\t\t\turl.hostname if url.hostname is not None else 'localhost',\n\t\t\t\t\t\t\turl.port if url.port is not None else logging.handlers.SYSLOG_UDP_PORT\n\t\t\t\t\t\t))\n\n\t\t\t\t\telif url\n\napp_name} {proc_id} %(name)s [log l=\"%(levelname)s\"]%(struct_data)s%(message)s'.format(\n\t\t\tapp_name=Config[\"logging\"][\"app_name\"],\n\t\t\thostname=socket.gethostname(),\n\t\t\tproc_id=os.getpid(),\n\t\t)\n\n\t\t# Initialize formatter\n\t\tsuper().__init__(fmt=fmt, datefmt='%Y-%m-%dT%H:%M:%S', style=style, sd_id=sd_id)\n\n\t\t# Convert time to GMT\n\t\tself.converter = time.gmtime\n\n\nclass SyslogRFC5424microFormatter(StructuredDataFormatter):\n\t\"\"\"\n\tIt implements Syslog formatting for syslog (aka format ``micro``) in RFC5424micro format.\n\t\"\"\"\n\n\tempty_sd = \"-\"\n\n\tdef __init__(self, fmt=None, datefmt=None, style='%', sd_id='sd'):\n\t\tfmt = '<%(priority)s>1 %(asctime)sZ {hostname} {app_name} {proc_id} %(name)s [log l=\"%(levelname)s\"]%(struct_data)s%(message)s'.format(\n\t\t\tapp_name=Config[\"logging\"][\"app_name\"],\n\t\t\thostname=socket.gethostname(),\n\t\t\tproc_id=os.getpid(),\n\t\t)\n\n\t\tsuper().__init__(fmt=fmt, datefmt='%Y-%m-%dT\n\nimport asyncio\nimport datetime\nimport logging\nimport logging.handlers\nimport os\nimport pprint\nimport queue\nimport re\nimport socket\nimport sys\nimport time\nimport traceback\nimport urllib.parse\n\nfrom.config import Config\nfrom.timer import Timer\nfrom.utils import running_in_container\n\n\nLOG_NOTICE = 25\n\"\"\"\nInfo log level that is visible in non-verbose mode. It should not be used for warnings and errors.\n\"\"\"\n\nlogging.addLevelName(LOG_NOTICE, \"NOTICE\")\n\nL = logging.getLogger(__name__)\n\n_NAME_TO_LEVEL = {\n\t\"NOTSET\": logging.NOTSET,\n\t\"NOT SET\": logging.NOTSET,\n\t\"NOT_SET\": logging.NOTSET,\n\t\"DEBUG\": logging.DEBUG,\n\t\"INFO\": logging.INFO,\n\t\"NOTICE\": LOG_NOTICE,\n\t\"LOG_NOTICE\": LOG_NOTICE,\n\t\"LOG NOTICE\": LOG_NOTICE,\n\t\"WARNING\": logging.WARNING,\n\t\"WARN\": logging.WARNING,\n\t\"ERROR\": logging.ERROR,\n\t\"FATAL\": logging.CRITICAL,\n\t\"CRITICAL\": logging.CRITICAL,\n}\n\n\nclass Logging(object):\n\n\n\tdef __init__(self, app):\n\t\tself.RootLogger = logging.getLogger()\n\n\t\tself.ConsoleHandler = None\n\t\tself.FileHandler = None\n\t\tself.SyslogHandler = None\n\n\t\tif not self.RootLogger.hasHandlers():\n\n\t\t\t# Add console logger if needed\n\t\t\tif os.isatty(sys.stdout.fileno\n\nging:file\"][\"datefmt\"],\n\t\t\t\t\tsd_id=Config[\"logging\"][\"sd_id\"],\n\t\t\t\t))\n\t\t\t\tself.RootLogger.addHandler(self.FileHandler)\n\n\t\t\t\trotate_every = Config.get(\"logging:file\", \"rotate_every\")\n\t\t\t\tif rotate_every!= '':\n\t\t\t\t\trotate_every = re.match(r\"^([0-9]+)([dMHs])$\", rotate_every)\n\t\t\t\t\tif rotate_every is not None:\n\t\t\t\t\t\ti, u = rotate_every.groups()\n\t\t\t\t\t\ti = int(i)\n\t\t\t\t\t\tif i <= 0:\n\t\t\t\t\t\t\tself.RootLogger.error(\"Invalid 'rotate_every' configuration value.\")\n\t\t\t\t\t\telse:\n\t\t\t\t\t\t\tif u == 'H':\n\t\t\t\t\t\t\t\ti = i * 60 * 60\n\t\t\t\t\t\t\telif u == 'M':\n\t\t\t\t\t\t\t\ti = i * 60\n\t\t\t\t\t\t\telif u == 'd':\n\t\t\t\t\t\t\t\ti = i * 60 * 60 * 24\n\t\t\t\t\t\t\telif u =='s':\n\t\t\t\t\t\t\t\tpass\n\n\t\t\t\t\t\t\t# PubSub is not",
+  "trace": {
+    "query": "Generate documentation for this module log",
+    "query_terms": [
+      "log"
+    ],
+    "fallback": null,
+    "candidate_count": 14,
+    "index_chunks": 19,
+    "selected": [
+      {
+        "chunk_id": 8,
+        "start_char": 6874,
+        "end_char": 8006,
+        "score": 0.49468467258388144
+      },
+      {
+        "chunk_id": 3,
+        "start_char": 2508,
+        "end_char": 3461,
+        "score": 0.4637655763110443
+      },
+      {
+        "chunk_id": 14,
+        "start_char": 12228,
+        "end_char": 13125,
+        "score": 0.4615460122659502
+      },
+      {
+        "chunk_id": 0,
+        "start_char": 0,
+        "end_char": 1138,
+        "score": 0.43159486626858246
+      },
+      {
+        "chunk_id": 2,
+        "start_char": 1850,
+        "end_char": 2508,
+        "score": 0.3710051574896233
+      }
+    ],
+    "context_tokens": 1957,
+    "context_sha256": "dc019fa04aa9e953bff0b4707810a5d801aa8233872616be1abff1f25b6431c3"
+  },
+  "preparation_seconds": 0.09415862500009098
+}

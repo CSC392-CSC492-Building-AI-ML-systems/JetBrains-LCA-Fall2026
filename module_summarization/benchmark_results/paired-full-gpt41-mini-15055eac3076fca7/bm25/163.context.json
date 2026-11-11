@@ -1,0 +1,59 @@
+{
+  "original_id": 163,
+  "repo": "oneflow-inc__oneflow",
+  "docfile_name": "tensor_attributes.rst",
+  "source_sha256": "c737e35f4e09fbe9f39f07b1fee0e002320d97b616664f897ff00d02beeb80e6",
+  "context": "Flow/OneFlowUtils.h\"\n\n#include \"mlir/Support/LLVM.h\"\n#include \"mlir/Support/LogicalResult.h\"\n\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored \"-Wcast-qual\"\n#include \"schemas/executable_generated.h\"\n#include \"schemas/attributes/bool_generated.h\"\n#include \"schemas/attributes/f32_generated.h\"\n#include \"schemas/attributes/f32s_generated.h\"\n#include \"schemas/attributes/f64_generated.h\"\n#include \"schemas/attributes/i32_generated.h\"\n#include \"schemas/attributes/i32s_generated.h\"\n#include \"schemas/attributes/i64_generated.h\"\n#include \"schemas/attributes/i64s_generated.h\"\n#include \"schemas/attributes/shape_generated.h\"\n#include \"schemas/attributes/shapes_generated.h\"\n#include \"schemas/attributes/str_generated.h\"\n#include \"schemas/attributes/strs_generated.h\"\n#pragma GCC diagnostic pop\n\nnamespace mlir {\nnamespace oneflow {\n\nnamespace lite {\n\nOperation* getEntryJobOp(ModuleOp module) { return getEntryJobOp(module.getOperation()); }\n\nOperation* getEntryJobOp(Operation* op) {\n  Operation* entry = nullptr;\n  op->walk([&](oneflow::Job job) -> WalkResult {\n    entry = job.getOperation();\n\n\n, const ::oneflow::BlobDesc* blob_desc) {\n  if (auto type = getTypeFromOneFlowDataType(context, blob_desc->data_type())) {\n    return RankedTensorType::get(\n        llvm::SmallVector<int64_t, 4>(\n            {blob_desc->shape().dim_vec().begin(), blob_desc->shape().dim_vec().end()}),\n        type);\n  } else {\n    return Type{};\n  }\n}\n\nstatic auto MagicalOpName = \"INFER_MAGICAL\";\nLogicalResult ConvertUserOp(llvm::StringRef op_type_name, ::oneflow::OperatorConf& op_conf,\n                            ValueRange operands, DictionaryAttr attributes) {\n  oneflow::ConfOpAdaptor conf_op_adaptor(operands, attributes);\n  op_conf.set_name(MagicalOpName);\n  CHECK(\n      user_op::ConvertUserOpInputs(op_type_name, operands, attributes, op_conf.mutable_user_conf())\n          .succeeded());\n  if (!succeeded(user_op::ConvertUserOpAttributes(op_type_name, operands, attributes, op_conf))) {\n    return failure();\n  }\n  return success();\n}\n\nsize_t getResultSize(DictionaryAttr attributes) {\n  const StringRef attr_\n\n = \"Convert ops to their inference version and rewrite them with a more performant equivalent in inference workflow.\";\n  let constructor = \"mlir::oneflow::createConvertInferenceOpPass()\";\n  let dependentDialects = [\"pdl_interp::PDLInterpDialect\", \"pdl::PDLDialect\"];\n}\n\ndef PostConvertInferenceOpPass : Pass<\"post-convert-inference-op\", \"ModuleOp\"> {\n  let summary = \"Convert variable ir op to variable op after contant folding.\";\n  let constructor = \"mlir::oneflow::createPostConvertInferenceOpPass()\";\n}\n\n\ndef ConvertToSignlessForTosaPass : Pass<\"convert-to-signless-for-tosa\", \"ModuleOp\"> {\n  let summary = \"convert func type to unsigned before lowering to tosa\";\n  let description = [{\n    In oneflow, int typed tensor is explicit signed. Convert them before lowering to TOSA.\n  }];\n  let constructor = \"mlir::oneflow::createConvertToSignlessForTosaPass()\";\n  let dependentDialects = [\"func::FuncDialect\"];\n}\n\ndef CSEWithAttributesIgnored : Pass<\"cse-with-attributes-ignored\", \"ModuleOp\"> {\n  let summary = \"ignore oneflow attributes to have cse work\";\n  let description = [{\n    cse and ignore oneflow attributes like op name, symbol id, etc.\n  }];\n  let constructor = \"mlir::oneflow::createCSEWithAttributesIgnored()\";\n  let dependentDialects = [];\n}\n\ndef CSEPutAttributes : Pass<\"\n\nConfCompatible>()) {\n      for (mlir::Value operand : op.OperandsToTranspose()) {\n        if (operand.getType().cast<mlir::RankedTensorType>().getShape().size() != 4) {\n          return failure();\n        }\n      }\n      const auto device_name = OpTrait::IsOpConfCompatible<void>::getDeviceTag(op)\n                                   .cast<mlir::StringAttr>()\n                                   .getValue()\n                                   .str();\n      if (device_name == \"cpu\") { return failure(); }\n    }\n    llvm::SmallVector<int32_t> perm = getChannelLastTransposePerm();\n    llvm::SmallVector<int32_t> result_perm = getChannelFirstTransposePerm();\n\n    NamedAttrList transpose_attributes;\n    if (InitTransposeAttributes(op, transpose_attributes, rewriter).succeeded()) {\n      transpose_attributes.append(llvm::StringRef(\"perm\"), getSI32ArrayAttr(rewriter,\n\nIgnored> {\n public:\n  explicit CSEWithAttributesIgnored() {}\n  explicit CSEWithAttributesIgnored(std::shared_ptr<CSEState> state) : state_(state) {}\n  void runOnOperation() override {\n    Operation* op = getOperation();\n    RewritePatternSet patterns(op->getContext());\n    patterns.add<EraseAttributes>(op->getContext(), state_);\n    (void)applyPatternsAndFoldGreedily(op, std::move(patterns));\n  }\n\n private:\n  std::shared_ptr<CSEState> state_;\n};\n\nclass CSEPutAttributes : public CSEPutAttributesBase<CSEPutAttributes> {\n public:\n  explicit CSEPutAttributes() {}\n  explicit CSEPutAttributes(std::shared_ptr<CSEState> state) { state_ = state; }\n\n  void runOnOperation() override {\n    Operation* op = getOperation();\n    RewritePatternSet patterns(op->getContext());\n    patterns.add<PutAttributes>(op->getContext(), state_);\n    (void)applyPatternsAndFoldGreedily(op, std::move(patterns));\n  }\n\n private:\n  std::shared_ptr<CSEState> state_;\n};\n\n}  // namespace\n\nstd::unique_ptr<Pass> creat\n\nl_subgraph(%arg0: !okl.launcher_ctx) attributes {pool_size = 1024 : i64} {\n    \"okl.wrapper_kernel\"() ({\n      %0 = \"okl.ge",
+  "trace": {
+    "query": "Tensor Attributes tensor_attributes",
+    "query_terms": [
+      "attributes",
+      "tensor",
+      "tensor_attributes"
+    ],
+    "fallback": null,
+    "candidate_count": 8092,
+    "index_chunks": 23697,
+    "selected": [
+      {
+        "chunk_id": 573,
+        "start_char": 478399,
+        "end_char": 479499,
+        "score": 10.453166391959561
+      },
+      {
+        "chunk_id": 222,
+        "start_char": 178344,
+        "end_char": 179350,
+        "score": 10.082735926849505
+      },
+      {
+        "chunk_id": 1212,
+        "start_char": 970312,
+        "end_char": 971599,
+        "score": 10.070204148547008
+      },
+      {
+        "chunk_id": 186,
+        "start_char": 149097,
+        "end_char": 149961,
+        "score": 9.962517435715451
+      },
+      {
+        "chunk_id": 455,
+        "start_char": 373808,
+        "end_char": 374800,
+        "score": 9.933920911197863
+      },
+      {
+        "chunk_id": 818,
+        "start_char": 671077,
+        "end_char": 671200,
+        "score": 7.708222008639261
+      }
+    ],
+    "context_tokens": 1996,
+    "context_sha256": "48390a281dbf873688f9e4afd4c9cf9ba48a0fe1258810b3558c04385537208e"
+  },
+  "preparation_seconds": 51.29016433400011
+}

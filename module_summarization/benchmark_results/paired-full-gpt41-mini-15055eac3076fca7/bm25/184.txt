@@ -1,0 +1,120 @@
+Gaussian Processes
+==================
+
+Gaussian Processes (GPs) are powerful, flexible models used for regression and classification tasks. They provide a probabilistic approach to learning in kernel machines, allowing for uncertainty estimation in predictions.
+
+Overview
+--------
+
+A Gaussian Process defines a distribution over functions and can be used to infer continuous functions from data. It is fully specified by a mean function and a covariance function (kernel). The choice of kernel encodes assumptions about the function to be learned, such as smoothness and periodicity.
+
+Key References
+--------------
+
+- David Duvenaud (2014). *The Kernel Cookbook: Advice on Covariance functions*.  
+  <https://www.cs.toronto.edu/~duvenaud/cookbook/>
+
+- Carl Edward Rasmussen, Christopher K. I. Williams (2006). *Gaussian Processes for Machine Learning*. The MIT Press.  
+  <http://www.gaussianprocess.org/gpml/>
+
+Gaussian Process Regression
+---------------------------
+
+Gaussian Process Regression (GPR) models the distribution over functions that fit the observed data. It is a non-parametric Bayesian approach that provides not only predictions but also uncertainty estimates.
+
+Example:
+
+```python
+from sklearn.datasets import make_friedman2
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
+
+X, y = make_friedman2(n_samples=500, noise=0, random_state=0)
+kernel = DotProduct() + WhiteKernel()
+gpr = GaussianProcessRegressor(kernel=kernel, random_state=0).fit(X, y)
+```
+
+Gaussian Process Classification
+-------------------------------
+
+Gaussian Process Classification (GPC) extends Gaussian Processes to classification problems by applying a suitable likelihood function.
+
+Example:
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+
+X, y = load_iris(return_X_y=True)
+kernel = 1.0 * RBF(1.0)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+print(gpc.predict_proba(X[:2, :]))
+```
+
+Kernel Functions
+----------------
+
+The kernel function defines the covariance between points in the input space and encodes assumptions about the function to be learned.
+
+### RBF Kernel
+
+The Radial Basis Function (RBF) kernel is a popular choice for smooth functions.
+
+### Matern Kernel
+
+The Matern kernel is parameterized by a smoothness parameter `nu` which controls the differentiability of the functions modeled:
+
+- `nu=0.5` corresponds to the absolute exponential kernel.
+- `nu=1.5` corresponds to functions that are once differentiable.
+- `nu=2.5` corresponds to functions that are twice differentiable.
+- `nu=∞` corresponds to the RBF kernel.
+
+Example:
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import Matern
+
+X, y = load_iris(return_X_y=True)
+kernel = 1.0 * Matern(length_scale=1.0, nu=1.5)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+print(gpc.predict_proba(X[:2, :]))
+```
+
+### Rational Quadratic Kernel
+
+The Rational Quadratic kernel can be seen as a scale mixture of RBF kernels with different length scales, controlled by the parameter `alpha`.
+
+Example:
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RationalQuadratic
+
+X, y = load_iris(return_X_y=True)
+kernel = RationalQuadratic(length_scale=1.0, alpha=1.5)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+print(gpc.predict_proba(X[:2, :]))
+```
+
+Kernel Parameters and Hyperparameter Tuning
+-------------------------------------------
+
+Many kernels have hyperparameters such as length scale, smoothness, and noise level that can be optimized during model fitting. Bounds can be set on these parameters to constrain the search space.
+
+For example, the parameter `sigma_0` controls the inhomogeneity of certain kernels and can be fixed or bounded during hyperparameter tuning.
+
+Smoothness parameter `nu` in the Matern kernel is typically fixed due to computational cost considerations.
+
+Summary
+-------
+
+Gaussian Processes provide a principled, flexible framework for regression and classification with uncertainty quantification. The choice of kernel and its parameters plays a crucial role in the performance of the model. The scikit-learn library offers implementations of GaussianProcessRegressor and GaussianProcessClassifier with a variety of kernels to choose from.
+
+For more detailed theoretical background and practical advice on kernel selection, please refer to the references listed above.

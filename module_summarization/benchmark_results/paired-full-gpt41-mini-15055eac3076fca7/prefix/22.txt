@@ -1,0 +1,96 @@
+w_fluxanl Command
+=================
+
+Overview
+--------
+
+The `w_fluxanl` command is a tool for extracting and analyzing flux data from WESTPA simulation HDF5 files. Fluxes represent the weighted transitions (recycling events) between states or targets in a weighted ensemble simulation, providing insight into the kinetics and pathways of the system under study.
+
+This tool supports multiple versions of WESTPA HDF5 file formats, adapting its extraction method accordingly to ensure accurate flux retrieval.
+
+Functionality
+-------------
+
+- Extracts flux values for specified iteration ranges from WESTPA HDF5 data files.
+- Supports legacy file formats (versions prior to 7) and modern formats (version 7 and above).
+- Returns flux data organized by target states, including iteration number, flux magnitude, and event counts.
+- Provides confidence interval estimates and correlation length metrics for fluxes (where applicable).
+- Handles cases where target states may appear or disappear during the simulation.
+
+Usage
+-----
+
+The `w_fluxanl` command operates on WESTPA simulation data and can be invoked with options to specify iteration ranges and data sources.
+
+Key Features
+------------
+
+1. **Iteration Range Selection**  
+   Users can specify the start and stop iterations for flux extraction. By default, fluxes are extracted from iteration 1 up to the current iteration.
+
+2. **File Version Compatibility**  
+   - For WESTPA HDF5 files with version less than 7, fluxes are extracted from the `recycling` tables within iteration groups.  
+   - For version 7 and above, fluxes are extracted from the `new_weights` group of the iteration following recycling events.
+
+3. **Flux Data Structure**  
+   Flux data is returned as a dictionary mapping target labels (or indices if labels are unavailable) to arrays of flux entries. Each flux entry contains:  
+   - `n_iter`: The iteration number.  
+   - `flux`: The flux value (weighted transitions per unit time).  
+   - `count`: The number of recycling events observed.
+
+4. **Target Index Summary**  
+   For each target, summary statistics including mean flux, confidence interval bounds, and correlation length are maintained.
+
+Examples
+--------
+
+Extract fluxes from iterations 10 to 50:
+
+```bash
+w_fluxanl --iter-start 10 --iter-stop 50
+```
+
+Analyze fluxes using a specific WESTPA data manager instance or file:
+
+```bash
+w_fluxanl --data-file path/to/westpa.h5
+```
+
+Output
+------
+
+The output consists of flux data arrays per target, which can be further processed or visualized to understand transition kinetics and pathways in the simulation.
+
+Data Types
+----------
+
+- **fluxentry_dtype**: Structured array dtype containing fields:  
+  - `n_iter` (iteration number)  
+  - `flux` (flux value)  
+  - `count` (number of recycling events)
+
+- **target_index_dtype**: Structured array dtype for target summary statistics:  
+  - `target_label` (string label of the target)  
+  - `mean_flux` (average flux)  
+  - `mean_flux_ci_lb` (lower bound of confidence interval)  
+  - `mean_flux_ci_ub` (upper bound of confidence interval)  
+  - `mean_flux_correl_len` (correlation length)
+
+Notes
+-----
+
+- The tool assumes that recycling events correspond to transitions contributing to fluxes.
+- For file versions prior to 7, flux extraction relies on the presence of `recycling` tables.
+- For version 7 and later, flux extraction uses the `new_weights` group in the iteration following recycling events.
+- If a target state is not present in some iterations, those iterations are marked with a sentinel count value (-1).
+
+See Also
+--------
+
+- WESTPA documentation on weighted ensemble simulations.
+- `westpa.rc.get_data_manager()` for accessing WESTPA data manager instances.
+- Other WESTPA analysis tools for trajectory and kinetics analysis.
+
+---
+
+This documentation provides an overview of the `w_fluxanl` command and its role in analyzing fluxes in WESTPA simulations. For detailed usage instructions and options, refer to the command-line help or WESTPA user guides.

@@ -1,0 +1,55 @@
+Managing Memory
+===============
+
+In distributed computing with Dask and the Distributed scheduler, efficient memory management is crucial to ensure smooth operation and optimal performance. This documentation outlines key concepts and components related to managing memory within the Distributed framework.
+
+Futures and Memory Management
+-----------------------------
+
+A **Future** represents a remotely running computation and acts as a local proxy to a result running on a remote worker. Futures are central to managing memory because they reference data stored on workers and allow clients to track and control the lifecycle of that data.
+
+- **Key**: Each Future is associated with a unique key that identifies the remote data.
+- **Client Ownership**: Futures are owned by a client, which manages their lifecycle and interactions with the scheduler.
+- **State Tracking**: Futures maintain state information (e.g., pending, running, finished, or errored) that reflects the status of the computation and its associated data.
+- **Garbage Collection**: When Futures are no longer referenced by clients, the Distributed scheduler can release the associated data from worker memory, freeing resources.
+
+Global Client Management
+------------------------
+
+The Distributed system maintains a global registry of active clients to facilitate memory and resource management:
+
+- `_global_clients`: A weak reference dictionary that tracks active clients by an internal index.
+- `_current_client`: A context variable that holds the currently active client in the execution context.
+- Functions such as `_get_global_client()`, `_set_global_client()`, and `_del_global_client()` manage the lifecycle and accessibility of clients globally.
+
+These mechanisms ensure that memory and computation resources are properly associated with the correct client context, enabling efficient cleanup and reuse.
+
+Memory Usage and Serialization
+------------------------------
+
+Memory management also involves serialization and deserialization of data as it moves between clients and workers:
+
+- The Distributed protocol uses serialization methods (e.g., pickle-based serialization) to transfer data efficiently.
+- Utilities like `sizeof` help estimate the memory footprint of objects to inform scheduling and resource allocation decisions.
+- Data is often scattered to workers or gathered from them using functions such as `scatter_to_workers` and `gather_from_workers`, which handle memory buffers and serialization transparently.
+
+Extensions and Plugins
+----------------------
+
+Memory management can be extended and customized through plugins and client extensions:
+
+- The `DEFAULT_EXTENSIONS` dictionary includes extensions such as `PubSubClientExtension` that can interact with the client lifecycle and memory events.
+- Worker and scheduler plugins can monitor and influence memory usage patterns, enabling advanced use cases like logging, diagnostics, and dynamic resource adjustments.
+
+Best Practices for Managing Memory
+----------------------------------
+
+- **Track Futures Carefully**: Keep references to Futures only as long as necessary. Once a Future is no longer needed, deleting it allows the scheduler to free associated memory.
+- **Use Client Contexts**: Utilize the global client management functions to ensure that computations and memory allocations are correctly scoped.
+- **Monitor Memory Usage**: Employ diagnostic tools and plugins to observe memory consumption and detect leaks or bottlenecks.
+- **Leverage Serialization Wisely**: Be mindful of the size and complexity of objects being serialized and transferred across the cluster.
+
+Summary
+-------
+
+Effective memory management in Distributed hinges on the careful handling of Futures, client contexts, and serialization mechanisms. By understanding these components and following best practices, users can optimize resource utilization and maintain high-performance distributed computations.

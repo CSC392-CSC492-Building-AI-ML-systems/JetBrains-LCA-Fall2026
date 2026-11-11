@@ -1,0 +1,72 @@
+Using Review Sessions
+=====================
+
+Overview
+--------
+
+A review session provides an isolated environment for interacting with an ftrack server. It allows users to authenticate, query, and manipulate entities within the ftrack system while managing caching, event handling, and plugin integration.
+
+Creating a Review Session
+-------------------------
+
+To create a review session, instantiate the `Session` class with appropriate parameters:
+
+- **server_url**: The URL of the ftrack server, including any port number. If not specified, the environment variable `FTRACK_SERVER` will be used.
+- **api_key**: The API key for authentication. If not provided, it will be retrieved from the environment variable `FTRACK_API_KEY`.
+- **api_user**: The username of the ftrack user. If not provided, it will be retrieved from the environment variable `FTRACK_API_USER`.
+- **auto_populate**: If set to `True` (default), entity attributes will be automatically fetched from the server when accessed if not already available.
+- **plugin_paths**: A list of paths to search for plugins. Defaults to the environment variable `FTRACK_EVENT_PLUGIN_PATH` if not specified.
+- **cache**: An instance of a cache implementing the `ftrack_api.cache.Cache` interface or a callable returning such an instance. This cache will be layered on top of a default in-memory cache.
+- **cache_key_maker**: An instance implementing the `ftrack_api.cache.KeyMaker` interface to generate keys for cached objects. Defaults to `ftrack_api.cache.StringKeyMaker` if not specified.
+- **auto_connect_event_hub**: If `True`, the embedded event hub will automatically connect to the event server, enabling publishing and subscribing to non-local events. If `False`, only local events are available until the event hub is manually connected.
+- **schema_cache_path**: Path to a folder for caching schema data. If not set, the environment variable `FTRACK_API_SCHEMA_CACHE_PATH` is used. If neither is set, a temporary directory is used. Set to `False` to disable schema caching.
+- **plugin_arguments**: Optional dictionary of keyword arguments passed to plugin register functions upon discovery. If a plugin does not accept all arguments, the discovery mechanism will reduce the arguments accordingly and log a warning.
+
+Example:
+
+```python
+import ftrack_api
+
+session = ftrack_api.Session(
+    server_url='https://ftrack.example.com',
+    api_key='your_api_key',
+    api_user='username',
+    auto_populate=True,
+    plugin_paths=['/path/to/plugins'],
+    auto_connect_event_hub=True,
+    schema_cache_path='/path/to/schema_cache',
+    plugin_arguments={'arg1': 'value1'}
+)
+```
+
+Authentication
+--------------
+
+The session uses `SessionAuthentication` to attach authentication headers to HTTP requests automatically. This class requires the API key and user name and ensures that all requests to the ftrack server include the necessary credentials.
+
+Caching
+-------
+
+Caching improves performance by storing fetched data locally. The session supports layered caching with a default in-memory cache at the top level. Custom caches can be provided and will be integrated into this layered cache system.
+
+Schema caching can be enabled by specifying a path where schema data will be stored. This reduces the overhead of repeatedly fetching schema information from the server.
+
+Event Hub
+---------
+
+The session includes an embedded event hub for publishing and subscribing to events.
+
+- If `auto_connect_event_hub` is enabled, the event hub connects automatically in a background thread, allowing interaction with non-local events.
+- If disabled, only local event publishing and subscribing are available until the event hub is manually connected using `EventHub.connect()`.
+
+Note that subscribing to events does not require the event hub to be connected, but publishing non-local events does.
+
+Plugins
+-------
+
+Plugins extend the functionality of the session. The session can discover and register plugins from specified paths. Plugin registration functions can accept keyword arguments passed via `plugin_arguments`. If a plugin does not accept all provided arguments, the session will attempt to reduce the arguments and log a warning.
+
+Summary
+-------
+
+Using review sessions allows for flexible, authenticated, and efficient interaction with an ftrack server. By configuring caching, event handling, and plugins, users can tailor the session to their workflow needs while maintaining performance and responsiveness.

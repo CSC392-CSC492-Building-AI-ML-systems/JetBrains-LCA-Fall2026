@@ -1,0 +1,123 @@
+Model Usage
+===========
+
+The `Model` class is the base class for all Tortoise ORM models. It provides the core functionality to define database models, query data, and manage relationships.
+
+Defining a Model
+----------------
+
+To define a model, subclass `Model` and define your fields as class attributes. You can also configure metadata using the nested `Meta` class.
+
+Example:
+
+.. code-block:: python3
+
+    class Foo(Model):
+        field_a = fields.CharField(max_length=50)
+        field_b = fields.IntField()
+
+        class Meta:
+            table = "custom_table"
+            unique_together = (("field_a", "field_b"), )
+
+Meta Class
+----------
+
+The `Meta` class is used to configure metadata for the model.
+
+Attributes:
+
+- `table`: Specify a custom table name.
+- `unique_together`: Define unique constraints across multiple fields.
+
+Describing Models
+-----------------
+
+You can get a description of a model or all registered models using the class method `describe`.
+
+.. code-block:: python3
+
+    description = Foo.describe(serializable=True)
+
+Parameters:
+
+- `serializable` (bool): If `True` (default), returns JSON-serializable data. If `False`, returns raw Python objects.
+
+Returns:
+
+A dictionary containing the model description with keys such as:
+
+- `"name"`: Qualified model name (str)
+- `"app"`: Application namespace (str)
+- `"fields"`: List of field descriptions
+- `"pk_field"`: Primary key field description
+- `"o2o_fields"`: One-to-one fields
+- `"backward_o2o_fields"`: Backward one-to-one fields
+- `"m2m_fields"`: Many-to-many fields
+
+Fetching Records
+----------------
+
+To fetch a single record matching certain criteria, use the asynchronous class method `get_or_none`.
+
+.. code-block:: python3
+
+    user = await User.get_or_none(username="foo")
+
+Parameters:
+
+- `*args`: Q functions containing constraints (AND'ed).
+- `**kwargs`: Simple filter constraints.
+
+Returns:
+
+- An instance of the model if found, otherwise `None`.
+
+Fetching Related Models for a List
+----------------------------------
+
+To fetch related models for a list of model instances, use the asynchronous class method `fetch_for_list`.
+
+.. code-block:: python3
+
+    await User.fetch_for_list(user_list, "related_field")
+
+Parameters:
+
+- `instance_list`: List of model instances to fetch relations for.
+- `*args`: Relation names to fetch.
+- `using_db`: Internal parameter, do not use.
+
+Instance Behavior
+-----------------
+
+- Models track whether they are partial (`_partial`) or fully loaded.
+- Models track whether they have been saved to the database (`_saved_in_db`).
+- Partial models without primary keys cannot be updated partially.
+
+Awaiting a Model Instance
+-------------------------
+
+Model instances support the `await` syntax, returning themselves asynchronously.
+
+.. code-block:: python3
+
+    user = await User.get(username="foo")
+    user_instance = await user  # returns the user instance itself
+
+Signals
+-------
+
+The `Model` class supports signals for lifecycle events:
+
+- `pre_save`
+- `post_save`
+- `pre_delete`
+- `post_delete`
+
+These can be used to attach callbacks for model events.
+
+Summary
+-------
+
+The `Model` class provides a powerful and flexible way to define and interact with your database schema using Python classes. Use the `Meta` class to configure metadata, class methods to query and fetch data, and instance methods to manage individual records.

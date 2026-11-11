@@ -1,0 +1,63 @@
+Short Overview of Dask Best Practices
+=====================================
+
+Dask is a powerful parallel computing library that enables scalable data processing and analysis. To make the most out of Dask and ensure efficient, reliable, and maintainable workflows, it is important to follow certain best practices. This document provides a short overview of key recommendations when working with Dask.
+
+Partitioning and Data Management
+-------------------------------
+
+- **Constructing Ordered Partitions:**  
+  Creating ordered (non-hashed) partitions can be challenging, especially for large datasets. Perfect partition boundaries are not always necessary; instead, aim for "good enough" partitions that balance scalability and data distribution.
+
+- **Partition Boundary Calculation:**  
+  Two effective approaches to determine partition boundaries include:  
+  1. Taking a subsample from each partition and finding optimal partitions from the combined subsamples.  
+  2. Calculating equally spaced percentiles on each partition and merging these results.  
+  Dask combines these methods by using random percentiles to improve stability and scalability.
+
+- **Adjusting Percentiles Based on Partition Count:**  
+  When the number of partitions remains constant, use a ratio of 2:1 for fixed to random percentiles. If repartitioning drastically reduces the number of partitions, increase the proportion of random percentiles to avoid under-sampling caused by correlations in the data.
+
+- **Scaling Percentile Calculations:**  
+  The total number of percentiles calculated grows approximately with the square root of the number of partitions, assuming partitions are roughly equal in size. This approach balances computational cost and partition quality.
+
+Working with Parquet Files
+--------------------------
+
+- **Metadata Usage:**  
+  When reading Parquet datasets, prefer using the `_metadata` file if available, as it provides a best-case scenario for efficient metadata handling.
+
+- **Fallback to Individual Files:**  
+  If `_metadata` is not present, use the first file in the dataset as a fallback. Avoid relying on `_common_metadata` files for partitioned datasets, as they may cause issues.
+
+- **File Path Handling:**  
+  Construct file paths carefully using the filesystem separator to ensure compatibility across different environments.
+
+Dask Graph and Computation
+--------------------------
+
+- **Deterministic Computations:**  
+  Ensure that operations such as `nlargest`, `drop_duplicates`, and groupby aggregations produce deterministic Dask graphs. This consistency helps with caching, debugging, and reproducibility.
+
+- **Graph Assertions:**  
+  Use assertions to verify that Dask graphs contain expected labels and structures. This practice aids in validating the correctness of computations and optimizations.
+
+- **Division Management:**  
+  Maintain and verify divisions (partition boundaries) in Dask DataFrames. Known divisions enable more efficient computations and optimizations.
+
+General Recommendations
+-----------------------
+
+- **Avoid Losing Rows:**  
+  Be cautious with operations that may inadvertently drop rows, especially when divisions have identical start and end points.
+
+- **Meta Objects:**  
+  Use `_meta` objects to represent the structure and types of data without actual computation. This helps Dask plan and optimize workflows effectively.
+
+- **Optimization and Scheduling:**  
+  Leverage Dask’s optimization methods and default schedulers to improve performance. Customize these only when necessary.
+
+Conclusion
+----------
+
+Following these best practices will help you build scalable, efficient, and reliable data processing pipelines with Dask. Proper partitioning, metadata management, deterministic computations, and careful graph handling are key to unlocking the full potential of Dask in your projects.

@@ -1,0 +1,101 @@
+Generalized Method of Moments (GMM) Module
+==========================================
+
+Overview
+--------
+
+This module provides classes and functions to perform estimation using the Generalized Method of Moments (GMM), including specialized variants such as Two-Stage Least Squares (IV2SLS) and distribution parameter estimation based on matching quantiles.
+
+The GMM framework implemented here focuses on flexible moment condition specification and weighting matrix options, allowing for robust and efficient parameter estimation in instrumental variables and other econometric models.
+
+Key Features
+------------
+
+- **Generalized Method of Moments (GMM)**: Core implementation of GMM estimation with support for one-step, iterated, and continuously updated estimators (CUE, experimental).
+- **Instrumental Variables Two-Stage Least Squares (IV2SLS)**: A specific application of GMM for instrumental variables regression.
+- **Distribution Parameter Estimation via Quantiles (DistQuantilesGMM)**: A subclass of GMM that estimates distribution parameters by matching quantiles, useful when the optimal weighting matrix cannot be calculated.
+- **Flexible Weighting Matrix Options**: Supports various robust covariance estimators for the weighting matrix, including heteroscedasticity-consistent (HC0), HAC, IID, and cluster-robust methods.
+- **Extensible Design**: The module is designed to be extended with custom moment conditions and weighting schemes.
+
+Classes
+-------
+
+### GMM
+
+Base class implementing the Generalized Method of Moments estimator.
+
+- **Initialization Parameters**:
+  - `endog`: Endogenous variables.
+  - `exog`: Exogenous variables.
+  - `instrument`: Instrumental variables.
+  - `k_moms`: Number of moment conditions.
+  - `k_params`: Number of parameters.
+  - `missing`: Missing data handling strategy.
+  - Additional keyword arguments for customization.
+
+- **Notes**:
+  - The class primarily operates on moment conditions and does not directly manipulate data.
+  - Supports various weighting matrix methods for robust covariance estimation.
+  - Designed to be subclassed for specific model implementations.
+
+### DistQuantilesGMM
+
+Subclass of `GMM` that estimates distribution parameters by matching quantiles.
+
+- **Purpose**:
+  - Useful when the optimal weighting matrix cannot be computed numerically.
+  - Employs a single row of moment conditions based on quantiles rather than individual observations.
+  
+- **Initialization Parameters**:
+  - `endog`, `exog`, `instrument`: As in `GMM`.
+  - `distfn`: Distribution function used for quantile matching.
+  - `pquant`: Optional array of quantiles to match (default: `[0.01, 0.05, 0.1, 0.4, 0.6, 0.9, 0.95, 0.99]`).
+  
+- **Notes**:
+  - Implements a `fitonce` method to perform estimation with an identity weighting matrix.
+  - Designed to explore alternative weighting schemes when standard GMM weighting is infeasible.
+
+Weighting Matrix Options
+------------------------
+
+The module supports several methods for constructing the weighting matrix used in GMM estimation:
+
+- `cov`: Heteroscedasticity-consistent covariance matrix estimator (HC0), optionally with degrees of freedom correction.
+- `hac`: Heteroscedasticity and autocorrelation consistent estimator.
+- `iid`: Assumes independent and identically distributed errors (untested).
+- `cluster`: Cluster-robust covariance estimator (not fully connected yet).
+- Additional methods from `statsmodels.stats.robust_covariance` may be integrated.
+
+Other Parameters
+----------------
+
+- `wargs`: Arguments passed to weighting matrix methods, such as whether moments are centered.
+- `weights_method`: String specifying the weighting matrix method.
+- `epsilon_iter`: Convergence tolerance for iterative estimation procedures.
+
+Known Issues and TODOs
+----------------------
+
+- Handling of starting values and number of parameters (`nparams`) requires refinement.
+- Optimal weighting matrix calculation may fail in some cases, particularly for `DistQuantilesGMM`.
+- Integration with regression model features (e.g., prediction, fitted values) is under consideration.
+- Some weighting methods and options are not fully implemented or tested.
+- The degrees of freedom calculation in Hausman tests needs clarification.
+- The `fitonce` method in `DistQuantilesGMM` is planned to be moved to the base `GMM` class for broader applicability.
+
+Usage Notes
+-----------
+
+- The module is intended for users familiar with GMM and instrumental variables estimation.
+- It provides a flexible framework for specifying moment conditions and weighting matrices.
+- Users can extend the base classes to implement custom models and estimation strategies.
+- Robust covariance estimation options allow for inference under various forms of heteroscedasticity and autocorrelation.
+
+References
+----------
+
+- Hansen, L. P. (1982). Large sample properties of generalized method of moments estimators.
+- Newey, W. K., & West, K. D. (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix.
+- Arellano, M. (2003). Panel Data Econometrics.
+
+This module is part of a broader econometric modeling framework and aims to provide reliable and extensible tools for GMM-based estimation.

@@ -1,0 +1,108 @@
+Linear Mixed Effects Models
+============================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data. They allow estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.
+
+The `MixedLM` class fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when the data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups. For group *i*, the probability model is:
+
+.. math::
+
+    Y_i = X_i \\beta + Z_i \\gamma_i + \\epsilon_i
+
+where:
+
+- *n_i* is the number of observations in group *i*.
+- *Y_i* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).
+- *X_i* is an *n_i \\times k_{fe}* design matrix for the fixed effects (called `exog` in `MixedLM`).
+- *\\beta* is a *k_{fe}*-dimensional vector of fixed effects parameters (called `fe_params` in `MixedLM`).
+- *Z_i* is a design matrix for the random effects with *n_i* rows (called `exog_re` in `MixedLM`). The number of columns in *Z_i* can vary by group.
+- *\\gamma_i* is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of *\\gamma_i* (called `cov_re` in `MixedLM`) is common to all groups. The remaining elements of *\\gamma_i* correspond to variance components. Each group receives its own independent realization of *\\gamma_i*.
+- *\\epsilon_i* is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance *\\sigma^2*. The errors are independent both within and between groups.
+
+All of *Y*, *X*, and *Z* must be fully observed. The parameters *\\beta*, *\\Psi* (covariance of random effects), and *\\sigma^2* are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors *\\gamma* and *\\epsilon* are random and define the probability model.
+
+The marginal mean structure is given by:
+
+.. math::
+
+    E[Y | X, Z] = X \\beta
+
+If only the mean structure is of interest, generalized estimating equations (GEE) provide an alternative to linear mixed models.
+
+Random Effects
+--------------
+
+Two types of random effects are supported:
+
+1. **Standard Random Effects**: These are correlated with each other in arbitrary ways. Every group has the same number (*k_{re}*) of standard random effects, with the same joint distribution but independent realizations across groups.
+
+2. **Variance Components**: These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Estimation and Algorithms
+-------------------------
+
+The parameters *\\beta*, *\\Psi*, and *\\sigma^2* are estimated using ML or REML methods. The covariance structure is not updated as the fixed effects parameters vary.
+
+For L1 regularization (if used), a "shooting" or cyclic coordinate descent algorithm is employed. When the method is 'l1', penalty parameters for fixed effects (`fe_pen`) and covariance (`cov_pen`) are used to obtain the covariance structure but are ignored during the L1-penalized fitting.
+
+References
+----------
+
+- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+- Additional resource: http://econ.ucsb.edu/~doug/245a
+
+- Friedman, J. H., Hastie, T., & Tibshirani, R. (2008). Regularized Paths for Generalized Linear Models via Coordinate Descent. *Journal of Statistical Software*, 33(1). http://www.jstatsoft.org/v33/i01/paper
+
+- Supplementary material on coordinate descent: http://statweb.stanford.edu/~tibs/stat315a/Supplements/fuse.pdf
+
+Classes and Usage
+-----------------
+
+**MixedLM**
+
+The main class for fitting linear mixed effects models. It partitions data into groups and fits the model described above.
+
+**MixedLMResults**
+
+This class contains the results of fitting a linear mixed effects model. It inherits from `statsmodels.LikelihoodModelResults`.
+
+Attributes include:
+
+- `model`: Reference to the `MixedLM` model instance used for fitting.
+- `normalized_cov_params`: Sampling covariance matrix of the estimates.
+- `params`: Packed parameter vector for the profile parameterization. The first *k_{fe}* elements are the estimated fixed effects coefficients; the remaining elements are the estimated variance parameters (scaled).
+- `fe_params`: Estimated fixed-effects coefficients.
+- `cov_re`: Estimated random-effects covariance matrix.
+- `bse_fe`: Standard errors of the fixed effects coefficients.
+- `bse_re`: Standard errors of the random effects covariance matrix and variance components.
+
+Parameter Vector Structure
+--------------------------
+
+The parameter vector used in fitting and results contains:
+
+- Fixed effects parameters (*\\beta*).
+- Random effects covariance parameters (lower triangle of covariance matrix).
+- Variance component parameters.
+
+These parameters are scaled by the unexplained variance parameter (*scale*).
+
+Notes
+-----
+
+- The model assumes that the covariance matrix of random effects is common across groups.
+- The errors *\\epsilon* are assumed independent and normally distributed.
+- The design matrices *X* and *Z* must be fully observed without missing data.
+- The implementation is optimized for grouped data but can handle some crossed effects by specifying a single group.
+- L1 regularization is available for fixed effects and covariance parameters using coordinate descent algorithms.
+
+This documentation provides an overview of linear mixed effects models as implemented in the `MixedLM` class, including model formulation, estimation, and usage notes.

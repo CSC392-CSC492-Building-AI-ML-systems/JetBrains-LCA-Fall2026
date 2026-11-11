@@ -1,0 +1,103 @@
+A Quick Dive into Using the API
+===============================
+
+This tutorial provides a brief overview of how to interact with the API, focusing on merging entities, handling collections, and managing session data efficiently.
+
+Merging Entities and Collections
+-------------------------------
+
+The API provides a powerful `merge` method to integrate entities or collections of entities into the current session. This method ensures that data is synchronized and cached appropriately, avoiding duplication and infinite recursion.
+
+### Merging a Single Entity
+
+To merge a single entity into the session, use the `merge` method:
+
+```python
+merged_entity = session.merge(entity)
+```
+
+- The `merge` method accepts an entity or collection and returns the merged result.
+- Internally, it uses a helper method `_merge` which handles different types of values.
+- If the value is an instance of an entity, it merges it into the session cache.
+- The method uses a `merged` dictionary internally to track already merged entities and prevent infinite recursion.
+
+### Merging Collections
+
+The API supports merging collections of entities as well:
+
+```python
+merged_collection = session.merge(collection)
+```
+
+- If the value is a `Collection`, each entry is merged individually.
+- For `MappedCollectionProxy` instances, the API merges the underlying mapped collection.
+- The merged collection is returned as a list of merged entities.
+
+Handling Batch Updates and Payload Optimization
+-----------------------------------------------
+
+When performing batch operations, the API optimizes payloads by:
+
+- Removing values marked as `NOT_SET` to avoid sending unnecessary data.
+- Filtering out payloads with redundant or empty entity data.
+- Collapsing consecutive updates into a single payload to reduce the number of operations.
+- Merging updates that occur immediately after creation into the original create payload.
+
+This optimization ensures efficient communication with the backend and reduces overhead.
+
+Session Cache and Local State Management
+----------------------------------------
+
+The API maintains a local cache of entities to improve performance and consistency. After processing results from actions such as create, update, or delete:
+
+- Created and updated entities are merged into the local cache.
+- Deleted entities are marked for removal (future improvements may include detaching and expunging entities).
+- Local state, including temporary values for primary keys, is cleared to maintain cache integrity.
+
+This is typically handled automatically within the session lifecycle.
+
+Configuring Locations
+---------------------
+
+The API allows configuration of locations, including built-in locations such as the origin:
+
+```python
+location = session.create(
+    'Location',
+    data=dict(
+        name='ftrack.origin',
+        id=ftrack_api.symbol.ORIGIN_LOCATION_ID
+    )
+)
+```
+
+Locations are injected into the local cache and can be used to manage data storage and retrieval points.
+
+Error Handling and Schema Validation
+------------------------------------
+
+When querying or merging entities, the API validates that the expected schema is respected:
+
+- If multiple entity types are returned for a single schema, a `ValueError` is raised.
+- This ensures that the data model remains consistent and predictable.
+
+Logging and Debugging
+---------------------
+
+The API includes detailed debug logging to trace merging operations:
+
+- When merging entities or collections, debug messages indicate the objects being merged and their memory addresses.
+- This can be enabled by setting the logger to the DEBUG level, aiding in troubleshooting and development.
+
+Summary
+-------
+
+This quick dive highlights key aspects of using the API effectively:
+
+- Use `merge` to integrate entities and collections into your session safely.
+- Take advantage of batch optimization to improve performance.
+- Manage session cache and local state to keep data consistent.
+- Configure locations to control data storage.
+- Rely on schema validation and logging for robust and transparent operations.
+
+With these fundamentals, you can confidently interact with the API to build powerful and efficient applications.

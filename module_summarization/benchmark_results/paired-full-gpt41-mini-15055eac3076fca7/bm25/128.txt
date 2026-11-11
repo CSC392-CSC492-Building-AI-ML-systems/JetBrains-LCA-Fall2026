@@ -1,0 +1,124 @@
+Miscellaneous Features of `astropy.io.fits`
+============================================
+
+This section highlights various miscellaneous features and utilities provided by the `astropy.io.fits` package that enhance FITS file handling, verification, and manipulation.
+
+Shallow Copying of FITS Headers
+-------------------------------
+
+The FITS `Header` object supports shallow copying, allowing users to create copies of headers that do not share mutable internal state with the original. This ensures that modifications to the original header do not affect the copied header and vice versa.
+
+Example:
+
+```python
+from astropy.io import fits
+import copy
+
+original_header = fits.Header([("a", 1), ("b", 1)])
+copied_header = copy.copy(original_header)
+
+# Modifying the original header will not alter the copied header
+original_header["a"] = 2
+assert copied_header["a"] == 1
+```
+
+Memory Mapping and Data Access
+------------------------------
+
+When opening FITS files with memory mapping enabled (`memmap=True`), certain conditions may prevent successful memory mapping of the data. In such cases, accessing the data may raise a `ValueError`. However, using the `do_not_scale_image_data=True` option can avoid this issue by preventing scaling of the image data, allowing safe access without failure.
+
+Example:
+
+```python
+from astropy.io import fits
+
+with fits.open('blank.fits', memmap=True) as hdul:
+    try:
+        data = hdul[0].data
+    except ValueError:
+        print("Memory mapping failed for data access.")
+
+with fits.open('blank.fits', memmap=True, do_not_scale_image_data=True) as hdul:
+    data = hdul[0].data  # This will not raise an error
+```
+
+Verification and Warning Handling
+---------------------------------
+
+The FITS verification process checks for compliance with the FITS standard and issues warnings or errors when deviations are detected. For example, cards with equal signs not at the standard column position trigger warnings such as:
+
+```
+Card 'FOOBAR ' is not FITS standard (equal sign not at column 8)
+```
+
+Users can capture and handle these warnings using Python's `warnings` module to ensure proper FITS file validation and correction.
+
+Header Comments and Slicing
+---------------------------
+
+Custom header classes derived from `fits.Header` can maintain comments associated with each keyword. When slicing or selecting subsets of headers, the comments are preserved and accessible in the resulting header objects.
+
+Example:
+
+```python
+class MyHeader(fits.Header):
+    pass
+
+my_header = MyHeader([("a", 1), ("b", 2), ("c", 3)])
+my_header.comments["a"] = "first"
+my_header.comments["b"] = "second"
+my_header.comments["c"] = "no comment"
+
+slice_ = my_header[1:]
+assert type(slice_) is MyHeader
+assert slice_.comments["b"] == "second"
+assert slice_.comments["c"] == "no comment"
+```
+
+FITS File Comparison Utility (`fitsdiff`)
+-----------------------------------------
+
+The package includes a command-line utility `fitsdiff` for comparing two FITS files. It supports options such as displaying help (`-h`), showing version information (`--version`), and handling various argument scenarios. This tool is useful for verifying differences between FITS files in testing and data validation workflows.
+
+Example usage:
+
+```bash
+fitsdiff file1.fits file2.fits
+```
+
+Handling Non-Standard HDUs
+--------------------------
+
+`astropy.io.fits` provides internal classes such as `_NonstandardHDU` and `_ValidHDU` to manage and verify HDUs that may not strictly conform to the FITS standard. These classes help in reading, writing, and validating FITS files with non-standard or legacy structures.
+
+Utilities and Helper Functions
+------------------------------
+
+Several internal utility functions and constants assist with FITS file processing, including:
+
+- `_pad` and `_pad_length` for managing card padding.
+- `encode_ascii` for encoding strings to ASCII as required by FITS.
+- Constants like `_NOT_OVERWRITING_MSG_MATCH` to handle warnings related to file overwriting.
+
+These utilities support the robustness and flexibility of FITS file operations within the package.
+
+Exception and Warning Classes
+-----------------------------
+
+The package defines specific exceptions and warnings to handle FITS-related issues:
+
+- `VerifyError` and `VerifyWarning` for FITS verification problems.
+- `AstropyUserWarning` for user-level warnings related to FITS operations.
+- `AstropyDeprecationWarning` for deprecated features.
+
+These classes enable fine-grained control over error handling and user notifications during FITS file processing.
+
+Integration with Astropy Ecosystem
+----------------------------------
+
+`astropy.io.fits` integrates seamlessly with other Astropy modules such as `astropy.table`, `astropy.units`, and `astropy.time`, allowing FITS data to be converted to tables, associated with physical units, and linked with time representations. This interoperability enhances the utility of FITS files in scientific workflows.
+
+Summary
+-------
+
+The miscellaneous features of `astropy.io.fits` provide essential support for advanced FITS file handling, including safe copying, memory mapping, verification, header manipulation, file comparison, and integration with the broader Astropy ecosystem. These capabilities make `astropy.io.fits` a powerful and flexible tool for working with FITS data in astronomy and related fields.

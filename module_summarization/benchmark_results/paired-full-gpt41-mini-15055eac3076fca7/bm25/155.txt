@@ -1,0 +1,71 @@
+Getting Started with Mitogen
+=============================
+
+Introduction
+------------
+Mitogen is a Python library designed to simplify and accelerate the process of managing remote connections and executing code across multiple hosts. It provides a robust framework for establishing connections, handling communication, and managing child processes efficiently.
+
+Establishing a Connection
+-------------------------
+To begin using Mitogen, you typically start by creating a connection context. The connection process involves asynchronous operations to ensure non-blocking behavior.
+
+The `connect` method initializes the connection by associating a context and setting up a latch for synchronization:
+
+```python
+def connect(self, context):
+    self.context = context
+    self.latch = mitogen.core.Latch()
+    self._router.broker.defer(self._async_connect)
+```
+
+The actual connection is performed asynchronously in the `_async_connect` method, which handles starting the child process and setting up standard input/output streams:
+
+- It logs the creation of the connection.
+- Schedules a timer to handle connection timeouts.
+- Attempts to start the child process.
+- Sets up the standard I/O and error streams.
+- Assigns names to the context and process for identification.
+
+Handling Standard I/O and TTY Preservation
+------------------------------------------
+Mitogen carefully manages standard input/output streams to ensure stability and proper behavior, especially when dealing with terminal devices (TTYs).
+
+- The `_nullify_stdio` method temporarily replaces standard input, output, and error with `/dev/null` to avoid interference during startup or unusual conditions.
+- The `_preserve_tty_fp` method preserves a file descriptor to the TTY if standard error is a TTY. This prevents the process from receiving a SIGHUP signal if the controlling terminal is closed, which can happen during privilege escalation or process replacement.
+
+Bootstrap Protocol
+------------------
+Mitogen uses a multi-stage bootstrap protocol to establish communication with child processes. This protocol involves sentinel markers to indicate progress:
+
+- `EC0_MARKER` (`b'MITO000'`): Indicates the first stage is ready to receive the compressed bootstrap.
+- `EC1_MARKER` (`b'MITO001'`): Indicates the first stage has received the core Mitogen source.
+- `EC2_MARKER` (`b'MITO002'`): Indicates the new child process has booted successfully.
+
+The `BootstrapProtocol` class manages these stages by listening for these markers and responding accordingly:
+
+- Upon receiving `EC0_MARKER`, it sends the bootstrap preamble.
+- Upon receiving `EC1_MARKER`, it logs the receipt of the core source.
+- Upon receiving `EC2_MARKER`, it completes the connection setup.
+
+Global Setup
+------------
+Mitogen maintains global state to track the current execution context:
+
+```python
+def setup_globals(self):
+    mitogen.is_master = False
+    mitogen.__version__ = self.config['version']
+    mitogen.context_id = self.config['context_id']
+    mitogen.parent_ids = self.config['parent_ids'][:]
+    mitogen.parent_id = mitogen.parent_ids[0]
+```
+
+This setup ensures that each context is aware of its identity and relationship to parent contexts.
+
+Logging and Debugging
+---------------------
+Mitogen uses detailed debug logging throughout the connection and bootstrap process to aid in troubleshooting and understanding the internal state transitions. For example, it logs when child processes start, when stages of the bootstrap protocol are reached, and when errors occur.
+
+Conclusion
+----------
+Getting started with Mitogen involves understanding its asynchronous connection model, careful management of standard I/O streams, and the multi-stage bootstrap protocol that establishes communication with child processes. By leveraging these mechanisms, Mitogen provides a powerful and efficient way to manage remote execution environments in Python.

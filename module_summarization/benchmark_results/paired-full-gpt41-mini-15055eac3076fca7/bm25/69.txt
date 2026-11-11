@@ -1,0 +1,164 @@
+Isotonic Regression
+===================
+
+The isotonic regression module provides tools to perform isotonic regression, a non-parametric regression technique that fits a free-form line to a set of points while preserving a specified order constraint (monotonicity). This module includes the `IsotonicRegression` estimator class, a functional interface `isotonic_regression`, and utility functions such as `check_increasing`.
+
+Overview
+--------
+
+Isotonic regression fits a monotonic function to data, which is useful when the relationship between variables is expected to be either non-decreasing or non-increasing but not necessarily linear. The module supports constraints on the minimum and maximum predicted values and can handle sample weights.
+
+Key Components
+--------------
+
+.. autosummary::
+   :toctree: generated/
+
+   IsotonicRegression
+   isotonic_regression
+   check_increasing
+
+Classes and Functions
+---------------------
+
+IsotonicRegression
+~~~~~~~~~~~~~~~~~~
+
+An estimator implementing isotonic regression.
+
+**Parameters**
+
+- `y_min` : float, default=None  
+  Lower bound on the lowest predicted value. If not set, defaults to -inf.
+
+- `y_max` : float, default=None  
+  Upper bound on the highest predicted value. If not set, defaults to +inf.
+
+- `increasing` : bool or 'auto', default=True  
+  Determines whether the predictions should be constrained to increase or decrease with `X`. If set to 'auto', the direction is inferred from the data.
+
+- `out_of_bounds` : {'nan', 'clip', 'raise'}, default='nan'  
+  Defines the behavior when predicting values outside the training data range.
+
+**Attributes**
+
+- `X_thresholds_` : ndarray of shape (n_thresholds,)  
+  De-duplicated `X` values suitable for interpolation.
+
+- `y_thresholds_` : ndarray of shape (n_thresholds,)  
+  De-duplicated `y` values suitable for interpolation.
+
+- `f_` : function  
+  Stepwise interpolating function covering the input domain.
+
+- `increasing_` : bool  
+  Inferred value for `increasing`.
+
+**Usage Example**
+
+```python
+from sklearn.isotonic import IsotonicRegression
+import numpy as np
+
+X = np.array([0, 1, 2, 3, 4])
+y = np.array([0, 1, 2, 1, 3])
+iso_reg = IsotonicRegression().fit(X, y)
+predictions = iso_reg.predict([1.5, 2.5])
+```
+
+isotonic_regression
+~~~~~~~~~~~~~~~~~~~
+
+Functional interface to solve the isotonic regression problem.
+
+**Parameters**
+
+- `y` : array-like of shape (n_samples,)  
+  The data to fit.
+
+- `sample_weight` : array-like of shape (n_samples,), default=None  
+  Weights for each data point. If None, equal weights are assumed.
+
+- `y_min` : float, default=None  
+  Lower bound on the lowest predicted value.
+
+- `y_max` : float, default=None  
+  Upper bound on the highest predicted value.
+
+- `increasing` : bool, default=True  
+  Whether the fitted values should be increasing or decreasing.
+
+**Returns**
+
+- `y_` : ndarray of shape (n_samples,)  
+  The isotonic regression fitted values.
+
+**Usage Example**
+
+```python
+from sklearn.isotonic import isotonic_regression
+
+y = [1, 2, 3, 2, 5]
+fitted = isotonic_regression(y, increasing=True)
+```
+
+check_increasing
+~~~~~~~~~~~~~~~~
+
+Utility function to determine whether `y` is monotonically correlated with `x` using Spearman correlation.
+
+**Parameters**
+
+- `x` : array-like of shape (n_samples,)  
+  Input data.
+
+- `y` : array-like of shape (n_samples,)  
+  Target data.
+
+**Returns**
+
+- `bool`  
+  True if `y` is monotonically increasing or decreasing with respect to `x`.
+
+**Usage Example**
+
+```python
+from sklearn.isotonic import check_increasing
+
+x = [1, 2, 3, 4]
+y = [2, 3, 4, 5]
+is_increasing = check_increasing(x, y)
+```
+
+Notes
+-----
+
+- The isotonic regression algorithm implemented uses the Pool Adjacent Violators Algorithm (PAVA).
+- Ties in the data are handled using methods described in de Leeuw (1977).
+- The module supports bounding the predicted values with `y_min` and `y_max`.
+- The `increasing='auto'` option infers the monotonicity direction from the data.
+
+References
+----------
+
+- Nilotpal Chakravarti, "Isotonic Median Regression: A Linear Programming Approach", Mathematics of Operations Research, Vol. 14, No. 2 (May, 1989), pp. 303-308.
+- de Leeuw, Hornik, Mair, "Isotone Optimization in R: Pool-Adjacent-Violators Algorithm (PAVA) and Active Set Methods", Journal of Statistical Software, 2009.
+- de Leeuw, "Correctness of Kruskal's algorithms for monotone regression with ties", Psychometrika, 1977.
+
+See Also
+--------
+
+- `sklearn.linear_model.LinearRegression` : Ordinary least squares linear regression.
+- `sklearn.ensemble.HistGradientBoostingRegressor` : Gradient boosting with monotonicity constraints.
+
+Authors
+-------
+
+- Fabian Pedregosa <fabian@fseoane.net>
+- Alexandre Gramfort <alexandre.gramfort@inria.fr>
+- Nelle Varoquaux <nelle.varoquaux@gmail.com>
+
+License
+-------
+
+BSD 3-Clause License

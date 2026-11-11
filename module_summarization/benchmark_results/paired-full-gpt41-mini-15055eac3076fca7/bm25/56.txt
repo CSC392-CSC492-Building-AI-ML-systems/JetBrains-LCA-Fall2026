@@ -1,0 +1,117 @@
+Mixed Generalized Linear Models (MixedGLM) Module
+==================================================
+
+Overview
+--------
+
+The MixedGLM module provides classes and methods for fitting Bayesian mixed generalized linear models (GLMs) using variational Bayes (VB) inference. These models extend classical GLMs by incorporating random effects to account for grouped or hierarchical data structures, allowing for more flexible modeling of complex data.
+
+Key Features
+------------
+
+- Support for mixed effects models with both fixed and random effects.
+- Variational Bayes inference for efficient approximate Bayesian estimation.
+- Built-in families including Binomial and Poisson for modeling binary and count data.
+- Formula interface for specifying models, including random effects structures.
+- Prediction methods for obtaining fitted values or linear predictors.
+- Handling of variance components and covariance structures in random effects.
+
+Classes
+-------
+
+### _BayesMixedGLM
+
+Base class for Bayesian mixed GLMs. It manages the model specification, including endogenous and exogenous variables, variance components, and the family of distributions. Provides core functionality for model fitting and prediction.
+
+### _VariationalBayesMixedGLM
+
+Mixin class implementing variational Bayes algorithms for approximate Bayesian inference in mixed GLMs. It provides methods to compute the evidence lower bound (ELBO) and its gradients, facilitating efficient optimization.
+
+### BinomialBayesMixedGLM
+
+A subclass combining _VariationalBayesMixedGLM and _BayesMixedGLM to fit Bayesian mixed GLMs with a Binomial family. Suitable for binary outcome data modeled with logistic regression and random effects.
+
+- Validates that endogenous data contains only 0 and 1 values.
+- Provides a `from_formula` class method for convenient model specification using formulas.
+- Example usage:
+
+  ```python
+  random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+  model = BinomialBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+  result = model.fit_vb()
+  ```
+
+### PoissonBayesMixedGLM
+
+A subclass combining _VariationalBayesMixedGLM and _BayesMixedGLM to fit Bayesian mixed GLMs with a Poisson family. Suitable for count data modeled with Poisson regression and random effects.
+
+- Supports random intercepts and slopes.
+- Provides a `from_formula` class method for model specification.
+- Example usage:
+
+  ```python
+  random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+  model = PoissonBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+  result = model.fit_vb()
+  ```
+
+Model Specification
+-------------------
+
+Models can be specified using formulas for both fixed effects and random effects (variance components). The `from_formula` class methods parse these formulas and construct the appropriate design matrices.
+
+Inference and Fitting
+---------------------
+
+The module uses variational Bayes methods to approximate the posterior distributions of model parameters. This approach provides a scalable alternative to Markov Chain Monte Carlo (MCMC) methods, especially for large datasets.
+
+Prediction
+----------
+
+The `predict` method returns predicted values for the mean structure of the model. It can return either the linear predictor or the transformed mean response, depending on the `linear` argument.
+
+Parameters
+----------
+
+- `endog`: The dependent variable (response).
+- `exog`: The design matrix for fixed effects.
+- `exog_vc`: The design matrices for variance components (random effects).
+- `ident`: Identifiers for grouping structures.
+- `family`: The distribution family (e.g., Binomial, Poisson).
+- `vcp_p`, `fe_p`: Dimensions for variance components and fixed effects.
+- `fep_names`, `vcp_names`, `vc_names`: Optional names for parameters.
+
+Examples
+--------
+
+### Binomial Model with Random Effects
+
+```python
+random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+model = BinomialBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+result = model.fit_vb()
+```
+
+### Poisson Model with Random Effects
+
+```python
+random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+model = PoissonBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+result = model.fit_vb()
+```
+
+Notes
+-----
+
+- The endogenous variable for BinomialBayesMixedGLM must contain only 0 and 1 values.
+- The module relies on NumPy and pandas for numerical operations and data handling.
+- The variational Bayes approach implemented here is suitable for approximate inference and may not capture full posterior uncertainty as MCMC methods do.
+
+References
+----------
+
+For more details on Bayesian mixed models and variational inference, see relevant statistical literature on generalized linear mixed models and approximate Bayesian computation.
+
+---
+
+This module is part of a broader statistical modeling framework designed to facilitate flexible and efficient Bayesian analysis of hierarchical and grouped data.

@@ -1,0 +1,114 @@
+DeleteViewMixin and WithinRoleDeleteView
+========================================
+
+Implements the preview + confirm + delete workflow for Django views.
+
+Overview
+--------
+
+This module provides a mixin and a view class to facilitate a common pattern in web applications where a user is presented with a preview of an object, asked to confirm deletion, and then the object is deleted upon confirmation. It integrates with Django's class-based views and the django_cradmin framework to provide a consistent user experience.
+
+DeleteViewMixin
+---------------
+
+`DeleteViewMixin` is a mixin that adds delete confirmation functionality to a Django DeleteView. It is designed to be imported from `django_cradmin.viewhelpers` and used as `viewhelpers.formview.DeleteViewMixin`.
+
+Key methods:
+
+- `get_pagetitle()`
+  
+  Returns the page title for the delete confirmation page. Defaults to the translated string "Confirm delete".
+
+- `get_action_label()`
+  
+  Returns the label describing the action being performed. Defaults to the translated string "Delete". This label is used as a prefix in the page title and as the default label for the delete button.
+
+- `get_delete_button_label()`
+  
+  Returns the label for the delete button. Defaults to the value returned by `get_action_label()`.
+
+- `get_cancel_button_label()`
+  
+  Returns the label for the cancel button. Defaults to the translated string "Cancel".
+
+- `get_object_preview()`
+  
+  Returns a string preview of the object to be deleted. By default, this is the string representation of the object.
+
+- `get_confirm_message()`
+  
+  Returns the confirmation message displayed to the user, asking if they are sure they want to delete the object. The message includes the object preview.
+
+- `get_success_url()`
+  
+  Returns the URL to redirect to after successful deletion. Defaults to the index view of the current app.
+
+- `get_success_message(object_preview)`
+  
+  Returns a success message to be displayed after deletion. By default, it returns a translated string indicating the object was deleted.
+
+- `add_success_messages(object_preview)`
+  
+  Called after the object has been deleted to add success messages to the Django messages framework. By default, it adds the message returned by `get_success_message()`.
+
+- `delete(request, *args, **kwargs)`
+  
+  Overrides the delete method to capture the object preview before deletion, perform the deletion, and then add success messages.
+
+WithinRoleDeleteView
+--------------------
+
+`WithinRoleDeleteView` is a concrete view class that combines `DeleteViewMixin` with several other mixins to provide a fully functional delete view within the django_cradmin framework, specifically for views where a "role" concept is used.
+
+It inherits from:
+
+- `QuerysetForRoleMixin` — to restrict the queryset based on the current role.
+- `DeleteViewMixin` — to provide the delete confirmation workflow.
+- Django's `DeleteView` — to handle the deletion logic.
+- `CommonCradminViewMixin` — to add common context and functionality.
+- `javascriptregistry.viewmixin.WithinRoleViewMixin` — to integrate JavaScript components within the role context.
+
+Features:
+
+- Uses the template `django_cradmin/viewhelpers/formview/within_role_delete_view.django.html` which provides a sane base template for delete confirmation.
+- Adds necessary context data for rendering the confirmation page, including:
+  - `model_verbose_name` — the verbose name of the model being deleted.
+  - `success_url` — URL to redirect to after deletion.
+  - `object_preview` — string preview of the object.
+  - `pagetitle` — page title for the confirmation page.
+  - `confirm_message` — confirmation message shown to the user.
+  - `delete_button_label` and `cancel_button_label` — labels for the action buttons.
+- Integrates with the JavaScript registry to add component IDs to the context.
+- Adds success messages upon successful deletion.
+
+Usage
+-----
+
+This workflow is suitable for any Django application using django_cradmin where you want to provide users with a clear and consistent interface for deleting objects, including previewing the object, confirming the deletion, and receiving feedback upon success.
+
+By subclassing `WithinRoleDeleteView` or combining `DeleteViewMixin` with your own view classes, you can customize the behavior, labels, messages, and templates to fit your application's needs.
+
+Example
+-------
+
+```python
+from django_cradmin import viewhelpers
+
+class MyModelDeleteView(viewhelpers.formview.WithinRoleDeleteView):
+    def get_success_url(self):
+        return reverse('myapp:model-list')
+
+    def get_object_preview(self):
+        obj = self.get_object()
+        return f'{obj.name} ({obj.id})'
+
+    def get_success_message(self, object_preview):
+        return gettext_lazy('Successfully deleted %(object)s') % {'object': object_preview}
+```
+
+This example shows how to customize the success URL, object preview, and success message.
+
+Summary
+-------
+
+The `DeleteViewMixin` and `WithinRoleDeleteView` provide a robust and reusable implementation of the preview + confirm + delete workflow, integrating with Django's class-based views and django_cradmin's role-based access control and JavaScript registry. They help ensure a consistent user experience and reduce boilerplate code for delete confirmation views.

@@ -1,0 +1,160 @@
+Augmentations Module
+====================
+
+Overview
+--------
+
+This module provides a standard suite of image augmentations commonly used in AutoAugment policies for ImageNet, RandAugment, and TrivialAugmentWide. The augmentations are implemented using NVIDIA DALI operators, enabling efficient and flexible image transformations.
+
+The augmentations are decorated with the `@augmentation` decorator, which manages the computation of transformation parameters based on magnitude bins. When invoking an augmentation, it expects:
+
+- A single positional argument representing a batch of samples.
+- Two keyword arguments: `magnitude_bin` and `num_magnitude_bins`, which determine the transformation parameter. The parameter is computed as if by calling:
+
+  ```
+  mag_to_param(magnitudes[magnitude_bin] * ((-1) ** random_sign))
+  ```
+
+  where `magnitudes` is a linear space between the specified magnitude range.
+
+The augmentations are defined with example setups passed to the `@augmentation` decorator. Parameters such as magnitude ranges can be easily adjusted to customize the behavior of each augmentation.
+
+Available Augmentations
+-----------------------
+
+### shear_x
+
+```python
+shear_x(data, shear, fill_value=128, interp_type=None)
+```
+
+Applies a shear transformation along the X-axis.
+
+- **Magnitude range:** (0, 0.3)
+- **Randomly negated:** Yes
+- **Parameters:**
+  - `data`: Input batch of images.
+  - `shear`: Shear magnitude computed by the decorator.
+  - `fill_value`: Pixel fill value for areas outside the input image (default: 128).
+  - `interp_type`: Interpolation type for warping.
+
+### shear_y
+
+```python
+shear_y(data, shear, fill_value=128, interp_type=None)
+```
+
+Applies a shear transformation along the Y-axis.
+
+- **Magnitude range:** (0, 0.3)
+- **Randomly negated:** Yes
+- **Parameters:** Same as `shear_x`.
+
+### translate_x
+
+```python
+translate_x(data, rel_offset, shape, fill_value=128, interp_type=None)
+```
+
+Translates the image along the X-axis by a relative offset.
+
+- **Magnitude range:** (0.0, 1.0)
+- **Randomly negated:** Yes
+- **Parameters:**
+  - `rel_offset`: Relative offset as a fraction of image width.
+  - `shape`: Shape of the input image batch.
+  - Other parameters as above.
+
+### translate_x_no_shape
+
+```python
+translate_x_no_shape(data, offset, fill_value=128, interp_type=None)
+```
+
+Translates the image along the X-axis by an absolute offset.
+
+- **Magnitude range:** (0, 250)
+- **Randomly negated:** Yes
+- **Note:** Does not require image shape as input.
+
+### translate_y
+
+```python
+translate_y(data, rel_offset, shape, fill_value=128, interp_type=None)
+```
+
+Translates the image along the Y-axis by a relative offset.
+
+- **Magnitude range:** (0.0, 1.0)
+- **Randomly negated:** Yes
+- **Parameters:** Similar to `translate_x`.
+
+### translate_y_no_shape
+
+```python
+translate_y_no_shape(data, offset, fill_value=128, interp_type=None)
+```
+
+Translates the image along the Y-axis by an absolute offset.
+
+- **Magnitude range:** (0, 250)
+- **Randomly negated:** Yes
+
+### rotate
+
+```python
+rotate(data, angle, fill_value=128, interp_type=None, rotate_keep_size=True)
+```
+
+Rotates the image by a specified angle.
+
+- **Magnitude range:** (0, 30) degrees
+- **Randomly negated:** Yes
+- **Parameters:**
+  - `angle`: Rotation angle in degrees.
+  - `rotate_keep_size`: Whether to keep the original image size after rotation (default: True).
+
+### brightness
+
+```python
+brightness(data, parameter)
+```
+
+Adjusts the brightness of the image.
+
+- **Magnitude range:** (0, 0.9)
+- **Randomly negated:** Yes
+- **Parameter transformation:** The magnitude is shifted by +1 to map the range [0, 1] to [1, 2], where 1 is neutral brightness.
+
+### contrast
+
+```python
+contrast(data, parameter)
+```
+
+Adjusts the contrast of the image.
+
+- **Magnitude range:** (0, 0.9)
+- **Randomly negated:** Yes
+- **Parameter transformation:** Same as brightness.
+- **Details:** Follows the PIL implementation of contrast enhancement, using a channel-weighted mean as the contrast center.
+
+Usage Notes
+-----------
+
+- The `@augmentation` decorator simplifies parameter handling by converting magnitude bins into transformation parameters, optionally applying random negation.
+- Fill values default to 128, which is a common neutral gray used to fill areas exposed by geometric transformations.
+- Interpolation types can be specified to control the quality of geometric transformations.
+- The module is designed to be extensible; users can adjust magnitude ranges or create new augmentations by leveraging the decorator and DALI operators.
+
+Dependencies
+------------
+
+- Requires `numpy` for numerical operations.
+- Depends on NVIDIA DALI (`nvidia.dali`) for efficient image processing.
+- Uses internal `augmentation` decorator from `nvidia.dali.auto_aug.core`.
+
+License
+-------
+
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.

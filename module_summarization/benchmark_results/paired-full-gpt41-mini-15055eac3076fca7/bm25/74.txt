@@ -1,0 +1,180 @@
+Random Projection
+=================
+
+The `random_projection` module provides tools for dimensionality reduction using random projections. Random projection is a technique that projects high-dimensional data into a lower-dimensional space using a random matrix, while approximately preserving the distances between points. This approach is computationally efficient and useful for processing large datasets.
+
+Classes
+-------
+
+GaussianRandomProjection
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reduce dimensionality through a dense random projection using a Gaussian random matrix.
+
+This transformer projects the data onto a lower-dimensional subspace using a dense random matrix whose entries are drawn from a Gaussian distribution. It is suitable for many applications where preserving pairwise distances approximately is important.
+
+**Parameters**
+
+- `n_components` : int or "auto", default="auto"  
+  Number of components to keep. If "auto", it is determined using the Johnson-Lindenstrauss lemma.
+
+- `eps` : float, default=0.1  
+  Parameter controlling the quality of the embedding according to the Johnson-Lindenstrauss lemma.
+
+- `compute_inverse_components` : bool, default=False  
+  Whether to compute the pseudo-inverse of the components matrix.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the randomness of the projection.
+
+**Attributes**
+
+- `n_components_` : int  
+  The actual number of components computed when `n_components="auto"`.
+
+- `components_` : ndarray of shape (n_components, n_features)  
+  The random projection matrix.
+
+- `inverse_components_` : ndarray of shape (n_features, n_components)  
+  Pseudo-inverse of the components matrix, computed if `compute_inverse_components=True`.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fit, if available.
+
+**Example**
+
+```python
+>>> import numpy as np
+>>> from sklearn.random_projection import GaussianRandomProjection
+>>> rng = np.random.RandomState(42)
+>>> X = rng.rand(25, 3000)
+>>> transformer = GaussianRandomProjection(random_state=rng)
+>>> X_new = transformer.fit_transform(X)
+>>> X_new.shape
+(25, 2759)
+```
+
+SparseRandomProjection
+~~~~~~~~~~~~~~~~~~~~~~
+
+Reduce dimensionality through sparse random projection.
+
+This transformer uses a sparse random matrix for projection, which is more memory efficient and faster to compute than dense random projections, while maintaining similar embedding quality.
+
+The components of the random matrix are drawn from the distribution:
+
+- \(-\sqrt{s} / \sqrt{n\_components}\) with probability \(1/(2s)\)
+- \(0\) with probability \(1 - 1/s\)
+- \(+\sqrt{s} / \sqrt{n\_components}\) with probability \(1/(2s)\)
+
+where \(s = 1 / \text{density}\).
+
+**Parameters**
+
+- `n_components` : int or "auto", default="auto"  
+  Number of components to keep.
+
+- `density` : float in (0, 1] or "auto", default="auto"  
+  Density of the random projection matrix.
+
+- `eps` : float, default=0.1  
+  Parameter controlling the quality of the embedding.
+
+- `dense_output` : bool, default=False  
+  Whether to return a dense array or sparse matrix after transformation.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the randomness of the projection.
+
+**Attributes**
+
+- `n_components_` : int  
+  The actual number of components computed.
+
+- `components_` : ndarray or sparse matrix of shape (n_components, n_features)  
+  The sparse random projection matrix.
+
+- `inverse_components_` : ndarray of shape (n_features, n_components)  
+  Pseudo-inverse of the components matrix, if computed.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fit, if available.
+
+**Example**
+
+```python
+>>> import numpy as np
+>>> from sklearn.random_projection import SparseRandomProjection
+>>> rng = np.random.RandomState(42)
+>>> X = rng.rand(25, 3000)
+>>> transformer = SparseRandomProjection(random_state=rng)
+>>> X_new = transformer.fit_transform(X)
+>>> X_new.shape
+(25, 2759)
+>>> np.mean(transformer.components_ != 0)
+0.0182...
+```
+
+Functions
+---------
+
+johnson_lindenstrauss_min_dim
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Compute the minimal number of components to guarantee the Johnson-Lindenstrauss lemma for a given number of samples and distortion level.
+
+**Parameters**
+
+- `n_samples` : int or array-like of ints  
+  Number of samples to be embedded.
+
+- `eps` : float or array-like of floats  
+  Distortion parameter. Must be in the interval (0, 1).
+
+**Returns**
+
+- `n_components` : int or ndarray of ints  
+  Minimal number of components required to guarantee the embedding quality.
+
+**Example**
+
+```python
+>>> from sklearn.random_projection import johnson_lindenstrauss_min_dim
+>>> johnson_lindenstrauss_min_dim(1e6, eps=0.5)
+663
+
+>>> johnson_lindenstrauss_min_dim(1e6, eps=[0.5, 0.1, 0.01])
+array([    663,   11841, 1112658])
+
+>>> johnson_lindenstrauss_min_dim([1e4, 1e5, 1e6], eps=0.1)
+array([ 7894,  9868, 11841])
+```
+
+References
+----------
+
+- Achlioptas, D. (2001). Database-friendly random projections.  
+  https://cgi.di.uoa.gr/~optas/papers/jl.pdf
+
+- Li, P., Hastie, T., & Church, K. W. (2006). Very sparse random projections.  
+  https://citeseerx.ist.psu.edu/doc_view/pid/95cd464d27c25c9c8690b378b894d337cdf021f9
+
+See Also
+--------
+
+- `SparseRandomProjection` : Sparse random projection transformer.
+
+- `GaussianRandomProjection` : Gaussian random projection transformer.
+
+Notes
+-----
+
+Random projection methods are based on the Johnson-Lindenstrauss lemma, which states that a small set of points in a high-dimensional space can be embedded into a space of much lower dimension such that distances between the points are nearly preserved.
+
+This module provides efficient implementations of random projection techniques suitable for large-scale data processing and dimensionality reduction tasks.

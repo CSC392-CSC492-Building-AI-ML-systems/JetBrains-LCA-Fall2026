@@ -1,0 +1,116 @@
+Calibration of Predicted Probabilities
+=======================================
+
+Overview
+--------
+
+Probability calibration is the process of adjusting the predicted probabilities of a classifier so that they better reflect the true likelihood of an event. Many classifiers produce scores or probabilities that are not well calibrated, meaning that the predicted probability does not correspond well to the actual frequency of the event. Calibration methods aim to transform these outputs into well-calibrated probabilities.
+
+This tutorial introduces the concept of probability calibration and demonstrates how to use the `CalibratedClassifierCV` class to calibrate predicted probabilities using isotonic regression or logistic regression (Platt scaling).
+
+Why Probability Calibration?
+----------------------------
+
+Some classifiers, such as Support Vector Machines (SVMs) or boosted trees, do not naturally produce well-calibrated probabilities. For example, an SVM outputs decision function scores that do not directly correspond to probabilities. Calibration methods transform these scores into probabilities that can be interpreted as confidence levels.
+
+Well-calibrated probabilities are important in many applications, such as risk assessment, medical diagnosis, and decision making, where the confidence in predictions must be reliable.
+
+Calibration Methods
+------------------
+
+Two common methods for probability calibration are:
+
+- **Sigmoid Calibration (Platt Scaling):** Fits a logistic regression model to the classifier's scores. This method is parametric and works well when the relationship between scores and true probabilities is approximately logistic.
+
+- **Isotonic Regression:** A non-parametric approach that fits a piecewise constant non-decreasing function to the scores. It is more flexible but can overfit when the calibration dataset is small (less than 1000 samples).
+
+Using `CalibratedClassifierCV`
+------------------------------
+
+The `CalibratedClassifierCV` class in scikit-learn provides a convenient way to calibrate classifiers using cross-validation. It supports both sigmoid and isotonic calibration methods.
+
+### Key Features
+
+- Supports any classifier with a `decision_function` or `predict_proba` method.
+- Uses cross-validation to avoid overfitting during calibration.
+- Can calibrate already fitted classifiers (`cv="prefit"`).
+- Supports ensemble calibration by averaging predictions from multiple calibrated classifiers trained on different folds.
+- Parallelizes fitting across folds for efficiency.
+
+### Parameters
+
+- `estimator`: The base classifier to calibrate. Defaults to a `LinearSVC` if none is provided.
+- `method`: Calibration method, either `'sigmoid'` (default) or `'isotonic'`.
+- `cv`: Cross-validation strategy. Can be an integer (number of folds), a CV splitter, an iterable of train/test splits, or `"prefit"` if the estimator is already fitted.
+- `n_jobs`: Number of parallel jobs to run during fitting.
+- `ensemble`: Whether to fit an ensemble of calibrated classifiers (default `True`).
+
+### Example Usage
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.svm import LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import brier_score_loss
+
+# Generate a binary classification dataset
+X, y = make_classification(n_samples=10000, n_features=20, random_state=42)
+
+# Split into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train a LinearSVC classifier (does not provide calibrated probabilities)
+base_clf = LinearSVC(max_iter=10000, random_state=42)
+base_clf.fit(X_train, y_train)
+
+# Calibrate the classifier using sigmoid method and 5-fold cross-validation
+calibrated_clf = CalibratedClassifierCV(base_clf, method='sigmoid', cv=5)
+calibrated_clf.fit(X_train, y_train)
+
+# Predict calibrated probabilities on the test set
+probs = calibrated_clf.predict_proba(X_test)[:, 1]
+
+# Evaluate calibration with Brier score (lower is better)
+print("Brier score loss:", brier_score_loss(y_test, probs))
+```
+
+### Calibrating a Pre-Fitted Classifier
+
+If you already have a fitted classifier and want to calibrate it on separate calibration data, use `cv="prefit"`:
+
+```python
+# Assume base_clf is already fitted
+calibrated_clf = CalibratedClassifierCV(base_clf, method='isotonic', cv='prefit')
+calibrated_clf.fit(X_calibration, y_calibration)
+```
+
+Note: Ensure that the calibration data is separate from the training data to avoid overfitting.
+
+When to Use Which Method?
+------------------------
+
+- Use `'sigmoid'` (Platt scaling) when you have limited calibration data or when you expect a logistic relationship between scores and probabilities.
+- Use `'isotonic'` when you have a large calibration dataset (typically >1000 samples) and want a flexible, non-parametric calibration.
+
+Additional Notes
+----------------
+
+- The calibration is performed on the output of the classifier's `decision_function` if available; otherwise, it uses `predict_proba`.
+- When `ensemble=True`, the final prediction is the average of calibrated probabilities from classifiers trained on different folds, which can improve robustness.
+- Parallel fitting is supported via the `n_jobs` parameter to speed up calibration on large datasets.
+
+Further Reading
+---------------
+
+For more details on probability calibration and its applications, see the scikit-learn User Guide section on :ref:`calibration`.
+
+References
+----------
+
+- Platt, J. (1999). Probabilistic Outputs for Support Vector Machines and Comparisons to Regularized Likelihood Methods. Advances in Large Margin Classifiers.
+- Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate multiclass probability estimates. Proceedings of the eighth ACM SIGKDD international conference on Knowledge discovery and data mining.
+
+---
+
+This tutorial provides a practical introduction to calibrating predicted probabilities using scikit-learn’s `CalibratedClassifierCV`. Proper calibration can significantly improve the interpretability and reliability of probabilistic predictions in machine learning models.

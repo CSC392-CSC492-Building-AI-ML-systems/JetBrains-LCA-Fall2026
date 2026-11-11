@@ -1,0 +1,91 @@
+w_select command
+================
+
+Overview
+--------
+
+The `w_select` command is used to select dynamics segments from WESTPA simulation data that match various user-defined criteria. Selection is performed using a user-provided predicate function. By default, only the segments matching the predicate are stored in the output. If the `-a` or `--include-ancestors` option is specified, both matching segments and their ancestor segments will be included in the output.
+
+Predicate Function
+------------------
+
+Segments are selected based on a predicate function, which must be a callable object with the signature:
+
+```python
+predicate(n_iter, iter_group)
+```
+
+- `n_iter` is the iteration number.
+- `iter_group` is the HDF5 group corresponding to the iteration.
+
+The predicate function should return a collection (e.g., list or set) of segment IDs that satisfy the selection criteria for the given iteration.
+
+The selection can be inverted by specifying the `-v` or `--invert` command-line option, which will select all segments *not* matching the predicate.
+
+Output Format
+-------------
+
+The output is written to an HDF5 file (default: `select.h5`) specified by the `-o` or `--output` option. The output file contains the following datasets:
+
+- `/n_iter` [iteration]  
+  *(Integer)* Iteration numbers corresponding to each entry in the other datasets.
+
+- `/n_segs` [iteration]  
+  *(Integer)* Number of segment IDs matching the predicate (or inverted predicate if `-v` is used) in each iteration.
+
+- `/seg_ids` [iteration][segment]  
+  *(Integer)* Segment IDs matching the predicate for each iteration. For iteration `i`, only the first `n_segs[i]` entries are valid. For example, the matching segment IDs for the first stored iteration are `seg_ids[0][:n_segs[0]]`.
+
+- `/weights` [iteration][segment]  
+  *(Floating-point)* Weights associated with each matching segment in `/seg_ids`.
+
+Command-Line Arguments
+----------------------
+
+The `w_select` command supports the following command-line arguments:
+
+Selection Options
+~~~~~~~~~~~~~~~~~
+
+- `-p PREDICATE_FUNCTION`, `--predicate-function PREDICATE_FUNCTION`  
+  Specify the predicate function to use for selecting segments. This must be a callable object accessible in the current directory or Python path.
+
+- `-v`, `--invert`  
+  Invert the predicate selection, selecting segments that do *not* match the predicate.
+
+- `-a`, `--include-ancestors`  
+  Include ancestor segments of matching segments in the output.
+
+Iteration Range Selection
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Options to specify the iteration range to process (e.g., start and stop iterations) are available and can be configured.
+
+Output Options
+~~~~~~~~~~~~~~
+
+- `-o OUTPUT`, `--output OUTPUT`  
+  Write the selection output to the specified file. Default is `select.h5`.
+
+Progress Reporting
+------------------
+
+Progress indicators are available to monitor the selection process.
+
+Usage Example
+-------------
+
+```bash
+w_select -p my_predicate_function -o selected_segments.h5
+```
+
+This command selects segments matching `my_predicate_function` and writes the results to `selected_segments.h5`.
+
+Notes
+-----
+
+- The predicate function must be callable and accessible in the current working directory or Python path.
+- The selection process reads WESTPA HDF5 data files and processes segments iteration by iteration.
+- When including ancestors, the output will contain both matching segments and their lineage segments.
+
+-----------------------------------------------------------------------------

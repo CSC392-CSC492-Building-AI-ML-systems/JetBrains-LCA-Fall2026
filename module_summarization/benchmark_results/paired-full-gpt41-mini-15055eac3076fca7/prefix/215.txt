@@ -1,0 +1,135 @@
+Asynchronous Queues for Coroutines
+==================================
+
+The `tornado.queues` module provides asynchronous queue implementations designed to coordinate producer and consumer coroutines efficiently. These queues implement an asynchronous producer/consumer pattern, allowing coroutines to exchange data safely without blocking the event loop.
+
+Overview
+--------
+
+The queue classes in this module are similar in interface and behavior to those found in Python's standard library `asyncio` package, but are tailored for use with Tornado's coroutine and IOLoop infrastructure.
+
+**Important:** Unlike the standard library's `queue` module, these queues are *not* thread-safe. To interact with these queues from other threads, use `.IOLoop.add_callback` to schedule queue operations on the IOLoop thread.
+
+Queue Classes
+-------------
+
+- `Queue`: A FIFO queue for coordinating producer and consumer coroutines.
+- `PriorityQueue`: A queue where entries are retrieved in priority order (lowest first).
+- `LifoQueue`: A LIFO queue (stack) where entries are retrieved in last-in, first-out order.
+
+Exceptions
+----------
+
+- `QueueEmpty`: Raised by `.Queue.get_nowait()` when the queue is empty.
+- `QueueFull`: Raised by `.Queue.put_nowait()` when the queue has reached its maximum size.
+
+The `Queue` Class
+-----------------
+
+The `Queue` class provides a coroutine-friendly FIFO queue with optional size limits.
+
+### Initialization
+
+```python
+q = Queue(maxsize=0)
+```
+
+- `maxsize` (int): Maximum number of items allowed in the queue. If zero (default), the queue size is unbounded.
+
+### Basic Usage
+
+The queue supports asynchronous `put` and `get` operations:
+
+- `await q.put(item)`: Put an item into the queue. If the queue is full, wait until a free slot is available.
+- `item = await q.get()`: Remove and return an item from the queue. If the queue is empty, wait until an item is available.
+- `q.task_done()`: Indicate that a formerly enqueued task is complete. Used to track when all tasks have been processed.
+- `await q.join()`: Block until all items in the queue have been processed (i.e., `task_done()` has been called for each).
+
+### Example
+
+```python
+import asyncio
+from tornado.ioloop import IOLoop
+from tornado.queues import Queue
+
+q = Queue(maxsize=2)
+
+async def consumer():
+    async for item in q:
+        try:
+            print('Doing work on %s' % item)
+            await asyncio.sleep(0.01)
+        finally:
+            q.task_done()
+
+async def producer():
+    for item in range(5):
+        await q.put(item)
+        print('Put %s' % item)
+
+async def main():
+    # Start consumer without waiting (since it never finishes).
+    IOLoop.current().spawn_callback(consumer)
+    await producer()     # Wait for producer to put all tasks.
+    await q.join()       # Wait for consumer to finish all tasks.
+    print('Done')
+
+asyncio.run(main())
+```
+
+Output:
+
+```
+Put 0
+Put 1
+Doing work on 0
+Put 2
+Doing work on 1
+Put 3
+Doing work on 2
+Put 4
+Doing work on 3
+Doing work on 4
+Done
+```
+
+### Iteration Support
+
+The `Queue` supports asynchronous iteration:
+
+```python
+async for item in q:
+    # process item
+    q.task_done()
+```
+
+This allows consumers to process items as they become available.
+
+### Compatibility
+
+For Python versions prior to 3.5 without native coroutine support, the consumer coroutine can be written using Tornado's `@gen.coroutine` decorator and `yield` syntax.
+
+```python
+@gen.coroutine
+def consumer():
+    while True:
+        item = yield q.get()
+        try:
+            print('Doing work on %s' % item)
+            yield gen.sleep(0.01)
+        finally:
+            q.task_done()
+```
+
+Additional Details
+------------------
+
+- The queue maintains internal counters to track unfinished tasks.
+- The `maxsize` parameter controls the maximum number of items allowed in the queue; attempts to put items into a full queue will block until space is available.
+- The queue is not thread-safe; all interactions should occur on the IOLoop thread.
+- Timeouts can be applied to queue operations to avoid indefinite blocking.
+
+Summary
+-------
+
+The `tornado.queues` module provides efficient, coroutine-friendly queue implementations that facilitate asynchronous producer/consumer patterns within Tornado applications. These queues integrate seamlessly with Tornado's event loop and coroutine system, enabling scalable and responsive asynchronous programming.

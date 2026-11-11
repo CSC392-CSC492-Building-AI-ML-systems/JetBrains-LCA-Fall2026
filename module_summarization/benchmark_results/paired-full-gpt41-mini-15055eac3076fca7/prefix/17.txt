@@ -1,0 +1,107 @@
+w_assign
+========
+
+Assign walkers to bins, producing a file (by default named ``assign.h5``) which can be used in subsequent analysis.
+
+For consistency in subsequent analysis operations, the entire dataset must be assigned, even if only a subset of the data will be used. This ensures that analyses that rely on tracing trajectories always know the originating bin of each trajectory.
+
+-----------------------------------------------------------------------------
+Source data
+-----------------------------------------------------------------------------
+
+Source data is provided either by a user-specified function (``--construct-dataset``) or a list of "data set specifications" (``--dsspecs``). If neither is provided, the progress coordinate dataset ``pcoord`` is used.
+
+To use a custom function to extract or calculate data whose probability distribution will be calculated, specify the function in standard Python MODULE.FUNCTION syntax as the argument to ``--construct-dataset``. This function will be called as ``function(n_iter, iter_group)``, where *n_iter* is the iteration whose data are being considered and *iter_group* is the corresponding group in the main WESTPA HDF5 file (``west.h5``). The function must return data which can be indexed as ``[segment][timepoint][dimension]``.
+
+To use a list of data set specifications, specify ``--dsspecs`` and then list the desired datasets one-by-one (space-separated in most shells). These data set specifications are formatted as:
+
+```
+NAME[,file=FILENAME,slice=SLICE]
+```
+
+which will use the dataset called *NAME* in the HDF5 file *FILENAME* (defaulting to the main WESTPA HDF5 file ``west.h5``), and slice it with the Python slice expression *SLICE* (as in ``[0:2]`` to select the first two elements of the first axis of the dataset). The ``slice`` option is most useful for selecting one column (or more) from a multi-column dataset, such as arises when using a progress coordinate of multiple dimensions.
+
+-----------------------------------------------------------------------------
+Specifying macrostates
+-----------------------------------------------------------------------------
+
+Optionally, kinetic macrostates may be defined in terms of sets of bins. Each trajectory will be labeled with the kinetic macrostate it was most recently in at each timepoint, for use in subsequent kinetic analysis. This is required for all kinetics analysis tools (e.g., ``w_kintrace`` and ``w_kinmat``).
+
+There are three ways to specify macrostates:
+
+1. **Single-bin states via command line**
+
+   States corresponding to single bins may be identified on the command line using the ``--states`` option, which takes multiple arguments, one for each state (separated by spaces in most shells). Each state is specified as a coordinate tuple, with an optional label prepended, as in:
+
+   ```
+   bound:1.0
+   unbound:(2.5,2.5)
+   ```
+
+   Unlabeled states are named ``stateN``, where *N* is the zero-based position in the list of states supplied to ``--states``.
+
+2. **Multi-bin states via YAML file**
+
+   States corresponding to multiple bins may use a YAML input file specified with ``--states-from-file``. This file defines a list of states, each with a name and a list of coordinate tuples; bins containing these coordinates will be mapped to the containing state. For example, the following file:
+
+   ```yaml
+   ---
+   states:
+     - label: unbound
+       coords:
+         - [9.0, 1.0]
+         - [9.0, 2.0]
+     - label: bound
+       coords:
+         - [0.1, 0.0]
+   ```
+
+   produces two macrostates: the first state is called "unbound" and consists of bins containing the (2-dimensional) progress coordinate values (9.0, 1.0) and (9.0, 2.0); the second state is called "bound" and consists of the single bin containing the point (0.1, 0.0).
+
+3. **Arbitrary states via user-defined function**
+
+   Arbitrary state definitions may be supplied by a user-defined function, specified as ``--states-from-function=MODULE.FUNCTION``. This function is called with the bin mapper as an argument (``function(mapper)``) and must return a list of dictionaries, one per state. Each dictionary must contain a vector of coordinate tuples with key ``"coords"``; the bins into which each of these tuples falls define the state. An optional name for the state (with key ``"label"``) may also be provided.
+
+-----------------------------------------------------------------------------
+Output format
+-----------------------------------------------------------------------------
+
+The output file (specified with ``-o`` or ``--output``, defaulting to ``assign.h5``) contains the following attributes and datasets:
+
+- **``nbins`` attribute**
+
+  *(Integer)* Number of valid bins. Bin assignments range from 0 to *nbins* - 1, inclusive.
+
+- **``nstates`` attribute**
+
+  *(Integer)* Number of valid macrostates (may be zero if no such states are specified). Trajectory ensemble assignments range from 0 to *nstates* - 1, inclusive, when states are defined.
+
+- **``/assignments`` dataset** [iteration][segment][timepoint]
+
+  *(Integer)* Per-segment and per-timepoint bin assignments.
+
+- **Additional datasets**
+
+  The file may also contain trajectory labels, state labels, and population counts accumulated over bins and states, facilitating downstream analysis.
+
+-----------------------------------------------------------------------------
+Usage summary
+-----------------------------------------------------------------------------
+
+The ``w_assign`` tool is used to assign each walker (trajectory segment) at each timepoint to a bin, based on the progress coordinate or other specified data. This assignment is essential for subsequent WESTPA analyses that require knowledge of bin membership and kinetic macrostates.
+
+By providing flexible options for input data and macrostate definitions, ``w_assign`` supports a wide range of analysis workflows in weighted ensemble simulations.
+
+-----------------------------------------------------------------------------
+Logging
+-----------------------------------------------------------------------------
+
+The tool logs its progress and any warnings or errors under the logger named ``w_assign``.
+
+-----------------------------------------------------------------------------
+See also
+-----------------------------------------------------------------------------
+
+- ``w_kintrace`` — for kinetic macrostate trajectory tracing  
+- ``w_kinmat`` — for kinetic rate matrix construction  
+- WESTPA documentation for binning and progress coordinate handling

@@ -1,0 +1,73 @@
+Understanding Sessions
+======================
+
+The `Session` class represents an isolated session for interaction with an ftrack server. It encapsulates the connection details, authentication, caching, event handling, and plugin management necessary to communicate with the server and perform operations.
+
+Session Initialization
+----------------------
+
+To create a session, you instantiate the `Session` class with various optional parameters:
+
+- **server_url**  
+  The URL of the ftrack server to connect to, including any port number.  
+  If not specified, the session attempts to retrieve this from the environment variable `FTRACK_SERVER`.
+
+- **api_key** and **api_user**  
+  Credentials used for authentication with the ftrack server.  
+  If not provided, the session attempts to retrieve these from the environment variables `FTRACK_API_KEY` and `FTRACK_API_USER` respectively.
+
+- **auto_populate** (default: `True`)  
+  When enabled, accessing entity attributes will automatically fetch missing data from the server. This behavior can be toggled on the session at any time.
+
+- **plugin_paths**  
+  A list of filesystem paths to search for plugins.  
+  If not specified, the session looks up the environment variable `FTRACK_EVENT_PLUGIN_PATH`.
+
+- **cache**  
+  An instance of a cache implementing the `ftrack_api.cache.Cache` interface, or a callable returning such an instance.  
+  This cache is layered on top of a default in-memory cache to optimize data retrieval and reduce server requests.  
+  If no suitable cache is configured, the session continues safely with the default memory cache.
+
+- **cache_key_maker**  
+  An instance implementing the `ftrack_api.cache.KeyMaker` interface, used to generate keys for cached objects.  
+  Defaults to `ftrack_api.cache.StringKeyMaker` if not specified.
+
+- **auto_connect_event_hub**  
+  If `True`, the embedded event hub automatically connects to the event server, enabling publishing and subscribing to non-local events.  
+  If `False`, only local event publishing and subscribing is possible until the event hub is manually connected.  
+  The connection occurs in a background thread to improve startup time. Plugins requiring a connected event hub should verify the connection status explicitly.
+
+- **schema_cache_path**  
+  Enables caching of the server schema by specifying a folder path.  
+  If not set, the environment variable `FTRACK_API_SCHEMA_CACHE_PATH` is used.  
+  If neither is set, a temporary directory is used.  
+  Set to `False` to disable schema caching entirely.
+
+- **plugin_arguments**  
+  An optional dictionary of keyword arguments passed to plugin registration functions during discovery.  
+  If a plugin does not accept all provided arguments, the discovery mechanism attempts to reduce the arguments to those accepted, logging a warning if this occurs.
+
+Session Authentication
+----------------------
+
+Authentication with the ftrack server is handled by the `SessionAuthentication` class, which attaches the API key and user information to HTTP requests. This ensures that all requests made through the session are properly authenticated.
+
+Caching
+-------
+
+The session supports caching to improve performance and reduce redundant server requests. It uses a layered cache system with a top-level in-memory cache by default. Custom caches can be provided and integrated seamlessly.
+
+Event Hub
+---------
+
+The session includes an embedded event hub for event-driven communication. When enabled and connected, it allows publishing and subscribing to events both locally and on the server. The event hub connection is managed asynchronously to avoid blocking session startup.
+
+Plugins
+-------
+
+The session supports plugin discovery and registration. Plugins can extend the session's functionality by hooking into events or providing additional capabilities. Plugin paths and arguments can be customized during session initialization.
+
+Summary
+-------
+
+The `Session` class provides a comprehensive and flexible interface for interacting with an ftrack server. It manages connection details, authentication, caching, event handling, and plugins, enabling efficient and extensible workflows for users and developers.

@@ -1,0 +1,99 @@
+Multiclass and Multioutput Algorithms
+=====================================
+
+Overview
+--------
+
+In supervised learning, the target variable `y` can take various forms depending on the nature of the problem. Two important categories of target types are **multiclass** and **multioutput** targets. Understanding these target types is essential for selecting appropriate algorithms and evaluation metrics.
+
+Target Types
+------------
+
+- **Multiclass**  
+  The target `y` contains more than two discrete values and is typically represented as a one-dimensional array or list. Each entry corresponds to a class label from a finite set of classes.  
+  Examples:  
+  ```python
+  y = [0, 1, 2, 2, 0]
+  y = [1, 2, 3]
+  y = [[1], [2], [3]]  # sequence of single-element lists
+  ```
+
+- **Multiclass-Multioutput**  
+  The target `y` is a two-dimensional array where each sample has multiple labels, each of which is a multiclass label. Both dimensions of the array have size greater than one. This format is used when predicting multiple multiclass targets simultaneously.  
+  Examples:  
+  ```python
+  y = [[1, 2, 3]]
+  y = [[1, 1], [2, 2], [3, 1]]
+  y = [[5, 1], [4, 2], [3, 1]]
+  ```
+
+- **Multilabel-Indicator**  
+  The target `y` is a label indicator matrix, a two-dimensional array with at least two columns, containing binary values (0 or 1) indicating the presence or absence of each label.  
+  Example:  
+  ```python
+  y = [[0, 1, 0], [0, 0, 1]]
+  ```
+
+- **Continuous-Multioutput**  
+  The target `y` is a two-dimensional array of floats (not all integers), where both dimensions have size greater than one. This is typical for regression problems with multiple continuous outputs.  
+  Example:  
+  ```python
+  y = np.arange(30).reshape((-1, 3))
+  ```
+
+Multiclass and Multioutput in scikit-learn
+------------------------------------------
+
+scikit-learn supports a variety of classifiers and regressors that handle multiclass and multioutput targets. However, some algorithms have limitations regarding multioutput multiclass targets.
+
+- Many classifiers such as `DecisionTreeClassifier`, `ExtraTreeClassifier`, `ExtraTreesClassifier`, `RandomForestClassifier`, `KNeighborsClassifier`, and `RadiusNeighborsClassifier` support multiclass classification.
+- However, **multiclass-multioutput classifiers are generally not supported** by certain functions such as `partial_dependence`. Attempting to use these functions with multiclass-multioutput estimators will raise a `ValueError` indicating that multiclass-multioutput estimators are not supported.
+
+Example of a multiclass-multioutput dataset creation:
+
+```python
+from sklearn.datasets import make_classification
+import numpy as np
+
+X, y = make_classification(n_classes=3, n_clusters_per_class=1, random_state=0)
+y_multioutput = np.array([y, y]).T  # shape (n_samples, 2)
+```
+
+Type Detection
+--------------
+
+scikit-learn provides utilities to detect the type of target variable, such as `type_of_target`. This function classifies the target into one of several categories:
+
+- `'continuous'`: 1d array of floats
+- `'binary'`: 1d array with two discrete values
+- `'multiclass'`: 1d array with more than two discrete values
+- `'multiclass-multioutput'`: 2d array with multiple multiclass labels
+- `'multilabel-indicator'`: 2d binary indicator matrix
+- `'continuous-multioutput'`: 2d array of continuous values
+- `'unknown'`: any other format not matching the above
+
+Example usage:
+
+```python
+from sklearn.utils.multiclass import type_of_target
+import numpy as np
+
+print(type_of_target([0.1, 0.6]))                  # 'continuous'
+print(type_of_target([1, -1, -1, 1]))              # 'binary'
+print(type_of_target([1, 0, 2]))                    # 'multiclass'
+print(type_of_target(np.array([[1, 2], [3, 1]])))  # 'multiclass-multioutput'
+print(type_of_target([[1, 2]]))                     # 'multilabel-indicator'
+print(type_of_target(np.array([[1.5, 2.0], [3.0, 1.6]])))  # 'continuous-multioutput'
+```
+
+Important Notes
+---------------
+
+- When working with multiclass-multioutput targets, ensure that the estimator and the evaluation functions support this format.
+- Mixing target types (e.g., combining multilabel-indicator with multiclass) in the same dataset or function call will raise errors.
+- The `unique_labels` utility can be used to extract unique labels from target arrays but will raise errors if incompatible target types are mixed.
+
+Summary
+-------
+
+Multiclass and multioutput targets extend the scope of supervised learning beyond simple binary classification or single-output regression. Proper identification and handling of these target types enable the use of appropriate algorithms and evaluation metrics, ensuring robust and meaningful model training and assessment.

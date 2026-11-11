@@ -1,0 +1,96 @@
+Augmentations Module
+====================
+
+Overview
+--------
+
+This module provides a standard suite of image augmentations commonly used in automatic augmentation policies such as AutoAugment for ImageNet, RandAugment, and TrivialAugmentWide. The augmentations are implemented using NVIDIA DALI operators, enabling efficient and flexible image transformations.
+
+The augmentations are designed to be parameterized by a magnitude value, which controls the intensity of the transformation. The module leverages the `@augmentation` decorator to handle the computation of these parameters based on discrete magnitude bins.
+
+Key Features
+------------
+
+- **Parameterization via Magnitude Bins**  
+  Each augmentation accepts a `magnitude_bin` and `num_magnitude_bins` instead of a direct parameter. The decorator computes the actual transformation parameter by interpolating within a specified magnitude range and optionally applying a random sign.
+
+- **Flexible Magnitude Ranges**  
+  The magnitude ranges for each augmentation can be customized easily. For example, to increase the shear magnitude range, you can create a new augmentation instance with adjusted parameters.
+
+- **Integration with DALI Operators**  
+  Augmentations are implemented using DALI's efficient image processing operators, ensuring high performance and compatibility with DALI pipelines.
+
+Augmentation Decorator
+----------------------
+
+The `@augmentation` decorator is central to this module. It manages the conversion from magnitude bins to actual transformation parameters. When an augmentation function is decorated, it expects:
+
+- A single positional argument: a batch of samples (images).
+- Keyword arguments `magnitude_bin` and `num_magnitude_bins` instead of a direct transformation parameter.
+
+The decorator computes the parameter as follows:
+
+```
+magnitudes = linspace(mag_range[0], mag_range[1], num_magnitude_bins)
+parameter = mag_to_param(magnitudes[magnitude_bin] * ((-1) ** random_sign))
+```
+
+where `mag_to_param` is a function that converts the magnitude scalar to the parameter format required by the transformation.
+
+Example Augmentations
+---------------------
+
+### Shear X
+
+```python
+@augmentation(mag_range=(0, 0.3), randomly_negate=True, mag_to_param=warp_x_param)
+def shear_x(data, shear, fill_value=128, interp_type=None):
+    mt = fn.transforms.shear(shear=shear)
+    return fn.warp_affine(data, matrix=mt, fill_value=fill_value, interp_type=interp_type,
+                          inverse_map=False)
+```
+
+- **Description:** Applies a horizontal shear transformation to the input images.
+- **Parameters:**
+  - `data`: Batch of input images.
+  - `shear`: Shear magnitude computed by the decorator.
+  - `fill_value`: Pixel value used to fill empty areas after transformation (default 128).
+  - `interp_type`: Interpolation type for warping (optional).
+- **Magnitude Range:** 0 to 0.3 (can be customized).
+- **Random Negation:** The shear magnitude can be randomly negated to shear in either direction.
+
+Utility Functions
+-----------------
+
+- `warp_x_param(magnitude)`  
+  Converts a scalar magnitude to a 2D parameter `[magnitude, 0]` for horizontal transformations.
+
+- `warp_y_param(magnitude)`  
+  Converts a scalar magnitude to a 2D parameter `[0, magnitude]` for vertical transformations.
+
+Customization
+-------------
+
+Users can easily customize the magnitude ranges or other parameters of the augmentations by creating new augmentation instances with modified decorator arguments. For example:
+
+```python
+my_shear_x = shear_x.augmentation(mag_range=(0, 0.5))
+```
+
+This creates a version of `shear_x` with an increased maximum shear magnitude.
+
+Dependencies
+------------
+
+- **NumPy:** Required for numerical operations and magnitude computations.
+- **NVIDIA DALI:** Provides the core image processing operators used in the augmentations.
+- **nvidia.dali.auto_aug.core:** Contains the `augmentation` decorator and related utilities.
+
+License
+-------
+
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file for details.
+
+---
+
+This module is a foundational component for building automated image augmentation pipelines leveraging NVIDIA DALI's high-performance operators and flexible parameterization schemes.

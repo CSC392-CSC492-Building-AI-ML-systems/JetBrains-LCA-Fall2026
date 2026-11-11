@@ -1,0 +1,107 @@
+async module
+============
+
+This module provides asynchronous scanning and counting plans for data acquisition systems. It includes functions to perform repeated readings from detectors and to scan over multiple variables simultaneously, yielding data in a structured and customizable manner.
+
+Functions
+---------
+
+count(detectors, num=1, delay=None, *, per_shot=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Take one or more readings from detectors.
+
+Parameters
+----------
+- **detectors** : list  
+  List of 'readable' objects (detectors) from which data will be collected.
+
+- **num** : int or None, optional  
+  Number of readings to take; default is 1.  
+  If `None`, capture data continuously until canceled.
+
+- **delay** : iterable or scalar, optional  
+  Time delay in seconds between successive readings; default is 0.  
+  If an iterable, it must have at least `num - 1` entries.
+
+- **per_shot** : callable, optional  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+      ...
+  ```
+
+- **md** : dict, optional  
+  Metadata dictionary to be included with the plan.
+
+Returns
+-------
+A generator that yields messages corresponding to the count plan execution.
+
+Notes
+-----
+- If `delay` is an iterable, it must have at least `num - 1` entries or the plan will raise a `ValueError` during iteration.
+- The plan stages the detectors and runs the counting loop with the specified parameters.
+- The default `per_shot` function is `one_shot` from the `plan_stubs` module.
+
+list_scan(detectors, *args, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Scan over one or more variables in steps simultaneously (inner product).
+
+Parameters
+----------
+- **detectors** : list  
+  List of 'readable' objects (detectors) to read data from.
+
+- **\*args** : variable length argument list  
+  For one dimension, specify as:  
+  ```python
+  motor, [point1, point2, ...]
+  ```  
+  For multiple dimensions, specify as pairs:  
+  ```python
+  motor1, [point1, point2, ...],
+  motor2, [point1, point2, ...],
+  ...,
+  motorN, [point1, point2, ...]
+  ```  
+  Motors can be any 'settable' object (motor, temperature controller, etc.).
+
+- **per_step** : callable, optional  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  f(detectors, motor, step) -> plan (a generator)
+  ```
+
+- **md** : dict, optional  
+  Metadata dictionary to be included with the plan.
+
+Returns
+-------
+A generator that yields messages corresponding to the list scan plan execution.
+
+Raises
+------
+- `ValueError` if the number of arguments in `*args` is not even (each motor must have a corresponding list of points).
+- `ValueError` if the lengths of all point lists are not the same.
+
+Notes
+-----
+- The plan verifies that all position lists have the same length.
+- The plan constructs metadata including detectors, motors, number of points, and intervals.
+- The plan pattern used is 'inner_list_product'.
+- Related plans include `rel_list_scan`, `list_grid_scan`, and `rel_list_grid_scan` from the `bluesky.plans` module.
+
+Imports and Dependencies
+------------------------
+- Standard libraries: `sys`, `inspect`, `itertools`, `functools`, `collections`, `time`
+- Third-party libraries: `numpy`
+- Optional: `cytools.partition` (fallback to `toolz.partition` if `cytools` is not available)
+- Local modules: `plan_patterns`, `utils` (including `Msg`), `preprocessors` (aliased as `bpp`), `plan_stubs` (aliased as `bps`)
+
+Summary
+-------
+This module facilitates asynchronous experimental plans by providing flexible and extensible scanning and counting functions. It supports customization hooks for per-step and per-shot actions, integrates metadata handling, and ensures consistent input validation for robust operation in data acquisition workflows.

@@ -1,0 +1,103 @@
+w_crawl — Crawl a weighted ensemble dataset
+============================================
+
+Description
+-----------
+
+The `w_crawl` command is a tool for crawling through a weighted ensemble dataset, executing a user-defined function for each iteration. It is designed to facilitate postprocessing of trajectories, cleanup of datasets, or any other operation that can be expressed as "do X for iteration N, then do something with the result." Tasks are parallelized by iteration, allowing efficient processing of large datasets. Note that no guarantees are made about the order in which iterations are evaluated.
+
+This command is part of the WESTPA toolkit and operates primarily on the master node.
+
+Usage
+-----
+
+```
+w_crawl [OPTIONS]
+```
+
+Command-line Options
+--------------------
+
+The command supports a variety of options to control data selection, iteration range, and task execution.
+
+### Data Selection and Iteration Range
+
+These options allow you to specify which dataset and iterations to process.
+
+- Options inherited from `WESTDataReader` and `IterRangeSelection` components (refer to their documentation for details).
+
+### Task Options
+
+- `-c`, `--crawler-instance`  
+  Specify the crawler instance to use, given as `module.instance`. This instance must be a subclass of `WESTPACrawler` and defines the crawling behavior by implementing the following methods:
+
+  - `initialize(iter_start, iter_stop)`  
+    Called once before processing begins. Use this to set up any necessary state.
+
+  - `process_iter_result(n_iter, result)`  
+    Called after each iteration's task completes. Use this to handle or aggregate results.
+
+  - `finalize()`  
+    Called once after all iterations have been processed. Use this to perform any cleanup or final processing.
+
+If no crawler instance is specified, the command will execute the task function directly without additional processing.
+
+Functionality
+-------------
+
+The core functionality of `w_crawl` involves:
+
+1. Initializing the crawler instance (if provided).
+
+2. Iterating over the specified range of iterations.
+
+3. For each iteration, submitting a task to be executed in parallel. The task function receives the iteration number and the corresponding iteration group data.
+
+4. Collecting results as tasks complete and passing them to the crawler's `process_iter_result` method.
+
+5. Finalizing the crawler instance after all iterations have been processed.
+
+Parallel Execution
+------------------
+
+Tasks are executed in parallel using a work manager that submits iteration tasks asynchronously. The maximum queue length for concurrent tasks can be controlled (default is 10). Progress is indicated during execution.
+
+Example
+-------
+
+To use `w_crawl` with a custom crawler instance defined in `my_module.py` as `MyCrawler`, run:
+
+```
+w_crawl -c my_module.MyCrawler [other options]
+```
+
+This will instantiate `MyCrawler` and execute its methods during the crawl.
+
+Logging
+-------
+
+The command uses the logger named `w_crawl` for logging messages.
+
+Notes
+-----
+
+- The command opens the dataset in read-only mode during task execution.
+
+- The order of iteration processing is not guaranteed due to parallel execution.
+
+- The crawler instance must be accessible as a Python module and instance path.
+
+See Also
+--------
+
+- `WESTPACrawler` — Base class for implementing custom crawler behavior.
+
+- `WESTDataReader` — For dataset reading options.
+
+- `IterRangeSelection` — For specifying iteration ranges.
+
+- `westpa` — The WESTPA toolkit documentation.
+
+-----------------------------------------------------------------------------
+
+For more detailed usage and examples, refer to the WESTPA user guide and API documentation.

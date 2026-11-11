@@ -1,0 +1,143 @@
+Validation Curves: Plotting Scores to Evaluate Models
+======================================================
+
+Validation curves are a useful tool to evaluate the performance of a machine learning model by plotting training and validation scores for different values of a model parameter. This visualization helps in understanding how changes in a specific hyperparameter affect the model's ability to generalize to unseen data.
+
+Overview
+--------
+
+The validation curve computes training and test scores for varying values of a specified parameter of an estimator. Unlike grid search, which focuses on finding the best parameter value, validation curves provide insight into the model's behavior across a range of parameter values by also showing training scores alongside validation scores.
+
+This approach is particularly helpful to diagnose whether a model is suffering from high bias or high variance:
+
+- **High bias (underfitting):** Both training and validation scores are low.
+- **High variance (overfitting):** Training score is high but validation score is low.
+
+Parameters
+----------
+
+- **estimator** : object implementing `fit` method  
+  The machine learning model to be evaluated. It must be cloneable and implement `predict` unless a custom scoring callable that does not rely on `predict` is used.
+
+- **X** : array-like or sparse matrix of shape (n_samples, n_features)  
+  The input data used for training and validation.
+
+- **y** : array-like of shape (n_samples,) or (n_samples, n_outputs) or None  
+  Target values for supervised learning tasks. Use `None` for unsupervised learning.
+
+- **param_name** : str  
+  The name of the hyperparameter to vary.
+
+- **param_range** : array-like of shape (n_values,)  
+  The sequence of parameter values to evaluate.
+
+- **cv** : int, cross-validation generator or an iterable, default=None  
+  Determines the cross-validation splitting strategy.
+
+- **scoring** : str, callable, or None, default=None  
+  A string or callable to evaluate the predictions on the test set.
+
+- **n_jobs** : int or None, default=None  
+  Number of jobs to run in parallel.
+
+- **pre_dispatch** : int or str, default='2*n_jobs'  
+  Controls the number of jobs that get dispatched during parallel execution.
+
+- **verbose** : int, default=0  
+  Controls the verbosity level.
+
+- **error_score** : 'raise' or numeric, default=np.nan  
+  Value to assign to the score if an error occurs in estimator fitting.
+
+- **fit_params** : dict, default=None  
+  Parameters to pass to the fit method of the estimator.
+
+Outputs
+-------
+
+The validation curve returns three arrays:
+
+- **param_range** : array-like  
+  The values of the parameter that were evaluated.
+
+- **train_scores** : ndarray of shape (n_param_values, n_cv_folds)  
+  Scores on the training sets for each parameter value and cross-validation fold.
+
+- **test_scores** : ndarray of shape (n_param_values, n_cv_folds)  
+  Scores on the validation sets for each parameter value and cross-validation fold.
+
+Visualization
+-------------
+
+Plotting the validation curve involves displaying the mean training and validation scores along with their variability (e.g., standard deviation) across cross-validation folds. This can be done using matplotlib or other plotting libraries.
+
+A typical plot shows:
+
+- The parameter values on the x-axis (often on a logarithmic scale if the parameter spans several orders of magnitude).
+- The score on the y-axis.
+- Two curves: one for training scores and one for validation scores.
+- Shaded regions or error bars representing the variability of the scores.
+
+Interpreting the Plot
+---------------------
+
+- If the training and validation scores converge to a low value, the model is underfitting.
+- If there is a large gap between training and validation scores, the model is overfitting.
+- The optimal parameter value is often where the validation score is highest and the gap between training and validation scores is minimal.
+
+Example
+-------
+
+```python
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import validation_curve
+from sklearn.svm import SVC
+import numpy as np
+
+X, y = load_iris(return_X_y=True)
+param_range = np.logspace(-6, -1, 5)
+train_scores, test_scores = validation_curve(
+    SVC(), X, y, param_name="gamma", param_range=param_range,
+    cv=5, scoring="accuracy", n_jobs=1)
+
+train_scores_mean = np.mean(train_scores, axis=1)
+train_scores_std = np.std(train_scores, axis=1)
+test_scores_mean = np.mean(test_scores, axis=1)
+test_scores_std = np.std(test_scores, axis=1)
+
+plt.title("Validation Curve with SVM")
+plt.xlabel("Gamma")
+plt.ylabel("Score")
+plt.semilogx(param_range, train_scores_mean, label="Training score",
+             color="darkorange", lw=2)
+plt.fill_between(param_range, train_scores_mean - train_scores_std,
+                 train_scores_mean + train_scores_std, alpha=0.2,
+                 color="darkorange", lw=2)
+plt.semilogx(param_range, test_scores_mean, label="Cross-validation score",
+             color="navy", lw=2)
+plt.fill_between(param_range, test_scores_mean - test_scores_std,
+                 test_scores_mean + test_scores_std, alpha=0.2,
+                 color="navy", lw=2)
+plt.legend(loc="best")
+plt.show()
+```
+
+See Also
+--------
+
+- :func:`sklearn.model_selection.validation_curve` — Compute training and test scores for varying parameter values.
+- :func:`sklearn.model_selection.learning_curve` — Compute learning curves to evaluate model performance with varying training set sizes.
+- :class:`sklearn.model_selection.LearningCurveDisplay` — Visualize learning curves.
+- :class:`sklearn.model_selection.ValidationCurveDisplay` — Visualize validation curves (introduced in recent versions).
+
+References
+----------
+
+- Scikit-learn User Guide: :ref:`validation_curve`
+- Scikit-learn User Guide: :ref:`learning_curve`
+- Hastie, Tibshirani, Friedman (2009). The Elements of Statistical Learning. Springer.
+
+---
+
+Validation curves provide a straightforward and insightful way to analyze how model complexity affects performance, helping practitioners to select appropriate hyperparameters and avoid underfitting or overfitting.

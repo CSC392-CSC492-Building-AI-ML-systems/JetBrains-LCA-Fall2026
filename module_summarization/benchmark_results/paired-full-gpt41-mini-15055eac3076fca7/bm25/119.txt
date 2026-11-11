@@ -1,0 +1,91 @@
+Generate Configuration Documentation
+====================================
+
+Overview
+--------
+This module provides functionality to generate and manipulate configuration dictionaries for prognostic model runs using the FV3 configuration system. It supports combining user-specified configuration updates with base FV3 configurations, including options for machine learning models and diagnostic settings.
+
+Key Components
+--------------
+
+to_fv3config(dict_, model_url=None, diagnostic_ml=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Converts a user-provided dictionary of prognostic run configurations into an FV3 configuration dictionary compatible with FV3Config APIs.
+
+- **Args:**
+  - ``dict_`` (dict): A dictionary containing prognostic run configurations. This dictionary merges keys related to FV3 configuration with settings from :py:class:`runtime.config.UserConfig`.
+  - ``model_url`` (optional): URL(s) specifying machine learning model(s) to be used.
+  - ``diagnostic_ml`` (optional): Diagnostic machine learning settings.
+
+- **Returns:**
+  - An FV3 configuration dictionary that can be further manipulated using FV3Config APIs.
+
+- **Raises:**
+  - ``NotImplementedError`` if both nudging and machine learning configurations are enabled simultaneously, as this combination is currently unsupported.
+
+prepare_config(args)
+~~~~~~~~~~~~~~~~~~~
+Reads a user configuration YAML file, applies updates and overrides, and outputs the final FV3 configuration.
+
+- **Args:**
+  - ``args``: Parsed command-line arguments containing:
+    - ``user_config``: Path to the YAML file specifying configuration updates.
+    - ``model_url``: Optional machine learning model URL(s).
+    - ``diagnostic_ml``: Optional diagnostic machine learning settings.
+
+- **Behavior:**
+  - Loads the user configuration from the specified YAML file.
+  - Calls ``to_fv3config`` to merge user updates with the base configuration.
+  - Dumps the resulting FV3 configuration to standard output.
+
+main()
+~~~~~~
+Entry point for command-line execution.
+
+- Sets up logging.
+- Parses command-line arguments using an argument parser.
+- Calls ``prepare_config`` with the parsed arguments.
+
+Configuration Structure
+-----------------------
+
+The configuration system is based on dataclasses representing various configuration aspects, including:
+
+- **Base Version:** The base FV3 configuration version (default: "v0.5").
+- **Initial Conditions:** Specification for initial conditions, which can be a complex object or a simple value.
+- **Duration:** Duration of each simulation segment, specified as a string compatible with pandas.TimeDelta (e.g., "3h"). Overrides settings in the FV3 namelist.
+- **Zhao-Carr Emulation:** Configuration for Zhao-Carr emulation, represented by an emulation.EmulationConfig object.
+- **Machine Learning Config:** Optional machine learning model settings, including model URLs and diagnostic flags.
+- **Nudging:** Boolean flag indicating whether nudging is enabled.
+
+Additional configuration overlays and settings are merged with the base FV3 configuration using helper functions, ensuring that the final configuration dictionary is complete and consistent.
+
+Command-Line Interface
+----------------------
+
+The command-line interface accepts the following argument:
+
+- ``user_config`` (positional): Path to a YAML file specifying configuration updates relative to the base FV3 configuration. This file can include updates to diagnostic tables, runtime parameters, and other settings relevant to the prognostic run.
+
+Usage Example
+-------------
+
+```bash
+python generate_config.py path/to/user_config.yaml --model_url http://example.com/model --diagnostic_ml True
+```
+
+This command reads the user configuration YAML file, applies machine learning model overrides, and outputs the final FV3 configuration dictionary.
+
+Notes
+-----
+
+- The system currently does not support running nudging and machine learning configurations simultaneously.
+- Configuration dictionaries produced are compatible with FV3Config APIs and can be further manipulated or validated as needed.
+- The configuration duration parameter allows flexible specification of simulation segment lengths, facilitating customized runtime behavior.
+
+See Also
+--------
+
+- :py:class:`runtime.config.UserConfig`
+- :py:class:`FV3Config`
+- FV3 configuration and runtime documentation for detailed attribute descriptions and usage.

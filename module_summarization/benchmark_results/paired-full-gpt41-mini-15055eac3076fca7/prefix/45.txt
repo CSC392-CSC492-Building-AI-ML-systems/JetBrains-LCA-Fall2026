@@ -1,0 +1,93 @@
+Logging Module
+==============
+
+This module provides a comprehensive logging setup tailored for asynchronous applications, supporting multiple logging handlers including console, file, and syslog with advanced configuration options.
+
+Constants
+---------
+
+- **LOG_NOTICE** (int):  
+  A custom log level with a numeric value of 25.  
+  This level represents informational messages that are visible in non-verbose mode. It is intended for general informational logs and should not be used for warnings or errors.
+
+- **L** (Logger):  
+  A logger instance for this module, initialized with the module's `__name__`.
+
+- **_NAME_TO_LEVEL** (dict):  
+  A mapping of string log level names (including various aliases) to their corresponding numeric logging levels.  
+  This dictionary supports standard levels such as DEBUG, INFO, WARNING, ERROR, CRITICAL, as well as the custom NOTICE level.
+
+Classes
+-------
+
+Logging
+-------
+
+The `Logging` class encapsulates the setup and management of logging handlers for an application. It configures console, file, and syslog logging based on application configuration and runtime environment.
+
+### Initialization
+
+```python
+Logging(app)
+```
+
+- **app**: The application instance, expected to provide an event loop (`app.Loop`) and configuration access.
+
+### Attributes
+
+- **RootLogger**: The root logger instance obtained via `logging.getLogger()`.
+- **ConsoleHandler**: Handler for console logging (if enabled).
+- **FileHandler**: Handler for file logging (if enabled).
+- **SyslogHandler**: Handler for syslog logging (if enabled).
+- **LogRotatingTime**: A timer instance used for scheduled log rotation checks (if configured).
+
+### Behavior
+
+- **Console Logging**:  
+  Automatically enabled if the standard output is a terminal or if the environment variable `ASABFORCECONSOLE` is set to a non-zero value. Configured with appropriate formatting.
+
+- **File Logging**:  
+  Configured if a file path is specified in the configuration under `logging:file:path`.  
+  - Ensures the directory for the log file exists, creating it if necessary.  
+  - Uses a rotating file handler with parameters for backup count and maximum file size from configuration.  
+  - Supports scheduled log rotation based on a configurable interval (`rotate_every`), which can specify days (`d`), hours (`H`), minutes (`M`), or seconds (`s`).  
+  - Rotation scheduling is implemented asynchronously using a `Timer` that triggers rotation checks.
+
+- **Syslog Logging**:  
+  Enabled if `logging:syslog:enabled` is set to true in the configuration.  
+  - Supports multiple syslog transport protocols including UNIX domain sockets, TCP, UDP, and Unix socket variants (`unix-connect`, `unix-sendto`).  
+  - Parses the syslog address from configuration and selects the appropriate socket type and protocol.  
+  - Supports multiple syslog message formats:  
+    - MacOSX syslog format (`m`)  
+    - RFC 5424 standard (`5`)  
+    - RFC 5424 with microsecond precision (`5micro`)  
+    - RFC 3164 legacy format (default)  
+  - Uses an asynchronous IO handler (`AsyncIOHandler`) integrated with the application's event loop.
+
+### Error Handling
+
+- Logs errors if configuration values are invalid, such as an incorrect `rotate_every` format or an invalid syslog address.
+
+Usage
+-----
+
+This module is intended to be used as part of an application initialization sequence where an instance of `Logging` is created with the application context. It automatically configures logging handlers according to the application's configuration and runtime environment.
+
+Example:
+
+```python
+logging_setup = Logging(app)
+```
+
+This will set up console, file, and syslog logging as configured, enabling structured and asynchronous logging suitable for production environments.
+
+---
+
+This module depends on several external components and modules:
+
+- `Config`: Provides configuration values.
+- `Timer`: Used for scheduling periodic tasks such as log rotation.
+- `AsyncIOHandler`: An asynchronous logging handler compatible with asyncio event loops.
+- Various formatter classes (`StructuredDataFormatter`, `MacOSXSyslogFormatter`, `SyslogRFC5424Formatter`, `SyslogRFC5424microFormatter`, `SyslogRFC3164Formatter`) for formatting log messages according to different standards.
+
+These dependencies must be available and properly configured for the logging system to function correctly.

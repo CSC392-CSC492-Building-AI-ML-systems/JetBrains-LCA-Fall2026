@@ -1,0 +1,73 @@
+Parallel Random Number Generation
+=================================
+
+This document describes the parallel features and usage of the PCG (Permuted Congruential Generator) family of random number generators, specifically focusing on the PCG64 and PCG64DXSM bit generators used in parallel applications.
+
+Overview
+--------
+
+The PCG family provides high-quality, statistically sound random number generators with efficient state management and reproducibility guarantees. The PCG64 and PCG64DXSM generators each maintain their internal state as two unsigned 128-bit integers, representing the state of a linear congruential generator (LCG) and a fixed odd increment used in the LCG.
+
+Both generators support the method :meth:`advance` which allows advancing the RNG state by an arbitrary number of steps, enabling flexible control over the random number stream.
+
+State and Seeding
+-----------------
+
+- The internal state vector consists of two unsigned 128-bit values, represented externally as Python integers.
+- One value is the current state of the PRNG, advanced by the LCG.
+- The other is a fixed odd increment used in the LCG, which is not independently settable.
+- The input seed is processed by a `SeedSequence` object to generate both state values.
+
+Parallel Features
+-----------------
+
+The preferred approach to using PCG bit generators in parallel applications is through the use of the `SeedSequence.spawn` method. This method generates multiple independent entropy values from a single initial seed, which can then be used to initialize multiple independent bit generators. This ensures reproducibility and statistical independence across parallel streams.
+
+Example usage:
+
+.. code-block:: python
+
+    from numpy.random import Generator, PCG64, PCG64DXSM, SeedSequence
+
+    # Create a SeedSequence with an initial seed
+    sg = SeedSequence(1234)
+
+    # Spawn 10 child SeedSequences for parallel streams
+    child_seeds = sg.spawn(10)
+
+    # Create a list of independent generators for parallel use
+    generators_pcg64 = [Generator(PCG64(s)) for s in child_seeds]
+    generators_pcg64dxsm = [Generator(PCG64DXSM(s)) for s in child_seeds]
+
+Compatibility Guarantee
+-----------------------
+
+Both PCG64 and PCG64DXSM guarantee that a fixed seed will always produce the same random integer stream. This reproducibility is critical for debugging and scientific reproducibility in parallel computations.
+
+References
+----------
+
+- [1] PCG, A Family of Better Random Number Generators  
+  <http://www.pcg-random.org/>
+
+- [2] O'Neill, Melissa E. "PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation"  
+  <https://www.cs.hmc.edu/tr/hmc-cs-2014-0905.pdf>
+
+License and Additional Information
+----------------------------------
+
+The PCG random number generation scheme is licensed under the Apache License, Version 2.0. For more details on licensing and additional information, visit:
+
+<http://www.pcg-random.org>
+
+The PCG implementation used here is derived from the canonical C++ PCG implementation, adapted for use in Python and other environments.
+
+Summary
+-------
+
+- Use `SeedSequence.spawn` to generate independent seeds for parallel random number streams.
+- Initialize separate PCG64 or PCG64DXSM generators with these seeds.
+- Each generator produces reproducible and statistically independent random sequences.
+- The `advance` method allows manual stepping of the RNG state if needed.
+
+This approach ensures safe and efficient parallel random number generation suitable for high-performance computing and scientific simulations.

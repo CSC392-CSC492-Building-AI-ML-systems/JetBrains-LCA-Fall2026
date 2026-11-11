@@ -1,0 +1,74 @@
+w_trace Command
+===============
+
+Overview
+--------
+The `w_trace` command provides functionality to trace the trajectory of a specific segment in a WESTPA simulation back to its origin. This is useful for analyzing the lineage and properties of trajectory segments across iterations.
+
+Trace Class
+-----------
+The core of the `w_trace` command is the `Trace` class, which represents a trace of a trajectory segment back to its initial state.
+
+### Initialization
+A `Trace` object is initialized with the following parameters:
+
+- `summary`: A structured NumPy array summarizing the trajectory segments in the trace.
+- `endpoint_type`: The type of endpoint for the traced segment.
+- `basis_state`: The basis state associated with the initial state of the trace.
+- `initial_state`: The initial state object from which the trace originates.
+- `data_manager`: (Optional) A data manager instance for accessing WESTPA data. If not provided, the default data manager is used.
+
+### Attributes
+- `summary`: Contains detailed information about each segment in the trace, including iteration number, segment ID, weight, wall time, CPU time, and final progress coordinate.
+- `endpoint_type`: Indicates the endpoint type of the traced segment.
+- `basis_state`: The basis state corresponding to the initial state.
+- `initial_state`: The initial state object at the start of the trace.
+- `_auxfiles`: Internal dictionary mapping auxiliary file names to open HDF5 file objects to optimize file access.
+
+### Methods
+- `__len__()`: Returns the number of segments in the trace.
+- `__getitem__(sl)`: Allows indexing or slicing into the trace summary.
+- `__iter__()`: Returns an iterator over the trace summary.
+
+### Constructing a Trace from Data
+The class method `from_data_manager(n_iter, seg_id, data_manager=None)` constructs a `Trace` object for a trajectory segment identified by `seg_id` at iteration `n_iter`.
+
+This method performs the following steps:
+
+1. Accesses the WESTPA data manager to retrieve iteration groups and segment indices.
+2. Iteratively traces the parent segments backward through previous iterations until reaching the initial state.
+3. Collects segment information such as weight, CPU time, wall time, and final progress coordinate.
+4. Constructs a structured summary array containing all segments in the trace.
+5. Retrieves the initial state and basis state associated with the first segment.
+6. Returns a `Trace` instance encapsulating the entire trajectory trace.
+
+Usage
+-----
+The `w_trace` command can be used to analyze the history of a trajectory segment, including its weight evolution, timing information, and progress coordinates. This is particularly useful for debugging, validation, and detailed analysis of WESTPA simulations.
+
+Example
+-------
+```python
+from westpa.core import w_trace
+
+# Create a Trace object for segment 5 at iteration 10
+trace = w_trace.Trace.from_data_manager(n_iter=10, seg_id=5)
+
+# Iterate over segments in the trace
+for segment_info in trace:
+    print(f"Iteration: {segment_info['n_iter']}, Segment ID: {segment_info['seg_id']}, Weight: {segment_info['weight']}")
+```
+
+This example demonstrates how to obtain and inspect the trajectory trace for a specific segment.
+
+Notes
+-----
+- The `Trace` class handles compatibility with different versions of WESTPA HDF5 data formats.
+- The trace includes detailed timing information (CPU and wall time) for performance analysis.
+- The initial state retrieval accounts for cases where the initial state is stored differently in older data formats.
+
+See Also
+--------
+- `westpa.core.segment.Segment`
+- `westpa.core.states.InitialState`
+- WESTPA Data Manager and HDF5 data structures

@@ -1,0 +1,76 @@
+Visitor and Traversal Interface
+===============================
+
+The `sql.visitors` module provides a visitor/traversal interface and a collection of library functions designed to facilitate the traversal and processing of SQL expression trees and related structures within SQLAlchemy. This module underpins the SQL compiler dispatch mechanism and supports various forms of traversal used throughout the library, including cache key generation and internal state inspection.
+
+Overview
+--------
+
+At the core of this module is the concept of a **Visitable** object, which represents elements in the SQL expression system that can be visited by a visitor object implementing specific visit methods. The visitor pattern implemented here allows for flexible and extensible processing of SQL constructs by defining visitor classes with methods tailored to handle different types of visitable objects.
+
+Key Components
+--------------
+
+### Visitable
+
+The `Visitable` class serves as the base class for all objects that can be visited by a visitor. It defines the mechanism for compiler dispatch, which is the process by which a visitor object dynamically selects the appropriate method to handle a particular visitable instance.
+
+- **Compiler Dispatch**: Each subclass of `Visitable` must define a class-level attribute `__visit_name__` which identifies the type of the visitable object. The `Visitable` base class uses this name to generate a `_compiler_dispatch` method that looks for a corresponding `visit_<visit_name>` method on the visitor object and calls it.
+- **Extensibility**: This design allows new visitable types and visitor behaviors to be added without modifying existing code, supporting the open/closed principle.
+- **Version Note**: The class was named `Traversible` in SQLAlchemy 1.4 but reverted to `Visitable` in version 2.0 for consistency.
+
+### InternalTraversal
+
+The `InternalTraversal` enumeration defines symbols used to indicate how internal attributes of visitable objects should be traversed. These symbols are used in the `_traverse_internals` attribute of classes to specify the nature of their internal state and how it should be visited.
+
+For example, a SQL construct like `Case` might define its internal traversal as:
+
+```python
+_traverse_internals = [
+    ("value", InternalTraversal.dp_clauseelement),
+    ("whens", InternalTraversal.dp_clauseelement_tuples),
+    ("else_", InternalTraversal.dp_clauseelement),
+]
+```
+
+This informs traversal routines how to navigate the internal components of the object.
+
+### Traversal Functions and Utilities
+
+The module also exports several functions and utilities to facilitate traversal operations:
+
+- `iterate`
+- `traverse_using`
+- `traverse`
+- `cloned_traverse`
+- `replacement_traverse`
+
+These functions provide different strategies for walking through visitable structures, optionally cloning or replacing elements during traversal.
+
+### Anon Map Utilities
+
+The module conditionally imports optimized implementations of anonymous mapping utilities (`prefix_anon_map` and `cache_anon_map`) depending on the availability of C extensions, falling back to pure Python versions otherwise. These utilities assist in managing anonymous labeling and caching during traversal and compilation.
+
+Usage
+-----
+
+Visitors are typically implemented by defining a class with methods named `visit_<visit_name>`, where `<visit_name>` corresponds to the `__visit_name__` attribute of the visitable classes. When a visitable object’s `_compiler_dispatch` method is called with a visitor instance, it dynamically dispatches to the appropriate visitor method.
+
+Example:
+
+```python
+class MyVisitor:
+    def visit_select(self, select_obj, **kw):
+        # process a Select object
+        pass
+
+select_obj = Select(...)
+select_obj._compiler_dispatch(MyVisitor())
+```
+
+This pattern enables modular and extensible processing of SQL expression trees, such as compilation, optimization, or analysis.
+
+Summary
+-------
+
+The `sql.visitors` module is a foundational component of SQLAlchemy’s internal architecture, providing a robust and flexible visitor pattern implementation. It enables the traversal and processing of complex SQL expression structures in a consistent and extensible manner, supporting both internal operations and user-defined extensions.

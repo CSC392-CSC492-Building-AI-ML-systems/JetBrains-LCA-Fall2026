@@ -1,0 +1,81 @@
+ImPACT: Image Pixel-wise fit for Atmospheric Cherenkov Telescopes
+==================================================================
+
+Overview
+--------
+
+ImPACT (Image Pixel-wise fit for Atmospheric Cherenkov Telescopes) is a Monte Carlo template-based image fitting method designed for the reconstruction of gamma-ray induced air showers observed by Imaging Atmospheric Cherenkov Telescopes (IACTs). This method performs a maximum likelihood fit comparing observed camera images to a library of simulated image templates, enabling precise estimation of the shower geometry, energy, and depth of shower maximum.
+
+The ImPACT reconstruction technique was introduced by Parsons & Hinton (2014) and has become a powerful tool for event reconstruction in Cherenkov telescope arrays.
+
+Key Features
+------------
+
+- **Template-based likelihood fitting:** Uses precomputed image templates for different telescope types and shower parameters to predict expected pixel intensities.
+- **Multi-parameter fit:** Simultaneously reconstructs shower axis, energy, and shower maximum height.
+- **Efficient interpolation:** Employs interpolators for image templates to predict pixel intensities for arbitrary shower parameters.
+- **Custom priors:** Supports energy and shower depth priors to guide the fit.
+- **Resettable interpolator:** Ensures clean state for each event to avoid contamination from previous fits.
+
+Units and Conventions
+---------------------
+
+To optimize computational performance, ImPACT uses fixed units internally:
+
+- Angular units are in **radians**.
+- Distance units are in **metres**.
+- Energy units are in **TeV**.
+
+These choices avoid overhead from unit conversions during intensive likelihood calculations.
+
+Methodology
+-----------
+
+1. **Template Library:** A library of image templates is generated from Monte Carlo simulations for various telescope types, energies, impact distances, and shower maximum depths.
+
+2. **Image Prediction:** For a given set of shower parameters (energy, impact distance, shower maximum), the expected pixel intensities are interpolated from the template library for each telescope type.
+
+3. **Likelihood Calculation:** The observed pixel intensities are compared to the predicted values using a likelihood function that accounts for pedestal noise and single photoelectron resolution. Pedestal widths are hardcoded per camera type (e.g., LSTCam, NectarCam, FlashCam, CHEC).
+
+4. **Fitting Procedure:** Starting from seed values for shower geometry and energy, the method performs a maximum likelihood fit to find the best matching shower parameters.
+
+5. **Priors:** Optional priors on energy and shower maximum depth can be applied to regularize the fit. For example, the expected shower depth is approximated as:
+
+   .. math::
+   
+      X_{max} = 300 + 93 \times \log_{10}(E)
+
+   where \(E\) is the shower energy in TeV.
+
+Usage
+-----
+
+The main class implementing this method is `ImPACTReconstructor`. It provides methods to:
+
+- Initialize the reconstructor with specified template directories and fitting options.
+- Reset the interpolator state between events.
+- Predict reconstructed shower parameters given seed values.
+- Access Hillas parameters and other intermediate quantities.
+
+Example parameters include:
+
+- `root_dir`: Directory containing template files.
+- `minimiser`: Choice of minimization algorithm (e.g., "minuit").
+- `prior`: Specification of prior distributions.
+- `template_scale`: Scaling factor for templates.
+- `use_time_gradient`: Whether to include timing information in the fit.
+
+References
+----------
+
+.. [parsons14] Parsons, R. D., & Hinton, J. A. (2014). A Monte Carlo template based analysis for air-Cherenkov arrays. Astroparticle Physics, 56, 26-34.
+
+Notes
+-----
+
+- Pedestal widths for likelihood calculations are currently hardcoded per camera type due to lack of calibration data.
+- The single photoelectron (p.e.) distribution width is also fixed at 0.5 p.e.
+- The method assumes knowledge of telescope positions and pixel coordinates in the nominal frame.
+- Angular transformations are applied to pixel coordinates to align with shower geometry during fitting.
+
+This approach provides a robust and precise reconstruction of gamma-ray showers, improving the sensitivity and resolution of Cherenkov telescope arrays.

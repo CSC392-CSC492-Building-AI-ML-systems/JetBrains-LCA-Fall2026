@@ -1,0 +1,189 @@
+dask.delayed
+=============
+
+The `dask.delayed` interface provides a simple way to parallelize existing Python code by converting functions and their arguments into lazy, task-based computations. This allows you to build complex task graphs dynamically and execute them efficiently using Dask schedulers.
+
+Overview
+--------
+
+The core concept behind `dask.delayed` is to wrap Python functions and values into `Delayed` objects that represent deferred computations. These objects can be composed together to form a task graph, which can then be executed in parallel.
+
+Key Components
+--------------
+
+- **Delayed**  
+  The `Delayed` class represents a lazily evaluated computation. It stores a task graph and a key identifying the computation. When computed, it triggers the execution of the underlying graph.
+
+- **delayed**  
+  The `delayed` function is a decorator or wrapper that converts a Python function or value into a `Delayed` object. It can be used as:
+
+  ```python
+  from dask import delayed
+
+  @delayed
+  def inc(x):
+      return x + 1
+
+  a = delayed(1)
+  b = inc(a)
+  ```
+
+Features
+--------
+
+- **Lazy Evaluation**  
+  Functions and values wrapped with `delayed` do not execute immediately. Instead, they build a task graph representing the computation.
+
+- **Graph Construction**  
+  The interface automatically extracts and merges subgraphs from nested delayed objects, normalizing Python objects into tasks and dependencies.
+
+- **Support for Built-in Types**  
+  The system handles common Python types such as lists, tuples, sets, dictionaries, slices, dataclasses, and namedtuples, recursively unpacking delayed objects within them.
+
+- **Finalization**  
+  The `finalize` function wraps a Dask collection into a `Delayed` object that triggers post-computation steps, ensuring proper graph execution and result retrieval.
+
+- **Tokenization and Naming**  
+  Unique keys are generated for tasks using hashing/tokenization to avoid collisions and enable caching.
+
+Usage Examples
+--------------
+
+Basic usage with functions:
+
+```python
+from dask import delayed
+
+@delayed
+def add(x, y):
+    return x + y
+
+@delayed
+def mul(x, y):
+    return x * y
+
+a = delayed(1)
+b = delayed(2)
+c = add(a, b)
+d = mul(c, 10)
+
+result = d.compute()  # Executes the task graph and returns 30
+```
+
+Unpacking collections with delayed objects:
+
+```python
+from dask import delayed
+
+a = delayed(1)
+b = delayed(2)
+task, collections = unpack_collections([a, b, 3])
+print(task)        # ['a', 'b', 3]
+print(collections) # (Delayed('a'), Delayed('b'))
+```
+
+Advanced Features
+-----------------
+
+- **Normalization of Tasks**  
+  The `unpack_collections` function recursively normalizes Python objects, replacing `Delayed` instances with their keys and extracting their graphs. This supports complex nested data structures.
+
+- **Graph Merging**  
+  The `to_task_dask` function converts an expression into a normalized task and merges all underlying Dask graphs into a single graph for execution.
+
+- **Finalizing Collections**  
+  The `finalize` function wraps a Dask collection into a `Delayed` object that triggers any post-compute hooks, ensuring correct execution semantics.
+
+API Reference
+-------------
+
+### delayed(func=None, name=None, pure=True)
+
+Decorator or wrapper to convert a function or value into a `Delayed` object.
+
+- **Parameters**  
+  - `func` : callable or any Python object  
+    The function or value to delay. If `None`, returns a decorator.  
+  - `name` : str, optional  
+    Optional name for the delayed object.  
+  - `pure` : bool, default True  
+    Whether the function is pure (deterministic and side-effect free). Used for caching.
+
+- **Returns**  
+  A `Delayed` object representing the deferred computation.
+
+### Delayed
+
+Represents a lazily evaluated computation.
+
+- **Attributes**  
+  - `_key` : str  
+    Unique key identifying the task in the graph.  
+  - `dask` : HighLevelGraph  
+    The task graph associated with this delayed computation.
+
+- **Methods**  
+  - `compute(scheduler=None, **kwargs)`  
+    Compute the result by executing the task graph.  
+  - `visualize(filename=None, format=None, **kwargs)`  
+    Visualize the task graph.
+
+Internal Functions
+------------------
+
+- `unpack_collections(expr)`  
+  Recursively normalize Python objects, replacing delayed objects with keys and extracting graphs.
+
+- `finalize(collection)`  
+  Wrap a Dask collection into a `Delayed` object that triggers post-compute hooks.
+
+- `to_task_dask(expr)`  
+  Convert an expression into a normalized task and merged Dask graph.
+
+Notes
+-----
+
+- The `delayed` interface is designed to be intuitive and compatible with existing Python code, requiring minimal changes to parallelize computations.
+
+- It supports complex nested data structures and integrates seamlessly with other Dask collections.
+
+- Proper use of `pure=True` enables caching and optimization of repeated computations.
+
+See Also
+--------
+
+- `dask.compute` — Execute multiple delayed objects in parallel.  
+- `dask.visualize` — Visualize task graphs.  
+- `dask.dataframe`, `dask.array` — Higher-level Dask collections built on delayed computations.
+
+Examples
+--------
+
+```python
+from dask import delayed
+
+@delayed
+def inc(x):
+    return x + 1
+
+@delayed
+def add(x, y):
+    return x + y
+
+a = inc(1)
+b = inc(2)
+total = add(a, b)
+
+print(total.compute())  # Outputs 5
+```
+
+```python
+from dask import delayed
+
+data = [delayed(i) for i in range(5)]
+total = delayed(sum)(data)
+
+print(total.compute())  # Outputs 10
+```
+
+This interface provides a powerful and flexible way to parallelize Python code with minimal effort, leveraging Dask's dynamic task scheduling and execution capabilities.

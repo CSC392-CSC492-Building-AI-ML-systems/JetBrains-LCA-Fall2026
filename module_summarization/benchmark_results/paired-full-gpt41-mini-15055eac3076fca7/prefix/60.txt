@@ -1,0 +1,107 @@
+collection_api module
+=====================
+
+Support for collections of mapped entities
+-------------------------------------------
+
+The `collection_api` module provides the machinery used by SQLAlchemy's ORM to track changes in collections of mapped entities. It enables the ORM to be informed of membership changes within collections, allowing arbitrary collection types—including built-in types like lists, sets, and dictionaries—to be used as entity collections without requiring inheritance from a specific base class.
+
+Instrumentation Approach
+------------------------
+
+Instrumentation is achieved through a decoration approach that wraps collection methods to relay membership change events to the ORM's internal management system, specifically to instances of `CollectionAttributeImpl`. This approach tracks entities entering or leaving collections by observing function call arguments and return values.
+
+Two main types of decorators are provided:
+
+1. **Generic Decorators**  
+   These decorators map function arguments and return values to collection events. They are applied explicitly to methods to indicate their role in adding or removing items from the collection. For example:
+
+   ```python
+   from sqlalchemy.orm.collections import collection
+
+   class MyClass:
+       @collection.adds(1)
+       def store(self, item):
+           self.data.append(item)
+
+       @collection.removes_return()
+       def pop(self):
+           return self.data.pop()
+   ```
+
+2. **Targeted Decorators**  
+   These decorators are specialized wrappers around standard collection mutation methods (such as `append`, `remove`, `extend`, `update`, etc.) for built-in collection types like `list`, `set`, and `dict`. They provide efficient, fine-tuned instrumentation and sometimes adapt bulk operations into atomic mutation events required by the ORM.
+
+Automatic Instrumentation Process
+---------------------------------
+
+When a collection class is specified in a relationship via the `collection_class` parameter, it undergoes an instrumentation process during mapper compilation:
+
+1. If the class is a built-in type, it is substituted with a trivial subclass to allow decoration.
+2. The class is checked to determine if it is already instrumented.
+3. Generic decorators are added to the class methods.
+4. The collection interface is detected through duck-typing.
+5. Targeted decorators are applied to any undecorated interface methods.
+
+This runtime modification decorates methods and adds bookkeeping properties to enable event tracking. For built-in types like `list`, trivial subclasses such as `InstrumentedList` are used to hold these decorations.
+
+Usage Notes
+-----------
+
+- When extending known collection types (e.g., subclassing `list`), additional decorations are usually unnecessary if the extension methods delegate to already instrumented methods. This avoids firing duplicate events.
+
+- Some targeted decorators rely on the presence of 'read' methods to properly instrument 'write' operations. For example, `__setitem__` instrumentation depends on `__getitem__`.
+
+- Bulk mutation methods like `extend` or `update` may be reimplemented internally to emit a series of atomic append or remove events rather than calling the underlying method directly.
+
+Advanced Instrumentation
+------------------------
+
+For advanced use cases requiring tight control over event firing and exception management during collection mutations, internal instrumentation can be implemented within collection methods. The `collection_adapter(self)` function can be used inside methods to retrieve an adapter object that allows explicit control over append and remove event triggering.
+
+The adapter also provides access to the owning object and the `CollectionAttributeImpl`, enabling sophisticated behaviors and fine-grained event orchestration.
+
+Public API
+----------
+
+- **collection**  
+  A namespace containing decorators for annotating and instrumenting collection methods. Decorators include:
+
+  - `appender`  
+    Marks a method as an appender (adds items to the collection).
+
+  - `remover`  
+    Marks a method as a remover (removes items from the collection).
+
+  - `iterator`  
+    Marks a method as an iterator over collection items.
+
+  - `converter`  
+    Marks a method that converts collections.
+
+  - `adds()`  
+    A decorator factory indicating that the decorated method adds items to the collection.
+
+  - `removes_return()`  
+    A decorator factory indicating that the decorated method removes and returns items.
+
+- **collection_adapter(collection_instance)**  
+  Retrieves the adapter object associated with a collection instance, allowing explicit control over append and remove events.
+
+- **MappedCollection**  
+  A collection class that supports mapping keys to values with instrumentation.
+
+- **KeyFuncDict**  
+  A dictionary-like collection that uses a key function to map values.
+
+- **keyfunc_mapping**, **column_keyed_dict**, **attribute_keyed_dict**  
+  Utility functions and classes for keyed collections used internally by the ORM.
+
+License and Copyright
+---------------------
+
+This module is part of SQLAlchemy and is released under the MIT License. See the AUTHORS file for contributors.
+
+---
+
+For detailed usage and examples, refer to the SQLAlchemy ORM collections documentation and source code.

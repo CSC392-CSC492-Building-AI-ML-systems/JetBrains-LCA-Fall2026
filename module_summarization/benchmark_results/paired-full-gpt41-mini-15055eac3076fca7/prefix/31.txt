@@ -1,0 +1,89 @@
+w_red Command
+=============
+
+Description
+-----------
+The `w_red` command provides functionality to compute duration-based correction factors for weighted ensemble simulations. It uses event duration data to calculate a correction factor that accounts for the distribution of event durations within a simulation, enabling more accurate kinetic analysis.
+
+The core of the computation is based on the concept of a duration histogram and its cumulative distribution, which are used to adjust weights according to the observed durations of events.
+
+Usage
+-----
+The `w_red` command operates on duration data typically stored in WESTPA kinetics HDF5 files. It extracts durations and weights for transitions between specified initial and final states, then computes a correction factor based on these durations.
+
+Key Concepts
+------------
+
+- **Duration Histogram (`f_tilde`)**: A normalized histogram representing the distribution of event durations weighted by their statistical weights.
+
+- **Cumulative Duration Histogram (`f_int1`)**: The cumulative integral of the duration histogram.
+
+- **Correction Factor**: A factor computed as a function of iteration number and event durations, which corrects for the finite observation window in simulations.
+
+Mathematical Formulation
+------------------------
+The correction factor is defined as:
+
+.. math::
+
+    \tilde{f}(\tau) = \frac{\sum w_i \delta(\tau_i - \tau)}{\theta - \tau}
+
+where:
+
+- :math:`\tau` is the event duration,
+- :math:`w_i` are the weights of events with duration :math:`\tau_i`,
+- :math:`\theta` is the maximum duration time observed (or the simulation length).
+
+The function :math:`\tilde{f}(\tau)` is normalized such that:
+
+.. math::
+
+    \int_0^\theta \tilde{f}(\tau) d\tau = 1
+
+Arguments
+---------
+- **directh5**: Path to the WESTPA kinetics HDF5 file or an open H5File object containing the durations dataset.
+
+- **istate**: Initial state index for which durations are considered.
+
+- **fstate**: Final state index for which durations are considered.
+
+- **dtau**: Time resolution for binning durations.
+
+- **n_iters** (optional): Number of iterations to consider from the kinetics file.
+
+- **maxduration** (optional): Maximum duration time that could have been observed in the simulation, usually equal to the simulation length. If not provided, it is inferred from the data.
+
+Outputs
+-------
+- **Duration Histogram**: The weighted histogram of event durations.
+
+- **Cumulative Duration Histogram**: The cumulative integral of the duration histogram.
+
+- **Correction Factor**: A vector of correction factors for each iteration, accounting for the distribution of event durations.
+
+Example Workflow
+----------------
+1. Load durations and weights from a kinetics file for specified initial and final states.
+
+2. Instantiate the duration corrector with the durations, weights, and time resolution.
+
+3. Compute the correction factor for a range of iterations, optionally weighted by frequencies.
+
+This correction factor can then be applied to adjust fluxes or rates computed from weighted ensemble simulations, improving the accuracy of kinetic estimates.
+
+Notes
+-----
+- The correction assumes that event durations are binned into intervals of width `dtau`.
+
+- Weights corresponding to irrelevant transitions (not matching the specified initial and final states or with zero weight) are masked out.
+
+- The correction factor normalizes the weighted duration histogram to integrate to unity over the observed duration range.
+
+- The maximum duration parameter should reflect the longest possible event duration in the simulation to ensure proper normalization.
+
+See Also
+--------
+- WESTPA kinetics analysis tools
+
+- Weighted ensemble simulation methodologies

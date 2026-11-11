@@ -1,0 +1,26 @@
+{
+  "model_requested": "gpt-4.1-mini",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "request_id": "chatcmpl-EiqK8rdHb4el97BhzOP9FpA7fzVFM",
+  "prompt_sha256": "989639fd5d057720aee3ef9dae8a8c81e89f17a4c5fa5077d49111b0b0c68357",
+  "usage": {
+    "prompt_tokens": 1308,
+    "completion_tokens": 800,
+    "total_tokens": 2108,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "prediction": "Feature Extraction Module\n=========================\n\nOverview\n--------\n\nThe `feature_extraction` module provides utilities to create feature extractors from PyTorch models using the FX toolkit. It enables users to trace models and extract intermediate features by specifying nodes or modules of interest. This is particularly useful for tasks such as transfer learning, debugging, and model introspection.\n\nKey Components\n--------------\n\n### LeafModuleAwareTracer\n\n`LeafModuleAwareTracer` is a subclass of `torch.fx.Tracer` that allows specifying a set of leaf modules. Leaf modules are modules that should not be traced through; instead, they are treated as atomic units in the traced graph. This results in a graph where calls to these leaf modules' forward methods are represented as single nodes.\n\n- **Initialization**: Accepts a `leaf_modules` argument, which is a tuple or list of module classes to treat as leaves.\n- **Behavior**: Overrides `is_leaf_module` to return `True` for modules in the specified leaf modules set.\n\n### NodePathTracer\n\n`NodePathTracer` extends `LeafModuleAwareTracer` and enhances tracing by recording the qualified names of nodes in the traced graph. The qualified name is a dot-separated path representing the hierarchy from the top-level module down to the leaf operation or module, excluding the top-level module name itself.\n\nFeatures:\n\n- Maintains a mapping `node_to_qualname` from FX nodes to their qualified names.\n- Ensures unique node names by appending suffixes like `_1`, `_2` for duplicates.\n- Overrides `call_module` to track the current module's qualified name during tracing.\n- Overrides `create_proxy` to record the qualified name for each operation node.\n\nThis tracer is useful for generating feature extractors that can refer to intermediate nodes by their hierarchical names.\n\nFunctions\n---------\n\nThe module exposes the following functions (not fully shown in the provided code snippet but typically included):\n\n- `create_feature_extractor(model: nn.Module, return_nodes: Dict[str, str], *, node_names: Optional[List[str]] = None, leaf_modules: Optional[List[nn.Module]] = None) -> nn.Module`\n\n  Creates a new module that returns intermediate features from the specified nodes or modules in the original model.\n\n- `get_graph_node_names(graph_module: fx.GraphModule) -> List[str]`\n\n  Returns a list of node names present in the FX graph module, useful for identifying valid nodes to extract.\n\nUsage Example\n-------------\n\n```python\nimport torch\nfrom torchvision.models import resnet18\nfrom feature_extraction import create_feature_extractor\n\n# Load a pretrained model\nmodel = resnet18(pretrained=True)\n\n# Specify the nodes from which to extract features\nreturn_nodes = {\n    'layer1.0.relu': 'feat1',\n    'layer3.5.relu': 'feat2',\n}\n\n# Create a feature extractor\nfeature_extractor = create_feature_extractor(model, return_nodes)\n\n# Prepare input tensor\ninput_tensor = torch.randn(1, 3, 224, 224)\n\n# Extract features\nfeatures = feature_extractor(input_tensor)\n\nprint(features['feat1'].shape)  # Shape of features from layer1.0.relu\nprint(features['feat2'].shape)  # Shape of features from layer3.5.relu\n```\n\nIn this example, `create_feature_extractor` returns a new module that outputs a dictionary containing the intermediate activations from the specified nodes. This allows easy access to features at various depths of the model without modifying the original architecture.\n\nNotes\n-----\n\n- The tracing mechanism relies on PyTorch FX and may not support all dynamic control flows.\n- Specifying appropriate leaf modules can improve tracing performance and clarity.\n- Node names used in `return_nodes` should correspond to valid nodes in the FX graph; use `get_graph_node_names` to inspect available nodes.\n\nThis module is part of the torchvision library and is designed to facilitate advanced model introspection and feature extraction workflows.",
+  "prediction_sha256": "52df603cb986e645c9c3badfb3386357f302d6ddaaed63dff6f0f2a4890d7822",
+  "finish_reason": "stop",
+  "generation_seconds": 7.961973208000018,
+  "cost_usd": 0.0018032
+}

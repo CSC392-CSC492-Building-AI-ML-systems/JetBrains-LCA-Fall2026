@@ -1,0 +1,85 @@
+Array API Support
+=================
+
+Scikit-learn includes support for the Python Array API standard, enabling compatibility with multiple array computing libraries that implement this standard. This support facilitates working seamlessly with different array libraries while maintaining consistent behavior across them.
+
+Overview
+--------
+
+The Python Array API standard defines a common API for array computing libraries in Python, promoting interoperability and easing the development of library-agnostic code.
+
+- Specification: https://data-apis.org/array-api/latest/
+- NumPy implementation documentation: https://numpy.org/neps/nep-0047-array-api-standard.html
+
+Array API Wrapper
+-----------------
+
+To handle discrepancies and evolving features across different implementations of the Array API standard, scikit-learn uses an internal wrapper class, `_ArrayAPIWrapper`. This wrapper abstracts differences and provides a unified interface for array operations.
+
+Key features of the wrapper include:
+
+- Delegation of attribute access to the underlying array namespace.
+- Equality comparison based on the wrapped namespace.
+- Implementation of array operations such as `take`, with fallbacks for namespaces that do not yet support certain methods natively.
+- Handling of differences in behavior between NumPy’s Array API and other implementations.
+
+Example usage:
+
+```python
+import numpy
+import pytest
+
+numpy_array_api = pytest.importorskip("numpy.array_api")
+wrapped_namespace = _AdjustableNameAPITestWrapper(numpy_array_api, "wrapped_numpy.array_api")
+xp = _ArrayAPIWrapper(wrapped_namespace)
+
+X = xp.asarray([[1, 2, 3], [3, 4, 5]], dtype=xp.float64)
+X_converted = xp.astype(X, xp.float32)
+assert X_converted.dtype == xp.float32
+
+X_take = xp.take(X, xp.asarray([1]), axis=0)
+assert hasattr(X_take, "__array_namespace__")
+```
+
+Handling of `take` Operation
+----------------------------
+
+The `take` method is implemented with special consideration for namespaces that do not yet support it natively in the Array API standard. For example, when using `numpy.array_api`, the wrapper falls back to using `numpy.take` and then converts the result back to the array namespace.
+
+Order Preservation in Array Conversion
+--------------------------------------
+
+The utility function `_asarray_with_order` is used to convert arrays while preserving memory order when possible:
+
+- For NumPy arrays, the specified order (e.g., 'F' for Fortran-contiguous) is respected.
+- For generic Array API implementations, the order parameter is ignored, as these implementations may not support memory order flags.
+
+Supported Array Namespaces
+--------------------------
+
+Scikit-learn’s Array API support includes compatibility with the following array namespaces:
+
+- `numpy`
+- `numpy.array_api`
+- `cupy`
+- `cupy.array_api`
+- `torch`
+
+For certain namespaces like `torch`, tests and support cover multiple devices (`cpu`, `cuda`, `mps`) and data types (`float64`, `float32`).
+
+Testing and Compatibility Checks
+--------------------------------
+
+The scikit-learn test suite includes tests to verify:
+
+- Correct behavior of the `_ArrayAPIWrapper` with different array namespaces.
+- Proper handling of array creation, type casting, and operations like `take`.
+- Preservation of memory order where applicable.
+- Compatibility with the `array_api_compat` package, which follows NEP29 and requires a minimum NumPy version higher than scikit-learn’s baseline.
+
+These tests ensure robust support for the Array API standard across supported array libraries.
+
+Summary
+-------
+
+By integrating the Python Array API standard and providing a compatibility wrapper, scikit-learn enables users to leverage a variety of array computing backends transparently. This approach simplifies code maintenance and enhances interoperability in the evolving Python scientific computing ecosystem.

@@ -1,0 +1,215 @@
+Operations Module
+=================
+
+This module provides a collection of classes and methods to represent and execute various database schema migration operations. These operations are designed to be used within migration scripts to modify database schema elements such as tables, columns, indexes, constraints, and comments, either directly or within batch migration contexts.
+
+BulkInsertOp
+------------
+
+Represents a bulk insert operation.
+
+**Constructor:**
+
+```python
+BulkInsertOp(
+    table: Union[Table, TableClause],
+    rows: List[dict],
+    *,
+    multiinsert: bool = True
+) -> None
+```
+
+- `table`: The target table or table clause into which rows will be inserted.
+- `rows`: A list of dictionaries, each representing a row to insert.
+- `multiinsert`: If `True`, performs a multi-row insert; otherwise, inserts rows individually.
+
+**Class Method:**
+
+```python
+bulk_insert(
+    cls,
+    operations: Operations,
+    table: Union[Table, TableClause],
+    rows: List[dict],
+    *,
+    multiinsert: bool = True
+) -> None
+```
+
+Issues a "bulk insert" operation using the current migration context. This method supports executing inserts both on live connections and generating SQL scripts with inline values.
+
+Example usage:
+
+```python
+from alembic import op
+from datetime import date
+from sqlalchemy.sql import table, column
+
+# Define table and columns
+my_table = table('my_table',
+    column('id'),
+    column('name'),
+    column('created_at')
+)
+
+# Insert multiple rows
+op.bulk_insert(
+    my_table,
+    [
+        {'id': 1, 'name': 'Alice', 'created_at': date(2020, 1, 1)},
+        {'id': 2, 'name': 'Bob', 'created_at': date(2020, 1, 2)},
+    ]
+)
+```
+
+Batch Operations
+----------------
+
+Several operations support batch mode, allowing schema changes to be grouped and executed within a batch migration context. Batch operations omit explicit `table_name` and `schema` arguments, instead deriving them from the batch context.
+
+### batch_drop_table_comment
+
+```python
+batch_drop_table_comment(
+    cls,
+    operations: BatchOperations,
+    *,
+    existing_comment: Optional[str] = None
+) -> None
+```
+
+Issues a "drop table comment" operation to remove an existing comment set on a table within the current batch operations context.
+
+- `existing_comment`: Optional string value of a comment already registered on the specified table.
+
+### batch_drop_index
+
+```python
+batch_drop_index(
+    cls,
+    operations: BatchOperations,
+    index_name: str,
+    **kw: Any
+) -> None
+```
+
+Issues a "drop index" instruction using the current batch migration context.
+
+- `index_name`: Name of the index to drop.
+- Additional keyword arguments are passed through to the operation.
+
+### batch_create_primary_key
+
+```python
+batch_create_primary_key(
+    cls,
+    operations: BatchOperations,
+    constraint_name: str,
+    columns: List[str]
+) -> None
+```
+
+Issues a "create primary key" instruction using the current batch migration context.
+
+- `constraint_name`: Name of the primary key constraint.
+- `columns`: List of column names included in the primary key.
+
+CreateUniqueConstraintOp
+------------------------
+
+Represents a create unique constraint operation.
+
+This operation is registered under the name `"create_unique_constraint"` for both standard and batch operations, and is associated with the `"unique_constraint"` add constraint type.
+
+The operation allows adding a unique constraint to a table, ensuring that the specified columns contain unique values.
+
+Drop Column Operation (Batch)
+-----------------------------
+
+Provides a batch operation to issue a "drop column" instruction within the current batch migration context.
+
+Example usage:
+
+```python
+@classmethod
+def batch_drop_column(
+    cls,
+    operations: BatchOperations,
+    column_name: str,
+    **kw: Any
+) -> None:
+    """Issue a "drop column" instruction using the current batch migration context."""
+    op = cls(
+        operations.impl.table_name,
+        column_name,
+        schema=operations.impl.schema,
+        **kw,
+    )
+    return operations.invoke(op)
+```
+
+Drop Index Operation (Batch)
+----------------------------
+
+Issues a "drop index" instruction using the current batch migration context.
+
+Example usage:
+
+```python
+@classmethod
+def batch_drop_index(
+    cls,
+    operations: BatchOperations,
+    index_name: str,
+    **kw: Any
+) -> None:
+    """Issue a "drop index" instruction using the current batch migration context."""
+    op = cls(
+        index_name,
+        table_name=operations.impl.table_name,
+        schema=operations.impl.schema,
+        **kw,
+    )
+    return operations.invoke(op)
+```
+
+Drop Table Comment Operation (Batch)
+------------------------------------
+
+Issues a "drop table comment" operation to remove an existing comment set on a table using the current batch operations context.
+
+Example usage:
+
+```python
+@classmethod
+def batch_drop_table_comment(
+    cls,
+    operations: BatchOperations,
+    *,
+    existing_comment: Optional[str] = None,
+) -> None:
+    """Remove an existing comment from a table in batch mode."""
+    op = cls(
+        operations.impl.table_name,
+        existing_comment=existing_comment,
+        schema=operations.impl.schema,
+    )
+    return operations.invoke(op)
+```
+
+See Also
+--------
+
+- :meth:`.Operations.create_table_comment`
+- :paramref:`.Operations.alter_column.comment`
+- :meth:`.Operations.drop_index`
+- :meth:`.Operations.drop_column`
+- :meth:`.Operations.create_primary_key`
+- :meth:`.Operations.create_unique_constraint`
+
+These methods provide related functionality for managing schema elements and constraints outside of batch contexts.
+
+Summary
+-------
+
+This module facilitates the definition and execution of schema migration operations, supporting both immediate execution and batch migration contexts. It includes operations for bulk inserts, constraint creation, comment management, and schema element removal, enabling flexible and powerful database schema migrations.

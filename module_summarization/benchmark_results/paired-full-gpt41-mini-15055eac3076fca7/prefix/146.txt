@@ -1,0 +1,79 @@
+Quick Start
+===========
+
+This document provides a quick overview of how to use the geometric path abstractions and utilities provided by the `toppra` library to prepare paths for time-parameterization algorithms.
+
+Geometric Paths
+---------------
+
+The core requirement for using `toppra` algorithms is to provide a geometric path that implements the abstract base class `AbstractGeometricPath`. This class defines the interface for geometric paths, which includes:
+
+- Evaluating the path or its derivatives at given positions.
+- Querying the degrees of freedom (DOF) of the path.
+- Accessing the path interval (start and end positions).
+- Optionally, accessing waypoints if applicable.
+
+The key method to implement is:
+
+```python
+path(position, order=0)
+```
+
+where `position` can be a float or a numpy array of path positions, and `order` specifies the derivative order to evaluate:
+
+- `0`: position
+- `1`: first derivative (velocity)
+- `2`: second derivative (acceleration)
+
+The method returns the evaluated joint positions, velocities, or accelerations accordingly.
+
+Generating Gridpoints for a Path
+--------------------------------
+
+To prepare a geometric path for time-parameterization, it is often necessary to discretize it into gridpoints that sufficiently capture the path's curvature and complexity.
+
+The function `propose_gridpoints` helps generate such gridpoints automatically:
+
+```python
+propose_gridpoints(path, max_err_threshold=1e-4, max_iteration=100, max_seg_length=0.05)
+```
+
+- **path**: An instance of `AbstractGeometricPath`.
+- **max_err_threshold**: Maximum allowable worst-case interpolation error.
+- **max_iteration**: Maximum number of refinement iterations.
+- **max_seg_length**: Maximum allowed segment length between gridpoints.
+
+The function iteratively subdivides the path segments based on estimated interpolation errors and segment lengths, ensuring that regions with higher curvature have more gridpoints for better approximation quality.
+
+Example usage:
+
+```python
+gridpoints = propose_gridpoints(my_path)
+```
+
+OpenRAVE Trajectory Wrapper
+---------------------------
+
+If you are working with OpenRAVE trajectories, `toppra` provides the `RaveTrajectoryWrapper` class, which wraps OpenRAVE's `GenericTrajectory` objects into the `AbstractGeometricPath` interface.
+
+This wrapper supports trajectories using quadratic or cubic interpolation, representing them as piecewise polynomials.
+
+Example initialization:
+
+```python
+from toppra import RaveTrajectoryWrapper
+
+rave_path = RaveTrajectoryWrapper(traj, robot)
+```
+
+where `traj` is an OpenRAVE trajectory object and `robot` is the corresponding robot model.
+
+Summary
+-------
+
+- Implement or use an existing geometric path class derived from `AbstractGeometricPath`.
+- Use `propose_gridpoints` to generate a suitable discretization of the path.
+- For OpenRAVE users, wrap trajectories with `RaveTrajectoryWrapper`.
+- Once the path and gridpoints are prepared, you can proceed to apply `toppra` algorithms for time-parameterization.
+
+This quick start guide covers the essential steps to get started with geometric paths in `toppra`. For more detailed examples and advanced usage, please refer to the full documentation.

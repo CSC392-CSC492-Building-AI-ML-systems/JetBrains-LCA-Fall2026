@@ -1,0 +1,60 @@
+Metadata Routing API
+====================
+
+The Metadata Routing API provides a flexible mechanism to route method calls and parameters dynamically within meta-estimators and other composite estimators in scikit-learn. This API facilitates the delegation of method calls to underlying estimators based on metadata, enabling more modular and extensible estimator designs.
+
+Key Components
+--------------
+
+- **MetadataRouter**  
+  The core class responsible for managing the routing of method calls and parameters. It interprets routing metadata to determine how to dispatch calls to the appropriate underlying estimators or methods.
+
+- **MethodMapping**  
+  A utility that defines mappings between method names and their corresponding routing logic. It helps in specifying how methods should be routed based on the metadata.
+
+- **process_routing**  
+  A function that processes routing metadata and applies the routing logic to method calls. It ensures that parameters and method invocations are correctly forwarded to the target estimators.
+
+- **_raise_for_params**  
+  A helper function used to validate parameters related to routing and raise informative errors when invalid parameters are detected.
+
+- **_routing_enabled**  
+  A flag or utility to check whether routing is enabled for a given context or estimator, allowing conditional routing behavior.
+
+Usage Overview
+--------------
+
+The Metadata Routing API is primarily used internally within meta-estimators that extend single-output estimators to multi-output or chained estimators. By leveraging this API, these meta-estimators can:
+
+- Dynamically route method calls such as `fit`, `predict`, or `partial_fit` to the appropriate underlying estimators.
+- Manage parameter passing and validation across multiple estimators seamlessly.
+- Enable advanced behaviors like multi-output regression/classification and classifier/regressor chains without duplicating method implementations.
+
+Example
+-------
+
+While the API is mostly used internally, a conceptual example of its usage is as follows:
+
+```python
+from sklearn.utils.metadata_routing import MetadataRouter, process_routing
+
+class MyMetaEstimator:
+    def __init__(self, base_estimator):
+        self.base_estimator = base_estimator
+        self.router = MetadataRouter()
+
+    def fit(self, X, y, **fit_params):
+        # Use process_routing to delegate fit call with routing metadata
+        return process_routing(self.router, "fit", X, y, **fit_params)
+```
+
+This example illustrates how method calls can be routed through the `MetadataRouter` to the underlying estimator(s), handling parameters and method dispatch transparently.
+
+Notes
+-----
+
+- The Metadata Routing API is designed to be extensible and adaptable to various meta-estimator designs.
+- It relies on metadata annotations and method mappings to control routing behavior.
+- Proper use of this API can simplify the implementation of complex estimator compositions and improve code maintainability.
+
+For detailed usage and examples, refer to the internal implementations of multi-output and chain meta-estimators in scikit-learn.

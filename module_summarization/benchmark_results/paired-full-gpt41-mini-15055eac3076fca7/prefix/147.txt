@@ -1,0 +1,89 @@
+# Fleur Input/Output Parsers
+
+This module provides functionality to parse and extract relevant information from Fleur XML input and output files. Fleur is a software package used for electronic structure calculations, and its XML files contain detailed information about the calculation setup and results.
+
+## Overview
+
+The Fleur parsers are designed to handle different versions of Fleur XML files by utilizing schema dictionaries that correspond to specific file versions. This ensures compatibility and correct interpretation of the XML structure and attributes.
+
+The main focus of the parsers is to extract distinct parts of the Fleur XML files for easy versioning, reuse, and analysis. This includes determining calculation modes, reading atomic site properties, and other relevant metadata.
+
+## Key Features
+
+### Calculation Modes Extraction
+
+The function `get_fleur_modes` analyzes a given Fleur XML tree and extracts the calculation modes that influence the produced files or output in the `out.xml` files. These modes provide insight into how the calculation was performed and what features were enabled.
+
+#### Parameters
+
+- `xmltree` (`XMLLike`): An XML tree representing the Fleur XML file.
+- `schema_dict` (`InputSchemaDict` or `OutputSchemaDict`): The schema dictionary corresponding to the file version of the XML tree.
+- `logger` (`Logger`, optional): Logger object for logging warnings or errors during parsing.
+
+#### Returns
+
+A dictionary containing the extracted calculation modes with the following keys:
+
+- `jspin` (`int`): Number of spins considered in the calculation.
+- `noco` (`bool`): Indicates if the calculation is non-collinear.
+- `soc` (`bool`): Indicates if spin-orbit coupling is included.
+- `relax` (`bool`): Indicates if the calculation is a structure relaxation.
+- `spex` (`int`): Special mode for GW/Spex calculations.
+- `force_theorem` (`bool`): Indicates if a Force theorem calculation was performed.
+- `cf_coeff` (`bool`): Indicates if crystal field coefficients are used.
+- `plot` (`bool`): Indicates if plotting mode is enabled.
+- `film` (`bool`): Indicates if the structure is a film system.
+- `ldau` (`bool`): Indicates if LDA+U corrections are included.
+- `dos` (`bool`): Indicates if it is a density of states calculation.
+- `band` (`bool`): Indicates if it is a bandstructure calculation.
+- `bz_integration` (`Any`): Describes how the integration over the Brillouin zone is performed (not fully detailed in the snippet).
+
+#### Description
+
+The function uses a context manager `FleurXMLContext` to safely access XML attributes and tags according to the provided schema. It checks for the presence of specific tags and attributes to determine the calculation modes. For example, it checks for the presence of `l_noco` to determine non-collinearity, `l_soc` for spin-orbit coupling, and `ldaU` tags for LDA+U corrections.
+
+The function also handles differences in schema versions, adapting its checks accordingly to maintain compatibility with older and newer Fleur XML versions.
+
+## Dependencies
+
+- `lxml.etree`: For XML parsing.
+- `masci_tools.io.parsers.fleur_schema`: Provides schema dictionaries for different Fleur XML versions.
+- `masci_tools.io.fleur_xml.FleurXMLContext`: Context manager for XML attribute and tag access.
+- `logging.Logger`: For logging purposes.
+- `numpy`: Used internally for numerical operations.
+- `typing`: For type annotations.
+
+## Usage Example
+
+```python
+from lxml import etree
+from masci_tools.io.parsers import fleur_parser
+from masci_tools.io.parsers.fleur_schema import schema_dict_version_dispatch
+
+# Load XML file
+xmltree = etree.parse('path_to_fleur_input.xml')
+
+# Determine schema dictionary based on XML version
+schema_dict = schema_dict_version_dispatch(xmltree)
+
+# Extract calculation modes
+modes = fleur_parser.get_fleur_modes(xmltree, schema_dict)
+
+print(modes)
+```
+
+## Notes
+
+- The parsers are designed to be robust against changes in the Fleur XML schema by using versioned schema dictionaries.
+- Logging can be enabled by passing a `Logger` instance to the parsing functions to capture warnings or errors.
+- The module is part of the Masci-tools package, which provides various utilities for materials science computations.
+
+## License and Source
+
+- The code is part of the Masci-tools package.
+- Hosted on GitHub: [https://github.com/judftteam/masci-tools](https://github.com/judftteam/masci-tools)
+- License details can be found in the LICENSE.txt file in the repository.
+
+---
+
+This documentation provides an overview of the Fleur input/output parsers, focusing on their purpose, usage, and key functionalities for extracting calculation modes from Fleur XML files.

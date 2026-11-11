@@ -1,0 +1,93 @@
+Generate Documentation for Scan Plans
+======================================
+
+Overview
+--------
+This module provides implementations of experimental scan plans commonly used in data acquisition systems. These plans coordinate the movement of motors and the collection of data from detectors, supporting flexible scanning patterns and customizable hooks for user-defined behavior during scans.
+
+Functions
+---------
+
+count(detectors, num=1, delay=None, *, per_shot=None, md=None)
+---------------------------------------------------------------
+Take one or more readings from detectors.
+
+**Parameters:**
+
+- **detectors** (list): List of 'readable' objects (detectors) from which data will be collected.
+- **num** (int, optional): Number of readings to take; default is 1. If set to None, data is captured until canceled.
+- **delay** (iterable or scalar, optional): Time delay in seconds between successive readings; default is 0.
+- **per_shot** (callable, optional): Hook for customizing the action of the inner loop (messages per step). Expected signature:
+
+  ```python
+  def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+      ...
+  ```
+
+- **md** (dict, optional): Metadata dictionary to attach to the plan.
+
+**Notes:**
+
+- If `delay` is an iterable, it must have at least `num - 1` entries; otherwise, the plan will raise a `ValueError` during iteration.
+
+**Description:**
+
+The `count` plan repeatedly triggers the specified detectors to take readings. It supports optional delays between readings and allows customization of the behavior per shot via the `per_shot` callable. Metadata about the scan, including detector names and number of points, is maintained and can be extended via the `md` parameter.
+
+---
+
+list_scan(detectors, *args, per_step=None, md=None)
+---------------------------------------------------
+Scan over one or more variables in steps simultaneously (inner product).
+
+**Parameters:**
+
+- **detectors** (list): List of 'readable' objects (detectors) to collect data from.
+- **\*args**: Variable length argument list specifying motors and their corresponding positions. For one dimension, the format is:
+
+  ```python
+  motor, [point1, point2, ...]
+  ```
+
+  For multiple dimensions, provide pairs of motors and their position lists:
+
+  ```python
+  motor1, [point1, point2, ...],
+  motor2, [point1, point2, ...],
+  ...,
+  motorN, [point1, point2, ...]
+  ```
+
+  Motors can be any 'settable' object such as motors or temperature controllers.
+
+- **per_step** (callable, optional): Hook for customizing the action of the inner loop (messages per step). Expected signature:
+
+  ```python
+  f(detectors, motor, step) -> plan (a generator)
+  ```
+
+- **md** (dict, optional): Metadata dictionary to attach to the plan.
+
+**Raises:**
+
+- `ValueError`: If the number of arguments in `*args` is not even, or if the lengths of all position lists are not the same.
+
+**Description:**
+
+The `list_scan` plan performs a simultaneous scan over one or more motors, moving each motor through a specified list of positions. The scan proceeds through the Cartesian product of the position lists, taking readings from the detectors at each step. The plan verifies that all position lists have the same length to ensure synchronized stepping. Metadata about the scan, including detector and motor names, number of points, and intervals, is maintained and can be extended via the `md` parameter.
+
+**See Also:**
+
+- :func:`bluesky.plans.rel_list_scan`
+- :func:`bluesky.plans.list_grid_scan`
+- :func:`bluesky.plans.rel_list_grid_scan`
+
+---
+
+Notes
+-----
+- The module imports utility functions and decorators from related submodules such as `plan_patterns`, `utils`, `preprocessors`, and `plan_stubs`.
+- The `count` and `list_scan` functions are implemented as generator-based plans compatible with Bluesky-style experimental control frameworks.
+- The plans support metadata enrichment and hooks for user customization to adapt to various experimental requirements.
+
+This documentation covers the primary scanning plans provided in this module, facilitating their use and extension in experimental workflows.

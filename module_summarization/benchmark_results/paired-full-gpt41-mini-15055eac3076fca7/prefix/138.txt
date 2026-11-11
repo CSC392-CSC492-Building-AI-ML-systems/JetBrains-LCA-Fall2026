@@ -1,0 +1,79 @@
+Array Best Practices
+====================
+
+This document outlines best practices for working with arrays in Dask, particularly focusing on masked arrays and dispatch mechanisms that enable efficient and flexible array operations.
+
+Dispatch Mechanism
+------------------
+
+Dask uses a dispatch system to handle various array operations such as concatenation, tensordot, einsum, and others. This system allows Dask to route operations to the appropriate backend or implementation depending on the array type or context.
+
+Key dispatch objects include:
+
+- `concatenate_lookup`
+- `tensordot_lookup`
+- `einsum_lookup`
+- `empty_lookup`
+- `divide_lookup`
+- `percentile_lookup`
+- `numel_lookup`
+- `nannumel_lookup`
+- `to_numpy_dispatch`
+- `to_cupy_dispatch`
+
+These dispatchers facilitate extensibility and backend interoperability, enabling Dask arrays to work seamlessly with NumPy, CuPy, and other array libraries.
+
+Masked Arrays
+-------------
+
+Dask provides support for masked arrays, leveraging NumPy's `numpy.ma` module functionality while enabling lazy and parallel computation.
+
+### Creating and Manipulating Masked Arrays
+
+- Use `dask.array.ma.filled(a, fill_value=None)` to fill masked elements with a specified value.
+- Masked comparison functions such as `masked_greater`, `masked_less_equal`, `masked_not_equal`, etc., are available and operate elementwise on Dask arrays.
+- Use `masked_equal(a, value)` to mask elements equal to a scalar value.
+- Use `masked_invalid(a)` to mask invalid entries (e.g., NaNs or infinities).
+- Use `masked_inside(x, v1, v2)` and `masked_outside(x, v1, v2)` to mask elements inside or outside a specified interval.
+- Use `masked_where(condition, a)` to mask elements of `a` where a condition is true.
+- Use `masked_values(x, value, rtol=1e-05, atol=1e-08, shrink=True)` to mask elements approximately equal to a given value.
+- Use `fix_invalid(a, fill_value=None)` to replace invalid entries with a fill value.
+- Use `getdata(a)` to retrieve the underlying data of a masked array.
+
+### Best Practices for Masked Arrays
+
+- Always convert inputs to Dask arrays using `asanyarray` before applying masked array operations to ensure compatibility.
+- Use `blockwise` or `map_blocks` to apply NumPy masked array functions across Dask array chunks efficiently.
+- Avoid passing array-like values as mask values in functions like `masked_equal` and `masked_values`; scalar values are expected.
+- Ensure that condition arrays used in masking operations have shapes consistent with the target arrays to avoid shape mismatch errors.
+- Leverage Dask's lazy evaluation to build complex masked array computations without immediate execution, enabling scalable workflows.
+
+General Array Handling
+----------------------
+
+- Use `asanyarray` to convert inputs to Dask arrays, preserving subclass information when possible.
+- Utilize `blockwise` and `map_blocks` for elementwise and blockwise operations, respectively, to maintain parallelism and chunking.
+- Use `derived_from` decorators to maintain API consistency with NumPy, making it easier for users familiar with NumPy to adopt Dask arrays.
+- Normalize tokens for complex objects (e.g., masked arrays) using `normalize_token` to ensure proper caching and task graph optimization.
+
+Licensing and Attribution
+-------------------------
+
+Parts of the array functionality and code are derived from NumPy and retain the original copyright and licensing terms:
+
+- Copyright (c) 2005-2015, NumPy Developers.
+- Redistribution and use are permitted under specified conditions.
+- The software is provided "as is" without warranty.
+
+Please refer to the original NumPy license for full details.
+
+Summary
+-------
+
+- Use Dask's dispatch system to write extensible and backend-agnostic array code.
+- Prefer Dask's masked array functions for handling missing or invalid data in parallel computations.
+- Always validate input shapes and types when performing masked operations.
+- Leverage Dask's blockwise and map_blocks utilities for efficient chunk-wise computation.
+- Follow NumPy-compatible APIs to ease transition and interoperability.
+
+By adhering to these best practices, users can write robust, scalable, and maintainable array computations using Dask.

@@ -1,0 +1,118 @@
+Analyzing a Collection of Text Documents
+========================================
+
+This section covers how to analyze a collection of text documents by converting them into numerical feature representations suitable for machine learning models. The primary focus is on extracting token counts and transforming raw text into matrices that capture the frequency or importance of terms.
+
+CountVectorizer
+---------------
+
+The `CountVectorizer` converts a collection of text documents into a matrix of token counts. It produces a sparse representation of the counts using `scipy.sparse.csr_matrix`. This is useful for text classification, clustering, and other natural language processing tasks.
+
+If no predefined vocabulary is provided and no feature selection is applied by the analyzer, the number of features corresponds to the vocabulary size found by analyzing the input data.
+
+**Parameters**
+
+- **input** : {'filename', 'file', 'content'}, default='content'  
+  Specifies the format of the input sequence to be analyzed:
+  - `'filename'`: The input is expected to be a list of filenames. The files will be read to fetch the raw content.
+  - `'file'`: The input items must have a `read` method (file-like objects) to fetch bytes.
+  - `'content'`: The input is expected to be a sequence of strings or bytes.
+
+- **encoding** : str, default='utf-8'  
+  Encoding used to decode bytes or files.
+
+- **decode_error** : {'strict', 'ignore', 'replace'}, default='strict'  
+  Instruction on how to handle decoding errors when analyzing byte sequences.
+
+- **dtype** : dtype, default=np.int64  
+  Data type of the matrix returned by `fit_transform()` or `transform()`.
+
+**Attributes**
+
+- **vocabulary_** : dict  
+  A mapping of terms to feature indices.
+
+- **fixed_vocabulary_** : bool  
+  Indicates if a fixed vocabulary was provided by the user.
+
+- **stop_words_** : set  
+  Terms ignored due to frequency thresholds (`max_df`, `min_df`) or feature selection (`max_features`). Available only if no vocabulary was given.
+
+**Notes**
+
+- The `CountVectorizer` is stateless and does not require fitting. However, calling `fit_transform` is recommended over `transform` to ensure parameter validation.
+- The `stop_words_` attribute can be large and increase model size when pickling. It is intended for introspection and can be removed or set to `None` before serialization.
+
+**See Also**
+
+- `HashingVectorizer` : Converts text documents to a matrix of token counts using a hashing trick.
+- `TfidfVectorizer` : Converts raw documents to a matrix of TF-IDF features.
+
+**References**
+
+- Baeza-Yates, R., & Ribeiro-Neto, B. (2011). *Modern Information Retrieval*. Addison Wesley, pp. 68-74.
+- Manning, C. D., Raghavan, P., & Schütze, H. (2008). *Introduction to Information Retrieval*. Cambridge University Press, pp. 118-120.
+
+**Example**
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer
+
+corpus = [
+    'This is the first document.',
+    'This document is the second document.',
+    'And this is the third one.',
+    'Is this the first document?',
+]
+
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(corpus)
+print(X.shape)  # Output: (4, number_of_features)
+```
+
+HashingVectorizer
+-----------------
+
+The `HashingVectorizer` converts a collection of text documents into a matrix of token occurrences using a hashing trick. It is a stateless transformer that does not require fitting and is useful for large datasets where memory efficiency is important.
+
+**Parameters**
+
+- **n_features** : int  
+  Number of features (columns) in the output matrix.
+
+- **input_type** : str, default='string'  
+  Type of input expected.
+
+- **dtype** : dtype, default=np.float64  
+  Data type of the output matrix.
+
+- **alternate_sign** : bool  
+  Whether to use alternating signs in the hashing function to reduce collisions.
+
+**Example**
+
+```python
+from sklearn.feature_extraction.text import HashingVectorizer
+
+corpus = [
+    'This is the first document.',
+    'This document is the second document.',
+    'And this is the third one.',
+    'Is this the first document?',
+]
+
+vectorizer = HashingVectorizer(n_features=2**4)
+X = vectorizer.fit_transform(corpus)
+print(X.shape)  # Output: (4, 16)
+```
+
+Additional Utilities
+--------------------
+
+- `_document_frequency(X)`  
+  Counts the number of non-zero values for each feature in a sparse matrix `X`. This is useful for computing document frequencies when working with sparse representations.
+
+Summary
+-------
+
+Analyzing a collection of text documents involves transforming raw text into numerical feature matrices. The `CountVectorizer` and `HashingVectorizer` provide efficient ways to convert text into token count matrices, enabling downstream machine learning tasks. Choosing between them depends on the need for a fixed vocabulary (`CountVectorizer`) versus memory efficiency and scalability (`HashingVectorizer`).

@@ -1,0 +1,85 @@
+Controlling Chunking
+===================
+
+Dask arrays support flexible chunking strategies that allow you to control how large arrays are divided into smaller blocks (chunks). Proper chunking is essential for optimizing performance and memory usage during computations.
+
+Chunking Basics
+---------------
+
+- **Chunks** define the shape of each block in the array.
+- You can specify chunks as an integer (uniform chunk size along each dimension), a tuple of integers (chunk size per dimension), or a tuple of tuples (explicit chunk sizes for each block).
+- Dask arrays can have zero-length chunks, which are supported and handled gracefully.
+- Chunking can be changed or adjusted using the `.rechunk()` method.
+
+Examples of Chunking Parameters
+-------------------------------
+
+- `(10, -1)` or `(-1, 10)` — chunking with one dimension fixed and the other inferred.
+- `(9, -1)` or `(-1, 9)` — chunking that may contradict the array shape.
+- Uniform chunk sizes like `(2, 3)` or `(8,)` for 1D arrays.
+
+Rechunking
+----------
+
+The `.rechunk()` method allows you to change the chunk sizes of an existing Dask array. It tries to avoid unnecessary chunking operations to optimize the computation graph size.
+
+```python
+x = da.ones(16, chunks=2)
+y = x.rechunk(8)
+```
+
+In this example, rechunking from chunks of size 2 to 8 reduces the number of chunks and the complexity of the computation graph.
+
+Handling Edge Cases
+-------------------
+
+- Arrays with zero-length dimensions and zero-length chunks are supported.
+- Rechunking arrays with empty chunks preserves the data and chunk structure.
+- Dask ensures that rechunking operations do not introduce needless chunking steps.
+
+Chunking and Linear Algebra Operations
+--------------------------------------
+
+Certain linear algebra operations, such as Singular Value Decomposition (SVD), have restrictions on chunking:
+
+- SVD is supported only for arrays chunked along a single dimension (either a single column of chunks for tall-and-skinny arrays or a single row of chunks for short-and-fat arrays).
+- Arrays chunked in both dimensions require alternative methods like `da.linalg.svd_compressed`.
+
+Example:
+
+```python
+x = np.random.default_rng().random((10, 100))
+dx = da.from_array(x, chunks=(10, -1))  # Chunking along rows only
+
+du, ds, dv = da.linalg.svd(dx)
+```
+
+This chunking ensures compatibility with the SVD implementation.
+
+Chunking with Storage Backends
+------------------------------
+
+Dask arrays can be saved to and loaded from storage backends such as TileDB and Zarr, preserving chunking information:
+
+- When writing to TileDB or Zarr, chunking is maintained.
+- Partial writes and reads with specified regions are supported.
+- Chunking consistency is verified after round-trip operations.
+
+Example:
+
+```python
+a.to_zarr(zarr_store)
+a2 = da.from_zarr(zarr_store)
+assert a.chunks == a2.chunks
+```
+
+Summary
+-------
+
+- Control chunking by specifying chunk sizes when creating arrays or using `.rechunk()`.
+- Choose chunk sizes that align with your computation patterns for optimal performance.
+- Be aware of chunking restrictions for certain operations like SVD.
+- Utilize Dask’s support for zero-length chunks and empty chunks.
+- Preserve chunking when interfacing with storage backends.
+
+For more details, see the Dask array documentation and the specific function docstrings related to chunking and linear algebra operations.

@@ -1,0 +1,59 @@
+Tensor Attributes
+=================
+
+This document provides an overview of the tensor attributes used within the OneFlow MLIR integration, describing their purpose and usage in tensor operations and transformations.
+
+Data Type and Shape Attributes
+------------------------------
+
+Tensors in OneFlow are described by their data type and shape attributes, which are essential for defining the tensor's memory layout and element type.
+
+- **Data Type**: The data type attribute corresponds to the underlying element type of the tensor, such as `float32`, `int32`, `int64`, `double`, or boolean. These types are mapped from OneFlow's internal data types to MLIR's `RankedTensorType` element types.
+
+- **Shape**: The shape attribute defines the dimensions of the tensor. Shapes are represented as arrays of integers specifying the size of each dimension. OneFlow supports both single shape attributes (`shape_generated.h`) and multiple shapes (`shapes_generated.h`), allowing for flexible tensor dimensionality.
+
+Tensor Type Construction
+------------------------
+
+Tensor types are constructed using the `RankedTensorType::get` method, which takes a shape vector and an element type. The shape vector is typically extracted from the tensor's blob descriptor, which contains the dimension sizes.
+
+Example:
+```cpp
+if (auto type = getTypeFromOneFlowDataType(context, blob_desc->data_type())) {
+  return RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(
+          {blob_desc->shape().dim_vec().begin(), blob_desc->shape().dim_vec().end()}),
+      type);
+} else {
+  return Type{};
+}
+```
+
+This snippet shows how the tensor type is inferred from the blob descriptor's data type and shape.
+
+Attribute Categories
+--------------------
+
+OneFlow defines a variety of attribute categories to support tensor operations:
+
+- **Boolean Attributes** (`bool_generated.h`): Represent boolean flags or options.
+- **Floating Point Attributes** (`f32_generated.h`, `f32s_generated.h`, `f64_generated.h`): Represent single and double precision floating-point values or arrays.
+- **Integer Attributes** (`i32_generated.h`, `i32s_generated.h`, `i64_generated.h`, `i64s_generated.h`): Represent 32-bit and 64-bit integers or arrays.
+- **Shape Attributes** (`shape_generated.h`, `shapes_generated.h`): Represent tensor shapes.
+- **String Attributes** (`str_generated.h`, `strs_generated.h`): Represent string values or arrays.
+
+These attributes are used to annotate operations and tensors with metadata necessary for compilation, optimization, and execution.
+
+Attribute Usage in Passes and Transformations
+---------------------------------------------
+
+Tensor attributes play a critical role in various MLIR passes and transformations within OneFlow:
+
+- **Conversion Passes**: Attributes are used to convert user operations to inference versions, ensuring that tensor types and shapes are correctly propagated.
+- **Canonicalization and Common Subexpression Elimination (CSE)**: Some passes ignore or manipulate tensor attributes to enable more effective optimization by folding or eliminating redundant operations.
+- **Type Conversion for Backend Compatibility**: Attributes help convert tensor types, such as converting signed integer tensors to signless types before lowering to backends like TOSA.
+
+Summary
+-------
+
+Tensor attributes in OneFlow's MLIR integration provide a structured and extensible way to represent tensor metadata, including data types, shapes, and other relevant properties. They enable precise type inference, optimization, and backend lowering, ensuring efficient and correct execution of tensor operations.

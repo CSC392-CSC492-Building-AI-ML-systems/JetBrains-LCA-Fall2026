@@ -1,0 +1,138 @@
+Filters
+=======
+
+This module provides classes and functions to create and manage event filters for Ethereum blockchain logs using Web3.py and gevent for asynchronous event handling.
+
+Functions
+---------
+
+construct_event_filter_params(event_abi, contract_address=None, argument_filters=None, topics=None, fromBlock=None, toBlock=None, address=None)
+    Constructs filter parameters for an event filter based on the event ABI and optional filtering criteria.
+
+    Parameters:
+        event_abi (dict): The ABI of the event to filter.
+        contract_address (str or list, optional): The address or list of addresses of the contract(s) emitting the event.
+        argument_filters (dict, optional): Filters on the event arguments.
+        topics (list or None, optional): Explicit topics to filter on.
+        fromBlock (int or str, optional): The block number or block identifier to start filtering from.
+        toBlock (int or str, optional): The block number or block identifier to stop filtering at.
+        address (str or list, optional): Additional address or addresses to filter on.
+
+    Returns:
+        tuple: A tuple containing:
+            - data_filters_set (list): A set of data filters constructed from the event ABI and argument filters.
+            - filter_params (dict): A dictionary of filter parameters suitable for use with Web3.py filter methods.
+
+Classes
+--------
+
+Filter(gevent.Greenlet)
+    Base class representing a blockchain event filter that runs asynchronously using gevent.
+
+    Attributes:
+        callbacks (list): List of callback functions to be called when new events are detected.
+        running (bool): Indicates whether the filter is currently running.
+        stopped (bool): Indicates whether the filter has been stopped.
+        poll_interval (float or None): Time interval in seconds between polling for new events.
+
+    Methods:
+        __init__(web3, filter_id)
+            Initializes the Filter instance.
+
+            Parameters:
+                web3 (Web3): An instance of the Web3 client.
+                filter_id (str): The identifier of the filter on the Ethereum node.
+
+        __str__()
+            Returns a string representation of the Filter.
+
+        _run()
+            Internal method run by the gevent Greenlet to poll for new events and invoke callbacks.
+
+LogFilter(Filter)
+    A subclass of Filter specialized for filtering log entries from the blockchain.
+
+    Attributes:
+        data_filter_set (list or None): A set of data filters applied to the logs.
+        data_filter_set_regex (re.Pattern or None): A compiled regex pattern derived from the data filters for efficient matching.
+        log_entry_formatter (callable or None): A function to format log entries before returning them.
+
+    Methods:
+        __init__(*args, **kwargs)
+            Initializes the LogFilter instance.
+
+            Keyword Arguments:
+                log_entry_formatter (callable, optional): A formatter function for log entries.
+                data_filter_set (list, optional): Initial data filters to apply.
+
+        get(only_changes=True)
+            Retrieves log entries from the filter.
+
+            Parameters:
+                only_changes (bool): If True, returns only new log entries since the last poll; if False, returns all matching logs.
+
+            Returns:
+                list: A list of formatted log entries.
+
+            Raises:
+                ValueError: If called while the filter is actively running.
+
+        format_entry(entry)
+            Formats a single log entry using the log_entry_formatter if provided.
+
+            Parameters:
+                entry (dict): The raw log entry.
+
+            Returns:
+                The formatted log entry or the original entry if no formatter is set.
+
+        set_data_filters(data_filter_set)
+            Sets the data filters for the LogFilter and updates the internal regex pattern accordingly.
+
+            Parameters:
+                data_filter_set (list): A list of data filters to apply.
+
+Usage
+-----
+
+These classes and functions are designed to facilitate the creation and management of Ethereum event filters, allowing asynchronous monitoring of blockchain events with support for filtering by topics, addresses, and event argument values. The LogFilter class extends the base Filter to provide additional capabilities specific to log entries, including data filtering and custom formatting.
+
+Example
+-------
+
+.. code-block:: python
+
+    from filters import construct_event_filter_params, LogFilter
+
+    # Construct filter parameters for a specific event
+    data_filters, filter_params = construct_event_filter_params(
+        event_abi=my_event_abi,
+        contract_address='0x1234567890abcdef...',
+        argument_filters={'from': '0xabc...', 'value': 100}
+    )
+
+    # Create a LogFilter instance
+    log_filter = LogFilter(web3=my_web3_instance, filter_id='0xfilterid', data_filter_set=data_filters)
+
+    # Retrieve new log entries
+    new_logs = log_filter.get(only_changes=True)
+
+    # Process logs
+    for log in new_logs:
+        print(log)
+
+Note
+----
+
+- The Filter class uses gevent.Greenlet for asynchronous operation and should not be restarted once stopped.
+- The LogFilter class supports setting data filters that are internally converted to regex patterns for efficient matching.
+- The module depends on external utilities such as `construct_event_topic_set` and `construct_event_data_set` for topic and data filter construction.
+
+Dependencies
+------------
+
+- gevent
+- Web3.py
+- Python standard libraries: re, random
+
+This documentation covers the main components and usage of the filters module for Ethereum event filtering and log processing.

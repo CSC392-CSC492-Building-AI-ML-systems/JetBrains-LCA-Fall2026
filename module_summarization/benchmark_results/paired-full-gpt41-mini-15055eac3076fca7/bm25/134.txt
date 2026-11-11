@@ -1,0 +1,102 @@
+Alchemical Transformations
+==========================
+
+Overview
+--------
+
+Alchemical transformations are a powerful technique used in molecular simulations to compute free energy differences between different molecular states, such as mutations, ligand binding, or chemical modifications. This approach involves gradually transforming one molecular system into another by modifying the system's Hamiltonian through a coupling parameter, often denoted as lambda (λ).
+
+The `perses.annihilation` module provides tools to facilitate relative alchemical transformations, enabling the construction of hybrid topologies and the execution of nonequilibrium switching protocols to estimate free energy differences efficiently.
+
+Key Components
+--------------
+
+### HybridTopologyFactory
+
+The `HybridTopologyFactory` class is central to setting up alchemical transformations. It constructs a hybrid system that combines the old and new molecular topologies into a single system. This hybrid system contains all atoms from both states, with appropriate handling of core atoms, unique old atoms, and unique new atoms.
+
+Key features include:
+
+- **Alchemical Region Definition**: By default, the alchemical region includes all core atoms, unique new atoms, and unique old atoms. Users can specify a custom alchemical region, but it must include all default atoms.
+- **Force Handling**: The factory copies standard valence forces (bonds, angles, torsions) from the original systems into the hybrid system and carefully manages nonbonded forces, including exceptions such as 1-4 interactions.
+- **Virtual Sites**: Proper handling of virtual sites is included to ensure consistency in the hybrid system.
+
+### RelativeAlchemicalState and LambdaProtocol
+
+- `RelativeAlchemicalState` represents the alchemical parameters controlling the transformation, such as lambda values that scale interactions between old and new states.
+- `LambdaProtocol` defines the schedule of lambda values used during the transformation, enabling smooth interpolation between end states.
+
+### Thermodynamic and Sampler States
+
+To perform simulations with the hybrid system, the following states are constructed:
+
+- **ThermodynamicState**: Defines the thermodynamic conditions (e.g., temperature, pressure) for the hybrid system.
+- **CompoundThermodynamicState**: Combines the thermodynamic state with the alchemical state to represent the full system state during the transformation.
+- **SamplerState**: Contains the positions and box vectors of the system, used as initial and final states in nonequilibrium switching moves.
+
+### NCMCEngine
+
+The `NCMCEngine` class implements Nonequilibrium Candidate Monte Carlo (NCMC) switching moves, which are used to propagate the system along the alchemical path efficiently. This engine supports:
+
+- Configurable temperature, timestep, and number of steps.
+- Integration with the hybrid system and alchemical states.
+- Handling of exceptions and special cases such as NaN values during propagation.
+
+Usage Example
+-------------
+
+Below is an example illustrating how to set up an alchemical transformation for an alanine dipeptide system where the N-methyl group is eliminated:
+
+```python
+from openmmtools import testsystems
+from perses.rjmc.topology_proposal import TopologyProposal
+from perses.annihilation.relative import HybridTopologyFactory
+from openmmtools.states import ThermodynamicState, SamplerState, CompoundThermodynamicState
+from perses.annihilation.lambda_protocol import RelativeAlchemicalState
+
+# Load test system
+testsystem = testsystems.AlanineDipeptideVacuum()
+
+# Create a topology proposal mapping atoms between old and new states
+new_to_old_atom_map = {index: index for index in range(testsystem.system.getNumParticles())}
+topology_proposal = TopologyProposal(...)  # Define proposal with appropriate mappings
+
+# Initialize HybridTopologyFactory
+hybrid_factory = HybridTopologyFactory(
+    topology_proposal=topology_proposal,
+    current_positions=old_positions,
+    new_positions=new_positions,
+    alchemical_region=None,
+    endstate=0,
+    flatten_torsions=False,
+    interpolate_old_and_new_14s=False,
+)
+
+# Create thermodynamic state for the hybrid system
+hybrid_system = hybrid_factory.hybrid_system
+temperature = 300.0 * unit.kelvin
+hybrid_thermodynamic_state = ThermodynamicState(hybrid_system, temperature=temperature)
+
+# Create alchemical state and set lambda parameters
+alchemical_state = RelativeAlchemicalState.from_system(hybrid_system)
+alchemical_state.set_alchemical_parameters(0.0)  # Start at lambda=0
+
+# Combine thermodynamic and alchemical states
+compound_state = CompoundThermodynamicState(hybrid_thermodynamic_state, composable_states=[alchemical_state])
+
+# Create sampler states from hybrid positions and box vectors
+initial_sampler_state = SamplerState(hybrid_factory.hybrid_positions, box_vectors=initial_box_vectors)
+final_sampler_state = copy.deepcopy(initial_sampler_state)
+```
+
+This setup enables the use of nonequilibrium switching moves to sample along the alchemical path and compute free energy differences.
+
+Error Handling
+--------------
+
+The module defines a custom exception, `NaNException`, to handle cases where numerical instabilities such as NaN values occur during the simulation or switching moves. This ensures robust error reporting and handling during alchemical transformations.
+
+Conclusion
+----------
+
+The `perses.annihilation` module provides a comprehensive framework for performing relative alchemical transformations using hybrid topologies and nonequilibrium switching protocols. By combining careful force field handling, flexible alchemical state definitions, and efficient sampling engines, it facilitates accurate and efficient free energy calculations for molecular systems undergoing chemical modifications.

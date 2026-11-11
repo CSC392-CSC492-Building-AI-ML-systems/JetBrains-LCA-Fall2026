@@ -1,0 +1,78 @@
+Validation Curves: Plotting Scores to Evaluate Models
+======================================================
+
+Validation curves are a useful tool to visualize the performance of a machine learning model with respect to a varying hyperparameter. They help in understanding how changes in model complexity or other parameters affect the training and validation scores, thereby assisting in diagnosing issues like overfitting or underfitting.
+
+Overview
+--------
+
+The validation curve plots the training and validation scores of a model for different values of a specified parameter. Typically, the x-axis represents the parameter values, while the y-axis shows the corresponding scores (e.g., accuracy, R², etc.).
+
+Key Features
+------------
+
+- **Training and Validation Scores**: Both training and validation scores are plotted to compare model performance on seen and unseen data.
+- **Score Aggregation**: Scores are averaged over multiple cross-validation folds to provide a robust estimate.
+- **Standard Deviation Visualization**: The variability of scores across folds is displayed using either shaded regions (fill_between) or error bars.
+- **Customizable Plot Styles**: Users can choose how to display the variability (standard deviation) with options such as 'fill_between' or 'errorbar'.
+- **Flexible Score Selection**: The plot can show training scores, validation scores, or both simultaneously.
+- **Automatic Handling of Score Direction**: Scores can be negated if necessary to maintain consistent interpretation (e.g., for loss functions).
+
+Plotting Validation Curves
+--------------------------
+
+The plotting functionality is encapsulated in a base display class that manages the visualization of training and validation scores. The main plotting method accepts the following parameters:
+
+- **x_data**: The array of parameter values for which the scores are computed.
+- **ax**: An optional Matplotlib Axes object to plot on. If not provided, a new figure and axes are created.
+- **negate_score**: A boolean indicating whether to negate the scores before plotting. Useful when scores represent losses.
+- **score_name**: The name of the score metric to display in the plot legend.
+- **score_type**: Specifies which scores to plot: 'train', 'test' (validation), or 'both'.
+- **std_display_style**: Determines how to visualize the standard deviation of scores. Options include:
+  - `'fill_between'` (default): Displays a shaded region around the mean score.
+  - `'errorbar'`: Displays error bars representing the standard deviation.
+  - `None`: No standard deviation visualization.
+- **line_kw**, **fill_between_kw**, **errorbar_kw**: Dictionaries of keyword arguments passed to the respective Matplotlib plotting functions for further customization.
+
+Example Usage
+-------------
+
+When plotting validation curves, the training and validation scores are computed for each parameter value across multiple cross-validation splits. The mean and standard deviation of these scores are then plotted to provide insight into model behavior.
+
+```python
+import matplotlib.pyplot as plt
+from sklearn.model_selection import validation_curve
+from sklearn.svm import SVC
+from sklearn.datasets import load_digits
+
+X, y = load_digits(return_X_y=True)
+param_range = np.logspace(-6, -1, 5)
+train_scores, test_scores = validation_curve(
+    SVC(), X, y, param_name="gamma", param_range=param_range,
+    scoring="accuracy", n_jobs=1, cv=5
+)
+
+# Create the plot
+plt.figure()
+plt.title("Validation Curve with SVC")
+plt.xlabel("Gamma")
+plt.ylabel("Score")
+plt.semilogx(param_range, np.mean(train_scores, axis=1), label="Training score")
+plt.semilogx(param_range, np.mean(test_scores, axis=1), label="Cross-validation score")
+plt.fill_between(param_range, np.mean(test_scores, axis=1) - np.std(test_scores, axis=1),
+                 np.mean(test_scores, axis=1) + np.std(test_scores, axis=1), alpha=0.2)
+plt.legend(loc="best")
+plt.show()
+```
+
+Interpretation
+--------------
+
+- **High training score and low validation score**: Indicates overfitting; the model performs well on training data but poorly generalizes.
+- **Low training and validation scores**: Indicates underfitting; the model is too simple to capture the underlying patterns.
+- **Similar training and validation scores**: Suggests a good fit; the model generalizes well.
+
+Conclusion
+----------
+
+Validation curves are an essential diagnostic tool for tuning hyperparameters and improving model performance. By visualizing how training and validation scores change with parameter values, practitioners can make informed decisions to select optimal model configurations and avoid common pitfalls such as overfitting and underfitting.

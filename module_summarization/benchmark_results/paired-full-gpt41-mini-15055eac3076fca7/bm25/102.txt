@@ -1,0 +1,151 @@
+Generate Python Callables from Diofant Expressions with Autowrap
+=================================================================
+
+Overview
+--------
+
+The `autowrap` module provides functionality to compile Diofant expressions into efficient, callable binary functions accessible from Python. It offers a unified interface to various external backends such as `f2py` and `Cython`, enabling users to generate optimized numerical functions with minimal effort.
+
+This approach allows users to seamlessly evaluate complex mathematical expressions numerically without delving into the intricacies of code generation and compilation.
+
+Key Features
+------------
+
+- **One-step compilation and wrapping**: Convert Diofant expressions directly into callable Python functions.
+- **Support for multiple backends**: Currently supports `f2py` and `Cython`.
+- **Helper routines**: Define auxiliary functions to support complex main expressions.
+- **Flexible language selection**: Automatically infer or explicitly specify the target language (`C` or `Fortran`).
+- **Temporary directory management**: Control where generated source and wrapper files are stored.
+- **Verbose mode**: Enable detailed backend output for debugging purposes.
+
+Usage Examples
+--------------
+
+Basic usage of `autowrap` to generate a callable function from a Diofant expression:
+
+```python
+>>> from diofant import symbols
+>>> x, y = symbols('x y')
+>>> expr = ((x - y)**25).expand()
+>>> binary_func = autowrap(expr)
+>>> binary_func(1, 2)
+-1.0
+```
+
+Using `binary_function` to create a Diofant `Function` object linked to the compiled binary:
+
+```python
+>>> from diofant import symbols
+>>> x, y = symbols('x y')
+>>> expr = ((x - y)**25).expand()
+>>> f = binary_function('f', expr)
+>>> type(f)
+<class 'diofant.core.function.UndefinedFunction'>
+>>> 2*f(x, y)
+2*f(x, y)
+>>> f(x, y).evalf(2, subs={x: 1, y: 2})
+-1.0
+```
+
+Functions and Interfaces
+------------------------
+
+### autowrap(expr, language=None, backend='f2py', tempdir=None, args=None, flags=None, verbose=False, helpers=[])
+
+Generates a Python callable binary from a Diofant expression.
+
+**Parameters:**
+
+- `expr`  
+  The Diofant expression to compile.
+
+- `language` (optional)  
+  Target programming language for generated code. Options are `'C'` or `'F95'`. If `None`, the language is inferred based on the backend.
+
+- `backend` (optional)  
+  Backend used to compile and wrap the code. Supported values are `'f2py'` (default) and `'cython'`.
+
+- `tempdir` (optional)  
+  Directory path to store temporary files. If specified, generated source and wrapper files are preserved in this location.
+
+- `args` (optional)  
+  An ordered iterable of symbols specifying the argument sequence for the function.
+
+- `flags` (optional)  
+  Iterable of additional flags passed to the backend compiler.
+
+- `verbose` (optional)  
+  If `True`, backend command line output is not suppressed, aiding debugging.
+
+- `helpers` (optional)  
+  Iterable of helper routines required by the main expression. Each helper must be a tuple of the form `(function_name, diofant_expression, arguments)`. Helper routines enable linking auxiliary compiled functions to the main binary.
+
+**Returns:**
+
+A Python callable wrapping the compiled binary function.
+
+---
+
+### binary_function(symfunc, expr, **kwargs)
+
+Creates a Diofant `Function` object with the compiled binary attached as its implementation.
+
+**Parameters:**
+
+- `symfunc`  
+  Name of the symbolic function to create.
+
+- `expr`  
+  Diofant expression representing the function implementation.
+
+- `**kwargs`  
+  Additional keyword arguments passed to `autowrap`.
+
+**Returns:**
+
+A Diofant `Function` object with the compiled binary linked for numerical evaluation.
+
+---
+
+Helper Routines
+---------------
+
+When the main expression requires calling specialized functions, these should be provided via the `helpers` parameter to `autowrap`. Each helper is specified as a tuple:
+
+```python
+(function_name, diofant_expression, argument_sequence)
+```
+
+This ensures that the compiled main expression can link correctly to the helper routines, with the argument order explicitly defined.
+
+Backend and Language Compatibility
+----------------------------------
+
+The module validates compatibility between the selected backend and programming language. Supported backend-language pairs include:
+
+- `f2py` with Fortran (`F95`)
+- `cython` with C (`C`)
+
+Attempting to use incompatible combinations will raise a `ValueError`.
+
+Temporary Files and Verbosity
+----------------------------
+
+- By default, temporary source and wrapper files are cleaned up after compilation.
+- Specifying `tempdir` preserves these files for inspection or debugging.
+- Setting `verbose=True` enables detailed output from the backend compilation process.
+
+When to Use Autowrap
+--------------------
+
+- To accelerate numerical evaluation of complex Diofant expressions.
+- When integrating compiled code seamlessly into Python workflows.
+- To avoid manual compilation and wrapping steps.
+- For users who prefer symbolic manipulation but require efficient numerical computation.
+
+Summary
+-------
+
+The `autowrap` module simplifies the process of converting symbolic Diofant expressions into high-performance, callable binaries. It abstracts away backend-specific details, providing a user-friendly interface to generate and use compiled functions within Python.
+
+By leveraging `autowrap` and `binary_function`, users can maintain symbolic workflows while benefiting from the speed of compiled code.
