@@ -39,6 +39,19 @@ def assemble_context(builder: RagContextBuilder, chunks: list, prefix: str, budg
     return context, [chunk for chunk, _ in selected]
 
 
+def fit_additions(builder: RagContextBuilder, kept: list, added: list, prefix: str, budget: int, count_tokens: Callable,
+                  max_context_tokens: Optional[int], continuation_lines: int, max_evict: int) -> Optional[tuple[str, list]]:
+    """Append mode: `kept` (the default chunks, in rank order) followed by `added`. If an addition does not fit, evict
+    the lowest-ranked kept chunks, at most `max_evict`, until every addition fits. None when they cannot all fit."""
+    for evicted in range(min(max_evict, len(kept)) + 1):
+        candidate = kept[:len(kept) - evicted] + added
+        context, used = assemble_context(builder, candidate, prefix, budget, count_tokens, max_context_tokens,
+                                         continuation_lines)
+        if all(any(chunk is u for u in used) for chunk in added):
+            return context, used
+    return None
+
+
 def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int, llm: Callable[[list], LLMReply],
                                 rag_options: Optional[dict] = None, limits: Limits = Limits(),
                                 planner_prefix_tokens: int = 1500, max_listed_files: int = 100, extension: str = "",
@@ -80,9 +93,16 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
             if not fallback:
                 final = tools.apply_edit(default.chunks, planned.add, planned.drop)
                 if [id(c) for c in final] != [id(c) for c in default.chunks]:
-                    edited, edited_used = assemble_context(builder, final, default.prefix, budget, count_tokens,
-                                                           max_context_tokens, continuation_lines)
-                    if edited_used or not final:  # dropping every chunk is a valid choice: an empty context
+                    if limits.edit_mode == "append":
+                        n_kept = sum(1 for c in final if any(c is d for d in default.chunks))
+                        fitted = fit_additions(builder, final[:n_kept], final[n_kept:], default.prefix, budget,
+                                               count_tokens, max_context_tokens, continuation_lines, limits.max_evict)
+                        edited, edited_used = fitted if fitted else (default.context, default.chunks)
+                    else:
+                        edited, edited_used = assemble_context(builder, final, default.prefix, budget, count_tokens,
+                                                               max_context_tokens, continuation_lines)
+                    # dropping every chunk is a valid choice: an empty context; in append mode nothing is ever dropped
+                    if edited_used or not final or limits.edit_mode == "append":
                         # an edit whose additions do not fit can leave exactly the RAG context: that is no change
                         changed = [id(c) for c in edited_used] != [id(c) for c in default.chunks]
                         context, used = (edited, edited_used) if changed else (default.context, default.chunks)
@@ -94,6 +114,7 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
                 "fallback": fallback, "changed": changed, "planner_status": planned.status, "steps": planned.steps,
                 "tool_calls": planned.tool_calls, "planner_input_tokens": planned.input_tokens,
                 "planner_output_tokens": planned.output_tokens, "planner_ms": round(planned.planner_ms, 1),
+                "actions": [turn["action"] for turn in planned.trace],  # what the planner did, to replay and analyse
             }
             return context + "\n" + default.prefix, dp.get_line(line_num), info
 

@@ -25,6 +25,12 @@ class Limits:
     query_characters: int = 300
     max_items: int = 8  # most items one submit_context may add
     invalid_actions: int = 2  # unusable replies tolerated before the planner is abandoned
+    # "front" (section 8.82): added code goes first (nearest the prefix) and the planner may drop default chunks.
+    # "append" (section 8.85): the planner can only add; added code goes last (lowest priority) and, if there is no room,
+    # replaces at most `max_evict` of the lowest-ranked default chunks; at most `max_add` additions.
+    edit_mode: str = "front"
+    max_add: int = 2
+    max_evict: int = 2
 
 
 def covers(outer: Chunk, inner: Chunk) -> bool:
@@ -151,6 +157,8 @@ class RepoTools:
     def apply_edit(self, default_chunks: list[Chunk], add, drop) -> list[Chunk]:
         """The default context with the planner's edit: added chunks first (most relevant), then the default chunks it
         did not drop and that no added chunk already covers. An empty edit returns the default unchanged."""
+        if self.limits.edit_mode == "append":
+            return self._append_edit(default_chunks, add)
         default_ids = {self.chunk_id[id(c)] for c in default_chunks}
         dropped = {chunk_id for chunk_id in (drop if isinstance(drop, list) else [])
                    if type(chunk_id) is int and chunk_id in default_ids}
@@ -159,6 +167,14 @@ class RepoTools:
                 if self.chunk_id[id(c)] not in dropped and not any(covers(a, c) for a in added)]
         # an added chunk that is a default chunk is a promotion: it moves to the front
         return added + [c for c in kept if not any(c is a for a in added)]
+
+    def _append_edit(self, default_chunks: list[Chunk], add) -> list[Chunk]:
+        """Append mode: every default chunk keeps its rank; only genuinely new code is added, after them. An addition
+        that a default chunk already contains is no change; a default chunk that an addition contains is replaced."""
+        added = [a for a in self.resolve_items(add) if not any(covers(c, a) for c in default_chunks)]
+        added = added[:self.limits.max_add]
+        kept = [c for c in default_chunks if not any(covers(a, c) for a in added)]
+        return kept + added
 
 
 def json_text(value) -> str:

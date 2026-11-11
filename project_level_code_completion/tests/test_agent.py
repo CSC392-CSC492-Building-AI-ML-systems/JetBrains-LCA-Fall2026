@@ -327,6 +327,87 @@ class ProviderTests(unittest.TestCase):
             self.assertIn(part, text)
 
 
+class AppendModeTests(unittest.TestCase):
+    """Planner v2 (log section 8.85): the planner can only add; RAG's ranking is never reduced except to make room."""
+    PREFIX = "\n".join(TARGET.split("\n")[:2])
+    C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
+
+    def provider(self, replies, rag_options=None, **limits):
+        llm = ScriptedLLM(replies)
+        factory = make_agent_provider_factory(count, 1000, llm, rag_options=rag_options or RAG_OPTIONS,
+                                              limits=Limits(edit_mode="append", **limits), lang_sep=LANG, meta_sep=META)
+        return factory(make_datapoint())
+
+    def rag(self, rag_options=None):
+        factory = make_rag_provider_factory(count, 1000, lang_sep=LANG, meta_sep=META, **(rag_options or RAG_OPTIONS))
+        return factory(make_datapoint())(make_datapoint(), 2)
+
+    def default(self):
+        return make_builder().context_for(self.PREFIX, budget=1000, **RAG_OPTIONS).chunks
+
+    def full_cap_options(self):
+        builder, default = make_builder(), self.default()
+        cap = sum(count(builder._format(c, 0) + LANG) for c in default)
+        return {**RAG_OPTIONS, "max_context_tokens": cap}
+
+    def test_drop_is_ignored_and_nothing_added_gives_the_rag_prompt(self):
+        provider = self.provider([submit(drop=list(range(50)))])
+        prompt, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(prompt, self.rag()[0])
+        self.assertEqual((info["changed"], info["fallback"]), (False, False))
+
+    def test_adding_code_the_default_already_contains_changes_nothing(self):
+        builder = make_builder()
+        first = self.default()[0]
+        provider = self.provider([submit([{"chunk": builder.chunks.index(first)}])])
+        prompt, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(prompt, self.rag()[0])
+        self.assertFalse(info["changed"])
+
+    def test_added_code_goes_last_in_rank_and_farthest_from_the_prefix(self):
+        prompt, _, info = self.provider([submit([self.C])])(make_datapoint(), 2)
+        self.assertTrue(info["changed"] and not info["fallback"])
+        self.assertEqual(info["paths"], self.rag()[2]["paths"] + ["lib/c.txt"])  # every default chunk keeps its rank
+        self.assertLess(prompt.index("unrelated words only"), prompt.index("alpha_func beta_func gamma_func"))
+        self.assertTrue(prompt.endswith("\n" + self.PREFIX))
+
+    def test_a_full_context_evicts_only_the_lowest_ranked_chunks(self):
+        options = self.full_cap_options()
+        default_paths = self.rag(options)[2]["paths"]
+        prompt, _, info = self.provider([submit([self.C])], options)(make_datapoint(), 2)
+        self.assertTrue(info["changed"])
+        kept = info["paths"][:-1]
+        self.assertEqual(info["paths"][-1], "lib/c.txt")
+        self.assertEqual(kept, default_paths[:len(kept)])  # a prefix of the ranking: the top chunks survive
+        self.assertIn(len(default_paths) - len(kept), (1, 2))
+        self.assertLessEqual(count(prompt), 1000)
+
+    def test_with_no_eviction_allowed_a_full_context_stays_the_rag_prompt(self):
+        options = self.full_cap_options()
+        prompt, _, info = self.provider([submit([self.C])], options, max_evict=0)(make_datapoint(), 2)
+        self.assertEqual(prompt, self.rag(options)[0])
+        self.assertEqual((info["changed"], info["fallback"]), (False, False))
+
+    def test_at_most_max_add_additions(self):
+        two = [self.C, {"path": "lib/d.txt", "start_line": 1, "end_line": 1}]
+        for max_add in (1, 2):
+            _, _, info = self.provider([submit(two)], max_add=max_add)(make_datapoint(), 2)
+            self.assertEqual(len(info["paths"]), len(self.rag()[2]["paths"]) + max_add)
+
+    def test_the_planner_prompt_has_no_drop_action(self):
+        llm = ScriptedLLM([submit()])
+        factory = make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS,
+                                              limits=Limits(edit_mode="append"), lang_sep=LANG, meta_sep=META)
+        factory(make_datapoint())(make_datapoint(), 2)
+        system = llm.calls[0][0]["content"]
+        self.assertNotIn('"drop"', system)
+        self.assertIn("cannot remove", system)
+
+    def test_the_planner_actions_are_recorded(self):
+        _, _, info = self.provider([search(), submit()])(make_datapoint(), 2)
+        self.assertEqual([a["action"] for a in info["actions"]], ["search_code", "submit_context"])
+
+
 @unittest.skipUnless(HAS_PARSER, "tree-sitter grammar not available in the working directory")
 class RealPythonTests(unittest.TestCase):
     REPO = {
