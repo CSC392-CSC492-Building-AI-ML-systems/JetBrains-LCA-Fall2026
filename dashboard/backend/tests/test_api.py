@@ -91,6 +91,49 @@ def test_reads_task_result_folders(repo):
     assert sources == {"dashboard": 0, "library_based_code_generation": 3, "ci-builds-repair": 1,
                        "module_summarization": 1}
 
+def test_reads_paired_module_summarization_scores(repo):
+    root = repo / "module_summarization" / "benchmark_results" / "paired-full"
+    root.mkdir(parents=True)
+    ids = [7, 3]
+    scores = {"prefix": 0.6983, "bm25": 0.6909}
+    rouge = {"prefix": 0.1138, "bm25": 0.1145}
+    (root / "summary.json").write_text(json.dumps({
+        "mode": "generate",
+        "manifest": {"original_ids": ids, "strategies": list(scores), "model": "gpt-4.1-mini", "context_tokens": 2000},
+        "records": [
+            {"strategy": strategy, "original_id": i, "prediction_exists": True}
+            for strategy in scores for i in ids
+        ],
+    }))
+    (root / "analysis.json").write_text(json.dumps({
+        "strategies": {s: {"rouge_l_f1_diagnostic_mean": value} for s, value in rouge.items()},
+    }))
+    comp = {
+        "status": "complete",
+        "plan": {"original_ids": ids},
+        "means": scores,
+        "results": {s: [{"original_id": i, "score": value} for i in ids] for s, value in scores.items()},
+    }
+    result_path = root / "compscore_results.json"
+    result_path.write_text(json.dumps(comp))
+    client = make_client(repo)
+    response = client.get("/api/compare", params={"task": "module_summarization"})
+    assert response.status_code == 200
+    rows = {row["approach"]: row for row in response.json()["rows"]}
+    for strategy, approach in (("prefix", "baseline"), ("bm25", "rag")):
+        assert rows[approach]["score"] == pytest.approx(scores[strategy])
+        detail = client.get(f'/api/runs/{rows[approach]["run_id"]}').json()
+        assert detail["instances"] == len(ids)
+        assert detail["metrics"]["rouge_l_f1_diagnostic"] == pytest.approx(rouge[strategy])
+        assert detail["stages"][1]["status"] == "completed"
+
+    comp["results"]["bm25"].pop()
+    result_path.write_text(json.dumps(comp))
+    detail = client.get(f'/api/runs/{rows["rag"]["run_id"]}').json()
+    assert detail["score"] is None
+    assert detail["stages"][1]["status"] == "waiting"
+
+
 def test_reads_repo_results_and_compares(repo):
     results = repo / "results"
     write_run(results, "b", task="bug_localization", approach="baseline", metrics={"score": 0.4},

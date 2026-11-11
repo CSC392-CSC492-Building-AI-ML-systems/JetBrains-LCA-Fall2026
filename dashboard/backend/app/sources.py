@@ -17,6 +17,9 @@ ci-builds-repair/**/jobs_results.jsonl  (+ jobs_ids / jobs_invalid / jobs_awaiti
 
 module_summarization/data/**/summary.json  (+ optional CompScore json)
     written by baseline_replication.py and compscore_replication_eval.py.
+
+module_summarization/benchmark_results/**/summary.json
+    paired generation manifest, prediction records, analysis.json and CompScore results.
 """
 
 from __future__ import annotations
@@ -261,6 +264,107 @@ def read_ci_builds_repair(repo: Path) -> list[LoadedRun]:
 # ---- module summarization ----------------------------------------------------
 
 
+def _read_paired_module_summarization(repo: Path, root: Path) -> Iterable[LoadedRun]:
+    benchmark_root = root / "benchmark_results"
+    for summary_path in _walk(benchmark_root, "summary.json"):
+        summary = _read_json(summary_path)
+        if not isinstance(summary, dict) or summary.get("mode") != "generate":
+            continue
+        manifest = summary.get("manifest")
+        if not isinstance(manifest, dict):
+            continue
+        ids = manifest.get("original_ids")
+        strategies = manifest.get("strategies")
+        records = summary.get("records")
+        if (
+            not isinstance(ids, list)
+            or not ids
+            or not all(type(i) is int for i in ids)
+            or len(set(ids)) != len(ids)
+            or not isinstance(strategies, list)
+            or not isinstance(records, list)
+        ):
+            continue
+        run_dir = summary_path.parent
+        analysis = _read_json(run_dir / "analysis.json")
+        diagnostics = analysis.get("strategies", {}) if isinstance(analysis, dict) else {}
+        score_file = _read_json(run_dir / "compscore_results.json")
+        if (
+            not isinstance(score_file, dict)
+            or score_file.get("status") != "complete"
+            or not isinstance(score_file.get("plan"), dict)
+            or score_file["plan"].get("original_ids") != ids
+        ):
+            score_file = {}
+        results = score_file.get("results", {})
+        means = score_file.get("means", {})
+        context_tokens = manifest.get("context_tokens")
+        rel = _rel(repo, run_dir)
+        expected_ids = set(ids)
+        for strategy, approach, label in (
+            ("prefix", "baseline", "Prefix baseline"),
+            ("bm25", "rag", "BM25 RAG"),
+        ):
+            if strategy not in strategies:
+                continue
+            completed_ids = {
+                r["original_id"] for r in records
+                if isinstance(r, dict) and r.get("strategy") == strategy
+                and r.get("prediction_exists") is True and type(r.get("original_id")) is int
+            }
+            if completed_ids != expected_ids:
+                continue
+
+            scored = results.get(strategy, []) if isinstance(results, dict) else []
+            score = means.get(strategy) if isinstance(means, dict) else None
+            if (
+                not isinstance(scored, list)
+                or len(scored) != len(ids)
+                or not all(isinstance(r, dict) and type(r.get("original_id")) is int for r in scored)
+                or {r["original_id"] for r in scored} != expected_ids
+                or type(score) not in (int, float)
+                or not 0 <= score <= 1
+            ):
+                score = None
+            stats = diagnostics.get(strategy) if isinstance(diagnostics, dict) else None
+            rouge = stats.get("rouge_l_f1_diagnostic_mean") if isinstance(stats, dict) else None
+            if type(rouge) not in (int, float) or not 0 <= rouge <= 1:
+                rouge = None
+            observation = (
+                f"CompScore over {len(ids)} tasks" if score is not None
+                else f"{len(ids)} predictions · CompScore pending"
+            )
+            if rouge is not None:
+                observation += f" · diagnostic ROUGE-L {rouge:.4f}"
+            yield LoadedRun(
+                record=RunRecord(
+                    id=f"ms-{_slug(_rel(benchmark_root, run_dir))}-{strategy}",
+                    name=f"{label} · {context_tokens:,}-token budget" if type(context_tokens) is int else label,
+                    task="module_summarization",
+                    approach=approach,
+                    model=manifest.get("model"),
+                    repo_version=manifest.get("dataset"),
+                    created_at=_mtime_iso(summary_path),
+                    settings={
+                        "strategy": strategy,
+                        "max_context_toks": context_tokens,
+                        "scope": manifest.get("scope"),
+                        "dataset_sha256": manifest.get("dataset_sha256"),
+                    },
+                    metrics={"score": score, "compscore": score, "rouge_l_f1_diagnostic": rouge},
+                    instances=len(ids),
+                    observation=observation,
+                    stages=[
+                        Stage(name="Generate documentation", status="completed", detail=f"{len(ids)} / {len(ids)}"),
+                        Stage(name="Score with CompScore", status="completed" if score is not None else "waiting"),
+                    ],
+                    source="module_summarization",
+                    source_path=rel,
+                ),
+                log_lines=[f"> read {rel}/summary.json", f"> {strategy}: {observation}"],
+            )
+
+
 def read_module_summarization(repo: Path) -> list[LoadedRun]:
     root = repo / "module_summarization"
     compscores = []
@@ -310,6 +414,7 @@ def read_module_summarization(repo: Path) -> list[LoadedRun]:
                 log_lines=[f"> read {rel}/summary.json"] + ([f"> CompScore {compscore:.4f}"] if compscore is not None else []),
             )
         )
+    runs.extend(_read_paired_module_summarization(repo, root))
     return runs
 
 
@@ -317,6 +422,6 @@ SOURCES: list[Source] = [
     Source("library_based_code_generation", "Library-based code generation results",
            "library_based_code_generation/results", read_library_based),
     Source("ci-builds-repair", "CI builds repair job results", "ci-builds-repair", read_ci_builds_repair),
-    Source("module_summarization", "Module summarization replication outputs",
-           "module_summarization/data", read_module_summarization),
+    Source("module_summarization", "Module summarization baseline and benchmark outputs",
+           "module_summarization", read_module_summarization),
 ]
