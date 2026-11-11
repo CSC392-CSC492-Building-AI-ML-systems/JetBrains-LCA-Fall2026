@@ -15,19 +15,30 @@ class ScriptedLLM:
 
 
 class LocalChatModel:
-    """An instruction-tuned causal LM run greedily; loaded on first use so importing this module is cheap."""
+    """An instruction-tuned causal LM run greedily; loaded on first use so importing this module is cheap.
+
+    `dtype` is float16, 8bit or 4bit (the quantized ones need bitsandbytes) so the planner can sit next to the
+    CodeLlama-7B that writes the line on one 32 GB GPU.
+    """
 
     def __init__(self, name: str, max_new_tokens: int = 200, dtype: str = "float16", device: str = "cuda"):
+        if dtype not in ("float16", "8bit", "4bit"):
+            raise ValueError(f"dtype must be float16, 8bit or 4bit, got {dtype!r}")
         self.name, self.max_new_tokens, self.dtype, self.device = name, max_new_tokens, dtype, device
         self.model = self.tokenizer = None
 
     def _load(self):
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
+        if self.dtype == "float16":
+            self.model = AutoModelForCausalLM.from_pretrained(self.name, torch_dtype=torch.float16).to(self.device).eval()
+            return
+        quantization = BitsAndBytesConfig(load_in_8bit=self.dtype == "8bit", load_in_4bit=self.dtype == "4bit",
+                                          bnb_4bit_compute_dtype=torch.float16)
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.name, torch_dtype=getattr(torch, self.dtype)).to(self.device).eval()
+            self.name, quantization_config=quantization, device_map={"": self.device}).eval()
 
     def __call__(self, messages):
         import torch

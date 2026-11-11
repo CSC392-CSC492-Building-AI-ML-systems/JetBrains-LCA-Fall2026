@@ -19,6 +19,9 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 
+from agent.llm import LocalChatModel
+from agent.provider import make_agent_provider_factory
+from agent.tools import Limits
 from composers.composer_registry import COMPOSERS
 from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generation, heldout_indices, subset_indices
 from eval.proxy_metrics import targeted_lines
@@ -43,7 +46,7 @@ def arm_directory(cfg: DictConfig) -> Path:
 
 
 def validate(cfg: DictConfig) -> None:
-    allowed = ['zero', 'rag'] + [name for name in COMPOSERS if name != 'none']
+    allowed = ['zero', 'rag', 'agent'] + [name for name in COMPOSERS if name != 'none']
     if cfg.arm not in allowed:
         raise ValueError(f"Unknown arm {cfg.arm!r}. Available: {allowed}")
     if cfg.static_mode not in ('provider', 'preprocess'):
@@ -58,8 +61,10 @@ def validate(cfg: DictConfig) -> None:
     if cap is not None:
         if cap < 1:
             raise ValueError(f"context_cap must be a positive number of tokens, got {cap!r}")
-        if cfg.arm not in ('zero', 'rag') and cfg.static_mode != 'provider':
+        if cfg.arm not in ('zero', 'rag', 'agent') and cfg.static_mode != 'provider':
             raise ValueError("context_cap needs static_mode=provider for static composers")
+    if cfg.arm == 'agent' and (cfg.rag.retriever != 'bm25' or cfg.rag.chunking != 'structure'):
+        raise ValueError("arm=agent edits the context of RAG with the BM25 retriever and structure chunking")
 
 
 def datapoint_selection(cfg: DictConfig) -> dict:
@@ -124,7 +129,7 @@ def run_arm(cfg: DictConfig):
 
     kwargs = dict(run_zero=cfg.arm == 'zero' or cfg.run_zero, run_context=cfg.arm != 'zero',
                   **datapoint_selection(cfg))
-    if cfg.arm in ('zero', 'rag'):
+    if cfg.arm in ('zero', 'rag', 'agent'):
         kwargs['input_data'] = load_datapoints(cfg.dataset)
     elif cfg.static_mode == 'provider':
         kwargs['input_data'] = load_datapoints(cfg.dataset)
@@ -149,6 +154,21 @@ def run_arm(cfg: DictConfig):
             lambda text: len(tokenizer(text, add_special_tokens=False)['input_ids']), budget,
             extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
             meta_sep=cfg.composers_config.meta_info_sep_symbol, **rag_options,
+        )
+    if cfg.arm == 'agent':
+        # The planner starts from exactly the context the matching RAG arm would build (same options, same cap N).
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        rag_options = OmegaConf.to_container(cfg.rag)
+        if context_cap is not None:
+            rag_options['max_context_tokens'] = context_cap
+        planner = LocalChatModel(cfg.agent.planner_model, max_new_tokens=cfg.agent.planner_max_new_tokens,
+                                 dtype=cfg.agent.planner_dtype, device=cfg.params.eval_params['device'])
+        kwargs['context_provider_factory'] = make_agent_provider_factory(
+            lambda text: len(tokenizer(text, add_special_tokens=False)['input_ids']), budget, planner,
+            rag_options=rag_options, limits=Limits(**OmegaConf.to_container(cfg.agent.limits)),
+            planner_prefix_tokens=cfg.agent.planner_prefix_tokens, max_listed_files=cfg.agent.max_listed_files,
+            extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
+            meta_sep=cfg.composers_config.meta_info_sep_symbol,
         )
 
     if torch.cuda.is_available():

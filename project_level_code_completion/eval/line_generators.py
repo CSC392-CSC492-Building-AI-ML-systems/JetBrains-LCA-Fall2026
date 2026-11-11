@@ -181,6 +181,10 @@ class LineGeneratorHF(SpecificLineGenerator):
                 metrics = {'input_tokens': int(input_ids.size(-1)), 'output_tokens': int(out.size(-1)),
                            'context_ms': round(context_ms, 2), 'gen_ms': round(gen_ms, 2), 'truncated': truncated,
                            'hit_max_new_tokens': int(out.size(-1)) >= gen_config['max_new_tokens']}
+                if retrieval_info is not None and 'steps' in retrieval_info:  # a planner agent (eval/run_metrics.AGENT_EXTRA_FIELDS)
+                    planner_tokens = retrieval_info['planner_input_tokens'] + retrieval_info['planner_output_tokens']
+                    metrics.update(steps=retrieval_info['steps'], tool_calls=retrieval_info['tool_calls'],
+                                   total_tokens=metrics['input_tokens'] + metrics['output_tokens'] + planner_tokens)
                 prediction = self.decode(out)
                 prediction = prediction.strip("\n")
                 prediction_line = prediction.split("\n")[0]

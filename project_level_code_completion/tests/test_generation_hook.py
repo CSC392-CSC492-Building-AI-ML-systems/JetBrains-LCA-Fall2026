@@ -86,6 +86,15 @@ class GeneratorHookTests(unittest.TestCase):
         self.assertEqual(saved[0]["ground_truth"], "line1 alpha_func")
         self.assertEqual(saved[0]["prediction_line"], "pred")
 
+    def test_planner_agent_metrics_use_the_shared_agent_fields(self):
+        from eval.run_metrics import AGENT_EXTRA_FIELDS, LINE_METRIC_FIELDS
+        info = {"paths": [], "steps": 3, "tool_calls": 2, "planner_input_tokens": 100, "planner_output_tokens": 20}
+        self.generator.generate_line(make_datapoint(), context_provider=lambda dp, n: (f"P{n}", dp.get_line(n), info))
+        metrics = self.saved()[0]["metrics"]
+        self.assertEqual(set(metrics), set(LINE_METRIC_FIELDS) | set(AGENT_EXTRA_FIELDS))
+        self.assertEqual((metrics["steps"], metrics["tool_calls"]), (3, 2))
+        self.assertEqual(metrics["total_tokens"], metrics["input_tokens"] + metrics["output_tokens"] + 120)
+
     def test_datapoint_idx_and_repo_saved_when_set(self):
         self.generator.datapoint_idx = 7
         self.generator.generate_line(make_datapoint())
