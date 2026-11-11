@@ -19,7 +19,7 @@ import yaml
 
 
 MODULE_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG = MODULE_DIR / "replication_configs" / "config_openai_smoke.yaml"
+DEFAULT_CONFIG = MODULE_DIR / "baseline" / "replication_configs" / "config_openai_smoke.yaml"
 RUN_FILE = "run.json"
 
 
@@ -126,7 +126,7 @@ def main() -> int:
     _set_stage(record, 2, "running", f"Generating with {config['model_name']}")
     _write_record(run_dir, record)
 
-    command = [sys.executable, str(MODULE_DIR / "baseline_replication.py"), "--config", str(effective_config)]
+    command = [sys.executable, "-m", "baseline.baseline_replication", "--config", str(effective_config)]
     process = subprocess.run(command, cwd=MODULE_DIR, check=False)
     if process.returncode != 0:
         record = _read_record(run_dir)

@@ -87,7 +87,7 @@ if __name__ == '__main__':
     )
     # Argument for YAML config file path
     parser.add_argument('--config', type=str, 
-                        default="configs/config_eval.yaml", 
+                        default="baseline/configs/config_eval.yaml",
                         help='Path to the YAML configuration file')
     args = parser.parse_args()
     

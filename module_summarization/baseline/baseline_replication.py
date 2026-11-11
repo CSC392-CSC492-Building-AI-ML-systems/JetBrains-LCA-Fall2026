@@ -211,7 +211,7 @@ def main():
     load_local_env()
 
     parser = argparse.ArgumentParser(description="Run the Module Summarization baseline replication.")
-    parser.add_argument("--config", default="replication_configs/config_openai_smoke.yaml", help="Path to a YAML config file.")
+    parser.add_argument("--config", default="baseline/replication_configs/config_openai_smoke.yaml", help="Path to a YAML config file.")
     args = parser.parse_args()
 
     run(load_generation_config(args.config))

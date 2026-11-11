@@ -35,12 +35,14 @@ poetry install
 
 If you are using an existing virtual environment instead, install the packages from `pyproject.toml`.
 
+Run the generation and evaluation commands below from `module_summarization/`.
+
 ## Smoke Run
 
 Run 5 examples first:
 
 ```bash
-poetry run python baseline_replication.py --config replication_configs/config_openai_smoke.yaml
+poetry run python -m baseline.baseline_replication --config baseline/replication_configs/config_openai_smoke.yaml
 ```
 
 Outputs are written to:
@@ -66,7 +68,7 @@ LCA_RUN_COMMAND="poetry run python module_summarization/dashboard_runner.py" \
 
 The adapter uses the smoke configuration by default. To run the full
 replication configuration instead, set `LCA_MODULE_SUMMARIZATION_CONFIG` to
-`module_summarization/replication_configs/config_openai_full_2k.yaml` before
+`module_summarization/baseline/replication_configs/config_openai_full_2k.yaml` before
 starting the backend.
 
 ## Full Baseline Run
@@ -74,7 +76,7 @@ starting the backend.
 Run all 216 test examples:
 
 ```bash
-poetry run python baseline_replication.py --config replication_configs/config_openai_full_2k.yaml
+poetry run python -m baseline.baseline_replication --config baseline/replication_configs/config_openai_full_2k.yaml
 ```
 
 Outputs are written to:
@@ -114,7 +116,7 @@ The official Long Code Arena metric for Module Summarization is CompScore. It co
 To evaluate the full baseline outputs without modifying the official `metrics.py` file:
 
 ```bash
-poetry run python compscore_replication_eval.py --config replication_configs/config_compscore_full.yaml
+poetry run python -m baseline.compscore_replication_eval --config baseline/replication_configs/config_compscore_full.yaml
 ```
 
 This writes:
@@ -134,4 +136,4 @@ The replication evaluator reuses the official scoring functions from `metrics.py
 - `replication_configs/config_compscore_full.yaml`: targeted CompScore evaluation config
 - `BASELINE_REPLICATION.md`: this guide
 
-The original JetBrains baseline files, including `chatgpt.py` and `metrics.py`, are left unchanged.
+The original OpenAI and Together.AI runners are in this directory. The shared metric implementation is in [metrics.py](../metrics.py).

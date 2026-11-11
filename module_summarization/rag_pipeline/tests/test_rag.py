@@ -93,7 +93,7 @@ class RetrievalTests(unittest.TestCase):
 
     def test_prompt_matches_original_baseline(self):
         # Extract the pure prompt function without importing its heavy dependencies.
-        baseline = Path(__file__).resolve().parents[2] / 'baseline_replication.py'
+        baseline = Path(__file__).resolve().parents[2] / 'baseline' / 'baseline_replication.py'
         if not baseline.exists(): self.skipTest('Original baseline not alongside installation')
         tree = ast.parse(baseline.read_text())
         fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'generate_one')

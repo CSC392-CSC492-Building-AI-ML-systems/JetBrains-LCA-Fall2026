@@ -17,7 +17,7 @@ SPLIT = "test"
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate one Module Summarization baseline directory with CompScore.")
-    parser.add_argument("--config", default="replication_configs/config_compscore_full.yaml")
+    parser.add_argument("--config", default="baseline/replication_configs/config_compscore_full.yaml")
     args = parser.parse_args()
 
     config = load_config(args.config)

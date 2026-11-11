@@ -6,22 +6,24 @@ This directory contains the code for running baselines for the Module summarizat
 We provide the implementation of baselines running inference via [OpenAI](https://platform.openai.com/docs/overview) and [Together.AI](https://www.together.ai/).
 We generate documentation based on an intent (one sentence description of documentation content), target documentation name, and relevant code context. 
 
+See the [baseline replication guide](baseline/BASELINE_REPLICATION.md) and [RAG implementation guide](docs/RAG_IMPLEMENTATION.md).
+
 # How-to
 
 ## 💾 Install dependencies
 
 We provide dependencies via the [Poetry](https://python-poetry.org/docs/) manager. 
 
-* To install dependecies, run `poetry install`
+* From `module_summarization/`, install dependencies with `poetry install`
 
 ## 🚀 Run 
 
 #### Generation
 
-In order to generate your predictions, add your parameters in the [configs](configs) directory and run: 
+In order to generate your predictions, add your parameters in the [configs](baseline/configs) directory and run:
 
-* `poetry run python chatgpt.py --config="configs/config_openai.yaml"` if you use [OpenAI](https://platform.openai.com/docs/overview) models;
-* `poetry run python togetherai.py --config="configs/config_together.yaml"` if you use [Together.AI](https://www.together.ai/) models.
+* `poetry run python -m baseline.chatgpt --config="baseline/configs/config_openai.yaml"` if you use [OpenAI](https://platform.openai.com/docs/overview) models;
+* `poetry run python -m baseline.togetherai --config="baseline/configs/config_together.yaml"` if you use [Together.AI](https://www.together.ai/) models.
 
 The script will generate predictions and put them into the `save_dir` directory from config.
 
@@ -33,7 +35,7 @@ To compare predicted and ground truth texts, we introduce the new metric based o
 CompScore = \frac{ P(pred | LLM(code, pred, gold)) + P(pred | LLM(code, gold, pred))}{2}
 ```
 
-In order to evaluate predictions, add your parameters in the [config](configs/config_eval.yaml) and run:
-* `poetry run python metrics.py --config="configs/config_eval.yaml"`
+In order to evaluate predictions, add your parameters in the [config](baseline/configs/config_eval.yaml) and run:
+* `poetry run python metrics.py --config="baseline/configs/config_eval.yaml"`
 
 The script will evaluate the predictions and save the results into the `results.json` file.
