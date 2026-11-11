@@ -17,13 +17,13 @@ class ScriptedLLM:
 class LocalChatModel:
     """An instruction-tuned causal LM run greedily; loaded on first use so importing this module is cheap.
 
-    `dtype` is float16, 8bit or 4bit (the quantized ones need bitsandbytes) so the planner can sit next to the
-    CodeLlama-7B that writes the line on one 32 GB GPU.
+    `dtype` is bfloat16 (what the CodeLlama writer uses), 8bit or 4bit (the quantized ones need bitsandbytes) so the
+    planner can sit next to the CodeLlama-7B that writes the line on one 32 GB GPU.
     """
 
-    def __init__(self, name: str, max_new_tokens: int = 200, dtype: str = "float16", device: str = "cuda"):
-        if dtype not in ("float16", "8bit", "4bit"):
-            raise ValueError(f"dtype must be float16, 8bit or 4bit, got {dtype!r}")
+    def __init__(self, name: str, max_new_tokens: int = 200, dtype: str = "bfloat16", device: str = "cuda"):
+        if dtype not in ("bfloat16", "8bit", "4bit"):
+            raise ValueError(f"dtype must be bfloat16, 8bit or 4bit, got {dtype!r}")
         self.name, self.max_new_tokens, self.dtype, self.device = name, max_new_tokens, dtype, device
         self.model = self.tokenizer = None
 
@@ -32,11 +32,11 @@ class LocalChatModel:
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
-        if self.dtype == "float16":
-            self.model = AutoModelForCausalLM.from_pretrained(self.name, torch_dtype=torch.float16).to(self.device).eval()
+        if self.dtype == "bfloat16":
+            self.model = AutoModelForCausalLM.from_pretrained(self.name, dtype=torch.bfloat16).to(self.device).eval()
             return
         quantization = BitsAndBytesConfig(load_in_8bit=self.dtype == "8bit", load_in_4bit=self.dtype == "4bit",
-                                          bnb_4bit_compute_dtype=torch.float16)
+                                          bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_quant_type="nf4")
         self.model = AutoModelForCausalLM.from_pretrained(
             self.name, quantization_config=quantization, device_map={"": self.device}).eval()
 
@@ -45,7 +45,9 @@ class LocalChatModel:
 
         if self.model is None:
             self._load()
-        ids = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(self.device)
+        # render the chat template to text first: its tokenized return type differs between transformers versions
+        text = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        ids = self.tokenizer(text, return_tensors="pt", add_special_tokens=False)["input_ids"].to(self.device)
         with torch.no_grad():
             out = self.model.generate(ids, max_new_tokens=self.max_new_tokens, do_sample=False,
                                       pad_token_id=self.tokenizer.eos_token_id)
