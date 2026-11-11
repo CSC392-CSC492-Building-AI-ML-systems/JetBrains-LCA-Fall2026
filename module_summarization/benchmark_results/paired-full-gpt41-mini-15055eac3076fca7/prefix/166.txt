@@ -1,0 +1,127 @@
+filenode — Simulating a Filesystem with PyTables
+===============================================
+
+Overview
+--------
+
+The `filenode` module provides a file-like interface to nodes within PyTables databases, enabling users to simulate a filesystem inside HDF5 files managed by PyTables. This allows for the creation, reading, and writing of file nodes that behave similarly to ordinary Python file objects, but whose data is stored within PyTables nodes.
+
+This functionality is particularly useful when you want to embed file-like data structures inside an HDF5 container, leveraging PyTables' efficient storage and querying capabilities while maintaining a familiar file interface.
+
+Key Features
+------------
+
+- **File Node Creation and Access**  
+  Use the `new_node()` function to create a new file node inside a PyTables database.  
+  Use the `open_node()` function to open an existing file node for reading or appending data.
+
+- **Read and Write Modes**  
+  File nodes support read-only and append modes (`'a+'`).  
+  Reading is always available, while writing is limited to appending data to ensure data integrity.
+
+- **Binary I/O Support**  
+  Currently, only binary input/output operations are supported, consistent with PyTables' handling of binary data.
+
+- **Compliance with Python I/O Interfaces**  
+  Since version 3.0, the module has been rewritten to fully comply with the interfaces defined in Python's built-in `io` module, providing familiar methods such as `read()`, `write()`, `seek()`, `tell()`, `flush()`, and `close()`.
+
+Usage
+-----
+
+### Creating a New File Node
+
+To create a new file node within a PyTables file, use the `new_node()` function. This initializes a node that can be written to and read from like a regular file.
+
+```python
+import tables as tb
+from filenode import new_node
+
+# Open or create a PyTables file
+h5file = tb.open_file('mydata.h5', mode='a')
+
+# Create a new file node
+file_node = new_node(h5file.root, 'myfile', mode='w')
+
+# Write binary data
+file_node.write(b'Hello, PyTables file node!')
+
+# Close the file node
+file_node.close()
+
+# Close the PyTables file
+h5file.close()
+```
+
+### Opening an Existing File Node
+
+To open an existing file node for reading or appending, use the `open_node()` function:
+
+```python
+from filenode import open_node
+
+# Open the PyTables file
+h5file = tb.open_file('mydata.h5', mode='a')
+
+# Open the existing file node in append mode
+file_node = open_node(h5file.root.myfile, mode='a+')
+
+# Read data
+file_node.seek(0)
+data = file_node.read()
+
+# Append data
+file_node.write(b' Additional data.')
+
+# Close the file node and PyTables file
+file_node.close()
+h5file.close()
+```
+
+Implementation Details
+----------------------
+
+### Node Attributes
+
+File nodes are PyTables nodes with specific system attributes:
+
+- `NODE_TYPE` is set to `'file'` to identify the node as a file node.
+- `NODE_TYPE_VERSION` indicates the version of the file node format, currently supporting versions 1 and 2.
+
+### RawPyTablesIO Class
+
+At the core of the module is the `RawPyTablesIO` class, which inherits from `io.RawIOBase` and provides low-level binary I/O operations on PyTables nodes. It manages:
+
+- Position tracking within the file node (`tell()`, `seek()`).
+- Reading and writing data with respect to the node's underlying storage.
+- Ensuring compatibility with PyTables file modes and node attributes.
+- Handling flushing and closing operations to maintain data integrity.
+
+Limitations and Notes
+---------------------
+
+- **Append-Only Writes:**  
+  Writing to file nodes is restricted to appending data. Overwriting or truncating existing data is not supported to prevent corruption.
+
+- **Binary Mode Only:**  
+  Text mode I/O is not supported; all operations are performed in binary mode.
+
+- **Underlying PyTables File Dependency:**  
+  The file node depends on the PyTables file being open. Closing the PyTables file invalidates the file node.
+
+- **Version Compatibility:**  
+  The module supports multiple versions of the file node format, with version 3.0 introducing full compliance with Python's `io` module interfaces.
+
+Further Information
+-------------------
+
+For detailed instructions and examples on using the `filenode` module, please refer to the user guide at :ref:`filenode_usersguide`.
+
+Change History
+--------------
+
+.. versionchanged:: 3.0  
+   The module was completely rewritten to be fully compliant with the interfaces defined in the Python `io` module, improving compatibility and usability.
+
+---
+
+This module enables seamless integration of file-like objects within PyTables databases, providing a powerful tool for managing complex data structures in HDF5 files with familiar file semantics.

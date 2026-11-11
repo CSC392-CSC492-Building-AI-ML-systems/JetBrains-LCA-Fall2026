@@ -1,0 +1,27 @@
+{
+  "original_id": 100,
+  "repo": "ethereum__web3.py",
+  "docfile_name": "managers.rst",
+  "source_sha256": "07ef305410c668017a648c55eb4f0518fed147203614432bad6a7194bace7937",
+  "context": "import uuid\nimport json\nimport collections\n\nimport gevent\n\nimport rlp\n\nfrom web3.utils.crypto import sha3\nfrom web3.utils.string import force_text\nfrom web3.utils.address import to_address\nfrom web3.utils.types import (\n    is_string,\n    is_object,\n)\nfrom web3.utils.encoding import (\n    to_decimal,\n    encode_hex,\n    decode_hex,\n)\nfrom web3.utils.transactions import (\n    is_bitcoin_available,\n    Transaction,\n    serialize_transaction,\n    add_signature_to_transaction,\n)\n\n\nclass RequestManager(object):\n    def __init__(self, provider):\n        self.pending_requests = {}\n        self.provider = provider\n\n    def setProvider(self, provider):\n        self.provider = provider\n\n    def request_blocking(self, method, params):\n        \"\"\"\n        Make a synchronous request using the provider\n        \"\"\"\n        response_raw = self.provider.make_request(method, params)\n\n        if is_string(response_raw):\n            response = json.loads(force_text(response_raw))\n        elif is_object(response_raw):\n            response = response_raw\n\n        if \"error\" in response:\n            raise ValueError(response[\"error\"])\n\n        return response['result']\n\n    def request_async(self, method, params):\n        request_id = uuid.uuid4()\n        self.pending_requests[request_id] = gevent.spawn(\n            self.request_blocking,\n            method,\n            params,\n        )\n        return request_id\n\n    def receive_blocking(self, request_id, timeout=None):\n        try:\n            request = self.pending_requests.pop(request_id)\n        except KeyError:\n            raise KeyError(\"Request for id:{0} not found\".format(request_id))\n        else:\n            if timeout is not None:\n                timeout = gevent.Timeout(timeout).start()\n            response_raw = request.get(timeout=timeout)\n\n        response = json.loads(response_raw)\n\n        if \"error\" in response:\n            raise ValueError(response[\"error\"])\n\n        return response['result']\n\n    def receive_async(self, request_id, *args, **kwargs):\n        raise NotImplementedError(\"Callback pattern not implemented\")\n\n\nclass ManagerWrapper(object):\n    def __init__(self, wrapped_manager):\n        self.wrapped_manager = wrapped_manager\n\n    @property\n    def provider(self):\n        return self.wrapped_manager.provider\n\n    @property\n    def pending_requests(self):\n        return self.wrapped_manager.pending_requests\n\n    def setProvider(self, provider):\n        self.wrapped_manager.provider = provider\n\n    def request_blocking(self, *args, **kwargs):\n        return self.wrapped_manager.request_blocking(*args, **kwargs)\n\n    def request_async(self, *args, **kwargs):\n        return self.wrapped_manager.request_async(*args, **kwargs)\n\n    def receive_blocking(self, *args, **kwargs):\n        return self.wrapped_manager.receive_blocking(*args, **kwargs)\n\n    def receive_async(self, *args, **kwargs):\n        return self.wrapped_manager.receive_async(*args, **kwargs)\n\n\nclass BaseSendRawTransactionMixin(ManagerWrapper):\n    _known_transactions = None\n    _known_nonces = None\n\n    def __init__(self, *args, **kwargs):\n        self._known_transactions = collections.defaultdict(set)\n        self._known_nonces = collections.defaultdict(set)\n        super(BaseSendRawTransactionMixin, self).__init__(*args, **kwargs)\n\n    def _get_nonces_and_cleanup(self, addr, chain_nonce):\n        all_txns = {\n            txn_hash: self.request_blocking(\n                'eth_getTransactionByHash',\n                [txn_hash],\n            ) for txn_hash in self._known_transactions[addr]\n        }\n        for txn_hash, txn in all_txns.items():\n            if txn is None:\n                continue\n            txn_nonce = to_decimal(txn['nonce'])\n            if txn_nonce < chain_nonce:\n                self._known_transactions[addr].discard(txn_hash)\n            else:\n                yield txn_nonce\n\n        all_known_nonces = tuple(self._known_nonces[addr])\n        for nonce in all_known_nonces:\n            if nonce < chain_nonce:\n                self._known_nonces[addr].discard(nonce)\n            else:\n                yield nonce\n\n    def get_chain_nonce(self, addr):\n        chain_nonce = to_decimal(self.request_blocking(\n            'eth_getTransactionCount',\n            [addr, 'pending']\n        ))\n        return chain_nonce\n\n    def get_nonce(self, addr):\n        chain_nonce = self.get_chain_nonce(addr)\n        tracked_txn_nonces = tuple(self._get_nonces_and_cleanup(addr, chain_nonce))\n        nonce = max(0, chain_nonce, *tracked_txn_nonces)\n        if nonce ==",
+  "trace": {
+    "query": "Generate documentation for this code managers",
+    "query_terms": [
+      "managers"
+    ],
+    "fallback": "no_term_match",
+    "candidate_count": 0,
+    "index_chunks": 13,
+    "selected": [
+      {
+        "chunk_id": null,
+        "start_char": 0,
+        "end_char": 4561,
+        "score": null
+      }
+    ],
+    "context_tokens": 2000,
+    "context_sha256": "1457d5fab06eefa04346eb3208bbc6b147718b516ff61ab771ecd12356a6b55c"
+  },
+  "preparation_seconds": 0.03468483400001787
+}

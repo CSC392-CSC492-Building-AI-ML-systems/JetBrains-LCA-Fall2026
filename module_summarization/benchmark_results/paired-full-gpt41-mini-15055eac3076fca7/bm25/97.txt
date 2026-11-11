@@ -1,0 +1,55 @@
+How Mitogen Works
+=================
+
+Mitogen is a lightweight, high-performance Python library designed to simplify and accelerate the process of managing remote connections and executing code across multiple hosts. It achieves this by providing an efficient, event-driven framework for multiplexing communication channels and protocols over SSH or other transport mechanisms.
+
+Core Concepts
+-------------
+
+### Streams and Sides
+
+At the heart of Mitogen's architecture is the concept of a **Stream**. A `Stream` represents one readable and optionally one writable file descriptor, encapsulated by `Side` objects. Each `Stream` is associated with a `Protocol` that defines how to handle IO readiness events on these descriptors.
+
+- **Receive Side**: The file descriptor from which data is read.
+- **Transmit Side**: The file descriptor to which data is written.
+
+Streams are registered with a central event loop called the **Broker**, which monitors IO activity and dispatches callbacks accordingly.
+
+### Protocols
+
+A `Protocol` defines the logic for processing incoming and outgoing data on a `Stream`. Protocols can change dynamically during the lifecycle of a stream. For example, during connection setup, an initial protocol such as `BootstrapProtocol` handles SSH authentication and transmits the Mitogen core source code to the target. Once the target process is initialized, control is handed off to `MitogenProtocol` for ongoing communication.
+
+### Broker
+
+The `Broker` is the event loop responsible for monitoring all registered streams. It invokes callbacks such as `on_receive`, `on_transmit`, `on_shutdown`, and `on_disconnect` on the broker thread in response to IO events. This design allows Mitogen to efficiently multiplex many connections within a single thread.
+
+### Connections and Child Processes
+
+Streams connected to child processes are aggregated by `Connection` objects, which manage the lifecycle and state of these processes. Each `Connection` may also maintain separate streams for standard error (`stderr`) output, allowing fine-grained control and monitoring of child processes.
+
+Message Routing and Error Handling
+----------------------------------
+
+Mitogen uses a message-passing system to communicate between processes. Messages include routing information to ensure they reach the correct destination. Special sentinel values such as `IS_DEAD` are used to signal disconnections or routing failures. When a message cannot be delivered or a remote receiver disconnects, Mitogen raises exceptions like `ChannelError` to notify the application.
+
+Data Serialization
+------------------
+
+Mitogen supports serialization of Python objects for transmission over streams. To maintain compatibility with older Python versions (e.g., Python 2.4), Mitogen includes custom pickling logic (`Py24Pickler`) that handles classic class exceptions and other legacy features. This ensures consistent behavior across different Python environments.
+
+Efficient Data Processing
+-------------------------
+
+Mitogen provides utility functions such as `iter_split` to process large buffers efficiently. This function splits a buffer by a delimiter and invokes a callback for each chunk without creating intermediate lists or incurring quadratic string operation costs. This approach minimizes memory usage and improves performance when handling streaming data.
+
+Compatibility and Portability
+-----------------------------
+
+Mitogen includes compatibility layers to support multiple Python versions, including Python 2.4 through Python 3.x. It abstracts differences in string types, buffer handling, and exception hierarchies to provide a uniform API regardless of the Python runtime.
+
+Summary
+-------
+
+Mitogen's design centers around asynchronous, event-driven IO multiplexing with dynamically changeable protocols layered over streams. By abstracting low-level details of process management, serialization, and communication, Mitogen enables developers to write scalable, efficient distributed applications with minimal complexity.
+
+This tutorial has introduced the fundamental components and mechanisms that power Mitogen, providing a foundation for understanding how it achieves fast and reliable remote execution in Python.

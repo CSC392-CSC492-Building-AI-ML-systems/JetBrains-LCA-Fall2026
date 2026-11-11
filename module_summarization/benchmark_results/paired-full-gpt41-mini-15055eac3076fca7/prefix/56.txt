@@ -1,0 +1,105 @@
+Generalized Linear Mixed Models (GLMM) with Bayesian Inference
+===============================================================
+
+Overview
+--------
+This module provides tools for Bayesian inference in generalized linear mixed models (GLMMs). It currently supports families without additional scale or shape parameters, specifically binomial and Poisson families.
+
+Two primary estimation approaches are implemented:
+
+- **Laplace Approximation** (maximum a posteriori estimation)
+- **Variational Bayes** (mean field approximation to the posterior distribution)
+
+The model assumes that all realizations of random effects are mutually independent.
+
+Random Effects Design
+---------------------
+The design matrix for the random effects is denoted as `exog_vc`. Each column of `exog_vc` corresponds to an independent realization of a random effect, which is assumed to have mean zero and an unknown standard deviation. The standard deviation parameters are constrained to be equal within subsets of columns.
+
+- When not using formulas, these subsets are specified by the `ident` parameter, which must have the same length as the number of columns in `exog_vc`. Columns with the same `ident` value share the same standard deviation.
+- When using formulas, columns derived from a common formula share the same standard deviation.
+
+In many practical applications, `exog_vc` is sparse. The module accepts sparse matrices directly, or converts dense matrices internally to sparse format. Note that when using formulas, a temporary dense version of `exog_vc` is created internally.
+
+Model and Parameterization
+--------------------------
+The joint density of the data and parameters factorizes as:
+
+.. math::
+
+    p(y | vc, fep) \, p(vc | vcp) \, p(vcp) \, p(fe)
+
+where:
+
+- :math:`y` is the observed data,
+- :math:`vc` are the random effects realizations,
+- :math:`fep` are the fixed effects parameters,
+- :math:`vcp` are the variance component parameters (log standard deviations),
+- :math:`fe` denotes fixed effects.
+
+The prior distributions :math:`p(vcp)` and :math:`p(fe)` are Gaussian. Since :math:`vcp` are log standard deviations, the standard deviations themselves have log-normal distributions. The random effects distribution :math:`p(vc | vcp)` is modeled as independent Gaussian, with independence both within and between groups defined by `ident`. The likelihood :math:`p(y | vc, fep)` depends on the specific GLM family being fit.
+
+Class and Methods
+-----------------
+The main class in this module fits generalized linear mixed models using Bayesian methods. It supports two fitting methods:
+
+- **fit_map**: Fits the model using the Laplace approximation to find the posterior mode.
+- **fit_vb**: Fits the model using a variational Bayes approximation to the posterior distribution.
+
+Parameters
+----------
+- **endog** : array_like  
+  Vector of response values.
+
+- **exog** : array_like  
+  Covariates for the fixed effects part of the model.
+
+- **exog_vc** : array_like or sparse matrix  
+  Covariates for the random effects part of the model. Sparse matrices are accepted or dense matrices are converted internally.
+
+- **ident** : array_like  
+  Integer labels indicating which random effect columns share a common variance.
+
+- **vcp_p** : float  
+  Prior standard deviation for variance component parameters (log standard deviations).
+
+- **fe_p** : float  
+  Prior standard deviation for fixed effects parameters.
+
+- **family** : statsmodels.genmod.families instance  
+  The GLM family (e.g., Binomial, Poisson).
+
+- **fep_names** : list of strings, optional  
+  Names of fixed effects parameters.
+
+- **vcp_names** : list of strings, optional  
+  Names of variance component parameters.
+
+- **vc_names** : list of strings, optional  
+  Names of random effect realizations.
+
+Posterior Components
+--------------------
+The posterior distribution includes three types of parameters:
+
+- Fixed effects parameters (fep), corresponding to columns of `exog`.
+- Random effects realizations (vc), corresponding to columns of `exog_vc`.
+- Standard deviations of random effects (vcp), corresponding to unique labels in `ident`.
+
+All random effects are modeled as independent Gaussian variables given the variance parameters. The variance parameters themselves have log-normal priors with mean zero and standard deviation `vcp_p`. Fixed effects have Gaussian priors with mean zero and standard deviation `fe_p`.
+
+Usage Notes
+-----------
+- For some families, such as Binomial, finding the posterior mode numerically can be challenging if `vcp_p` is set too large. A value around 0.5 for `vcp_p` is recommended.
+- When using formulas, the `ident` array is constructed internally based on the random effects formulas specified.
+
+References
+----------
+- Introduction to generalized linear mixed models:  
+  https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-generalized-linear-mixed-models
+
+- SAS documentation on mixed models:  
+  https://support.sas.com/documentation/cdl/en/statug/63033/HTML/default/viewer.htm#statug_intromix_a0000000215.htm
+
+- An assessment of estimation methods for generalized linear mixed models with binary outcomes:  
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3866838/

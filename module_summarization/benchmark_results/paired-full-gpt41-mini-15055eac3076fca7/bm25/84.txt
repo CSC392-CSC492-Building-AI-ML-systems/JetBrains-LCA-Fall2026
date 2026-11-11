@@ -1,0 +1,83 @@
+Piccolo Apps Module
+===================
+
+Overview
+--------
+
+This module provides the core functionality for managing Piccolo applications within a project. It includes classes and utilities to register apps, locate and import app modules, and manage app configurations and their associated database tables.
+
+AppRegistry
+-----------
+
+The `AppRegistry` class records all Piccolo apps in your project. It is typically configured in the `piccolo_conf.py` file.
+
+**Initialization:**
+
+- `apps`: A list of strings representing the paths to Piccolo apps, for example `['blog.piccolo_app']`.
+
+**Attributes:**
+
+- `apps`: The list of app paths.
+- `app_configs`: A dictionary mapping app names to their `AppConfig` instances.
+
+The registry attempts to import each app module and retrieve its `APP_CONFIG` attribute, which should be an instance of `AppConfig`.
+
+AppConfig
+---------
+
+The `AppConfig` dataclass defines the configuration for each Piccolo app. It is usually defined in the app's `piccolo_app.py` file.
+
+**Parameters:**
+
+- `app_name` (str): The name of the app, e.g., `'article'`.
+- `migrations_folder_path` (str): The path to the folder containing the app's migration files.
+- `table_classes` (List[Type[Table]]): Registered table classes for the app. These are used by Piccolo's auto migrations to detect changes.
+- `migration_dependencies` (List[str]): A list of Piccolo apps whose migrations this app depends on. For example, `['piccolo.apps.user.piccolo_conf']`. Migrations for these apps will run before this app's migrations.
+- `commands` (List[Command]): A list of functions or coroutines registered as commands for the app.
+
+Command
+-------
+
+The `Command` dataclass represents a callable command associated with an app.
+
+**Attributes:**
+
+- `callable`: The function or coroutine to be executed.
+- `aliases`: A list of alternative names for the command.
+
+Finder
+------
+
+The `Finder` class provides methods to locate and load Piccolo apps and their tables within a project.
+
+**Initialization:**
+
+- `diagnose` (bool): If set to `True`, detailed tracebacks will be printed when errors occur during import of `piccolo_conf`.
+
+**Key Methods:**
+
+- `_deduplicate(config_modules: List[PiccoloAppModule]) -> List[PiccoloAppModule]`  
+  Removes duplicate app modules while preserving order.
+
+- `_import_app_modules(config_module_paths: List[str]) -> List[PiccoloAppModule]`  
+  Imports all `piccolo_app.py` modules within the specified apps and their dependencies.
+
+- `get_tables(include_apps: List[str] = None, exclude_apps: List[str] = None, include_tags: List[str] = None) -> List[Type[Table]]`  
+  Retrieves all table classes from the specified apps, optionally filtering by inclusion or exclusion lists and tags.
+
+PiccoloConfModule
+-----------------
+
+`PiccoloConfModule` is a module type that exposes the database engine (`DB`) and the app registry (`APP_REGISTRY`).
+
+Constants
+---------
+
+- `DEFAULT_MODULE_NAME`: The default module name for Piccolo configuration, `"piccolo_conf"`.
+- `ENVIRONMENT_VARIABLE`: The environment variable used to specify the Piccolo config module, `"PICCOLO_CONF"`.
+- `ENGINE_VAR`: The variable name for the database engine, `"DB"`.
+
+Usage Summary
+-------------
+
+This module is essential for managing Piccolo apps within a project. It handles app registration, configuration, and discovery of database tables for migrations and other operations. By defining `AppConfig` instances in each app and registering apps in `AppRegistry`, Piccolo can automatically manage migrations and commands across multiple apps seamlessly.

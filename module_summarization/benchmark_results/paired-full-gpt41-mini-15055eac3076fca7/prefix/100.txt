@@ -1,0 +1,89 @@
+Managers Module
+===============
+
+This module provides classes for managing JSON-RPC requests and Ethereum transactions through a provider interface. It supports both synchronous and asynchronous request handling, transaction nonce management, and raw transaction sending capabilities.
+
+Classes
+-------
+
+RequestManager
+--------------
+
+Manages JSON-RPC requests to a blockchain provider.
+
+**Constructor:**
+- `RequestManager(provider)`
+
+**Attributes:**
+- `provider`: The provider instance used to make requests.
+- `pending_requests`: A dictionary tracking asynchronous requests by their UUID.
+
+**Methods:**
+- `setProvider(provider)`: Sets or updates the provider instance.
+- `request_blocking(method, params)`: Sends a synchronous JSON-RPC request to the provider. Returns the result or raises a `ValueError` if an error is returned.
+- `request_async(method, params)`: Sends an asynchronous JSON-RPC request. Returns a UUID representing the pending request.
+- `receive_blocking(request_id, timeout=None)`: Waits for the asynchronous request identified by `request_id` to complete, with an optional timeout. Returns the result or raises errors if the request fails or times out.
+- `receive_async(request_id, *args, **kwargs)`: Placeholder for asynchronous callback handling; currently not implemented.
+
+ManagerWrapper
+--------------
+
+A wrapper class that delegates all method calls and property accesses to an underlying manager instance. Useful for extending or modifying manager behavior without altering the original manager.
+
+**Constructor:**
+- `ManagerWrapper(wrapped_manager)`
+
+**Properties:**
+- `provider`: Accesses the wrapped manager's provider.
+- `pending_requests`: Accesses the wrapped manager's pending requests.
+
+**Methods:**
+- `setProvider(provider)`: Sets the provider on the wrapped manager.
+- `request_blocking(*args, **kwargs)`: Delegates to the wrapped manager's synchronous request method.
+- `request_async(*args, **kwargs)`: Delegates to the wrapped manager's asynchronous request method.
+- `receive_blocking(*args, **kwargs)`: Delegates to the wrapped manager's blocking receive method.
+- `receive_async(*args, **kwargs)`: Delegates to the wrapped manager's asynchronous receive method.
+
+BaseSendRawTransactionMixin
+---------------------------
+
+Mixin class extending `ManagerWrapper` to provide functionality for sending raw Ethereum transactions and managing transaction nonces.
+
+**Constructor:**
+- `BaseSendRawTransactionMixin(*args, **kwargs)`
+
+**Attributes:**
+- `_known_transactions`: A dictionary mapping addresses to sets of known transaction hashes.
+- `_known_nonces`: A dictionary mapping addresses to sets of known nonces.
+
+**Methods:**
+- `_get_nonces_and_cleanup(addr, chain_nonce)`: Internal generator method that retrieves and cleans up known nonces and transactions for a given address based on the current chain nonce. It yields nonces that are still relevant (i.e., greater than or equal to the chain nonce).
+- `get_chain_nonce(addr)`: Retrieves the current nonce for the given address from the blockchain, considering pending transactions.
+- `get_nonce(addr)`: Computes the next nonce to use for a transaction from the given address by considering both the chain nonce and tracked nonces from known transactions.
+
+Usage
+-----
+
+These classes are designed to be used in blockchain client applications where managing JSON-RPC requests and Ethereum transactions is required. `RequestManager` provides the core request handling, while `ManagerWrapper` allows for flexible extension. The `BaseSendRawTransactionMixin` adds transaction nonce management and raw transaction sending capabilities, which can be combined with other manager classes.
+
+Exceptions
+----------
+
+- `ValueError`: Raised when the JSON-RPC response contains an error.
+- `KeyError`: Raised when attempting to receive a response for a non-existent asynchronous request ID.
+- `NotImplementedError`: Raised by `receive_async` in `RequestManager` indicating that callback-based asynchronous handling is not implemented.
+
+Dependencies
+------------
+
+- `uuid`: For generating unique request IDs.
+- `json`: For parsing JSON responses.
+- `collections`: For managing sets of known transactions and nonces.
+- `gevent`: For asynchronous greenlet-based concurrency.
+- `rlp`: Recursive Length Prefix encoding (imported but not used in the provided code).
+- `web3.utils`: Various utility functions for Ethereum data handling, including cryptographic hashing, string and address manipulation, encoding/decoding, and transaction serialization.
+
+Note
+----
+
+The provided code snippet for `BaseSendRawTransactionMixin.get_nonce` is incomplete and may require further implementation to fully determine the next nonce value.

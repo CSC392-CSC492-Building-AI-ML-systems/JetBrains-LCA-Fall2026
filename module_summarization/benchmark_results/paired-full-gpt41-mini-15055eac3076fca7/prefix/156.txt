@@ -1,0 +1,67 @@
+How Mitogen Works
+=================
+
+Mitogen is a Python library designed to provide fast and transparent distributed execution and communication between processes. It achieves this by creating lightweight "contexts" that can execute Python code remotely, enabling efficient parallelism and orchestration across multiple machines or processes.
+
+Core Concepts
+-------------
+
+- **Contexts and Channels**  
+  Mitogen creates isolated execution environments called *contexts*. Each context runs independently and can communicate with others via *channels*. Channels are bidirectional communication pipes that allow sending and receiving Python objects and commands.
+
+- **Message Passing and Routing**  
+  Communication between contexts is implemented through message passing. Messages are serialized Python objects sent over channels. Mitogen includes a routing mechanism that directs messages to the appropriate context or handler, enabling complex topologies such as trees or meshes of contexts.
+
+- **Bootstrap and Slave Contexts**  
+  When a new context is created, Mitogen sends a minimal bootstrap implementation to it. This bootstrap code initializes the remote environment and prepares it to receive and execute further commands. The bootstrap is designed to be small and efficient to minimize startup latency.
+
+- **Efficient Serialization**  
+  Mitogen uses Python’s `pickle` module (with fallback to `cPickle` when available) for serializing messages. It also employs compression (e.g., `zlib`) and encoding strategies to optimize data transfer size and speed.
+
+- **Non-blocking IO and Event Loop**  
+  The library uses non-blocking IO and an event-driven architecture to handle multiple channels concurrently without blocking the main thread. This design allows Mitogen to scale efficiently with many remote contexts.
+
+- **Thread-local Storage**  
+  Mitogen uses thread-local storage to maintain context-specific state, ensuring that operations in different threads do not interfere with each other.
+
+Key Features
+------------
+
+- **Transparent Remote Execution**  
+  Functions and modules can be executed remotely as if they were local, with Mitogen handling the complexities of serialization, communication, and execution.
+
+- **Dynamic Module Loading**  
+  Modules required by remote contexts can be loaded on demand, reducing startup time and memory usage.
+
+- **Robust Error Handling**  
+  Mitogen defines special sentinel values (e.g., `IS_DEAD`) to signal disconnections or routing failures, allowing the system to detect and recover from errors gracefully.
+
+- **Cross-Version Compatibility**  
+  The library supports multiple Python versions, handling differences in built-in types, exceptions, and modules to maintain compatibility.
+
+Performance Considerations
+--------------------------
+
+- **Chunk Size**  
+  Mitogen uses a default chunk size of 128 KiB for reading and writing data over channels. This size balances CPU usage, memory allocation, and throughput, optimizing performance across different operating systems and environments.
+
+- **Buffer Management**  
+  The library carefully manages socket and pipe buffers to avoid excessive memory usage while maintaining high data transfer rates.
+
+- **Avoiding Deadlocks**  
+  Special care is taken to prevent deadlocks, such as avoiding calls to `str.encode()` that may acquire import locks while other threads are waiting.
+
+Use Cases
+---------
+
+Mitogen is well-suited for scenarios requiring:
+
+- Distributed task execution and orchestration
+- Parallel processing across multiple hosts or containers
+- Remote debugging and introspection
+- Building scalable automation and deployment tools
+
+Summary
+-------
+
+Mitogen works by creating lightweight remote execution contexts connected via efficient, event-driven communication channels. It abstracts away the complexities of inter-process communication, serialization, and remote code execution, providing a powerful and flexible framework for distributed Python programming.

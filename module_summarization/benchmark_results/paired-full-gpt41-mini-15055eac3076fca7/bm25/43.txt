@@ -1,0 +1,115 @@
+Config Usage
+============
+
+The `Config` object provides access to the configuration of the ASAB application. It is an instance of `ConfigParser` with extended functionality to support interpolation and loading configuration from various sources, including local files and ZooKeeper servers.
+
+Accessing Configuration Values
+------------------------------
+
+Configuration values can be accessed using dictionary-like syntax:
+
+```python
+my_conf_value = asab.Config['section_name']['key']
+```
+
+This allows straightforward retrieval of configuration parameters from any section.
+
+Loading Configuration from ZooKeeper
+------------------------------------
+
+The configuration system supports loading configuration data from a ZooKeeper server. This is done via the `_include_from_zookeeper` method, which connects to the specified ZooKeeper servers, retrieves configuration files in supported formats (`.json`, `.yaml`, `.conf`), and appends them to the internal configuration list for further processing.
+
+Example configuration snippet to include ZooKeeper configuration:
+
+```ini
+[asab:zookeeper]
+url=server1 server2 server3
+
+[general]
+include=zookeeper://zookeeper-1:2181,zookeeper-2:2181,
+```
+
+The method handles connection setup, data retrieval, and parsing based on file extension. Supported formats include JSON, YAML, and standard configuration files.
+
+Configurable Objects
+--------------------
+
+The `Configurable` class is a base class for objects whose attributes can be loaded from the configuration. It provides a convenient way to define default configuration values and override them from the global configuration or a provided dictionary.
+
+Example usage:
+
+```python
+class ConfigurableObject(asab.Configurable):
+
+    ConfigDefaults = {
+        'foo': 'bar',
+    }
+
+    def __init__(self, config_section_name, config=None):
+        super().__init__(config_section_name=config_section_name, config=config)
+        config_foo = self.Config.get('foo')
+```
+
+- `ConfigDefaults` is a dictionary defining default values for configuration keys.
+- During initialization, the class merges defaults from all base classes.
+- If the global `Config` has the specified section, its values override the defaults.
+- Additional overrides can be passed via the `config` parameter.
+
+The `Config` attribute of a `Configurable` instance is a `ConfigurableDict` object.
+
+ConfigurableDict
+----------------
+
+`ConfigurableDict` is a dictionary-like object with additional helper methods to retrieve configuration values in various formats, such as booleans, durations (seconds), URLs, etc.
+
+It implements the standard dictionary interface and can be used like a normal dictionary:
+
+```python
+value = configurable_dict['key']
+configurable_dict['key'] = 'value'
+```
+
+Additional methods (not fully shown here) provide convenience for type conversions and validations.
+
+Password Storage
+----------------
+
+The configuration supports a special `[passwords]` section intended for securely storing passwords. Passwords stored here are not shown in the default API output.
+
+Example usage in configuration files:
+
+```ini
+[connection:KafkaConnection]
+password=${passwords:kafka_password}
+
+[passwords]
+kafka_password=<MY_SECRET_PASSWORD>
+```
+
+This allows referencing passwords securely without exposing them directly in other configuration sections.
+
+Housekeeping and Logging Configuration
+--------------------------------------
+
+The configuration includes default sections for housekeeping and logging:
+
+- **housekeeping**: Defines scheduled tasks with keys like `at`, `limit`, and `run_at_startup`.
+- **logging:file**: Defines file logging parameters such as path, format, date format, backup count, and rotation policy.
+
+These defaults can be overridden in the configuration files as needed.
+
+Environment Variable Overrides
+------------------------------
+
+If the environment variable `ASAB_ZOOKEEPER_SERVERS` is set, it can influence the ZooKeeper server URLs used for configuration loading, allowing dynamic configuration based on deployment environment.
+
+Summary
+-------
+
+- Use `asab.Config` to access application configuration.
+- Extend `asab.Configurable` to create objects with configurable attributes.
+- Load configuration from local files or ZooKeeper servers transparently.
+- Store sensitive passwords in the `[passwords]` section.
+- Utilize `ConfigurableDict` for enhanced dictionary-like configuration handling.
+
+This flexible configuration system enables modular, secure, and environment-aware application setups.

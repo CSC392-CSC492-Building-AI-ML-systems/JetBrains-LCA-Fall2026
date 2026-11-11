@@ -1,0 +1,146 @@
+auto_augment Module
+===================
+
+Overview
+--------
+The `auto_augment` module provides implementations of the AutoAugment data augmentation technique as described in the paper [AutoAugment: Learning Augmentation Policies from Data](https://arxiv.org/abs/1805.09501). This module enables applying predefined augmentation policies tailored for datasets such as ImageNet and SVHN, as well as custom policies, to batches of image samples.
+
+Functions
+---------
+
+auto_augment_image_net(data, shape=None, fill_value=128, interp_type=None, max_translate_abs=None, max_translate_rel=None, seed=None) → _DataNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies the ImageNet-specific AutoAugment policy to a batch of samples.
+
+Parameters:
+- **data** (_DataNode_): Batch of image samples to augment.
+- **shape** (Optional[Union[_DataNode, Tuple[int, int]]]): Shape of the images; used by some augmentations.
+- **fill_value** (Optional[int]): Pixel fill value for areas outside the image after transformations. Default is 128.
+- **interp_type** (Optional[types.DALIInterpType]): Interpolation type used for geometric transformations.
+- **max_translate_abs** (Optional[int]): Maximum absolute translation in pixels.
+- **max_translate_rel** (Optional[float]): Maximum relative translation as a fraction of image size.
+- **seed** (Optional[int]): Random seed for reproducibility.
+
+Returns:
+- _DataNode_: Batch of augmented image samples.
+
+Description:
+This function is equivalent to calling `auto_augment` with the policy name set to `'image_net'`. It applies the ImageNet AutoAugment policy to the input data.
+
+---
+
+apply_auto_augment(policy, data, seed=None, **kwargs)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies a given AutoAugment policy to a batch of samples.
+
+Parameters:
+- **policy** (Policy): A set of augmentation sequences defining the AutoAugment policy.
+- **data** (_DataNode_): Batch of image samples to augment.
+- **seed** (Optional[int]): Seed for random operations.
+- **kwargs**: Additional keyword arguments passed to augmentations (e.g., `shape`, `fill_value`, `interp_type`).
+
+Returns:
+- _DataNode_: Batch of augmented image samples.
+
+Description:
+This function applies the specified augmentation policy to the input data in an AutoAugment fashion. It supports passing extra parameters to augmentations if their signatures accept them.
+
+---
+
+get_reduced_image_net_policy() → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creates and returns the reduced ImageNet AutoAugment policy.
+
+Returns:
+- Policy: An augmentation policy tuned for the reduced ImageNet dataset.
+
+Description:
+This policy is based on the reduced ImageNet augmentation scheme described in the AutoAugment paper. It can be used with `apply_auto_augment` to augment image batches accordingly.
+
+---
+
+get_svhn_policy(use_shape=False, max_translate_abs=None, max_translate_rel=None) → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creates and returns the SVHN AutoAugment policy.
+
+Parameters:
+- **use_shape** (bool): If True, translation offsets are computed as a percentage of the image/frame shape. Useful when input samples have varying shapes.
+- **max_translate_abs** (Optional[int]): Maximum absolute translation in pixels (used if `use_shape` is False).
+- **max_translate_rel** (Optional[float]): Maximum relative translation as a fraction of image size.
+
+Returns:
+- Policy: An augmentation policy tuned for the SVHN dataset.
+
+Description:
+This function returns the SVHN-specific AutoAugment policy as described in the original paper. The policy can be applied using `apply_auto_augment`.
+
+---
+
+get_image_net_policy(use_shape=False, max_translate_abs=None, max_translate_rel=None) → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creates and returns the ImageNet AutoAugment policy.
+
+Parameters:
+- **use_shape** (bool): If True, translation offsets are computed as a percentage of the image/frame shape. Useful when input samples have varying shapes.
+- **max_translate_abs** (Optional[int]): Maximum absolute translation in pixels (used if `use_shape` is False). Defaults to 250.
+- **max_translate_rel** (Optional[float]): Maximum relative translation as a fraction of image size.
+
+Returns:
+- Policy: An augmentation policy tuned for the ImageNet dataset.
+
+Description:
+This function returns the ImageNet-specific AutoAugment policy described in the AutoAugment paper. The policy can be applied using `apply_auto_augment`.
+
+---
+
+auto_augment(policy, data, seed=None, **kwargs) → _DataNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies a specified AutoAugment policy to a batch of samples.
+
+Parameters:
+- **policy** (Policy): The augmentation policy to apply.
+- **data** (_DataNode_): Batch of image samples to augment.
+- **seed** (Optional[int]): Seed for random operations.
+- **kwargs**: Additional parameters passed to augmentations (e.g., `shape`, `fill_value`, `interp_type`).
+
+Returns:
+- _DataNode_: Batch of augmented image samples.
+
+Raises:
+- ValueError: If the policy contains no sub-policies.
+
+Description:
+This is the core function that applies the AutoAugment augmentation scheme to the input batch of samples using the specified policy. It supports passing extra arguments to augmentations if their signatures accept them.
+
+---
+
+Notes
+-----
+- The module relies on augmentation primitives such as shear, rotate, color, contrast, sharpness, posterize, solarize, auto_contrast, equalize, and invert, which are combined into policies.
+- Policies consist of sequences of augmentation operations with associated probabilities and magnitudes.
+- The module supports both absolute and relative translation parameters to accommodate images of varying sizes.
+- Random seeds can be specified to ensure reproducibility of augmentations.
+
+References
+----------
+- [AutoAugment: Learning Augmentation Policies from Data](https://arxiv.org/abs/1805.09501)
+
+---
+
+Example Usage
+-------------
+```python
+from nvidia.dali.auto_aug.auto_augment import auto_augment_image_net
+
+# Apply ImageNet AutoAugment policy to a batch of images
+augmented_batch = auto_augment_image_net(data=batch_images, seed=42)
+```
+
+```python
+from nvidia.dali.auto_aug.auto_augment import get_image_net_policy, apply_auto_augment
+
+policy = get_image_net_policy()
+augmented_batch = apply_auto_augment(policy, data=batch_images, seed=123, shape=(224, 224))
+```
+
+This documentation provides an overview of the `auto_augment` module and its main functions for applying AutoAugment policies to image data batches.

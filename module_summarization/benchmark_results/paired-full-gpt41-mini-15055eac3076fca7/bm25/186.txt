@@ -1,0 +1,112 @@
+Imputation of Missing Values
+============================
+
+Imputation is a common technique used to handle missing data in datasets by filling in missing values with substituted ones. This process is essential for preparing data for machine learning models, which typically require complete datasets.
+
+Overview
+--------
+
+Columns that contain only missing values during the `fit` method are discarded during `transform` unless the imputation strategy is set to `"constant"`. 
+
+In prediction contexts, simple imputation methods often perform poorly when paired with weak learners. However, when used with powerful learners, simple imputation can achieve performance comparable to or better than more complex imputation methods such as `IterativeImputer` or `KNNImputer`.
+
+Imputation Strategies
+---------------------
+
+- **SimpleImputer**: Performs univariate imputation by replacing missing values using a specified strategy such as mean, median, most frequent, or a constant value.
+
+- **IterativeImputer**: Performs multivariate imputation by modeling each feature with missing values as a function of other features in a round-robin fashion.
+
+- **KNNImputer**: Imputes missing values using the k-Nearest Neighbors approach, where missing values are imputed based on the mean value from nearest neighbors found in the training set.
+
+- **MissingIndicator**: Adds binary indicators for missing values, which can be useful to inform models about the presence of missing data.
+
+Attributes and Parameters
+-------------------------
+
+- `missing_values`: The placeholder for the missing values. All occurrences of this will be imputed.
+
+- `strategy`: The imputation strategy to use. Options include `"mean"`, `"median"`, `"most_frequent"`, or `"constant"`.
+
+- `fill_value`: When strategy is `"constant"`, this value is used to replace missing entries.
+
+- `initial_imputer_`: An instance of `SimpleImputer` used to initialize missing values in iterative imputation.
+
+- `imputation_sequence_`: A list of tuples `(feat_idx, neighbor_feat_idx, estimator)` describing the imputation sequence for multivariate imputers.
+
+- `n_iter_`: Number of iteration rounds performed during iterative imputation.
+
+- `n_features_in_`: Number of features seen during fitting.
+
+- `feature_names_in_`: Names of features seen during fitting, if available.
+
+Examples
+--------
+
+Simple Imputer Example:
+
+```python
+import numpy as np
+from sklearn.impute import SimpleImputer
+
+imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
+imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
+X = [[np.nan, 2, 3], [4, np.nan, 6], [10, np.nan, 9]]
+print(imp_mean.transform(X))
+```
+
+Output:
+
+```
+[[ 7.   2.   3. ]
+ [ 4.   3.5  6. ]
+ [10.   3.5  9. ]]
+```
+
+Missing Indicator Example:
+
+```python
+import numpy as np
+from sklearn.impute import MissingIndicator
+
+X1 = np.array([[np.nan, 1, 3],
+               [4, 0, np.nan],
+               [8, 1, 0]])
+X2 = np.array([[5, 1, np.nan],
+               [np.nan, 2, 3],
+               [2, 4, 0]])
+indicator = MissingIndicator()
+indicator.fit(X1)
+X2_tr = indicator.transform(X2)
+print(X2_tr)
+```
+
+Output:
+
+```
+array([[False,  True],
+       [ True, False],
+       [False, False]])
+```
+
+See Also
+--------
+
+- `SimpleImputer` : Univariate imputation of missing values.
+- `IterativeImputer` : Multivariate imputation of missing values.
+- `MissingIndicator` : Adds binary indicators for missing values.
+
+Notes
+-----
+
+- When using iterative imputation, the initial imputer is typically a `SimpleImputer` that fills missing values before iterative modeling.
+
+- The number of features with missing values and the number of iterations performed are accessible via `n_features_with_missing_` and `n_iter_` respectively.
+
+- Feature names are preserved when available and can be accessed via `feature_names_in_`.
+
+- Columns containing only missing values during fitting are discarded during transformation unless the strategy is `"constant"`.
+
+- Simple imputation methods can be surprisingly effective when combined with strong learners, sometimes outperforming more complex imputation techniques.
+
+This documentation provides an overview of imputation techniques available for handling missing data, their attributes, usage examples, and considerations for effective application.

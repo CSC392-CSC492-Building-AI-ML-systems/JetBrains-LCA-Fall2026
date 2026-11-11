@@ -1,0 +1,95 @@
+# General HDF5 File Reader
+
+This document provides an overview of the general `HDF5` file reader functionality, focusing on the `HDF5Reader` class and its associated transformation framework designed to facilitate flexible and efficient reading and processing of HDF5 datasets.
+
+---
+
+## Overview
+
+The `HDF5Reader` class is a versatile tool for reading and manipulating data stored in HDF5 files. It supports a range of transformation functions that can be applied to datasets or attributes within the HDF5 file, enabling users to customize how data is extracted and processed.
+
+---
+
+## Transformation Framework
+
+### Purpose
+
+The reader supports a collection of predefined transformation functions that can be registered and applied to datasets or attributes. These transformations allow for flexible data manipulation such as indexing, slicing, attribute extraction, and conversion of datasets into memory-resident numpy arrays.
+
+### Registration Decorator: `hdf5_transformation`
+
+Transformation functions are registered using the `hdf5_transformation` decorator. This decorator marks a function as a transformation applicable to the `HDF5Reader` class and manages whether the transformation requires a previously processed attribute value.
+
+- **Parameters:**
+  - `attribute_needed` (`bool`): Indicates if the transformation function requires an attribute value that has already been processed. If `True`, the transformation is only available for entries in datasets.
+
+- **Behavior:**
+  - Registers the decorated function in the internal `_transforms` dictionary of `HDF5Reader`.
+  - If `attribute_needed` is `True`, the function name is also added to the `_attribute_transforms` set.
+  - Wraps the function to handle exceptions gracefully, raising a clear `HDF5TransformationError` if the transformation fails.
+
+---
+
+## Predefined Transformations
+
+All transformation functions are designed to handle the following cases gracefully:
+
+1. The dataset is an `h5py.Dataset` object.
+2. The dataset is a `numpy.ndarray`.
+3. The dataset is a `dict` of datasets or arrays, allowing transformations on arbitrary child datasets.
+
+### Available Transformations
+
+- **`get_first_element(dataset)`**
+
+  Returns the first element of the dataset.
+
+- **`index_dataset(dataset, index)`**
+
+  Returns the element at the specified index from the dataset. If the dataset is a dictionary, applies the indexing to each item.
+
+- **`slice_dataset(dataset, slice_arg)`**
+
+  Applies a slice to the dataset and returns the sliced data. Supports slicing dictionaries by applying the slice to each value.
+
+- **`get_shape(dataset)`**
+
+  Returns the shape of the dataset. If the dataset is a dictionary, returns a dictionary mapping keys to shapes.
+
+- **`attributes(dataset)`**
+
+  Extracts all attributes from the dataset and returns them as a dictionary. Raises `NotImplementedError` if the dataset is a numpy array or dictionary.
+
+- **`move_to_memory(dataset)`**
+
+  Converts datasets from `h5py.Dataset` objects to numpy arrays, effectively loading the data into memory. Recursively applies this conversion to dictionaries of datasets.
+
+- **`flatten_array(dataset, order='C')`**
+
+  Flattens the dataset into a one-dimensional array using the specified order ('C' for row-major, 'F' for column-major). (Note: Implementation details are incomplete in the provided code snippet.)
+
+---
+
+## Error Handling
+
+- **`HDF5TransformationError`**
+
+  Custom exception raised when a transformation function fails. This ensures that errors during data transformation are clearly communicated.
+
+---
+
+## Usage Notes
+
+- Transformations can be chained or combined to tailor data extraction to specific needs.
+- The framework supports handling complex nested datasets by applying transformations recursively to dictionaries of datasets.
+- Users can define additional transformation functions using the `hdf5_transformation` decorator to extend the reader's capabilities.
+
+---
+
+## Additional Information
+
+For more detailed information and examples, please refer to the source code and the official documentation of the `HDF5Reader` class.
+
+---
+
+*This documentation covers the general design and usage of the HDF5 file reader and its transformation system, enabling efficient and customizable data access from HDF5 files.*

@@ -1,0 +1,82 @@
+w_direct command
+================
+
+Overview
+--------
+
+The `w_direct` command is used to calculate state-to-state kinetics by tracing trajectories in WESTPA simulations. It processes trajectory data and bin assignments to compute macrostate-to-macrostate fluxes, transition event durations, and related kinetic quantities.
+
+This command requires a bin assignment file (usually named `assign.h5`) that includes trajectory labeling. For information on generating this file, see the documentation for the `w_assign` command.
+
+The `w_direct` command consists of several subcommands. The primary subcommand, `init`, generates the initial kinetics data file (`direct.h5` by default), which contains raw flux and transition event data. Other subcommands process this data to compute average rates, fluxes, populations, and confidence intervals.
+
+Subcommands
+-----------
+
+### init
+
+Calculates state-to-state rates and transition event durations by tracing trajectories.
+
+- **Input:** A bin assignment file with trajectory labeling.
+- **Output:** A kinetics data file (default: `direct.h5`) containing raw fluxes and event durations.
+
+This subcommand produces a file with the following datasets:
+
+- `/conditional_fluxes` [iteration][state][state]  
+  Floating-point macrostate-to-macrostate fluxes. These fluxes are **not** normalized by the population of the initial macrostate.
+
+- `/conditional_arrivals` [iteration][stateA][stateB]  
+  Integer counts of trajectories arriving at state *stateB* in a given iteration, having departed from *stateA*.
+
+- `/total_fluxes` [iteration][state]  
+  Floating-point total flux into a given macrostate.
+
+- `/arrivals` [iteration][state]  
+  Integer counts of trajectories arriving at a given state in a given iteration, regardless of origin.
+
+- `/duration_count` [iteration]  
+  Integer number of event durations recorded in each iteration.
+
+- `/durations` [iteration][event duration]  
+  Structured array of event durations for transition events ending during a given iteration. Each event includes:
+  
+  - `istate` (Integer): Initial state of the transition event.
+  - `fstate` (Integer): Final state of the transition event.
+  - `duration` (Floating-point): Duration of the transition, in units of tau.
+  - `weight` (Floating-point): Weight of the trajectory at the end of the transition, **not** normalized by initial state population.
+
+Because the state-to-state fluxes stored in this file are not normalized by the initial macrostate population, they cannot be directly interpreted as rates. The `w_direct kinetics` subcommand performs this normalization while accounting for statistical fluctuations and correlations.
+
+Usage
+-----
+
+```bash
+w_direct init -a assign.h5 -o direct.h5
+```
+
+This command reads the assignment file `assign.h5` and produces the kinetics data file `direct.h5`.
+
+Additional Subcommands
+----------------------
+
+Other subcommands of `w_direct` (such as `kinetics`) process the raw flux data in the kinetics file to compute average rates, fluxes, and populations with confidence intervals. These subcommands use bootstrapping and correlation analysis to provide statistically robust estimates.
+
+Technical Details
+-----------------
+
+The kinetics calculations use a custom rate estimator that evaluates transitions between all pairs of states `(i, j)` where `i != j`. The estimator requires the full population dataset to properly normalize rates and avoid biases caused by indirect transitions through other states.
+
+Bootstrapping and confidence interval estimation are performed using the `mcbs_ci_correl` function, which supports autocorrelation correction and subsampling.
+
+Logging
+-------
+
+The `w_direct` command logs its progress and diagnostic information under the logger named `w_direct`.
+
+See Also
+--------
+
+- `w_assign` — for generating bin assignment files.
+- `w_direct kinetics` — for processing raw kinetics data into normalized rates and confidence intervals.
+
+-----------------------------------------------------------------------------

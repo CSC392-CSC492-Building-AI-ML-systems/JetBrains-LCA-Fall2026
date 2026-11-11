@@ -1,0 +1,115 @@
+Empirical Likelihood
+====================
+
+Overview
+--------
+
+Empirical likelihood (EL) is a nonparametric method of statistical inference that combines the flexibility of nonparametric methods with the likelihood-based inference framework. It is particularly useful for conducting hypothesis tests and constructing confidence intervals without relying on strong parametric assumptions.
+
+This documentation covers the implementation of empirical likelihood methods for linear regression models, including standard regression and regression forced through the origin, as implemented in the `statsmodels` library.
+
+Key References
+--------------
+
+- Owen, A.B. (2001). *Empirical Likelihood*. Chapman and Hall.
+
+Empirical Likelihood Linear Regression Inference
+------------------------------------------------
+
+The empirical likelihood approach to linear regression inference involves optimizing over nuisance parameters to conduct hypothesis tests and calculate confidence intervals for regression parameters. This approach is implemented in functions that are called by `eltest` in the `OLSResults` class.
+
+### _ELRegOpts Class
+
+The `_ELRegOpts` class encapsulates functions to be optimized during hypothesis testing and confidence interval calculations in empirical likelihood regression.
+
+**Parameters**
+
+- `OLSResults` : A fitted OLS regression results instance.
+
+This class provides internal methods to optimize nuisance parameters and compute confidence interval limits for regression coefficients using empirical likelihood.
+
+Empirical Likelihood Regression Through the Origin
+--------------------------------------------------
+
+This module implements empirical likelihood regression constrained to pass through the origin (i.e., with the intercept parameter fixed at zero). This differs from standard regression where the intercept is estimated.
+
+By forcing the regression through the origin, the empirical likelihood estimates and confidence intervals differ significantly, often resulting in narrower intervals and different parameter estimates.
+
+### ELOriginRegress Class
+
+The `ELOriginRegress` class provides empirical likelihood inference and estimation for linear regression models forced through the origin.
+
+**Parameters**
+
+- `endog` : array-like, shape (n_samples,)
+  - The response variable array.
+- `exog` : array-like, shape (n_samples, n_features)
+  - The matrix of exogenous variables. This should *not* include a column of ones since the intercept is fixed at zero.
+
+**Attributes**
+
+- `endog` : The response variable array.
+- `exog` : The exogenous variables array.
+- `nobs` : Number of observations.
+- `nvar` : Number of regressors.
+
+**Methods**
+
+- `fit()`
+  - Fits the empirical likelihood regression model through the origin.
+  - Returns an instance of a results class containing parameter estimates and inference results.
+
+**Notes**
+
+- The maximum empirical likelihood estimate is computed with a vector of ones in the exogenous matrix but with the intercept parameter restricted to zero.
+- This approach yields different parameter estimates and confidence intervals compared to standard regression with an intercept.
+- For more details on empirical likelihood regression without the intercept restriction, see the methods in the `OLSResults` class.
+
+Empirical Likelihood API
+------------------------
+
+The empirical likelihood functionality is exposed through several classes and functions, including:
+
+- `DescStat`, `DescStatUV`, `DescStatMV` — Descriptive statistics with empirical likelihood.
+- `ELOriginRegress` — Empirical likelihood regression through the origin.
+- `ANOVA` — Analysis of variance using empirical likelihood.
+- `emplikeAFT` — Empirical likelihood methods for accelerated failure time models.
+
+Testing and Validation
+----------------------
+
+The empirical likelihood methods include test cases, such as those for ANOVA difference in means, to ensure correctness and reliability. These tests use datasets like `star98` and validate results against known benchmarks.
+
+Usage Example
+-------------
+
+```python
+import statsmodels.api as sm
+from statsmodels.emplike.originregress import ELOriginRegress
+
+# Example data
+endog = ...
+exog = ...
+
+# Initialize empirical likelihood regression through the origin
+el_model = ELOriginRegress(endog, exog)
+
+# Fit the model
+results = el_model.fit()
+
+# Access parameter estimates and inference results
+print(results.params)
+print(results.conf_int_el())
+```
+
+Notes on Inference
+------------------
+
+- Empirical likelihood inference does not rely on covariance matrix estimates as in classical regression.
+- Instead, inference is conducted via empirical likelihood ratio tests (`el_test`) and confidence intervals (`conf_int_el`).
+- When using empirical likelihood methods, standard methods requiring covariance matrices may not function correctly.
+
+Summary
+-------
+
+Empirical likelihood provides a powerful framework for inference in linear regression models, especially when parametric assumptions are questionable. The `statsmodels` implementation supports both standard regression and regression constrained through the origin, offering flexible and robust inference tools grounded in likelihood principles without explicit distributional assumptions.

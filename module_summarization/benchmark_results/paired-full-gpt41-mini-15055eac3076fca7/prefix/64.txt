@@ -1,0 +1,55 @@
+Operations Module
+=================
+
+This module provides a framework for defining and managing database schema migration operations within SQLAlchemy's migration environment. It includes base classes and specific operation classes that represent schema changes such as adding or dropping constraints. These operations are designed to be extensible and reversible, facilitating automated schema migration generation and application.
+
+Core Classes
+------------
+
+MigrateOperation
+~~~~~~~~~~~~~~~~
+
+The base class for all migration command and organization objects. It serves as the foundation for the operation extensibility API.
+
+- **info**: A memoized property returning a dictionary for storing arbitrary information associated with the operation instance.
+- **reverse()**: Abstract method intended to return the inverse of the current operation.
+- **to_diff_tuple()**: Abstract method that returns a tuple representation of the operation suitable for diffing.
+
+AddConstraintOp
+~~~~~~~~~~~~~~~
+
+Represents an operation to add a constraint to a database table.
+
+- **add_constraint_ops**: A dispatcher used to register and handle different types of constraints.
+- **constraint_type**: Property that should be implemented to specify the type of constraint.
+- **register_add_constraint(type_: str)**: Class method decorator to register a handler for a specific constraint type.
+- **from_constraint(constraint: Constraint)**: Class method that creates an `AddConstraintOp` instance from a given SQLAlchemy `Constraint` object.
+- **to_constraint(migration_context: Optional[MigrationContext] = None)**: Abstract method to produce a SQLAlchemy `Constraint` object representing the operation.
+- **reverse()**: Returns a corresponding `DropConstraintOp` that reverses this add constraint operation.
+- **to_diff_tuple()**: Returns a tuple describing the operation, typically `("add_constraint", constraint)`.
+
+DropConstraintOp
+~~~~~~~~~~~~~~~~
+
+Represents an operation to drop a constraint from a database table.
+
+- **__init__(constraint_name, table_name, type_=None, schema=None, _reverse=None)**: Initializes the drop constraint operation with the constraint name, table name, optional constraint type, schema, and an optional reverse operation.
+- **reverse()**: Returns an `AddConstraintOp` that reverses this drop constraint operation.
+- **to_diff_tuple()**: Returns a tuple describing the operation, which varies depending on the constraint type (e.g., `"remove_fk"` for foreign keys or `"remove_constraint"` for others).
+- **from_constraint(constraint: Constraint)**: Class method that creates a `DropConstraintOp` instance from a given SQLAlchemy `Constraint` object. It maps SQLAlchemy constraint types to internal type strings and extracts necessary information such as constraint name and table.
+
+Usage and Extensibility
+-----------------------
+
+The operations defined in this module are integral to Alembic's migration system, allowing for detailed and reversible schema changes. The `AddConstraintOp` class uses a dispatcher pattern to support various constraint types, enabling easy extension for custom constraints.
+
+Each operation class implements methods to convert between SQLAlchemy schema objects and migration operations, facilitating automated migration script generation and application.
+
+See Also
+--------
+
+- :ref:`operation_objects` — Overview of operation objects in Alembic.
+- :ref:`operation_plugins` — Extending Alembic with custom operations.
+- :ref:`customizing_revision` — Customizing migration script generation.
+
+This module is part of the internal API for Alembic's migration operations and is intended for use by migration scripts and extensions that require fine-grained control over schema changes.

@@ -1,0 +1,88 @@
+Generate Example for GAM Code
+=============================
+
+This section provides an example of how to generate and use Generalized Additive Models (GAM) with various spline and smoother components as implemented in the provided code.
+
+Overview
+--------
+
+The code defines a framework for constructing additive smooth components for GAMs using different types of spline bases and polynomial smoothers. Key classes include:
+
+- **AdditiveGamSmoother**: Abstract base class for additive smooth components.
+- **BSplines**: Implements additive smooth components using B-spline basis functions.
+- **CyclicCubicSplines**: Implements cyclic cubic regression splines for periodic smooth terms.
+- **PolynomialSmoother**: Implements additive polynomial smooth components.
+- **GenericSmoothers**: Allows combining arbitrary smoothers into an additive GAM smoother.
+
+These classes facilitate the construction of design matrices for GAMs by transforming input variables into spline basis expansions or polynomial terms.
+
+Example: Creating a GAM with B-Splines and Polynomial Smoothers
+---------------------------------------------------------------
+
+```python
+import numpy as np
+import pandas as pd
+from your_module import BSplines, PolynomialSmoother, GenericSmoothers, GLMGam
+
+# Sample data
+np.random.seed(0)
+n_samples = 100
+x1 = np.linspace(0, 10, n_samples)
+x2 = np.linspace(0, 5, n_samples)
+X = np.column_stack([x1, x2])
+
+# Define B-spline smoother for the first variable
+bspline_smoother = BSplines(x=X[:, [0]], df=10, degree=3, variable_names=['x1'])
+
+# Define polynomial smoother for the second variable with degree 2
+poly_smoother = PolynomialSmoother(x=X[:, [1]], degrees=[2], variable_names=['x2'])
+
+# Combine smoothers into a generic additive smoother
+combined_smoother = GenericSmoothers(x=X, smoothers=[bspline_smoother, poly_smoother])
+
+# Initialize the GAM model with the combined smoother
+gam_model = GLMGam(endog=np.random.randn(n_samples), exog=None, smoother=combined_smoother)
+
+# Fit the model
+gam_results = gam_model.fit()
+
+# Predict on new data
+x1_new = np.linspace(0, 10, 50)
+x2_new = np.linspace(0, 5, 50)
+X_new = np.column_stack([x1_new, x2_new])
+predicted = gam_results.predict(exog=None, x_new=X_new)
+
+print(predicted)
+```
+
+Explanation
+-----------
+
+1. **Data Preparation**: We create synthetic data with two explanatory variables `x1` and `x2`.
+
+2. **Smoother Definitions**:
+   - `BSplines` is used to create a spline basis for `x1` with 10 degrees of freedom and cubic splines (degree=3).
+   - `PolynomialSmoother` is used to create polynomial terms of degree 2 for `x2`.
+
+3. **Combining Smoothers**: The `GenericSmoothers` class combines the individual smoothers into a single additive smoother that can be passed to the GAM model.
+
+4. **Model Initialization and Fitting**: The `GLMGam` class (imported from the generalized additive model module) is initialized with the response variable and the combined smoother. The model is then fitted to the data.
+
+5. **Prediction**: The fitted model is used to predict responses for new data points.
+
+Additional Notes
+----------------
+
+- The spline basis functions are constructed using the `patsy` library internally, ensuring compatibility with standard spline definitions.
+- Constraints and transformations can be applied to the spline bases to enforce smoothness or periodicity (e.g., cyclic splines).
+- The framework supports multivariate smoothers by combining univariate smoothers for each explanatory variable.
+- Cross-validation and model selection can be performed using additional utilities such as `MultivariateGAMCVPath`.
+
+References
+----------
+
+- Luca Puggini and Josef Perktold, "Spline and other smoother classes for Generalized Additive Models", 2015.
+- Patsy documentation for spline basis generation: https://patsy.readthedocs.io/en/latest/spline-regression.html
+- Statsmodels GLMGam implementation for GAM fitting.
+
+This example demonstrates how to leverage the provided spline and smoother classes to build flexible GAMs tailored to your data and modeling needs.

@@ -1,0 +1,187 @@
+Structured Arrays Utilities
+===========================
+
+This module provides a collection of utilities to manipulate structured arrays in NumPy. Many of these functions were originally implemented by John Hunter for matplotlib and have been rewritten and extended here for convenience.
+
+Overview
+--------
+
+Structured arrays in NumPy allow you to define complex data types with named fields, including nested structures. This module offers functions to facilitate operations such as appending fields, dropping fields, joining arrays by keys, renaming fields, and recursively filling fields, among others.
+
+Key Functions
+-------------
+
+recursive_fill_fields(input, output)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Fill fields in the `output` array with corresponding fields from the `input` array, supporting nested structured arrays.
+
+Parameters
+^^^^^^^^^^
+- **input** : ndarray  
+  Input structured array.
+- **output** : ndarray  
+  Output structured array to be filled. Should be at least the same size as `input`.
+
+Returns
+^^^^^^^
+- ndarray  
+  The `output` array with fields filled from `input`.
+
+Example
+^^^^^^^
+>>> import numpy as np  
+>>> from numpy.lib import recfunctions as rfn  
+>>> a = np.array([(1, 10.), (2, 20.)], dtype=[('A', np.int64), ('B', np.float64)])  
+>>> b = np.zeros((3,), dtype=a.dtype)  
+>>> rfn.recursive_fill_fields(a, b)  
+array([(1, 10.), (2, 20.), (0,  0.)], dtype=[('A', '<i8'), ('B', '<f8')])
+
+_get_fieldspec(dtype)
+~~~~~~~~~~~~~~~~~~~~~
+
+Produce a list of (name, dtype) pairs corresponding to the fields of a given dtype. Unlike `dtype.descr`, the dtype objects are preserved rather than converted to strings. This is useful for reconstructing dtypes, including those with subarrays.
+
+Parameters
+^^^^^^^^^^
+- **dtype** : numpy.dtype  
+  The dtype to analyze.
+
+Returns
+^^^^^^^
+- list of tuples  
+  Each tuple contains a field name (or title and name) and its dtype.
+
+Example
+^^^^^^^
+>>> dt = np.dtype([(('a', 'A'), np.int64), ('b', np.double, 3)])  
+>>> dt.descr  
+[(('a', 'A'), '<i8'), ('b', '<f8', (3,))]  
+>>> _get_fieldspec(dt)  
+[(('a', 'A'), dtype('int64')), ('b', dtype(('<f8', (3,))))]
+
+get_names(adtype)
+~~~~~~~~~~~~~~~~~
+
+Return the field names of the input dtype as a tuple. Supports nested fields by returning nested tuples.
+
+Parameters
+^^^^^^^^^^
+- **adtype** : numpy.dtype  
+  The dtype whose field names are to be retrieved.
+
+Returns
+^^^^^^^
+- tuple  
+  Field names, with nested fields represented as nested tuples.
+
+Example
+^^^^^^^
+>>> from numpy.lib import recfunctions as rfn  
+>>> rfn.get_names(np.empty((1,), dtype=[('A', int)]).dtype)  
+('A',)  
+>>> rfn.get_names(np.empty((1,), dtype=[('A',int), ('B', float)]).dtype)  
+('A', 'B')  
+>>> adtype = np.dtype([('a', int), ('b', [('ba', int), ('bb', int)])])  
+>>> rfn.get_names(adtype)  
+('a', ('b', ('ba', 'bb')))
+
+get_names_flat(adtype)
+~~~~~~~~~~~~~~~~~~~~~~
+
+Return the field names of the input dtype as a flat tuple, flattening any nested structures.
+
+Parameters
+^^^^^^^^^^
+- **adtype** : numpy.dtype  
+  The dtype whose field names are to be retrieved.
+
+Returns
+^^^^^^^
+- tuple  
+  Flattened field names.
+
+Example
+^^^^^^^
+>>> from numpy.lib import recfunctions as rfn  
+>>> rfn.get_names_flat(np.empty((1,), dtype=[('A', int)]).dtype)  
+('A',)  
+>>> rfn.get_names_flat(np.empty((1,), dtype=[('A',int), ('B', str)]).dtype)  
+('A', 'B')  
+>>> adtype = np.dtype([('a', int), ('b', [('ba', int), ('bb', int)])])  
+>>> rfn.get_names_flat(adtype)  
+('a', 'b', 'ba', 'bb')
+
+Module Contents
+---------------
+
+The module exports the following functions for structured array manipulation:
+
+- append_fields  
+- apply_along_fields  
+- assign_fields_by_name  
+- drop_fields  
+- find_duplicates  
+- flatten_descr  
+- get_fieldstructure  
+- get_names  
+- get_names_flat  
+- join_by  
+- merge_arrays  
+- rec_append_fields  
+- rec_drop_fields  
+- rec_join  
+- recursive_fill_fields  
+- rename_fields  
+- repack_fields  
+- require_fields  
+- stack_arrays  
+- structured_to_unstructured  
+- unstructured_to_structured  
+
+These functions provide a comprehensive toolkit for working with structured and record arrays, enabling flexible and efficient data manipulation.
+
+Notes
+-----
+
+- Many functions support nested structured arrays.
+- The module relies on NumPy's core functionality and masked array support.
+- Some functions use decorators such as `array_function_dispatch` for NumPy compatibility.
+
+Examples
+--------
+
+Basic usage of `recursive_fill_fields`:
+
+```python
+import numpy as np
+from numpy.lib import recfunctions as rfn
+
+a = np.array([(1, 10.), (2, 20.)], dtype=[('A', np.int64), ('B', np.float64)])
+b = np.zeros((3,), dtype=a.dtype)
+filled = rfn.recursive_fill_fields(a, b)
+print(filled)
+# Output: array([(1, 10.), (2, 20.), (0,  0.)], dtype=[('A', '<i8'), ('B', '<f8')])
+```
+
+Retrieving nested field names:
+
+```python
+adtype = np.dtype([('a', int), ('b', [('ba', int), ('bb', int)])])
+names = rfn.get_names(adtype)
+print(names)
+# Output: ('a', ('b', ('ba', 'bb')))
+```
+
+Flattening nested field names:
+
+```python
+flat_names = rfn.get_names_flat(adtype)
+print(flat_names)
+# Output: ('a', 'b', 'ba', 'bb')
+```
+
+Summary
+-------
+
+This module is essential for users working extensively with structured arrays in NumPy, providing advanced utilities to inspect, modify, and combine structured data efficiently and intuitively.

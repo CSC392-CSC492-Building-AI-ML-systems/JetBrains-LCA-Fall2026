@@ -1,0 +1,91 @@
+Using Custom Attributes
+=======================
+
+Custom attributes provide a flexible way to extend entities with additional data fields tailored to your specific needs. This documentation explains how to work with custom attributes effectively within the ftrack API.
+
+Encoding Entities with Custom Attributes
+----------------------------------------
+
+When encoding entities to JSON formatted strings, you can control how custom attributes are handled using the `encode` method. This method accepts a parameter called `entity_attribute_strategy` which determines which attributes are included in the encoding process.
+
+The available strategies are:
+
+- **all**  
+  Encode all attributes, including those that are currently `NOT_SET`. This will load any unset attributes from the remote source before encoding.
+
+- **set_only** (default)  
+  Encode only attributes that are currently set locally, without loading any unset attributes from the remote.
+
+- **modified_only**  
+  Encode only attributes that have been modified locally since the entity was loaded.
+
+- **persisted_only**  
+  Encode only attributes with values that have been persisted remotely.
+
+Example usage:
+
+```python
+encoded_data = entity.encode(entity_attribute_strategy='set_only')
+```
+
+Merging Entities and Their Attributes
+------------------------------------
+
+When working with entities that contain custom attributes referencing other entities or collections, it is important to merge these recursively to maintain data integrity.
+
+The `_merge_recursive` method merges an entity and all its attributes recursively. This includes handling remote attributes that may be entities themselves or collections such as `Collection` or `MappedCollectionProxy`.
+
+During merging:
+
+- If an attribute's remote value is an entity, `_merge_recursive` is called on it.
+- If the remote value is a collection, each entry in the collection is merged individually.
+- Debug logging is available to trace the merging process when enabled.
+
+Querying with Custom Attributes
+-------------------------------
+
+When querying entities, the query expression can be automatically enhanced to include commonly used custom attributes by modifying the projection list. This ensures that custom attributes are included in query results without requiring explicit specification in every query.
+
+For example, if the query expression does not start with `select`, the system will prepend a `select` clause with default projections that include custom attributes:
+
+```python
+if not expression.startswith('select'):
+    entity_type = expression.split(' ', 1)[0]
+    EntityTypeClass = self.types[entity_type]
+    projections = EntityTypeClass.default_projections
+
+    expression = 'select {0} from {1}'.format(
+        ', '.join(projections),
+        expression
+    )
+```
+
+This behavior allows local customization of which custom attributes are commonly retrieved.
+
+Accessing and Referencing Custom Attributes
+-------------------------------------------
+
+Custom attributes can be accessed like any other attribute on an entity. When encoding or serializing entities, references to other entities within custom attributes are handled appropriately by converting them into entity references.
+
+For example, when encoding data:
+
+- If a value is an entity, it is converted to a reference using `entity_reference`.
+- Collections of entities are merged and encoded recursively.
+
+This ensures that custom attributes containing complex data types are correctly represented in serialized forms.
+
+Error Handling
+--------------
+
+When working with custom attributes and entity operations, errors reported by the server are logged with detailed messages and raised as `ServerError` exceptions. This helps in diagnosing issues related to custom attribute handling or other entity operations.
+
+Summary
+-------
+
+- Use the `encode` method with the appropriate `entity_attribute_strategy` to control serialization of custom attributes.
+- Merge entities recursively to handle nested custom attributes referencing other entities or collections.
+- Queries automatically include default custom attributes unless explicitly overridden.
+- Entity references within custom attributes are properly encoded to maintain data integrity.
+- Detailed error logging and exceptions assist in troubleshooting.
+
+For more detailed information on querying and entity management, see the :ref:`querying` documentation.

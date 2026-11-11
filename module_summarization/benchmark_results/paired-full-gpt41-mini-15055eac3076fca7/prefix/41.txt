@@ -1,0 +1,89 @@
+QuerySet — Building Queries
+===========================
+
+The `QuerySet` API provides a powerful and expressive way to build database queries in an intuitive and Pythonic manner. It allows you to filter, order, annotate, and fetch related data efficiently, leveraging the underlying SQL query builder while abstracting away the complexity.
+
+Awaiting a QuerySet
+-------------------
+
+A `QuerySet` can be awaited to asynchronously retrieve results from the database. When awaiting a `QuerySetSingle`, it resolves to a single instance of the model, rather than a sequence.
+
+```python
+instance = await MyModel.filter(id=1).first()
+```
+
+Key QuerySet Methods
+--------------------
+
+- **prefetch_related(*args)**  
+  Use this method to prefetch related objects in a single query, reducing the number of database hits. You can specify related fields by name or use `Prefetch` objects for more control.
+
+- **annotate(**kwargs)**  
+  Adds calculated fields or aggregates to your query results using database functions. For example, you can annotate each object with a count of related items.
+
+- **only(*fields_for_select)**  
+  Restricts the fields fetched from the database to only those specified, improving performance when you do not need all fields.
+
+- **values(*args, **kwargs)**  
+  Returns dictionaries instead of model instances, containing only the specified fields.
+
+- **values_list(*fields_, flat=False)**  
+  Returns tuples or flat lists of values for the specified fields.
+
+Building Filters
+----------------
+
+Filters are constructed using `Q` objects and passed to the QuerySet to narrow down the results. The filtering mechanism supports complex expressions and can combine multiple conditions.
+
+Internally, filters are resolved by the `resolve_filters` method, which:
+
+- Applies `Q` expressions to build WHERE and HAVING clauses.
+- Joins related tables as necessary using left outer joins.
+- Handles annotations and aggregates, grouping results when needed.
+
+Example:
+
+```python
+from tortoise.expressions import Q
+
+queryset = MyModel.filter(Q(name__icontains="example") | Q(age__gte=18))
+results = await queryset
+```
+
+Joining Related Tables
+----------------------
+
+When querying across relationships, the QuerySet automatically joins related tables. The `_join_table_by_field` method manages these joins, ensuring that each table is joined only once using left outer joins.
+
+Ordering Results
+----------------
+
+You can specify ordering of query results by passing field names to the QuerySet. Prefix a field name with `-` to order descending.
+
+Example:
+
+```python
+queryset = MyModel.order_by("-created_at", "name")
+results = await queryset
+```
+
+The ordering strings are parsed to determine the field and direction (ascending or descending).
+
+Annotations and Aggregates
+--------------------------
+
+Annotations allow you to add computed fields to your query results using database functions. For example, you can annotate each object with a count of related items:
+
+```python
+from tortoise.functions import Count
+
+queryset = MyModel.annotate(related_count=Count("related_items"))
+results = await queryset
+```
+
+When annotations include aggregates, the QuerySet automatically applies grouping to the query.
+
+Summary
+-------
+
+The `QuerySet` API provides a flexible and efficient way to build complex queries with filtering, ordering, joining, and annotations. It abstracts SQL complexity while allowing fine-grained control over the generated queries, making it easier to work with relational data asynchronously in Python.

@@ -1,0 +1,77 @@
+Dataset Loading Utilities
+=========================
+
+The dataset loading utilities provide convenient functions to fetch and cache datasets from OpenML, a popular online repository for machine learning datasets. These utilities handle downloading, caching, and retrying on network errors to ensure reliable access to datasets.
+
+Key Features
+------------
+
+- **Fetching datasets from OpenML**: Retrieve datasets directly from the OpenML repository using their API.
+- **Local caching**: Downloaded datasets are cached locally to avoid repeated downloads and speed up subsequent access.
+- **Automatic retry on network errors**: Network-related errors during download are automatically retried with configurable retry counts and delays.
+- **Cache validation and cleanup**: If a cached file is detected to be invalid or corrupted, it is automatically removed and re-downloaded.
+- **Support for gzip compressed files**: Handles gzip-encoded responses transparently.
+
+Main Functions and Utilities
+----------------------------
+
+.. autofunction:: fetch_openml
+
+Helper Functions
+----------------
+
+- **_get_local_path(openml_path, data_home)**  
+  Constructs the local cache file path for a given OpenML resource path and data home directory.
+
+- **_retry_with_clean_cache(openml_path, data_home, no_retry_exception=None)**  
+  Decorator to retry a function call once after deleting the cached file if the first call fails (except for specified exceptions). Useful for handling corrupted cache files.
+
+- **_retry_on_network_error(n_retries=3, delay=1.0, url="")**  
+  Decorator to retry a function call multiple times on network errors such as `URLError` or `TimeoutError`. Does not retry on HTTP 412 errors which indicate OpenML-specific issues.
+
+- **_open_openml_url(openml_path, data_home, n_retries=3, delay=1.0)**  
+  Opens a URL resource from OpenML, optionally caching the downloaded file locally. Supports retrying on network errors and handles gzip-encoded responses.
+
+Usage Example
+-------------
+
+To fetch a dataset from OpenML, use the `fetch_openml` function specifying the dataset name or ID. The dataset will be downloaded and cached in the user’s data directory (by default), and subsequent calls will load the dataset from the cache.
+
+.. code-block:: python
+
+    from sklearn.datasets import fetch_openml
+
+    # Fetch the "adult" dataset from OpenML
+    adult = fetch_openml(name="adult", version=2, as_frame=True)
+
+    # Access the data and target
+    X, y = adult.data, adult.target
+
+Caching Behavior
+----------------
+
+By default, datasets are cached under the user’s data directory (e.g., `~/.scikit_learn_data/openml.org/`). The caching mechanism ensures that datasets are downloaded only once and reused in future sessions. If a cached file is found to be invalid or corrupted, it is automatically removed and re-downloaded.
+
+Retry Mechanisms
+----------------
+
+Network operations are wrapped with retry decorators to improve robustness:
+
+- On network errors such as connection timeouts or unreachable servers, the download is retried up to 3 times with a 1-second delay between attempts.
+- If a cached file is invalid, it is deleted and the download is retried once.
+- HTTP 412 errors from OpenML are not retried as they indicate specific server-side issues.
+
+Notes
+-----
+
+- The utilities require an active internet connection to fetch datasets not present in the cache.
+- The caching directory can be customized by setting the `data_home` parameter.
+- The utilities handle gzip-compressed dataset files transparently.
+
+See Also
+--------
+
+- :func:`fetch_openml` — Main function to fetch datasets from OpenML.
+- :mod:`sklearn.datasets` — Other dataset loading utilities.
+
+This documentation covers the core utilities for loading datasets from OpenML with caching and retry support, enabling seamless and efficient access to a wide range of machine learning datasets.

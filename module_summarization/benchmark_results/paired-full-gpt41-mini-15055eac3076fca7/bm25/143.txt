@@ -1,0 +1,80 @@
+Managing Memory
+===============
+
+This section provides an overview of memory management within the distributed system, focusing on how memory limits are handled, memory-related events are processed, and hardware benchmarking is performed to assess memory capabilities.
+
+Memory Limits and Representation
+--------------------------------
+
+Each worker in the cluster has an associated memory limit, which can be retrieved and aggregated to provide an overview of the total memory available across all workers. This information is typically formatted and displayed as part of the system's status representation.
+
+For example, the memory limits of all workers are collected and summed, then formatted into a human-readable string using a utility such as `format_bytes`. This aggregated memory information is included in the textual representation of the cluster or client status, helping users understand the memory capacity currently available.
+
+Memory-Related Event Handling
+-----------------------------
+
+The system listens for and handles various memory-related events to maintain consistency and reliability. Key event handlers include:
+
+- **key-in-memory**: Triggered when a key (data item) is stored in memory.
+- **lost-data**: Triggered when data is lost, possibly due to worker failure or eviction.
+- **cancelled-keys**: Triggered when tasks or keys are cancelled.
+- **task-retried**: Triggered when a task is retried after failure.
+- **task-erred**: Triggered when a task encounters an error.
+- **restart**: Triggered when the system or scheduler restarts.
+- **error**: General error events.
+- **event**: Other miscellaneous events.
+
+These events are managed through dedicated handlers that update the system state accordingly. For example, the `_handle_key_in_memory` method updates the internal state when new data is stored, while `_handle_lost_data` manages the consequences of data loss.
+
+Periodic Memory and Scheduler Information Updates
+-------------------------------------------------
+
+To keep memory and scheduler information current, the system employs periodic callbacks:
+
+- **scheduler-info**: Periodically updates scheduler-related information, including memory usage statistics.
+- **heartbeat**: Sends regular heartbeat signals to monitor the health and responsiveness of workers.
+
+These callbacks are scheduled based on configurable intervals, ensuring timely updates without overwhelming the system.
+
+Hardware Benchmarking for Memory
+--------------------------------
+
+The system provides a method to benchmark hardware performance across workers, including memory bandwidth. This benchmarking helps assess the cluster's capabilities and identify potential bottlenecks.
+
+The `benchmark_hardware` method runs tests on memory, disk, and network bandwidths, returning a dictionary that maps resource names ("memory", "disk", "network") to their respective bandwidth measurements. These results are averaged over multiple workers to provide a representative overview of the cluster's hardware performance.
+
+Example usage:
+
+```python
+result = client.benchmark_hardware()
+print(result["memory"])
+```
+
+This benchmarking information can guide decisions about workload distribution and resource allocation to optimize performance.
+
+Logging Memory-Related Events
+-----------------------------
+
+Users can log custom events related to memory or other topics using the `log_event` method. This method accepts a topic name (or list of topics) and a message that must be serializable. Logging events under specific topics facilitates monitoring and debugging.
+
+Example:
+
+```python
+from time import time
+client.log_event("current-time", {"timestamp": time()})
+```
+
+This flexibility allows integration with external monitoring tools or custom dashboards.
+
+Summary
+-------
+
+Effective memory management in the distributed system involves:
+
+- Monitoring and aggregating memory limits across workers.
+- Handling memory-related events to maintain data integrity.
+- Periodically updating scheduler and memory information.
+- Benchmarking hardware to understand memory bandwidth and performance.
+- Providing mechanisms for logging and tracking memory-related events.
+
+Together, these features ensure that memory resources are efficiently utilized and that the system remains robust and responsive under varying workloads.

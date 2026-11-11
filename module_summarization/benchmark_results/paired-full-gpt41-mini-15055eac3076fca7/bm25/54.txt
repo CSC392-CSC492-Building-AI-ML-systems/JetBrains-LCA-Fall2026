@@ -1,0 +1,51 @@
+Working with Large Data Sets
+============================
+
+This section describes the approach and classes used for fitting statistical models on large data sets by partitioning the data and performing distributed or parallel estimation.
+
+Distributed Model Fitting
+-------------------------
+
+When working with large data sets that cannot be processed all at once, the data can be partitioned into smaller chunks. Each partition is then used to fit the model separately, and the results are combined as needed.
+
+### Sequential Fitting
+
+The `fit_sequential` method performs distributed estimation sequentially over data partitions. It accepts a `data_generator` that yields tuples of `(endog, exog)` arrays for each partition, and a dictionary of fitting keyword arguments `fit_kwds`.
+
+Optionally, an `init_kwds_generator` can be provided, which is a generator producing initialization keyword dictionaries that may vary based on the data partition. This is useful for models such as Weighted Least Squares (WLS) or Generalized Least Squares (GLS) where initialization parameters depend on the partition.
+
+The method iterates over the data partitions (and optionally the initialization keywords), fits the model on each partition using a helper function, and collects the results in a list.
+
+### Parallel Fitting with Joblib
+
+The `fit_joblib` method performs distributed estimation in parallel using the `joblib` library. It accepts the same `data_generator` and `fit_kwds` as `fit_sequential`, along with a `parallel_backend` context manager to specify the parallel execution environment, and an optional `init_kwds_generator`.
+
+Depending on whether `parallel_backend` and `init_kwds_generator` are provided, the method executes the fitting function in parallel over the data partitions, optionally pairing each partition with its corresponding initialization keywords.
+
+This approach leverages multiple CPU cores or distributed computing resources to speed up model fitting on large data sets.
+
+DistributedResults Class
+------------------------
+
+The `DistributedResults` class extends `LikelihoodModelResults` and is designed to hold the results of fitting a model on distributed data partitions.
+
+### Initialization
+
+- `model`: An instance of the model class used for distributed data. This instance typically uses placeholder or "fake" data and serves primarily to enable methods such as `predict`.
+- `params`: The parameter estimates obtained from fitting the model.
+
+### Prediction
+
+The `predict` method calls the underlying model's `predict` method for the provided exogenous data (`exog`). Unlike standard prediction methods, the `exog` argument is mandatory because the model instance does not contain real data.
+
+Additional positional and keyword arguments can be passed to support models that require extra parameters during prediction.
+
+Usage Notes
+-----------
+
+- The distributed fitting methods rely on generators that yield data partitions, allowing for memory-efficient processing of large data sets.
+- The optional `init_kwds_generator` enables flexible initialization of model fitting parameters on a per-partition basis.
+- Parallel execution with `joblib` can significantly reduce computation time when multiple CPU cores or distributed resources are available.
+- The `DistributedResults` class provides a unified interface to access model results and perform predictions, abstracting away the details of data partitioning.
+
+This framework facilitates scalable and efficient statistical modeling on large data sets by combining partitioned data processing, flexible initialization, and parallel computation.

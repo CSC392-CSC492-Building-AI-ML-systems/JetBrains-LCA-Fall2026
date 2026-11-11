@@ -1,0 +1,85 @@
+Novelty and Outlier Detection with Local Outlier Factor (LOF)
+==============================================================
+
+The Local Outlier Factor (LOF) algorithm is a popular method for detecting anomalies in data by measuring the local deviation of a given data point with respect to its neighbors. It can be used in two distinct modes: **outlier detection** and **novelty detection**.
+
+Outlier Detection
+-----------------
+
+By default, LOF is used for outlier detection (`novelty=False`). In this mode, the algorithm identifies outliers within the training data itself. The key characteristics of this mode are:
+
+- The method `fit_predict(X)` fits the model on the training data `X` and returns labels for each sample.
+- Labels are assigned as `1` for inliers and `-1` for outliers based on the LOF scores and the contamination parameter.
+- The contamination parameter controls the proportion of expected outliers in the dataset. It can be set to `'auto'` or a float value in the range `(0, 0.5]`.
+- The negative outlier factor for each training sample is accessible via the attribute `negative_outlier_factor_`.
+- Prediction on new, unseen data is **not available** in this mode.
+- The `fit_predict` method is the primary interface for detecting outliers in the training data.
+
+Example usage:
+
+```python
+lof = LocalOutlierFactor(contamination=0.1, novelty=False)
+labels = lof.fit_predict(X_train)
+```
+
+Novelty Detection
+-----------------
+
+When `novelty=True`, LOF is used for novelty detection, which allows the model to be applied to new, unseen data points after training. This mode is useful when you want to detect anomalies in data that was not part of the training set. Key points include:
+
+- The model is first fitted on the training data using `fit(X)`.
+- Prediction on new data is done using `predict(X)`, which returns `1` for inliers and `-1` for outliers.
+- The `decision_function(X)` method returns the shifted opposite of the LOF scores for new samples, where larger values correspond to inliers.
+- The `score_samples(X)` method returns the shifted opposite of the LOF scores for each sample in `X`. Lower scores indicate more abnormal samples.
+- The contamination parameter still controls the threshold for outlier detection.
+- The methods `predict`, `decision_function`, and `score_samples` are **only available** when `novelty=True`.
+- It is important to note that these methods should only be used on new, unseen data and **not** on the training data itself.
+
+Example usage:
+
+```python
+lof = LocalOutlierFactor(contamination=0.1, novelty=True)
+lof.fit(X_train)
+labels_new = lof.predict(X_new)
+scores_new = lof.decision_function(X_new)
+```
+
+Parameters
+----------
+
+- **contamination** : `'auto'` or float, default=`'auto'`  
+  The proportion of outliers in the dataset. If `'auto'`, the threshold is determined automatically as described in the original LOF paper. If a float, it must be between 0 and 0.5.
+
+- **novelty** : bool, default=`False`  
+  Whether to enable novelty detection mode. Set to `True` to allow prediction on new data after fitting.
+
+Outputs
+-------
+
+- **Labels**:  
+  - `1` indicates an inlier (normal sample).  
+  - `-1` indicates an outlier (anomalous sample).
+
+- **Negative Outlier Factor (`negative_outlier_factor_`)**:  
+  The LOF score for each training sample. Lower values indicate more abnormal points.
+
+- **Decision Function**:  
+  The shifted opposite of the LOF score for new samples, where higher values indicate more normal points.
+
+Notes
+-----
+
+- When `novelty=False`, the `predict`, `decision_function`, and `score_samples` methods are not available and will raise an `AttributeError` if called.
+- When `novelty=True`, the `fit_predict` method is not available.
+- The threshold for deciding outliers is derived from the contamination parameter and the distribution of LOF scores.
+- The LOF algorithm uses a distance metric (default is Euclidean) to compute local densities and compare them.
+
+Summary
+-------
+
+| Mode               | Fit Method | Prediction Method | Use Case                         |
+|--------------------|------------|-------------------|---------------------------------|
+| Outlier Detection   | `fit_predict` | Not available     | Detect outliers in training data |
+| Novelty Detection   | `fit`      | `predict`, `decision_function`, `score_samples` | Detect novelties in new data     |
+
+This flexibility allows LOF to be applied effectively both for identifying anomalies within a dataset and for detecting novel or anomalous observations in new incoming data.

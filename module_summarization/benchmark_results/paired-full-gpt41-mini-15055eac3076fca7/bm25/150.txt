@@ -1,0 +1,85 @@
+# Supporting Data to Plotting Functions in Multiple Ways
+
+This module provides classes and functions designed to enhance the flexibility of plotting functions with respect to the input data. It allows plotting functions to seamlessly accept and handle data in various formats such as lists, numpy arrays, pandas DataFrames, or even specialized data structures like Bokeh's `ColumnDataSource`. This flexibility enables users to work with their preferred data structures without needing to manually convert or reshape data before plotting.
+
+## Overview
+
+Plotting functions often require data to be provided in specific formats or structures. This module abstracts and normalizes the input data, enabling plotting functions to accept:
+
+- Simple lists or numpy arrays (including multidimensional arrays)
+- Pandas DataFrames with specified keys for columns
+- Bokeh `ColumnDataSource` objects (if Bokeh is installed)
+
+By supporting these multiple data types, the plotting functions become more versatile and user-friendly.
+
+## Key Components
+
+### 1. `PlotData` Class
+
+The `PlotData` class is the core abstraction that wraps the input data and manages the extraction and iteration over plotting data sets. It supports:
+
+- Accepting data as a dictionary, DataFrame, or list of such structures.
+- Specifying keys that define which columns or data entries correspond to plotting variables (e.g., x, y).
+- Iterating over multiple plot data sets implicitly, allowing for plotting multiple series or groups without excessive data copying.
+
+#### Usage Example
+
+```python
+from masci_tools.vis.data import PlotData
+import numpy as np
+
+# Define an energy grid and multiple functions on this grid
+x = np.linspace(-10, 10, 100)
+data = {'x': x, 'y1': np.sin(x), 'y2': np.cos(x), 'y3': x**2}
+
+# Create a PlotData instance specifying keys for x and multiple y values
+p = PlotData(data, x='x', y=['y1', 'y2', 'y3'])
+
+# Iterating over p yields data sets ready for plotting
+for plot_set in p:
+    # plot_set contains the data for one y series along with x
+    ...
+```
+
+### 2. `PlotDataIterator` Class
+
+This class manages the iteration behavior over a `PlotData` instance. It supports three iteration modes:
+
+- `keys`: Returns the keys corresponding to the data fields for each plot entry.
+- `values`: Returns the actual data values for each plot entry.
+- `items`: Returns a tuple of keys and corresponding data values.
+
+The iterator returns data in the form of named tuples, where fields correspond to the specified data keys, facilitating clear and structured access to plotting data.
+
+### 3. Data Normalization Functions
+
+#### `normalize_list_or_array`
+
+This function processes input data that is list-like or numpy arrays (including pandas Series) to prepare it for plotting. It handles:
+
+- Splitting multidimensional arrays into separate entries along the first dimension, unless explicitly forbidden.
+- Flattening multidimensional numpy arrays if requested.
+- Ensuring consistent length checks when splitting data into multiple sets.
+
+This normalization ensures that plotting functions receive data in a consistent and expected format regardless of the original input shape.
+
+### 4. Bokeh `ColumnDataSource` Support
+
+If Bokeh is installed, the module detects and supports `ColumnDataSource` objects, which are commonly used in interactive plotting with Bokeh. It provides:
+
+- Detection of `ColumnDataSource` instances.
+- Copying of `ColumnDataSource` data to avoid unintended side effects during plotting.
+
+This integration allows users to directly pass Bokeh data sources to plotting functions without conversion.
+
+## Summary of Features
+
+- **Flexible Input Types:** Accepts lists, numpy arrays, pandas DataFrames, and Bokeh `ColumnDataSource`.
+- **Automatic Data Splitting:** Handles multidimensional data by splitting into multiple plot sets.
+- **Named Tuple Access:** Provides structured access to data keys and values during iteration.
+- **Minimal Data Copying:** Efficient handling of data to avoid unnecessary duplication.
+- **Integration with Bokeh:** Supports interactive plotting workflows by recognizing Bokeh data sources.
+
+## Conclusion
+
+By using the classes and functions provided in this module, plotting functions can be designed to accept a wide variety of data formats transparently. This flexibility simplifies the plotting interface for users and reduces the need for manual data preprocessing, enabling more efficient and readable visualization code.

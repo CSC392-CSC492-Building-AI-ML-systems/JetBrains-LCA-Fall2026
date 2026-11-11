@@ -1,0 +1,73 @@
+How Mitogen Works
+=================
+
+Mitogen is a lightweight, high-performance Python library designed to simplify and accelerate distributed computing and remote execution. It achieves this by providing a transparent and efficient mechanism for spawning and communicating with remote Python interpreters, called "contexts," over various transport layers such as SSH or local subprocesses.
+
+This tutorial explains the core concepts and inner workings of Mitogen, helping you understand how it manages remote execution, communication, and routing of messages.
+
+Core Concepts
+-------------
+
+1. **Contexts and Channels**
+
+   Mitogen operates by creating *contexts*, which are essentially remote Python interpreters running on target machines or subprocesses. Each context communicates with the parent process or other contexts through *channels*. Channels are bidirectional communication links that carry serialized Python objects and commands.
+
+2. **Bootstrap and Slave Contexts**
+
+   When a new context is spawned, Mitogen sends a minimal bootstrap implementation to it. This bootstrap code is lightweight and contains only essential functionality to initialize the remote interpreter and establish communication back to the parent. This design keeps the startup overhead low and ensures fast context creation.
+
+3. **Message Passing and Routing**
+
+   Communication between contexts is performed by sending messages over channels. Each message contains a command code and associated data. Mitogen defines a set of command constants such as:
+
+   - `GET_MODULE` (100): Request to load a Python module remotely.
+   - `CALL_FUNCTION` (101): Request to execute a function call remotely.
+   - `FORWARD_LOG` (102): Forward log messages.
+   - `ADD_ROUTE` (103) / `DEL_ROUTE` (104): Manage routing entries.
+   - `ALLOCATE_ID` (105): Allocate unique identifiers for contexts or messages.
+   - `SHUTDOWN` (106): Signal to shut down a context.
+   - `LOAD_MODULE` (107): Load a module in the remote context.
+   - `FORWARD_MODULE` (108): Forward a module to another context.
+   - `DETACHING` (109): Indicate a context is detaching.
+   - `CALL_SERVICE` (110) / `STUB_CALL_SERVICE` (111): Call internal services.
+
+   These commands enable Mitogen to perform complex remote operations transparently.
+
+4. **Routing and Dead Letter Handling**
+
+   Mitogen maintains routing tables to direct messages to the appropriate contexts. If a message cannot be routed or the destination context is disconnected, a special sentinel value `IS_DEAD` (999) is used in the `reply_to` field to indicate failure. This triggers exceptions such as `ChannelError` to notify the sender.
+
+5. **Efficient IO and Buffering**
+
+   Mitogen optimizes communication by using a default chunk size of 128 KiB (`CHUNK_SIZE = 131072`). This size balances throughput and resource usage by minimizing the number of IO loop iterations and avoiding excessive memory allocation. It also considers underlying OS buffer sizes and transport characteristics to maximize efficiency.
+
+6. **Compatibility and Portability**
+
+   Mitogen supports multiple Python versions and environments, handling differences such as:
+
+   - Python 2 and 3 compatibility.
+   - Handling of byte strings and Unicode.
+   - Workarounds for platform-specific issues like Windows Subsystem for Linux (WSL).
+   - Conditional imports and fallbacks for modules like `cPickle`, `cProfile`, and `thread`.
+
+7. **Thread-Local Storage**
+
+   Mitogen uses thread-local storage (`_tls = threading.local()`) to maintain context-specific state safely across multiple threads.
+
+How It All Fits Together
+------------------------
+
+- When you initiate a remote execution, Mitogen creates a new context by spawning a subprocess or connecting over SSH.
+- The bootstrap code is sent to the new context, which initializes the remote Python interpreter.
+- The parent and remote contexts establish a channel for communication.
+- Commands and data are serialized and sent as messages over this channel.
+- The router manages message delivery, forwarding messages to the correct context or handling failures.
+- Remote function calls, module imports, and other operations are executed transparently, with results returned over the channel.
+- Logging and error handling are integrated into the message flow to provide visibility and robustness.
+
+Summary
+--------
+
+Mitogen’s design focuses on minimizing overhead, maximizing throughput, and providing a seamless programming model for distributed Python execution. By leveraging lightweight bootstrap code, efficient message passing, and intelligent routing, it enables scalable and maintainable remote automation and orchestration.
+
+For more detailed usage examples and API references, please consult the official Mitogen documentation and source code.

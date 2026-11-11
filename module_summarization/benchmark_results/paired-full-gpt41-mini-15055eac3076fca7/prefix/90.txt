@@ -1,0 +1,98 @@
+auto_augment Module
+===================
+
+Overview
+--------
+The `auto_augment` module provides functionality to apply automatic data augmentation policies to batches of images or videos. It implements augmentation strategies based on the AutoAugment paper (https://arxiv.org/abs/1805.09501), enabling improved model generalization by applying a sequence of randomized image transformations.
+
+The main feature of this module is the `auto_augment` function, which applies one of several predefined augmentation policies to input data.
+
+Function: auto_augment
+----------------------
+
+```python
+auto_augment(
+    data: DataNode,
+    policy_name: str = 'image_net',
+    shape: Optional[Union[DataNode, Tuple[int, int]]] = None,
+    fill_value: Optional[int] = 128,
+    interp_type: Optional[types.DALIInterpType] = None,
+    max_translate_abs: Optional[int] = None,
+    max_translate_rel: Optional[float] = None,
+    seed: Optional[int] = None,
+) -> DataNode
+```
+
+Applies one of the predefined AutoAugment policies to a batch of samples.
+
+Parameters
+----------
+- **data** (`DataNode`):  
+  A batch of samples to be processed. Supported samples include images with `HWC` layout and videos with `FHWC` layout. The data type must be `uint8`.
+
+- **policy_name** (`str`, optional):  
+  The name of the predefined augmentation policy to apply. Acceptable values are:
+  - `'image_net'`
+  - `'reduced_image_net'`
+  - `'svhn'`
+  - `'reduced_cifar10'`  
+  Defaults to `'image_net'`.
+
+- **shape** (`DataNode` or `Tuple[int, int]`, optional):  
+  The size (height and width) of the images or video frames in the input batch. If specified, translation augmentations scale their magnitude relative to the image/frame size using `max_translate_rel`. If not specified, translation magnitude is limited by `max_translate_abs`.
+
+- **fill_value** (`int`, optional):  
+  The padding value used for images or frames transformed by warp affine operations such as translation, shear, and rotation. If `None`, padding is done by clamping the border values. Defaults to 128.
+
+- **interp_type** (`types.DALIInterpType`, optional):  
+  The interpolation method used by warp affine operations. Supported values are:
+  - `types.INTERP_LINEAR` (default)
+  - `types.INTERP_NN`
+
+- **max_translate_abs** (`int` or `(int, int)`, optional):  
+  Specifies the maximum absolute pixel shift for translation augmentations when `shape` is not provided. If a tuple, the first element limits height translation and the second limits width translation. Defaults to 250 pixels.
+
+- **max_translate_rel** (`float` or `(float, float)`, optional):  
+  Specifies the maximum relative translation as a fraction of image shape when `shape` is provided. If a tuple, the first element limits height translation and the second limits width translation. Defaults to 1.0, allowing translation up to the full image size.
+
+- **seed** (`int`, optional):  
+  Seed for random sampling of augmentation operations and magnitude negations.
+
+Returns
+-------
+- `DataNode`:  
+  A batch of transformed samples after applying the selected augmentation policy.
+
+Predefined Policies
+-------------------
+The module supports the following predefined augmentation policies:
+
+- **image_net**:  
+  The standard ImageNet AutoAugment policy.
+
+- **reduced_image_net**:  
+  A reduced version of the ImageNet policy with fewer augmentations.
+
+- **svhn**:  
+  Policy tailored for the SVHN dataset.
+
+- **reduced_cifar10**:  
+  A reduced policy designed for CIFAR-10 dataset.
+
+Notes
+-----
+- The `reduced_image_net` policy does not include augmentations that depend on image shape. Therefore, specifying `shape`, `max_translate_abs`, or `max_translate_rel` with this policy will raise an exception.
+
+- The module requires `numpy` to be installed, as it is used internally for augmentation computations.
+
+- Input data must be in `uint8` format and follow the expected layout (`HWC` for images, `FHWC` for videos).
+
+License
+-------
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.
+
+References
+----------
+- AutoAugment: Learning Augmentation Policies from Data  
+  Ekin D. Cubuk, Barret Zoph, Dandelion Mane, Vijay Vasudevan, Quoc V. Le  
+  https://arxiv.org/abs/1805.09501

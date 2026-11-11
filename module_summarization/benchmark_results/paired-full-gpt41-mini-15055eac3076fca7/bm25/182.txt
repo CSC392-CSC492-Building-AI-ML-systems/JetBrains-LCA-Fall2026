@@ -1,0 +1,71 @@
+Developing scikit-learn Estimators
+==================================
+
+This document provides guidance and important considerations for developers who want to create new estimators compatible with scikit-learn. Following these guidelines ensures that your estimator integrates seamlessly with the scikit-learn ecosystem, supports its API conventions, and passes the comprehensive suite of tests.
+
+Estimator API and Compatibility
+-------------------------------
+
+- **Estimator Interface**  
+  Your estimator should implement the standard scikit-learn estimator interface. This typically includes methods such as `fit`, `predict`, `transform`, and `fit_predict` where applicable. The estimator should also expose hyperparameters as constructor arguments and store learned attributes with a trailing underscore (e.g., `coef_`).
+
+- **Minimal Compatible Estimators**  
+  When developing minimal or third-party estimators, ensure they can be used within scikit-learn pipelines and support hyperparameter tuning with tools like `GridSearchCV` or `RandomizedSearchCV`. Tests such as `test_search_cv_using_minimal_compatible_estimator` verify this compatibility.
+
+- **Handling Different Array Orders**  
+  Estimators should correctly handle input arrays in both C-contiguous and Fortran-contiguous memory layouts. Tests like `test_f_contiguous_array_estimator` ensure that estimators work correctly with Fortran-ordered arrays (`np.asfortranarray`).
+
+Testing Your Estimator
+----------------------
+
+- **Using `check_estimator`**  
+  scikit-learn provides a comprehensive testing utility, `check_estimator`, which runs a battery of tests to verify that your estimator adheres to the API and behaves correctly. It is highly recommended to use this utility during development.
+
+- **Parametrized Tests**  
+  Tests are often parametrized over a list of estimators and checks to ensure consistency across the library. You can integrate your estimator into these tests by adding it to the appropriate test suites.
+
+- **Ignoring Warnings**  
+  During testing, some warnings such as `FutureWarning`, `ConvergenceWarning`, or `UserWarning` may be ignored to focus on critical issues.
+
+- **OpenMP Parallelism**  
+  Some estimators leverage OpenMP for parallelism. If OpenMP is not enabled during the build, estimators may fall back to sequential execution. Developers should be aware of this and test accordingly. Instructions for building scikit-learn with OpenMP support are available in the advanced installation guide.
+
+Estimator Tags and Metadata
+---------------------------
+
+- Estimators can define metadata tags accessible via the `_get_tags()` method. These tags describe estimator properties such as whether the estimator supports pairwise distances, is supervised, or requires positive data. Proper tagging helps scikit-learn select appropriate estimators for specific tasks and tests.
+
+- For example, a pipeline containing a passthrough step and an SVC estimator should correctly report tags such as `"pairwise": False`.
+
+Advanced Considerations
+-----------------------
+
+- **Random Number Generators**  
+  Estimators that rely on randomness should use scikit-learn’s random number generator utilities to ensure reproducibility and consistency across platforms.
+
+- **Iteration Tracking**  
+  For iterative algorithms, exposing the number of iterations via methods like `get_n_iter()` is encouraged to provide users with additional insight.
+
+- **Sample Weights Support**  
+  When applicable, estimators should support sample weights to allow weighted fitting.
+
+- **Experimental Features**  
+  Experimental estimators can be enabled via the `sklearn.experimental` module. This allows developers to test and iterate on new algorithms before they become part of the stable API.
+
+Contributing and Reporting Issues
+---------------------------------
+
+- If you encounter bugs or unexpected behavior while developing or testing your estimator, please submit a bug report at the scikit-learn GitHub repository:  
+  https://github.com/scikit-learn/scikit-learn/issues
+
+- When submitting issues, provide minimal reproducible examples and specify your environment details.
+
+Additional Resources
+--------------------
+
+- The scikit-learn developer guide and advanced installation instructions provide further details on building and testing estimators, including enabling OpenMP support for parallelism:  
+  https://scikit-learn.org/dev/developers/advanced_installation.html
+
+- Review existing estimators and tests in the scikit-learn codebase to understand best practices and common patterns.
+
+By adhering to these guidelines and leveraging scikit-learn’s testing infrastructure, you can develop robust, compatible, and efficient estimators that integrate well with the broader ecosystem.

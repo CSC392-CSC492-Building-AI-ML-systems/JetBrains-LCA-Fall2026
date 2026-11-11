@@ -1,0 +1,51 @@
+{
+  "original_id": 44,
+  "repo": "teskalabs__asab",
+  "docfile_name": "library.rst",
+  "source_sha256": "36907f049626fabaf599b87dc98bcac737c0182d9161b0d848f927b5c5f7d6d6",
+  "context": " import LibraryProviderABC\nfrom..item import LibraryItem\nfrom...zookeeper import ZooKeeperContainer\n\n#\n\nL = logging.getLogger(__name__)\n\n#\n\n\nclass ZooKeeperLibraryProvider(LibraryProviderABC):\n\n\t\"\"\"\n\n\tConfiguration variant:\n\n\n\t1) ZooKeeper provider is fully configured from [zookeeper] section\n\n\t.. code::\n\n\t\t[zookeeper]\n\t\tservers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181\n\t\tpath=/library\n\n\t\t[library]\n\t\tproviders:\n\t\t\tzk://\n\n\n\n\t2) ZooKeeper provider is configured by `servers` from [zookeeper] section and path from URL\n\n\tPath will be `/library`.\n\n\t.. code::\n\n\t\t[zookeeper]\n\t\tservers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181\n\t\tpath=/else\n\n\t\t[library]\n\t\tproviders:\n\t\t\tzk:///library\n\n\n\t2.1) ZooKeeper provider is configured by `servers` from [zookeeper] section and path from URL\n\n\tPath will be `/`, this is a special case to 2)\n\n\t.. code::\n\n\t\t[zookeeper]\n\t\tservers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181\n\t\tpath=/else\n\n\t\t[library]\n\t\tproviders:\n\t\t\tzk:///\n\n\t3) ZooKeeper provider is fully configured from URL\n\n\t.. code::\n\n\t\t[library]\n\n\n\t\tproviders:\n\t\t\tzk://zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181/library\n\n\n\t4) ZooKeeper provider is configured by `servers` from [zookeeper] section and  joined `path` from [zookeeper] and\n\tpath from URL\n\n\tPath will be `/else/library`\n\n\t.. code::\n\n\t\t[zookeeper]\n\t\tservers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181\n\t\tpath=/else\n\n\t\t[library]\n\t\tproviders:\n\t\t\tzk://./library\n\n\n\tIf `path` from [zookeeper] section is missing, an application class name will be used\n\tEx. `/BSQueryApp/library`\n\n\t\"\"\"\n\n\tdef __init__(self, library, path, layer):\n\t\tsuper().__init__(library, layer)\n\n\t\turl_pieces = urllib.parse.urlparse(path)\n\n\t\tself.FullPath = url_pieces.scheme + '://'\n\t\tself.BasePath = url_pieces.path.lstrip(\"/\")\n\t\twhile self.BasePath.endswith(\"/\"):\n\t\t\tself.BasePath = self.BasePath[:-1]\n\t\tself.BasePath = '/' + self.BasePath\n\t\tif self.BasePath == '/':\n\t\t\tself\n\n.digest()\n\n\n\tasync def _on_library_changed(self, event_name=None):\n\t\tfor path, digest in self.Subscriptions.items():\n\t\t\ttry:\n\t\t\t\tnewdigest = await self._get_directory_hash(path)\n\t\t\t\tif newdigest!= digest:\n\t\t\t\t\tself.Subscriptions[path] = newdigest\n\t\t\t\t\tself.App.PubSub.publish(\"Library.change!\", self, path)\n\t\t\texcept Exception as e:\n\t\t\t\tL.error(\"Failed to process library change for path: '{}'. Reason: '{}'\".format(path, e))\n\n\nimport io\nimport os\nimport os.path\nimport stat\nimport glob\nimport struct\nimport typing\nimport logging\n\nfrom.abc import LibraryProviderABC\nfrom..item import LibraryItem\nfrom...timer import Timer\n\ntry:\n\tfrom.filesystem_inotify import inotify_init, inotify_add_watch, IN_CREATE, IN_ISDIR, IN_ALL_EVENTS, EVENT_FMT, EVENT_SIZE, IN_MOVED_TO, IN_IGNORED\nexcept OSError:\n\tinotify_init = None\n\n#\n\nL = logging.getLogger(__name__)\n\n#\n\n\nclass FileSystemLibraryProvider(LibraryProviderABC):\n\n\tdef __init__(self, library, path, layer, *, set_ready=True):\n\t\t'''\n\t\t`set_ready` can be used to disable/defer `self._set_ready` call.\n\t\t'''\n\n\t\tsuper().__init__(library,\n\nimport os\nimport io\nimport typing\nimport hashlib\nimport logging\nimport tempfile\nimport dataclasses\nimport urllib.parse\nimport xml.dom.minidom\n\nimport aiohttp\n\nfrom...config import Config\nfrom..item import LibraryItem\nfrom.abc import LibraryProviderABC\n\n#\n\nL = logging.getLogger(__name__)\n\n\n#\n\n\nclass AzureStorageLibraryProvider(LibraryProviderABC):\n\t'''\n\tAzureStorageLibraryProvider is a library provider that reads\n\tfrom an Microsoft Azure Storage container.\n\n\tConfigure by:\n\n\tazure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER\n\n\tIf Container Public Access Level is not set to \"Public access\",\n\tthen \"Access Policy\" must be created with \"Read\" and \"List\" permissions\n\tand \"Shared Access Signature\" (SAS) query string must be added to a URL in a configuration:\n\n\tazure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER?sv=2020-10-02&si=XXXX&sr=c&sig=XXXXXXXXXXXXXX\n\n\t'''\n\n\tdef __init__(self, library, path, layer):\n\t\tsuper().__init__(library, layer)\n\t\tassert path[:6] == \"azure+\"\n\t\tself.URL = urllib.parse.urlparse(path[6:])\n\t\tself.Model = None  # Will be set by `_load_model` method\n\t\tself.Path = path\n\n\t\tself.CacheDir = Config.get(\"library\", \"azure_cache\")\n\t\tif self.CacheDir == 'false':\n\t\n\n2 package to enable Git Library Provider. >>> pip install pygit2\")\n\traise SystemExit(\"Application exiting....\")\n\n\nclass GitLibraryProvider(FileSystemLibraryProvider):\n\t\"\"\"\n\tRead-only git provider to read from remote repository.\n\tIt clones a remote git repository to a temporary directory and then uses the\n\tFileSystemLibraryProvider to read the files.\n\tTo read from local git repository, please use FileSystemProvider.\n\n\t.. code::\n\n\t\t[library]\n\t\tproviders=git+<URL or deploy token>#<branch name>\n\n\t\t[library:git]\n\t\trepodir=<optional location of the repository cache>\n\t\"\"\"\n\tdef __init__(self, library, path, layer):\n\n\t\t# format: 'git+http[s]://[<username>:<deploy token>@]<url>[#<branch>]'\n\t\tpattern = re.compile(r\"git\\+(https?://)((.*):(.*)@)?([^#]*)(?:#(.*))?$\")\n\t\tpath_split = pattern.findall(path)[0]\n\t\tL.debug(path_split)\n\t\tself.URLScheme, self.UserInfo, self.User, self.DeployToken, self.URLPath, self.Branch = path_split\n\t\tself.URL = \"\".join([self.URLScheme, self.UserInfo, self.URLPath])\n\t\tself.Branch = self.Branch if self.Branch!= '' else None\n\n\n\t\trepodir = Config.get(\"library:git\", \"repodir\", fallback=None)\n\t\tif repodir is not None:\n\t\t\tself.Rep",
+  "trace": {
+    "query": "Generate documentation for this module library",
+    "query_terms": [
+      "library"
+    ],
+    "fallback": null,
+    "candidate_count": 23,
+    "index_chunks": 31,
+    "selected": [
+      {
+        "chunk_id": 7,
+        "start_char": 6258,
+        "end_char": 7318,
+        "score": 0.693653376626546
+      },
+      {
+        "chunk_id": 8,
+        "start_char": 7318,
+        "end_char": 8190,
+        "score": 0.6684502042908368
+      },
+      {
+        "chunk_id": 16,
+        "start_char": 14694,
+        "end_char": 15771,
+        "score": 0.6523635502825762
+      },
+      {
+        "chunk_id": 0,
+        "start_char": 0,
+        "end_char": 1212,
+        "score": 0.6479777456448962
+      },
+      {
+        "chunk_id": 24,
+        "start_char": 21029,
+        "end_char": 22185,
+        "score": 0.639449754368583
+      }
+    ],
+    "context_tokens": 1957,
+    "context_sha256": "d3dfd8817bc65fbe2d42712aabc57628c14b2380ee2ad28371c26cbd7d26d463"
+  },
+  "preparation_seconds": 0.14658895799993843
+}

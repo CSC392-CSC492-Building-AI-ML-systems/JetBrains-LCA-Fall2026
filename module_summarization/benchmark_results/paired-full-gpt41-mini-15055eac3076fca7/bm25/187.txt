@@ -1,0 +1,111 @@
+Isotonic Regression
+===================
+
+Isotonic regression is a non-parametric regression technique that fits a free-form line to a set of points while preserving the order of the independent variable. It is used when the relationship between the independent variable `X` and the dependent variable `y` is assumed to be monotonic (either non-decreasing or non-increasing).
+
+Overview
+--------
+
+The isotonic regression model fits a monotonic function \( f \) such that \( y = f(X) \), where the function is either increasing or decreasing according to the specified constraints. This method is particularly useful when you want to impose monotonicity constraints on the regression function without assuming a specific parametric form.
+
+Key Features
+------------
+
+- Supports both increasing and decreasing monotonicity constraints.
+- Allows bounding the predicted values with optional lower (`y_min`) and upper (`y_max`) limits.
+- Handles ties in the data using a secondary method from de Leeuw (1977).
+- Provides a stepwise interpolating function covering the input domain.
+- Supports sample weights for weighted regression.
+
+Parameters
+----------
+
+- **y_min** : float, default=None  
+  Lower bound on the lowest predicted value. The minimum predicted value may still be higher than this bound. If not set, defaults to \(-\infty\).
+
+- **y_max** : float, default=None  
+  Upper bound on the highest predicted value. The maximum predicted value may still be lower than this bound. If not set, defaults to \(+\infty\).
+
+- **increasing** : bool or 'auto', default=True  
+  Determines whether the predictions should be constrained to increase or decrease with `X`. If set to `'auto'`, the direction is inferred from the data.
+
+- **out_of_bounds** : {'nan', 'clip', 'raise'}, default='nan'  
+  Defines the behavior when predicting values outside the training data range:
+  - `'nan'`: return NaN for out-of-bounds predictions,
+  - `'clip'`: clip predictions to the nearest boundary,
+  - `'raise'`: raise an error.
+
+Usage Example
+-------------
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.isotonic import IsotonicRegression
+
+# Generate sample data
+X, y = make_regression(n_samples=10, n_features=1, random_state=41)
+
+# Fit isotonic regression model
+iso_reg = IsotonicRegression().fit(X.ravel(), y)
+
+# Predict new values
+predictions = iso_reg.predict([0.1, 0.2])
+print(predictions)
+```
+
+Attributes
+----------
+
+- **y_thresholds_** : ndarray of shape (n_thresholds,)  
+  De-duplicated `y` values suitable for interpolating the monotonic function \( y = f(X) \).
+
+- **f_** : function  
+  The stepwise interpolating function that covers the input domain `X`.
+
+- **increasing_** : bool  
+  The inferred monotonicity direction of the fitted model.
+
+Related Functions
+-----------------
+
+- `isotonic_regression(y, sample_weight=None, y_min=None, y_max=None, increasing=True)`  
+  Function to solve the isotonic regression problem directly.
+
+- `check_increasing(x, y)`  
+  Utility function to determine whether `y` is monotonically correlated with `x` based on Spearman correlation.
+
+See Also
+--------
+
+- `sklearn.linear_model.LinearRegression` : Ordinary least squares linear regression.
+- `sklearn.ensemble.HistGradientBoostingRegressor` : Gradient boosting model supporting monotonicity constraints.
+
+Notes
+-----
+
+- Ties in the data are broken using the secondary method described by de Leeuw (1977).
+- The isotonic regression algorithm implemented uses the Pool-Adjacent-Violators Algorithm (PAVA).
+
+References
+----------
+
+- Chakravarti, Nilotpal. "Isotonic Median Regression: A Linear Programming Approach." *Mathematics of Operations Research*, Vol. 14, No. 2 (May, 1989), pp. 303-308.
+- de Leeuw, Jan, Hornik, Kurt, and Mair, Patrick. "Isotone Optimization in R: Pool-Adjacent-Violators Algorithm (PAVA) and Active Set Methods." *Journal of Statistical Software*, 2009.
+- de Leeuw, Jan. "Correctness of Kruskal's algorithms for monotone regression with ties." *Psychometrika*, 1977.
+
+Version Added
+-------------
+
+This functionality has been available since version 0.13. The attribute `y_thresholds_` was added in version 0.24.
+
+License
+-------
+
+BSD 3-Clause License
+
+Authors
+-------
+
+- Fabian Pedregosa
+- Alexandre Gramfort
+- Nelle Varoquaux

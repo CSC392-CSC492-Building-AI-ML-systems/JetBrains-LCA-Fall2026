@@ -1,0 +1,108 @@
+Work with Images and Data Cubes Related to Cherenkov Cameras
+============================================================
+
+This module provides tools and utilities to work with images and data cubes associated with Cherenkov cameras. It supports operations such as creating mock images, transforming images between different representations, and handling camera geometries for various telescope types.
+
+Creating Mock Images
+--------------------
+
+You can generate synthetic toy images adapted to the camera size using the `create_mock_image` function. This function uses a Gaussian toy model to simulate Cherenkov camera images with parameters scaled to the camera geometry.
+
+Example:
+```python
+image = create_mock_image(camera_geometry, psi=25 * u.deg)
+```
+
+Image Representation Transformations
+------------------------------------
+
+Cherenkov camera images can be represented in different coordinate systems. This module supports transformations between the native 1D image representation and a 2D Cartesian representation.
+
+- `image_to_cartesian_representation(image)`: Converts a 1D image array into a 2D Cartesian grid representation.
+- `image_from_cartesian_representation(image_2d)`: Converts a 2D Cartesian image back into the 1D image format.
+
+These transformations allow for easier visualization and processing of camera images. Note that the 2D Cartesian representation may introduce extra pixels set to NaN, which should be handled appropriately.
+
+Example usage:
+```python
+image_2d = camera_geometry.image_to_cartesian_representation(image)
+image_1d = camera_geometry.image_from_cartesian_representation(image_2d)
+```
+
+Multiple Image Handling
+-----------------------
+
+The transformation functions also support batch processing of multiple images simultaneously. This is useful when working with data cubes or time series of images.
+
+Example:
+```python
+images = np.array([create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)])
+images_2d = camera_geometry.image_to_cartesian_representation(images)
+images_1d = camera_geometry.image_from_cartesian_representation(images_2d)
+```
+
+Coordinate Index Conversions
+----------------------------
+
+The camera geometry provides methods to convert between image pixel indices and Cartesian grid indices:
+
+- `image_index_to_cartesian_index(pixel_id)`: Converts a pixel ID in the 1D image array to a (row, column) index in the 2D Cartesian grid.
+- `cartesian_index_to_image_index(row, col)`: Converts a (row, column) index in the 2D Cartesian grid back to the 1D image pixel ID.
+
+These conversions enable consistent mapping between different image representations.
+
+Camera Geometry and Coordinate Frames
+-------------------------------------
+
+The camera geometry encapsulates the physical layout and coordinate system of the camera pixels. It supports transformations between various coordinate frames relevant to Cherenkov telescopes, including:
+
+- `CameraFrame`
+- `EngineeringCameraFrame`
+- `NominalFrame`
+- `TelescopeFrame`
+
+For example, transforming the camera geometry to the `EngineeringCameraFrame` swaps and negates pixel coordinates accordingly.
+
+Example:
+```python
+from ctapipe.coordinates import EngineeringCameraFrame
+
+trans_geom = camera_geometry.transform_to(EngineeringCameraFrame())
+```
+
+This allows for flexible handling of pixel coordinates depending on the analysis or reconstruction task.
+
+Camera Construction from Names
+------------------------------
+
+Cameras can be constructed from known camera names using the `CameraGeometry.from_name` method. This facilitates easy instantiation of camera geometries for different telescope types.
+
+Example:
+```python
+camera = CameraGeometry.from_name(camera_geometry.name)
+```
+
+Testing and Validation
+----------------------
+
+The module includes tests to ensure the correctness of image transformations and coordinate conversions. These tests verify that:
+
+- Transforming images to Cartesian representation and back preserves the image data.
+- Batch transformations of multiple images behave consistently.
+- Coordinate index conversions are reversible.
+
+These validations help maintain robustness when working with Cherenkov camera data.
+
+Summary
+-------
+
+This module provides essential functionality for working with Cherenkov camera images and data cubes, including:
+
+- Generating synthetic images adapted to camera geometry.
+- Converting images between 1D and 2D Cartesian representations.
+- Handling multiple images simultaneously.
+- Converting between pixel indices and Cartesian coordinates.
+- Managing camera geometries and coordinate frame transformations.
+- Constructing camera geometries from known camera names.
+
+These tools enable efficient and accurate processing of Cherenkov telescope camera data for analysis and reconstruction tasks.

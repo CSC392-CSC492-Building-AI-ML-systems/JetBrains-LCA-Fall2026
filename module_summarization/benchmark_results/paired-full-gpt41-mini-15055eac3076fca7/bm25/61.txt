@@ -1,0 +1,59 @@
+Events Module Documentation
+===========================
+
+Overview
+--------
+
+The `events` module provides a comprehensive event handling and instrumentation system primarily designed for SQLAlchemy's internal use. It facilitates the management of class instrumentation, instance state tracking, and event dispatching mechanisms that enable fine-grained control over object lifecycle events, attribute instrumentation, and state changes.
+
+Key Components
+--------------
+
+### InstrumentationFactory
+
+`InstrumentationFactory` is a factory class responsible for creating new `ClassManager` instances. It acts as an event target and manages the dispatching of instrumentation-related events. This factory plays a central role in setting up instrumentation on mapped classes, ensuring that SQLAlchemy's event system can hook into class and instance lifecycle events.
+
+### Event Dispatching and ClassManager Integration
+
+The module integrates with `ClassManager` instances to manage instrumentation and event dispatching. It updates class managers for base classes, manages instance state, and ensures that event dispatchers are properly configured for each class in the inheritance hierarchy.
+
+### Instance Instrumentation and State Management
+
+The module provides mechanisms to:
+
+- Detect if an attribute on an instance is instrumented (`is_instrumented` function).
+- Generate customized `__init__` methods that trigger `ClassManager` events, allowing instrumentation to hook into instance initialization.
+- Manage instance state, including setup during deserialization and state updates.
+
+### Expired Attribute Loading Protocol
+
+The `_ExpiredAttributeLoaderProto` protocol defines the interface for loaders that handle expired attributes on instances. This protocol ensures that attribute loading behavior is consistent and can be customized or extended as needed.
+
+Usage Highlights
+----------------
+
+- **Instrumentation Detection**: Use `is_instrumented(instance, key)` to check if a particular attribute on an instance is instrumented by the attributes package. This function works independently of whether the class itself has instrumentation descriptors.
+
+- **Custom Initialization**: The `_generate_init` function creates an `__init__` decorator that triggers `ClassManager` events during instance initialization. This allows SQLAlchemy to manage instance state and instrumentation seamlessly during object construction.
+
+- **ClassManager Updates**: The module updates class managers for all base classes in a class's method resolution order (MRO), ensuring that instrumentation and event dispatching are consistent across inheritance hierarchies.
+
+- **Warning on `__del__` Method**: If a class defines a `__del__` method, a warning is issued because such methods can cause reference cycles and memory leaks due to SQLAlchemy's instrumentation creating reference cycles.
+
+Internal Utilities and Types
+----------------------------
+
+- Uses typing constructs such as `TypeVar`, `Protocol`, and generics to define flexible and type-safe interfaces.
+- Employs weak references and memoization utilities to manage object lifecycles and caching.
+- Integrates with internal modules like `base`, `collections`, `state`, `util`, and `event` to provide a cohesive instrumentation framework.
+
+Error Handling
+--------------
+
+- Raises `UnmappedInstanceError` when attempting to deserialize an object whose class has not been mapped or configured with a mapper.
+- Provides warnings for potentially problematic class definitions that may interfere with instrumentation.
+
+Conclusion
+----------
+
+The `events` module is a foundational component for SQLAlchemy's instrumentation and event system. It enables detailed tracking and management of object states and lifecycle events, facilitating advanced ORM features such as lazy loading, change tracking, and event-driven behaviors. Understanding this module is essential for extending or customizing SQLAlchemy's core event and instrumentation capabilities.

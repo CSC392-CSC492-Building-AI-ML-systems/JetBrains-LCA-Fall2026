@@ -1,0 +1,80 @@
+Getting Started with Mitogen
+=============================
+
+This tutorial provides a quick introduction to using Mitogen, a Python library designed for efficient and transparent remote code execution and management of child processes.
+
+Overview
+--------
+
+Mitogen enables you to create and manage child contexts (processes) with asynchronous connection handling, robust communication channels, and streamlined process control. It supports features such as connection timeouts, buffered I/O streams, and integration with event loops.
+
+Key Concepts
+------------
+
+- **Context**: Represents an execution environment, typically a child process.
+- **Broker**: Manages event scheduling and message passing between contexts.
+- **BootstrapProtocol**: Handles the initial handshake and bootstrapping of child processes.
+- **BufferedWriter**: Manages buffered output to child processes.
+- **Latch**: Synchronization primitive used to wait for asynchronous events.
+
+Connecting to a Child Context
+-----------------------------
+
+To establish a connection to a child context, Mitogen uses an asynchronous connection method that schedules connection attempts and manages timeouts.
+
+Example workflow:
+
+1. **Create a context**: Instantiate a context object representing the child process.
+2. **Initiate connection**: Call the `connect()` method with the context. This sets up a latch and defers the actual connection logic.
+3. **Start child process**: The `_async_connect()` method attempts to start the child process using `start_child()`.
+4. **Setup communication streams**: Standard input/output streams are configured for communication with the child.
+5. **Handle errors**: If the child process fails to start, the connection is marked as failed.
+
+Handling Standard I/O
+---------------------
+
+Mitogen replaces standard input/output temporarily with `/dev/null` to avoid interference during startup or in unusual environments. This is done by opening `/dev/null` and duplicating its file descriptors over the standard ones (stdin, stdout, stderr).
+
+Bootstrapping Child Processes
+-----------------------------
+
+The `BootstrapProtocol` class manages the initial handshake with the child process. It listens for specific markers indicating stages of the bootstrap:
+
+- `EC0_MARKER` (`MITO000`): Signals the first stage is ready to receive the compressed bootstrap.
+- `EC1_MARKER` (`MITO001`): Indicates the first stage has received the core Mitogen source.
+- `EC2_MARKER` (`MITO002`): Confirms the new child process has booted successfully.
+
+Upon receiving these markers, the protocol writes data to the child and completes the connection setup.
+
+Advanced Details
+----------------
+
+- Mitogen handles differences in system calls such as `ioctl()` between Linux and BSD/Darwin systems to maintain compatibility.
+- It supports hooks to run code before executing a new child process, useful for setting CPU affinity or other process attributes.
+- The library logs warnings if the Python executable path is not set, which may affect child process startup.
+
+Example Usage
+-------------
+
+```python
+import mitogen.core
+
+# Create a router and broker (event loop)
+router = mitogen.core.Router()
+
+# Create a new context
+context = mitogen.core.Context(router)
+
+# Connect asynchronously to the child context
+context.connect()
+
+# Wait for connection to complete
+context.latch.wait()
+
+# Use the context to execute code or manage the child process
+```
+
+Conclusion
+----------
+
+Mitogen provides a powerful and flexible framework for managing child processes and remote execution in Python. By understanding its connection lifecycle, bootstrap protocol, and I/O handling, you can efficiently integrate Mitogen into your applications for scalable and robust process management.

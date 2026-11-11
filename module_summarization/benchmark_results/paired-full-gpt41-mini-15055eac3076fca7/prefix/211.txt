@@ -1,0 +1,74 @@
+Generalized Linear Mixed Effects Models
+========================================
+
+Overview
+--------
+Generalized Linear Mixed Effects Models (GLMMs) extend generalized linear models by incorporating random effects to account for correlation and variability in grouped or hierarchical data. This implementation focuses on Bayesian inference for GLMMs, supporting families without additional scale or shape parameters, specifically binomial and Poisson families.
+
+Two primary estimation approaches are available:
+
+- **Laplace Approximation**: Provides a maximum a posteriori (MAP) estimate of the parameters.
+- **Variational Bayes (VB)**: Uses a mean field approximation to the posterior distribution for inference.
+
+Random effects are modeled as mutually independent Gaussian realizations with mean zero and unknown standard deviations. These standard deviations are constrained to be equal within subsets of random effects, defined by grouping labels.
+
+Model Specification
+-------------------
+The model is specified by the joint density factorization:
+
+.. math::
+
+    p(y \mid vc, fep) \, p(vc \mid vcp) \, p(vcp) \, p(fe)
+
+where:
+
+- :math:`y` denotes the observed data.
+- :math:`vc` represents the random effects realizations.
+- :math:`fep` denotes the fixed effects parameters.
+- :math:`vcp` are the variance component parameters (log standard deviations of random effects).
+- :math:`fe` are the fixed effects parameters.
+
+The prior distributions :math:`p(vcp)` and :math:`p(fe)` are Gaussian. Since :math:`vcp` parameters are log standard deviations, the corresponding standard deviations have log-normal distributions. The random effects distribution :math:`p(vc \mid vcp)` is modeled as independent Gaussian, with independence assumed both within and between groups defined by the variance component labels.
+
+Random Effects Design
+---------------------
+The random effects design matrix, `exog_vc`, encodes the random effects covariates. Each column corresponds to an independent realization of a random effect. The standard deviations of these random effects are shared among columns grouped by the `ident` array, which assigns integer labels to columns of `exog_vc`. Columns sharing the same label in `ident` share the same standard deviation parameter.
+
+When using formulas to specify the model, the grouping of random effects is determined internally based on the formula terms, and the `ident` array is constructed accordingly.
+
+Sparse matrices are supported for `exog_vc` to efficiently handle large and sparse random effects design matrices. Dense matrices are internally converted to sparse format.
+
+Estimation Methods
+------------------
+Two fitting methods are provided:
+
+- **fit_map**: Fits the model using the Laplace approximation to find the posterior mode (maximum a posteriori estimate).
+- **fit_vb**: Fits the model using variational Bayes, approximating the posterior distribution with a mean field approximation.
+
+Both methods estimate fixed effects, random effects realizations, and variance component parameters.
+
+Parameters and Priors
+---------------------
+- **Fixed Effects Parameters (fep)**: Correspond to the columns of the fixed effects design matrix `exog`. These parameters have Gaussian priors with mean zero and standard deviation specified by `fe_p`.
+  
+- **Random Effects Realizations (vc)**: Correspond to the columns of the random effects design matrix `exog_vc`. Each realization is modeled as a Gaussian random variable with mean zero and variance determined by the variance components.
+  
+- **Variance Component Parameters (vcp)**: Log standard deviations of the random effects. These parameters have Gaussian priors with mean zero and standard deviation `vcp_p`, implying log-normal priors on the standard deviations.
+
+Usage Notes
+-----------
+- The model currently supports only binomial and Poisson families without additional scale or shape parameters.
+- The posterior mode estimation can be sensitive to the choice of prior standard deviation for variance components (`vcp_p`). A value around 0.5 is recommended to aid numerical stability.
+- When using formulas, the construction of the random effects design matrix and grouping labels is handled internally.
+- Sparse matrix support allows efficient handling of large random effects structures.
+
+References
+----------
+- Introduction to generalized linear mixed models:  
+  https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-generalized-linear-mixed-models
+
+- SAS documentation on mixed models:  
+  https://support.sas.com/documentation/cdl/en/statug/63033/HTML/default/viewer.htm#statug_intromix_a0000000215.htm
+
+- An assessment of estimation methods for generalized linear mixed models with binary outcomes:  
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3866838/

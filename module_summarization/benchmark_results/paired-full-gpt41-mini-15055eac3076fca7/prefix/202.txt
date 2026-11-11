@@ -1,0 +1,91 @@
+Permutation Feature Importance
+==============================
+
+Permutation feature importance is a model-agnostic technique to estimate the importance of features in a predictive model. It measures the increase in the prediction error of the model after permuting the feature’s values, which breaks the relationship between the feature and the target. Features that cause a significant increase in error when permuted are considered important.
+
+Overview
+--------
+
+The permutation importance method works as follows:
+
+1. Compute the baseline score of the model on the original dataset.
+2. For each feature:
+   - Permute the values of the feature across all samples, effectively breaking the association between the feature and the target.
+   - Compute the model score on the permuted dataset.
+   - The importance of the feature is the difference between the baseline score and the permuted score.
+
+This approach can be applied to any fitted estimator and any scoring metric.
+
+Key Functions and Parameters
+----------------------------
+
+### Feature Name Handling
+
+- `_check_feature_names(X, feature_names=None)`
+
+  Validates and returns a list of feature names. If `feature_names` is not provided, it attempts to extract names from a pandas DataFrame or generates generic names for NumPy arrays.
+
+- `_get_feature_index(fx, feature_names=None)`
+
+  Converts a feature name or index into a feature index integer. Raises an error if the feature name is not found in the provided feature names list.
+
+### Permutation Importance Calculation
+
+- `_calculate_permutation_scores(estimator, X, y, sample_weight, col_idx, random_state, n_repeats, scorer, max_samples)`
+
+  Computes the scores after permuting the feature at index `col_idx` multiple times (`n_repeats`) to estimate the distribution of the importance. It supports subsampling of the dataset (`max_samples`) for efficiency and handles sample weights if provided.
+
+  Parameters:
+
+  - `estimator`: The fitted model to evaluate.
+  - `X`: Input features.
+  - `y`: Target values.
+  - `sample_weight`: Optional sample weights.
+  - `col_idx`: Index of the feature to permute.
+  - `random_state`: Random state for reproducibility.
+  - `n_repeats`: Number of times to permute the feature.
+  - `scorer`: Scoring function to evaluate model performance.
+  - `max_samples`: Maximum number of samples to use for permutation.
+
+  Returns:
+
+  - Array or dictionary of scores after permutation.
+
+- `_weights_scorer(scorer, estimator, X, y, sample_weight)`
+
+  Helper function to apply the scorer with or without sample weights.
+
+- `_create_importances_bunch(baseline_score, permuted_score)`
+
+  Computes the feature importances as the decrease in score caused by permuting the feature.
+
+Usage Notes
+-----------
+
+- The method is model-agnostic and can be used with any estimator that implements a `predict` or `predict_proba` method.
+- It supports multi-metric scoring and can aggregate scores accordingly.
+- Permutation importance can be computationally expensive for large datasets or many features; subsampling (`max_samples`) and parallel computation can mitigate this.
+- Feature names should be unique and can be provided explicitly or inferred from the input data.
+- The method is sensitive to correlated features; permuting one correlated feature may not significantly decrease the score if other correlated features provide similar information.
+
+Advantages
+----------
+
+- Intuitive and easy to interpret.
+- Applicable to any fitted model.
+- Reflects the actual impact of features on model performance.
+
+Limitations
+-----------
+
+- Computationally intensive for large datasets.
+- Can be misleading when features are correlated.
+- Results depend on the choice of scoring metric.
+
+References
+----------
+
+- Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5–32.
+- Fisher, A., Rudin, C., & Dominici, F. (2019). All Models are Wrong, but Many are Useful: Learning a Variable’s Importance by Studying an Entire Class of Prediction Models Simultaneously. Journal of Machine Learning Research, 20(177), 1-81.
+
+This documentation provides an overview of the permutation feature importance technique and the underlying implementation details used to compute it efficiently and robustly.

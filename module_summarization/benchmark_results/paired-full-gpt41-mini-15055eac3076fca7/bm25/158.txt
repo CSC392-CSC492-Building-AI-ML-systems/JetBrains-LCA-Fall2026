@@ -1,0 +1,103 @@
+Migrating to nextcord
+=====================
+
+This document provides guidance on migrating your existing Discord bot code to use the `nextcord` library. `nextcord` is a maintained fork of `discord.py` with additional features and improvements. Below are important changes and migration notes to help you transition smoothly.
+
+Converters
+----------
+
+`nextcord` provides a comprehensive set of converters to simplify argument parsing in commands. These converters automatically convert command arguments into appropriate Discord objects.
+
+Some of the key converters include:
+
+- `ObjectConverter` for `nextcord.Object`
+- `MemberConverter` for `nextcord.Member`
+- `UserConverter` for `nextcord.User`
+- `MessageConverter` for `nextcord.Message`
+- `PartialMessageConverter` for `nextcord.PartialMessage`
+- `TextChannelConverter` for `nextcord.TextChannel`
+- `InviteConverter` for `nextcord.Invite`
+- `GuildConverter` for `nextcord.Guild`
+- `RoleConverter` for `nextcord.Role`
+- `GameConverter` for `nextcord.Game`
+- `ColourConverter` for `nextcord.Colour`
+- `VoiceChannelConverter` for `nextcord.VoiceChannel`
+- `StageChannelConverter` for `nextcord.StageChannel`
+- `EmojiConverter` for `nextcord.Emoji`
+- `PartialEmojiConverter` for `nextcord.PartialEmoji`
+- `CategoryChannelConverter` for `nextcord.CategoryChannel`
+- `ThreadConverter` for `nextcord.Thread`
+
+These converters can be used in your commands by specifying the type hint for the argument, and `nextcord` will handle the conversion automatically.
+
+Example:
+
+```python
+@bot.command()
+async def invite(ctx, invite: nextcord.Invite):
+    await ctx.send(f"Invite code: {invite.code}")
+```
+
+### Changes in InviteConverter
+
+- The `InviteConverter` now raises `BadInviteArgument` instead of the generic `BadArgument` when an invalid invite is provided.
+- Invite conversion is performed via an HTTP request using `Bot.fetch_invite`.
+
+Guild and Channel Lookups
+-------------------------
+
+- `GuildConverter` converts arguments to `nextcord.Guild` objects.
+- Lookup strategy for guilds:
+  1. By ID
+  2. By name (note: no disambiguation for multiple guilds with the same name)
+- `GuildChannelConverter` and `ThreadConverter` perform lookups within the local guild context or global cache if in a DM context.
+- Channel and thread lookups follow this order:
+  1. By ID
+  2. By mention
+  3. By name
+
+Message Replying and Allowed Mentions
+-------------------------------------
+
+When sending messages with references to other messages (e.g., replies), `nextcord` supports the following parameters:
+
+- `reference`: Can be a `nextcord.Message`, `nextcord.MessageReference`, or `nextcord.PartialMessage`. This references the message you are replying to.
+- `mention_author`: Optional boolean to override whether the author of the referenced message is mentioned. This overrides the `AllowedMentions.replied_user` attribute.
+- `allowed_mentions`: Controls which mentions are allowed in the message.
+- `view`: A `nextcord.ui.View` to add interactive components to the message.
+- `embeds`: A list of up to 10 `nextcord.Embed` objects to include in the message.
+- `stickers`: A list of up to 3 stickers (`nextcord.GuildSticker` or `nextcord.StickerItem`) to include.
+
+Exceptions raised when sending messages include:
+
+- `nextcord.HTTPException` if sending fails.
+- `nextcord.Forbidden` if the bot lacks permissions.
+- `nextcord.InvalidArgument` for invalid parameters such as conflicting `file` and `files` arguments or invalid references.
+
+Generic Types and Type Checking
+-------------------------------
+
+- `nextcord` uses generic types extensively for type hinting.
+- The utility function `is_generic_type` can be used to check if a type is a generic type.
+- This helps in writing converters and type-safe code.
+
+Colour and Game Converters
+--------------------------
+
+- `ColourConverter` converts strings or integers to `nextcord.Colour` objects.
+- `GameConverter` converts strings to `nextcord.Game` instances, useful for setting bot presence.
+
+Version Notes
+-------------
+
+- Features such as message references and `mention_author` were added in version 1.6.
+- Support for embeds and stickers in message sending was added in version 2.0.
+- `InviteConverter` behavior changed in version 1.5.
+- `GuildChannelConverter` and `ThreadConverter` were added in versions 1.7 and 2.0 respectively.
+
+Summary
+-------
+
+Migrating to `nextcord` involves updating your imports and taking advantage of the improved converters and message sending capabilities. Pay attention to the updated exceptions and parameters for message references and allowed mentions. Using the provided converters will simplify your command argument parsing and improve code clarity.
+
+For detailed API usage, refer to the official `nextcord` documentation.

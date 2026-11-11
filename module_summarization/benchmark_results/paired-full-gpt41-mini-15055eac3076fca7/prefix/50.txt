@@ -1,0 +1,103 @@
+Generate Example for GAM Code
+=============================
+
+This example demonstrates how to generate and work with spline bases and smoothers for Generalized Additive Models (GAM) using the provided code components. The code includes utilities for constructing B-spline bases, cyclic cubic splines, and tools for cross-validation of GAMs.
+
+Overview
+--------
+
+The code provides functionality to:
+
+- Create B-spline basis functions with specified degrees and knots.
+- Compute knots for splines using quantiles or equally spaced points.
+- Evaluate B-spline basis functions and their derivatives.
+- Define smooth basis classes such as `BSplines` and `CyclicCubicSplines`.
+- Perform cross-validation for multivariate GAMs using `MultivariateGAMCVPath`.
+- Fit GAM models using `GLMGam`.
+
+Key Functions and Classes
+-------------------------
+
+- `_equally_spaced_knots(x, df)`:  
+  Computes equally spaced knots over the range of data `x` for a given degrees of freedom `df`.
+
+- `_R_compat_quantile(x, probs)`:  
+  Computes quantiles of `x` compatible with R's quantile function for given probabilities `probs`.
+
+- `_eval_bspline_basis(x, knots, degree, deriv='all', include_intercept=True)`:  
+  Evaluates B-spline basis functions and optionally their first and second derivatives at points `x` given knots and spline degree.
+
+- `compute_all_knots(x, df, degree)`:  
+  Computes all knots needed for B-spline basis construction, including boundary knots and inner knots based on quantiles.
+
+- `BSplines` and `CyclicCubicSplines`:  
+  Classes to represent spline bases used in GAM fitting.
+
+- `GLMGam`:  
+  Class to fit Generalized Additive Models using the spline bases.
+
+- `MultivariateGAMCVPath`:  
+  Utility for cross-validation and model selection in multivariate GAMs.
+
+Example Usage
+-------------
+
+Below is a simplified example illustrating how to generate a B-spline basis and fit a GAM model using the provided components.
+
+```python
+import numpy as np
+import pandas as pd
+from patsy import dmatrix
+from generalized_additive_model import GLMGam
+from smooth_basis import BSplines
+
+# Generate sample data
+np.random.seed(0)
+n_samples = 100
+x = np.linspace(0, 10, n_samples)
+y = np.sin(x) + np.random.normal(scale=0.5, size=n_samples)
+
+# Prepare data in a DataFrame
+data = pd.DataFrame({'x': x, 'y': y})
+
+# Define spline basis parameters
+df = 10  # degrees of freedom for spline
+degree = 3  # cubic splines
+
+# Compute knots for B-splines
+knots, lower_bound, upper_bound, inner_knots = compute_all_knots(x, df, degree)
+
+# Create B-spline basis
+bspline_basis = BSplines(x[:, None], df=[df], degree=[degree])
+
+# Alternatively, use patsy to create spline basis matrix
+spline_design = dmatrix("bs(x, df=10, degree=3, include_intercept=False)", data)
+
+# Fit a GAM model using GLMGam
+gam_model = GLMGam(data['y'], exog=np.ones((n_samples, 1)), smoother=bspline_basis)
+gam_results = gam_model.fit()
+
+# Predict on new data
+x_new = np.linspace(0, 10, 50)
+bspline_basis_new = BSplines(x_new[:, None], df=[df], degree=[degree])
+predicted = gam_results.predict(exog=np.ones((50, 1)), smooth_basis=bspline_basis_new)
+
+print(predicted)
+```
+
+Notes
+-----
+
+- The spline basis functions are constructed to capture smooth nonlinear effects of predictors in the GAM.
+- The `GLMGam` class integrates spline bases into a generalized linear model framework.
+- Cross-validation utilities such as `MultivariateGAMCVPath` can be used to select smoothing parameters and model complexity.
+- The code requires `numpy`, `pandas`, `patsy`, and `scipy` for spline evaluation.
+
+References
+----------
+
+- Luca Puggini and Josef Perktold, original authors of the spline and smoother classes.
+- Patsy documentation for spline basis construction.
+- Statsmodels documentation for GAM fitting and generalized linear models.
+
+This example provides a starting point for generating spline bases and fitting GAMs using the provided code components. For more advanced usage, including cyclic splines and cross-validation, refer to the respective classes and functions in the codebase.

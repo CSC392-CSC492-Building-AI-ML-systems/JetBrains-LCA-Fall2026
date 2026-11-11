@@ -1,0 +1,108 @@
+Generate Documentation for Code
+===============================
+
+Overview
+--------
+This module provides experimental plans for data acquisition and scanning in scientific instrumentation contexts. It includes functions to perform counting measurements and list-based scans over one or more variables, integrating with detector and motor objects.
+
+Functions
+---------
+
+count(detectors, num=1, delay=None, *, per_shot=None, md=None)
+---------------------------------------------------------------
+Take one or more readings from detectors.
+
+**Parameters:**
+
+- **detectors** (list):  
+  List of 'readable' detector objects from which data will be collected.
+
+- **num** (int, optional):  
+  Number of readings to take; default is 1.  
+  If set to `None`, data capture continues until canceled.
+
+- **delay** (iterable or scalar, optional):  
+  Time delay in seconds between successive readings; default is 0.  
+  If an iterable, it must have at least `num - 1` entries.
+
+- **per_shot** (callable, optional):  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+      ...
+  ```
+
+- **md** (dict, optional):  
+  Metadata dictionary to attach to the plan.
+
+**Notes:**
+
+- If `delay` is an iterable, it must have at least `num - 1` entries or the plan will raise a `ValueError` during iteration.
+
+**Returns:**
+
+A generator that yields messages to be consumed by a RunEngine or similar orchestrator.
+
+---
+
+list_scan(detectors, *args, per_step=None, md=None)
+---------------------------------------------------
+Scan over one or more variables in steps simultaneously (inner product).
+
+**Parameters:**
+
+- **detectors** (list):  
+  List of 'readable' detector objects.
+
+- **\*args**:  
+  Arguments specifying motors and their corresponding position lists.  
+  For one dimension, the format is:  
+  ```python
+  motor, [point1, point2, ...]
+  ```  
+  For multiple dimensions, provide pairs of motor and position lists:  
+  ```python
+  motor1, [point1, point2, ...],
+  motor2, [point1, point2, ...],
+  ...,
+  motorN, [point1, point2, ...]
+  ```
+
+- **per_step** (callable, optional):  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  f(detectors, motor, step) -> plan (a generator)
+  ```
+
+- **md** (dict, optional):  
+  Metadata dictionary to attach to the plan.
+
+**Raises:**
+
+- `ValueError` if the number of arguments in `*args` is not even (each motor must have a corresponding list of points).
+- `ValueError` if the lengths of all position lists are not the same.
+
+**See Also:**
+
+- `bluesky.plans.rel_list_scan`
+- `bluesky.plans.list_grid_scan`
+- `bluesky.plans.rel_list_grid_scan`
+
+**Returns:**
+
+A generator that yields messages to be consumed by a RunEngine or similar orchestrator.
+
+---
+
+Additional Information
+----------------------
+- The module imports utilities for plan patterns, preprocessing, and plan stubs from local packages.
+- It attempts to use `cytools.partition` for efficient partitioning of iterables, falling back to `toolz.partition` if `cytools` is not available.
+- The plans use decorators for staging devices and running with metadata.
+- Metadata dictionaries (`md`) are used extensively to annotate plans with information such as detectors involved, motors, number of points, and plan arguments.
+- The `count` plan supports flexible timing between readings and customizable per-shot behavior.
+- The `list_scan` plan enforces consistent lengths of position lists to ensure synchronized scanning across multiple motors.
+
+This documentation covers the primary functions and their usage within the provided code.

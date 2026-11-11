@@ -1,0 +1,124 @@
+Partial Dependence and Individual Conditional Expectation Plots
+================================================================
+
+Partial dependence (PD) and individual conditional expectation (ICE) plots are powerful tools for interpreting machine learning models by visualizing the relationship between features and the predicted response.
+
+Overview
+--------
+
+Partial dependence plots show the marginal effect of one or two features on the predicted outcome of a fitted model. They help to understand how the prediction partially depends on the features of interest, averaging out the effects of all other features.
+
+Individual conditional expectation plots display the dependence of the prediction on a feature for individual instances, revealing heterogeneity in the feature effect across the dataset.
+
+Both plots can be combined to provide a comprehensive view of feature effects.
+
+Usage
+-----
+
+The plots can be generated using the `PartialDependenceDisplay` class, which provides methods to create partial dependence and ICE plots from an estimator and data.
+
+Key features include:
+
+- Support for one-way and two-way partial dependence plots.
+- Two-way plots are displayed as contour plots.
+- Deciles of feature values are shown as tick marks on the axes.
+- Ability to plot partial dependence (`kind='average'`), individual conditional expectation (`kind='individual'`), or both (`kind='both'`).
+- Grid layout with configurable number of columns (`n_cols`).
+- Support for categorical features.
+- Efficient computation methods including a recursive approach for certain tree-based models.
+
+Parameters
+----------
+
+- **estimator** : estimator object  
+  A fitted machine learning model supporting prediction.
+
+- **X** : array-like of shape (n_samples, n_features)  
+  The data on which partial dependence is computed.
+
+- **features** : list of int or tuple of int  
+  Indices of features for which to plot partial dependence.  
+  - A tuple with one integer plots a one-way partial dependence curve.  
+  - A tuple with two integers plots a two-way partial dependence contour plot.
+
+- **kind** : {'average', 'individual', 'both'}, default='average'  
+  Type of plot to generate:  
+  - `'average'`: partial dependence plot (PDP).  
+  - `'individual'`: individual conditional expectation (ICE) plots.  
+  - `'both'`: overlay of PDP and ICE plots.
+
+- **n_cols** : int, default=3  
+  Number of columns in the plot grid.
+
+- **grid_resolution** : int, default=100  
+  Number of equally spaced points on the grid for each feature.
+
+- **percentiles** : tuple of floats, default=(0.05, 0.95)  
+  Percentiles used to create the grid for continuous features.
+
+- **method** : {'auto', 'recursion', 'brute'}, default='auto'  
+  Method to use for computing partial dependence:  
+  - `'recursion'`: efficient method for certain tree-based models.  
+  - `'brute'`: general method applicable to any estimator but computationally intensive.  
+  - `'auto'`: selects `'recursion'` if supported, otherwise `'brute'`.
+
+- **subsample** : int or None, default=1000  
+  Number of samples to use for ICE curves when `kind` is `'individual'` or `'both'`.
+
+- **centered** : bool, default=False  
+  Whether to center ICE curves by subtracting their mean.
+
+Details
+-------
+
+- One-way partial dependence plots show the average predicted response as a function of a single feature, marginalizing over the other features.
+
+- Two-way partial dependence plots visualize the joint effect of two features using contour plots.
+
+- ICE plots display the predicted response for individual samples as a function of a feature, highlighting variability in feature effects.
+
+- When plotting both PDP and ICE (`kind='both'`), the average curve is overlaid on the individual curves.
+
+- The deciles of feature values are marked on the axes to provide reference points.
+
+- The recursive method for partial dependence computation is supported for certain tree-based estimators such as `GradientBoostingRegressor`, `HistGradientBoostingClassifier`, `HistGradientBoostingRegressor`, `DecisionTreeRegressor`, and `RandomForestRegressor`. This method is faster but only supports `kind='average'`.
+
+- The brute force method works with any estimator but is slower.
+
+Examples
+--------
+
+Basic usage to plot partial dependence for a fitted estimator:
+
+```python
+from sklearn.inspection import PartialDependenceDisplay
+from sklearn.datasets import make_friedman1
+from sklearn.ensemble import GradientBoostingRegressor
+
+X, y = make_friedman1(n_samples=1000, random_state=0)
+est = GradientBoostingRegressor().fit(X, y)
+
+features = [0, (0, 1)]
+PartialDependenceDisplay.from_estimator(est, X, features)
+```
+
+Plotting ICE curves along with partial dependence:
+
+```python
+PartialDependenceDisplay.from_estimator(est, X, features=[0], kind='both')
+```
+
+Notes
+-----
+
+- The `PartialDependenceDisplay.from_estimator` method does not support reusing the same axes for multiple calls. To plot partial dependence for multiple estimators on the same axes, create the axes with the first call and pass them explicitly to subsequent calls.
+
+- The key `values` in the partial dependence results has been deprecated in favor of `grid_values`.
+
+- For classifiers, the target response used in partial dependence is the decision function rather than predicted probabilities when using the recursive method.
+
+Further Reading
+---------------
+
+- User Guide: :ref:`partial_dependence`  
+- Example: :ref:`sphx_glr_auto_examples_miscellaneous_plot_partial_dependence_visualization_api.py`

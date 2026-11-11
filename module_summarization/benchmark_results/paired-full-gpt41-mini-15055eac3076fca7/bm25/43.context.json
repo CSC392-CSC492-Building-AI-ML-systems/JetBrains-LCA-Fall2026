@@ -1,0 +1,52 @@
+{
+  "original_id": 43,
+  "repo": "teskalabs__asab",
+  "docfile_name": "config.rst",
+  "source_sha256": "47ff9fbdc6939ea18a3448587ceadae1f695a3577e426dcb3edaccebea4b7a92",
+  "context": "\t\tself._load_dir_stack.pop()\n\n\t\tself.add_defaults(ConfigParser._default_values)\n\n\t\tincludes = self.get('general', 'include', fallback='')\n\n\t\tself._included = set()\n\t\tself._traverse_includes(includes, this_dir=os.path.dirname(config_fname))\n\n\t\tdel self._load_dir_stack\n\n\n\tdef _include_from_zookeeper(self, zkurl):\n\t\t\"\"\"\n\t\tLoad the configuration from a ZooKeeper server and append it to the `self.config_contents_list` attribute.\n\n\t\tThe method establishes a connection to the ZooKeeper server specified in the configuration file mentioned above.\n\t\tIt retrieves the configuration by accessing the path specified in the `general` section, using the key `includes`.\n\t\tThe server URL is provided as a list of server names: server1, server2, server3.\n\t\tThe path to the configuration file follows this format: 'zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181/asab/etc/zk-site.conf.'\n\n\t\tThe loaded configuration is then appended to the `self.config_contents_list` attribute, allowing further processing or usage.\n\t\tThis method supports loading configuration files in various formats, such as.json,.yaml, and.conf.\n\n\t\tExample:\n\n\t\t\t```ini\n\t\t\t[asab:zookeeper]\n\t\t\turl=server1 server2 server3\n\t\t\t[general]\n\t\t\tinclude=zookeeper://zookeeper-1:2181,zookeeper-2:2181,\n\n\": _syslog_format.get(platform.system(), \"3\"),\n\t\t},\n\n\t\t\"logging:file\": {\n\t\t\t\"path\": \"\",\n\t\t\t\"format\": \"%(asctime)s %(levelname)s %(name)s %(struct_data)s%(message)s\",\n\t\t\t\"datefmt\": \"%d-%b-%Y %H:%M:%S.%f\",\n\t\t\t\"backup_count\": 3,\n\t\t\t\"backup_max_bytes\": 0,\n\t\t\t\"rotate_every\": \"\",\n\t\t},\n\n\t\t\"library\": {\n\t\t\t\"azure_cache\": \"false\",  # true or the actual path of where the cache should be located\n\t\t},\n\n\t\t# \"passwords\" section serves to securely store passwords\n\t\t# in the configuration file; the passwords are not\n\t\t# shown in the default API\n\t\t#\n\t\t# Usage in the configuration file:\n\t\t#\n\t\t# [connection:KafkaConnection]\n\t\t# password=${passwords:kafka_password}\n\t\t#\n\t\t# [passwords]\n\t\t# kafka_password=<MY_SECRET_PASSWORD>\n\t\t\"passwords\": {\n\t\t},\n\n\t\t\"housekeeping\": {\n\t\t\t\"at\": \"03:00\",\n\t\t\t\"limit\": \"05:00\",\n\t\t\t\"run_at_startup\": \"no\",\n\t\t},\n\t}\n\n\tif 'ASAB_ZOOKEEPER_SERVERS' in os.environ:\n\t\t# If `ASAB_ZOOKEEPER\n\nstack[-1])\n\n\t\t\tvalue = os.path.expandvars(value)\n\n\t\treturn super().before_read(parser, section, option, value)\n\n\nConfig = ConfigParser(interpolation=_Interpolation())\n\"\"\"\nObject for accessing the configuration of the ASAB application.\n\nExamples:\n\n```python\nmy_conf_value = asab.Config['section_name']['key']\n```\n\"\"\"\n\n\nclass Configurable(object):\n\t\"\"\"\n\tCustom object whose attributes can be loaded from the configuration.\n\n\tExample:\n\t\t```python\n\t\tclass ConfigurableObject(asab.Configurable):\n\n\t\t\tConfigDefaults = {\n\t\t\t\t'foo': 'bar',\n\t\t\t}\n\n\t\t\tdef __init__(self, config_section_name, config=None):\n\t\t\t\tsuper().__init__(config_section_name=config_section_name, config=config)\n\n\t\t\t\tconfig_foo = self.Config.get('foo')\n\t\t```\n\t\"\"\"\n\n\tConfigDefaults: dict = {}\n\n\n\tdef __init__(self, config_section_name: str, config: typing.Optional[dict] = None):\n\t\tself.Config = ConfigurableDict()\n\n\t\tfor base_class in inspect.getmro(self.__class__):\n\t\t\tif not hasattr(base_class, 'ConfigDefaults'):\n\t\t\t\tcontinue\n\t\t\tif len(base_class.ConfigDefaults) == 0:\n\t\t\t\tcontinue\n\n\t\t\t# Merge config defaults of each base class in the 'inheritance' way\n\t\t\tfor key, value in base_\n\nclass.ConfigDefaults.items():\n\n\t\t\t\tif value is None:\n\t\t\t\t\traise ValueError(\"None value not allowed in ConfigDefaults. Found in %s:%s \" % (\n\t\t\t\t\t\tconfig_section_name, key))\n\n\t\t\t\tif key not in self.Config:\n\t\t\t\t\tself.Config[key] = value\n\n\t\tif Config.has_section(config_section_name):\n\t\t\tfor key, value in Config.items(config_section_name):\n\t\t\t\tself.Config[key] = value\n\n\t\tif config is not None:\n\t\t\tself.Config.update(config)\n\n\n# This is for backward compatibility\nConfigObject = Configurable\n\n\nclass ConfigurableDict(collections.abc.MutableMapping):\n\t\"\"\"\n\tA dictionary supplemented with custom methods for obtaining bools, seconds, urls etc.\n\t\"\"\"\n\n\tdef __init__(self):\n\t\tself._data = {}\n\n\tdef __getitem__(self, key):\n\t\treturn self._data[key]\n\n\tdef __setitem__(self, key, value):\n\t\tself._data[key] = value\n\n\tdef __delitem__(self, key):\n\t\tdel self._data[key]\n\n\tdef __iter__(self):\n\t\treturn iter(self._data)\n\n\tdef __len__(self):\n\t\treturn len(self._data)\n\n\n\tdef getboolean(self, key\n\nname_list.append(tail)\n\n\t\ttry:\n\t\t\t# Delayed import to minimize a hard dependency footprint\n\t\t\timport kazoo.client\n\t\t\timport json\n\t\t\timport yaml\n\t\t\tzk = kazoo.client.KazooClient(url_netloc)\n\t\t\tzk.start()\n\t\t\tdata = zk.get(url_path)[0]\n\t\t\tif url_path.endswith(\".json\"):\n\t\t\t\tconfig = json.loads(data)\n\t\t\t\tself.read_dict(config)\n\t\t\telif url_path.endswith(\".yaml\"):\n\t\t\t\tconfig = yaml.safe_load(data)\n\t\t\t\tself.read_dict(config)\n\t\t\telif url_path.endswith(\".conf\"):\n\t\t\t\tconfig = data.decode(\"utf-8\")\n\t\t\t\tself.read_string(config)\n\t\t\telse:\n\t\t\t\traise NotImplementedError(\"Unknown configuration format '{}'\".format(url_path))\n\n\t\t\tzk.stop()\n\t\t\tzk.close()\n\n\t\t\t# Include in the list of config file contents\n\t\t\tself.config_contents_list.append(config)\n\n\t\texcept Exception as e:\n\t\t\tL.error(\"Failed to obtain configuration from Zookeeper server(s): '{}'.\".format(e))\n\t\t\tsys.exit(1)\n\n\n\tdef get_config_contents_list(self):\n\t\treturn self.config_contents_list, self.config_name_list",
+  "trace": {
+    "query": "Config usage config",
+    "query_terms": [
+      "config",
+      "usage"
+    ],
+    "fallback": null,
+    "candidate_count": 12,
+    "index_chunks": 16,
+    "selected": [
+      {
+        "chunk_id": 6,
+        "start_char": 5109,
+        "end_char": 6361,
+        "score": 2.43163158197986
+      },
+      {
+        "chunk_id": 2,
+        "start_char": 1696,
+        "end_char": 2593,
+        "score": 2.245537917127557
+      },
+      {
+        "chunk_id": 12,
+        "start_char": 10562,
+        "end_char": 11705,
+        "score": 0.8937037113800471
+      },
+      {
+        "chunk_id": 13,
+        "start_char": 11705,
+        "end_char": 12680,
+        "score": 0.8746658655933127
+      },
+      {
+        "chunk_id": 8,
+        "start_char": 7030,
+        "end_char": 7989,
+        "score": 0.8592771397408834
+      }
+    ],
+    "context_tokens": 1958,
+    "context_sha256": "94616cdaf261efa626e8cfa12f8198c0698b44dbb3f3985d91a05419439d496c"
+  },
+  "preparation_seconds": 0.08169133299998066
+}

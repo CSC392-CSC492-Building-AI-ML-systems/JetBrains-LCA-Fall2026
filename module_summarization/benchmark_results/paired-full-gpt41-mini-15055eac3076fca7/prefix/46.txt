@@ -1,0 +1,126 @@
+Storage Module
+==============
+
+Overview
+--------
+This module provides a MongoDB-backed storage service for asynchronous applications, leveraging the `motor` and `pymongo` libraries. It is designed to integrate with the `asab` framework and offers convenient methods for storing, retrieving, updating, and deleting documents in MongoDB collections.
+
+Configuration
+-------------
+The module uses the following configuration defaults under the `asab:storage` section:
+
+- `mongodb_uri`: The MongoDB connection URI. Default is `mongodb://localhost:27017`.
+- `mongodb_database`: The name of the MongoDB database to use. Default is `asabdb`.
+
+These can be overridden in your application configuration.
+
+Classes
+--------
+
+StorageService
+--------------
+`StorageService` is the main class providing asynchronous MongoDB storage operations.
+
+**Constructor:**
+
+```python
+StorageService(app, service_name, config_section_name='asab:storage')
+```
+
+- `app`: The application instance.
+- `service_name`: The name of the service.
+- `config_section_name`: Configuration section name to read MongoDB settings from (default `'asab:storage'`).
+
+**Attributes:**
+
+- `Client`: An instance of `AsyncIOMotorClient` connected to the configured MongoDB URI.
+- `Database`: The MongoDB database instance with timezone-aware codec options.
+
+**Methods:**
+
+- `upsertor(collection: str, obj_id=None, version=0) -> MongoDBUpsertor`  
+  Returns an upsertor object for performing atomic update/insert operations on the specified collection.
+
+- `async get(collection: str, obj_id, decrypt=None) -> dict`  
+  Retrieves a document by its `_id` from the specified collection.  
+  Raises `KeyError("NOT-FOUND")` if the document does not exist.  
+  If `decrypt` is provided as a list of field names, those fields will be decrypted using the service's AES decryption method.
+
+- `async get_by(collection: str, key: str, value, decrypt=None) -> dict`  
+  Retrieves a document by an arbitrary key-value pair from the specified collection.  
+  Raises `KeyError("NOT-FOUND")` if no matching document is found.  
+  Supports optional decryption of specified fields.
+
+- `async collection(collection: str) -> AsyncIOMotorCollection`  
+  Returns the raw Motor collection object for advanced or custom MongoDB operations.  
+  Example usage:
+  ```python
+  coll = await storage.collection("test-collection")
+  cursor = coll.find({})
+  while await cursor.fetch_next:
+      obj = cursor.next_object()
+      pprint.pprint(obj)
+  ```
+
+- `async delete(collection: str, obj_id)`  
+  Deletes a document by its `_id` from the specified collection.  
+  Raises `KeyError("NOT-FOUND")` if the document does not exist.  
+  Returns the `_id` of the deleted document.
+
+MongoDBUpsertor
+---------------
+`MongoDBUpsertor` is a helper class implementing the `UpsertorABC` interface for performing atomic upsert operations on MongoDB collections.
+
+**Class Methods:**
+
+- `generate_id()`  
+  Generates a new MongoDB ObjectId.
+
+**Instance Methods:**
+
+- `async execute(custom_data: Optional[dict] = None, event_type: Optional[str] = None)`  
+  Executes the upsert operation with the accumulated modifications (`$set`, `$inc`, `$push`, `$unset`).  
+  Supports optimistic concurrency control via versioning.  
+  Raises `DuplicateError` on duplicate key errors with detailed information.  
+  Raises `KeyError("NOT-FOUND")` if the document to update is not found (version conflict).  
+  Optionally sends webhook notifications if configured.
+
+Usage Notes
+-----------
+- The storage service requires MongoDB to be accessible at the configured URI.
+- The service uses UTC timezone-aware datetime objects.
+- The upsertor supports complex atomic update operations including setting, incrementing, pushing to arrays, and unsetting fields.
+- Duplicate key errors during upsert operations are wrapped in a custom `DuplicateError` exception.
+- The service supports optional AES decryption of specified fields when retrieving documents.
+- Webhook integration can be enabled to notify external systems about storage events.
+
+Dependencies
+-------------
+- `motor` for asynchronous MongoDB client operations.
+- `pymongo` for MongoDB driver utilities.
+- `bson` for BSON data types and ObjectId generation.
+- `asab` framework for configuration and service management.
+
+Exceptions
+-----------
+- `DuplicateError`: Raised when a duplicate key error occurs during upsert operations.
+- `KeyError("NOT-FOUND")`: Raised when a requested document is not found in the database.
+
+Example
+--------
+```python
+storage = StorageService(app, "storage")
+
+# Insert or update a document
+upsertor = storage.upsertor("mycollection", obj_id=None)
+upsertor.set("field1", "value1")
+await upsertor.execute()
+
+# Retrieve a document by ID
+doc = await storage.get("mycollection", obj_id)
+
+# Delete a document
+await storage.delete("mycollection", obj_id)
+```
+
+This module provides a robust and flexible asynchronous MongoDB storage backend suitable for applications built on the `asab` framework.

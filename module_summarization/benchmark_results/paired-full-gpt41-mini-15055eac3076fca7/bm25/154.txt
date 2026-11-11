@@ -1,0 +1,76 @@
+Connecting Steps Together
+==========================
+
+In this system, steps represent processing units or nodes in a computational graph. Connecting steps together involves linking the outputs of one step to the inputs of another, thereby defining the flow of data through the graph.
+
+Connecting by Handles
+---------------------
+
+The fundamental operation to connect two steps is performed via the `connect` method, which takes two handles as arguments: a source handle and a destination handle. Each handle is a tuple consisting of:
+
+- The step name
+- The direction (`'inputs'` or `'outputs'`)
+- The handle name (the name of the input or output port)
+
+The `connect` method ensures that connections are only made from an output handle to an input handle. It verifies the directions of the handles and raises an assertion error if the connection is invalid.
+
+Example:
+
+```python
+s.connect(src_handle, dst_handle)
+```
+
+Here, `src_handle` must be an output handle, and `dst_handle` must be an input handle.
+
+Connecting by Step Names
+------------------------
+
+To simplify the connection process, the system provides a `connect_by_name` method that connects two steps by their names. This method performs the following steps:
+
+1. Retrieves the source and destination steps by their names.
+2. Checks that both steps exist in the graph.
+3. Finds the overlapping names between the source step's outputs and the destination step's inputs.
+4. For each overlapping name, connects the corresponding output of the source step to the input of the destination step.
+
+This allows automatic connection of all matching output-input pairs between two steps.
+
+Example:
+
+```python
+s.connect_by_name(src_step_name, dst_step_name)
+```
+
+This will connect all outputs of `src_step_name` that have matching inputs in `dst_step_name`.
+
+Handling Parameterized Steps and Graph Expansion
+------------------------------------------------
+
+The system supports parameterized steps, which can be replicated across a parameter space. When expanding such steps, the incoming edges to a node are broken, the node is removed, and multiple parameterized versions of the node are created and connected appropriately.
+
+This expansion is performed in topological order to maintain a clean and consistent graph structure.
+
+The helper method `_param_space_helper` recursively replicates dependent steps across the parameter space and reconnects them to the frontier of newly created steps. This process involves:
+
+- Identifying dependent steps downstream of a given step.
+- Sorting these dependent steps topologically.
+- For each dependent step, replicating it across the parameter space.
+- Connecting the replicated steps to the appropriate inputs and outputs.
+
+This mechanism ensures that parameterized expansions propagate correctly through the graph, maintaining connectivity and data flow.
+
+Detecting Dangling Inputs
+-------------------------
+
+After connections are made, the system can check for dangling inputs—inputs of steps that are not connected to any output. This is useful for debugging and ensuring graph completeness.
+
+If dangling inputs are found, the system prints messages indicating which steps and inputs are affected. If no dangling inputs exist, it confirms that the graph is fully connected.
+
+Summary
+-------
+
+- Connections are made from outputs to inputs using handles.
+- `connect_by_name` automates connecting all matching outputs and inputs between two steps.
+- Parameterized steps can be expanded and connected recursively across a parameter space.
+- The system verifies connections and reports dangling inputs to maintain graph integrity.
+
+This approach provides a flexible and robust way to build and manage complex computational graphs by connecting modular steps together.

@@ -1,0 +1,76 @@
+FileNode — Simulating a Filesystem with PyTables
+===============================================
+
+The **FileNode** module provides a file-like interface for storing and accessing file data inside PyTables database files. It allows you to simulate a filesystem within an HDF5 file by creating and manipulating file nodes that behave like ordinary files.
+
+Overview
+--------
+
+Using FileNode, you can create new file nodes, open existing ones, and read or write data as if you were working with regular files. This is particularly useful for embedding arbitrary file contents inside PyTables files, enabling complex data management and archival workflows.
+
+Key Features
+------------
+
+- **File-like interface:** File nodes support standard file operations such as reading, writing (append-only), seeking, and telling the current position.
+- **Binary I/O support:** Currently, only binary input/output is supported.
+- **Versioned node types:** File nodes are stored as PyTables nodes with specific attributes (`NODE_TYPE='file'` and `NODE_TYPE_VERSION`), ensuring compatibility and version control.
+- **Integration with PyTables:** File nodes are stored as extendable arrays (EArrays) of unsigned 8-bit integers (`UInt8`), leveraging PyTables' efficient storage and compression capabilities.
+- **Appending data:** Write access allows appending data to existing file nodes, while read access is always available.
+- **File metadata preservation:** Original filenames and other metadata are preserved as node attributes.
+
+Creating and Opening File Nodes
+-------------------------------
+
+- **Creating a new file node:** Use the `new_node()` function to create a new file node inside a PyTables file. You must specify the location (`where`) and the name (`name`) of the node. Additional parameters such as `title`, `filters`, and an estimated file size (`expectedsize`) can also be provided.
+
+- **Opening an existing file node:** Use the `open_node()` function to open an existing file node for reading or appending. The mode can be `'r'` for read-only access or `'a+'` for read and append access.
+
+Example:
+
+```python
+from tables.filenode import new_node, open_node
+
+# Create a new file node
+fnode = new_node(h5file, where='/files', name='example.bin', title='Example File')
+
+# Open an existing file node for reading
+fnode = open_node(existing_node, mode='r')
+```
+
+Saving and Reading Files to/from File Nodes
+-------------------------------------------
+
+The module provides utility functions to save external files into file nodes and to extract file node contents back to the filesystem:
+
+- **save_to_filenode(h5file, filename, where, name=None, overwrite=False, title="", filters=None):**
+
+  Saves the contents of a file from the filesystem into a file node inside a PyTables file. If the node name is not specified, it defaults to the filename. The original filename is preserved as a node attribute.
+
+- **read_from_filenode(h5file, filename, where, name=None, overwrite=False, create_target=False):**
+
+  Reads the contents of a file node from a PyTables file and writes it to a file on the filesystem. If the target filename is a directory or ends with a path separator, the filename is derived from the node's stored filename attribute.
+
+Usage Notes
+-----------
+
+- File nodes are stored as extendable arrays of bytes, enabling efficient storage and retrieval.
+- Write access is append-only; overwriting existing data within a file node is not supported.
+- The module is fully compliant with Python's `io` module interfaces as of version 3.0.
+- The `offset` attribute and `line_separator` property have been removed in version 3.0; use standard `seek()` and `tell()` methods instead.
+- The module is designed for binary data; text mode is not supported.
+
+Version History
+---------------
+
+- **Version 3.0:** Complete rewrite to comply with Python's `io` module interfaces.
+- **Version 3.2:** Added `save_to_filenode()` and `read_from_filenode()` utility functions.
+
+References
+----------
+
+- See the :ref:`filenode_usersguide` for detailed instructions and examples on using FileNode.
+- PyTables documentation for working with nodes and groups.
+
+---
+
+This module enables embedding and managing file data within PyTables files, effectively simulating a filesystem inside an HDF5 container, facilitating complex data storage and retrieval scenarios.

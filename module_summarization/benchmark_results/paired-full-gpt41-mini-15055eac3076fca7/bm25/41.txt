@@ -1,0 +1,98 @@
+QuerySet Usage Guide
+====================
+
+Introduction
+------------
+The `QuerySet` class provides a powerful and flexible way to build and execute database queries in a Pythonic manner. It supports filtering, ordering, annotations, prefetching related objects, and more. This guide explains how to use `QuerySet` to construct your queries effectively.
+
+Creating a QuerySet
+-------------------
+A `QuerySet` is typically associated with a specific model. It represents a lazy database lookup for that model's records. You can start building queries by instantiating or obtaining a `QuerySet` from your model's manager.
+
+Filtering Queries
+----------------
+You can filter records using `Q` expressions or keyword arguments. Filters can be combined and nested to create complex query conditions.
+
+Example:
+```python
+from yourapp.models import YourModel
+from yourapp.query import Q
+
+qs = YourModel.objects.filter(Q(field1='value1') & Q(field2__gt=10))
+```
+
+Internally, filters are resolved against the model and translated into SQL WHERE clauses. The `QuerySet` manages joins automatically when filtering across related models.
+
+Annotations and Aggregations
+----------------------------
+You can add extra computed fields to your query results using annotations. These annotations can be used for aggregations or other calculations.
+
+Example:
+```python
+qs = YourModel.objects.annotate(total=Sum('relatedmodel__amount'))
+```
+
+The `QuerySet` resolves annotations and aggregates, adjusting the SQL query accordingly, including GROUP BY clauses if necessary.
+
+Ordering and Distinct
+---------------------
+Ordering of results can be specified by passing field names and directions. You can also request distinct results.
+
+Example:
+```python
+qs = YourModel.objects.order_by('field1', '-field2').distinct()
+```
+
+Prefetching Related Objects
+---------------------------
+To optimize database access when dealing with related objects, use the `Prefetch` class to attach custom `QuerySet`s for specialized prefetching.
+
+Example:
+```python
+from yourapp.query import Prefetch
+
+custom_qs = RelatedModel.objects.filter(active=True)
+prefetch = Prefetch('related_field', custom_qs)
+qs = YourModel.objects.prefetch_related(prefetch)
+```
+
+This allows you to control how related objects are fetched and reduces the number of queries executed.
+
+Selecting Specific Fields
+-------------------------
+You can make a `QuerySet` return dictionaries instead of model instances by using the `values()` method. You can specify which fields to include and optionally rename them in the resulting dictionaries.
+
+Example:
+```python
+qs = YourModel.objects.values('id', name='full_name')
+for item in qs:
+    print(item['id'], item['full_name'])
+```
+
+Cloning QuerySets
+-----------------
+`QuerySet` instances are immutable; methods that modify the query return a new cloned instance. This allows safe reuse and chaining of queries without side effects.
+
+Example:
+```python
+qs1 = YourModel.objects.filter(active=True)
+qs2 = qs1.order_by('created_at')
+```
+
+Internal Mechanics
+------------------
+- **Filters and Q Expressions**: Filters are resolved using the model's metadata and translated into SQL WHERE clauses with appropriate joins.
+- **Joins**: The `QuerySet` automatically manages SQL joins, including left outer joins for related tables.
+- **Annotations and Having Clauses**: Aggregations and annotations are resolved and applied, including HAVING clauses when necessary.
+- **Prefetch Map**: Prefetching uses a map of relations to custom `QuerySet`s to optimize fetching related data.
+- **Query Modifiers**: Internally, a `QueryModifier` object accumulates filters, joins, and having criteria before applying them to the query.
+
+Error Handling
+--------------
+If you attempt to prefetch a relation that does not exist on the model, an `OperationalError` will be raised indicating the missing field.
+
+Summary
+-------
+The `QuerySet` class is a comprehensive tool for building database queries with Python objects. By combining filters, annotations, ordering, and prefetching, you can efficiently retrieve and manipulate data while minimizing database load.
+
+For advanced usage, refer to the specific methods and classes such as `Q`, `Prefetch`, and `QueryModifier` that underpin the query construction process.

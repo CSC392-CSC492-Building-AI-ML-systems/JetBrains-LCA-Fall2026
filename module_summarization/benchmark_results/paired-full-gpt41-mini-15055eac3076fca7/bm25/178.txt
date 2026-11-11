@@ -1,0 +1,45 @@
+Computational Performance
+=========================
+
+This section provides an overview of the computational performance considerations and optimizations implemented in the codebase.
+
+Matrix Operations and Efficiency
+--------------------------------
+
+A significant computational bottleneck arises in operations involving matrix products, particularly the "sandwich product" of the form \(X^T \, \text{diag}(W) \, X\). This operation is central to several solvers and can be computationally expensive.
+
+- For sparse input matrices, the code leverages sparse matrix operations to efficiently compute this product by constructing a sparse diagonal matrix from the pointwise Hessian values and performing sparse matrix multiplications. The result is then converted to a dense array as needed.
+- For dense matrices, BLAS-accelerated matrix multiplication routines are used to optimize performance.
+- There is a noted potential for further optimization by implementing a dedicated Cython routine that exploits the symmetry of the matrix product, which could reduce computational overhead compared to general-purpose BLAS routines.
+
+Parallelization and Low-Level Optimizations
+-------------------------------------------
+
+- Distance computations between vectors are implemented using a generic Cython/OpenMP parallelization template. This approach allows efficient pairwise distance calculations by combining vector-wise distance computations with parallel reduction patterns.
+- Low-level memory management and pointer arithmetic are employed in critical loops to minimize overhead and maximize throughput.
+
+Numerical Stability and Performance Trade-offs
+-----------------------------------------------
+
+- Special attention is given to numerical stability and computational efficiency in mathematical functions. For example, the implementation of the `log1pexp` function uses carefully chosen cutoff points to balance accuracy and performance:
+  - For very negative inputs (e.g., \(x \leq -37\)), the function returns \(\exp(x)\) directly to avoid unnecessary computation.
+  - For intermediate ranges (e.g., \(x \leq -2\)), the function uses \(\log\) instead of \(\log1p\) to improve performance without sacrificing precision.
+- These cutoffs are designed to maintain accuracy within machine precision while reducing computational cost.
+
+Algorithmic Considerations
+--------------------------
+
+- Iterative algorithms, such as self-training classifiers, track the number of iterations (`n_iter_`) and termination conditions (`termination_condition_`) to avoid unnecessary computation once convergence criteria are met.
+- Early stopping criteria include reaching a maximum number of iterations, no change in predicted labels, or all samples being labeled, which helps to limit computational expense.
+
+References
+----------
+
+- Cohen, J. (1960). "A coefficient of agreement for nominal scales". *Educational and Psychological Measurement*, 20(1), 37-46. DOI: 10.1177/001316446002000104
+- Artstein, R., & Poesio, M. (2008). "Inter-coder agreement for computational linguistics". *Computational Linguistics*, 34(4), 555-596. [Link](https://www.mitpressjournals.org/doi/pdf/10.1162/coli.07-034-R2)
+- Yarowsky, D. (1995). "Unsupervised word sense disambiguation rivaling supervised methods". In *Proceedings of the 33rd annual meeting on Association for Computational Linguistics (ACL '95)*, 189-196. DOI: 10.3115/981658.981684
+
+Summary
+-------
+
+The codebase incorporates multiple strategies to optimize computational performance, including exploiting sparsity, leveraging efficient BLAS routines, parallelizing critical computations, and applying numerically stable approximations. These efforts collectively enhance the scalability and efficiency of the implemented algorithms.

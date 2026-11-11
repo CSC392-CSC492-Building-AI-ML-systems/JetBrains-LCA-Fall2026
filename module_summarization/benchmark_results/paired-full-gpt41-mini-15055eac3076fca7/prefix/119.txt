@@ -1,0 +1,114 @@
+Configuration Usage Guide
+=========================
+
+Overview
+--------
+
+This module provides dataclass-based configuration objects and utilities for setting up and managing FV3GFS model runs, particularly prognostic simulations. It integrates FV3Config settings with runtime configurations, enabling flexible specification of initial conditions, physics parameters, and emulation options.
+
+Key Classes and Functions
+-------------------------
+
+### FV3Config
+
+A dataclass representing the core FV3 configuration fields that are not overridden by higher-level configurations. It includes:
+
+- `namelist`: Dictionary of namelist parameters, defaulting to a coupler namelist with a 900-second timestep.
+- `experiment_name`: Optional experiment identifier.
+- `data_table`: Optional data table path.
+- `field_table`: Optional field table path.
+- `forcing`: Forcing configuration.
+- `orographic_forcing`: Orographic forcing configuration.
+- `gfs_analysis_data`: GFS analysis data configuration.
+
+The `asdict()` method returns a dictionary representation excluding any fields set to `None`.
+
+### InitialCondition
+
+Represents initial condition specifications for a model run, formatted as `{base_url}/{timestep}`.
+
+Attributes:
+
+- `base_url` (str): Location of initial condition data, either in Google Cloud Storage or local filesystem.
+- `timestep` (str): Timestamp in `YYYYMMDD.HHMMSS` format indicating the initial condition time.
+- `restart_categories` (RestartCategoriesConfig): Optional mapping of FV3GFS restart categories (`core`, `surface`, `tracer`, `surface_wind`) to stored restart category names.
+
+Property:
+
+- `overlay`: Generates an overlay dictionary for initial conditions compatible with fv3kube utilities.
+
+### HighLevelConfig
+
+A comprehensive configuration dataclass that combines `UserConfig` (runtime settings) and `FV3Config` (model configuration) with additional conveniences for prognostic runs.
+
+Attributes:
+
+- `base_version` (str): Specifies the default physics configuration version (default `"v0.5"`).
+- `initial_conditions` (Union[InitialCondition, Any]): Defines the initial conditions for the run.
+- `duration` (str): Duration of each simulation segment, expressed in a format compatible with `pandas.Timedelta` (e.g., `"3h"`). Overrides any duration settings in the coupler namelist.
+- `zhao_carr_emulation` (emulation.EmulationConfig): Configuration for Zhao-Carr emulation.
+
+Methods:
+
+- `_initial_condition_overlay()`: Returns the overlay dictionary for initial conditions, handling both `InitialCondition` instances and other formats.
+- `_to_fv3config_specific()`: Extracts an `FV3Config` instance from the high-level configuration.
+- `to_runtime_config()`: Converts the high-level configuration to a `UserConfig` instance containing only runtime parameters.
+- `_physics_timestep()`: Computes the physics timestep as a `timedelta` by merging overlays with the base FV3Config.
+- `_duration`: Property returning the duration as an optional `timedelta`.
+- `to_fv3config()`: Translates the high-level configuration into a dictionary compatible with fv3config.
+
+Utility Functions
+-----------------
+
+### instantiate_dataclass_from(cls, instance)
+
+Creates an instance of the dataclass `cls` by copying attributes from another instance. Useful for instantiating a parent dataclass from a child dataclass instance.
+
+Example usage:
+
+```python
+parent_instance = instantiate_dataclass_from(ParentClass, child_instance)
+```
+
+Constants
+---------
+
+- `PROGNOSTIC_DIAG_TABLE`: Path to the prognostic diagnostics table used in workflows.
+- `SUPPRESS_RANGE_WARNINGS`: Dictionary to suppress range warnings in the FV3 namelist.
+
+Usage Notes
+-----------
+
+- The configuration classes leverage Python dataclasses for type safety and ease of use.
+- Initial conditions can be specified flexibly, supporting both structured `InitialCondition` objects and arbitrary formats.
+- Duration strings must be compatible with `pandas.to_timedelta` for proper parsing.
+- The `to_fv3config()` method produces a dictionary suitable for use with FV3GFS configuration workflows.
+- Logging is set up via the standard Python `logging` module for debugging and informational messages.
+
+Example
+-------
+
+```python
+from runtime.config import HighLevelConfig, InitialCondition
+
+# Define initial conditions
+init_cond = InitialCondition(
+    base_url="gs://my-bucket/initial_conditions",
+    timestep="20230101.000000"
+)
+
+# Create a high-level configuration
+config = HighLevelConfig(
+    base_version="v0.5",
+    initial_conditions=init_cond,
+    duration="6h"
+)
+
+# Convert to FV3Config dictionary
+fv3_config_dict = config.to_fv3config()
+
+# Access runtime configuration
+runtime_config = config.to_runtime_config()
+```
+
+This setup allows for streamlined configuration management for FV3GFS prognostic simulations, integrating physics, initial conditions, and runtime parameters in a coherent and extensible manner.

@@ -1,0 +1,74 @@
+Configuring ASDF
+================
+
+The `asdf.config` module provides mechanisms to manage and customize the global configuration options for ASDF (Advanced Scientific Data Format) operations. This includes settings that control validation behavior, versioning, resource management, and other internal parameters.
+
+Classes and Functions
+---------------------
+
+AsdfConfig
+~~~~~~~~~~
+
+`AsdfConfig` is a container class for ASDF configuration options. It is not intended to be instantiated directly by users. Instead, configuration should be accessed and modified via the provided module-level functions and context managers.
+
+Key attributes of `AsdfConfig` include:
+
+- **validate_on_read** (`bool`):  
+  Determines whether ASDF files are validated automatically upon reading.  
+  Default: `True`
+
+- **default_version** (`str`):  
+  Specifies the default ASDF format version to use when writing files.  
+  Default: the version defined by `versioning.default_version`.
+
+- **legacy_fill_schema_defaults** (`bool`):  
+  Controls whether legacy behavior for filling schema defaults is enabled.
+
+- **io_block_size** (`int`):  
+  Defines the block size used for I/O operations. A value of `-1` indicates automatic selection.
+
+- **array_inline_threshold** (`int` or `None`):  
+  Threshold for inlining arrays within the ASDF file.
+
+The class also manages internal resources such as extensions and resource mappings, which are used to extend ASDF functionality.
+
+get_config()
+~~~~~~~~~~~~
+
+```python
+get_config() -> AsdfConfig
+```
+
+Returns the current global ASDF configuration object. This configuration may be the default global configuration or a temporarily overridden configuration if inside a `config_context`.
+
+config_context()
+~~~~~~~~~~~~~~~
+
+```python
+with config_context() as config:
+    ...
+```
+
+A context manager that temporarily overrides the ASDF configuration within its scope. It yields a copy of the current `AsdfConfig` instance, allowing modifications that do not affect the global configuration outside the context.
+
+Usage example:
+
+```python
+from asdf.config import config_context
+
+with config_context() as config:
+    config.validate_on_read = False
+    # Perform operations with modified configuration
+```
+
+This is useful for temporarily changing configuration options in a thread-safe manner without impacting other parts of the application.
+
+Thread Safety
+-------------
+
+The module uses thread-local storage (`_ConfigLocal`) to maintain a stack of configuration contexts per thread. This ensures that configuration overrides within a `config_context` are isolated to the current thread and do not interfere with other threads.
+
+Summary
+-------
+
+The `asdf.config` module provides a flexible and thread-safe way to manage ASDF configuration options globally or within specific contexts. Users should interact with configuration primarily through `get_config()` and `config_context()` rather than instantiating `AsdfConfig` directly. This design promotes safe and temporary configuration changes during ASDF file operations.

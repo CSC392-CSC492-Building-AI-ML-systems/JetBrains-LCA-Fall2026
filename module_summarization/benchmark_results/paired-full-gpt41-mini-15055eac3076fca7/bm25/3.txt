@@ -1,0 +1,77 @@
+Publishing for Web Review
+=========================
+
+This section describes the process and functionality related to publishing content for web review sessions, as well as managing review session invitations.
+
+Sending Review Session Invites
+------------------------------
+
+You can send invitations to review sessions to one or more invitees using the provided methods.
+
+### Sending an Invite to a Single Invitee
+
+To send an invite to a single review session invitee, use the method:
+
+```python
+send_review_session_invite(invitee)
+```
+
+- **invitee**: An instance of `ReviewSessionInvitee` representing the person to invite.
+
+**Note:** The invitee must be committed before sending the invite.
+
+### Sending Invites to Multiple Invitees
+
+To send invites to multiple invitees at once, use:
+
+```python
+send_review_session_invites(invitees)
+```
+
+- **invitees**: A list of `ReviewSessionInvitee` objects.
+
+**Note:** All invitees must be committed before sending the invites.
+
+### Error Handling
+
+If the server does not support the action `"send_review_session_invite"`, a `ServerCompatibilityError` will be raised with a message indicating that the server version does not support this feature and suggesting to update the server.
+
+Publishing Locations for Review
+-------------------------------
+
+When publishing content for review, the system determines the appropriate location to store the published files.
+
+- If the component name matches one of the specific review-related names such as `'ftrackreview-mp4'`, `'ftrackreview-webm'`, or `'ftrackreview-image'`, the content will be added to the location identified by `ftrack.review` (with a specific location ID).
+
+- Otherwise, a suitable location will be picked automatically.
+
+The `ftrack.review` location is created with the following properties:
+
+- Name: `'ftrack.review'`
+- ID: `ftrack_api.symbol.REVIEW_LOCATION_ID`
+- Accessor: Disk accessor with no prefix
+- Structure: Origin structure
+- Priority: 90
+
+This location is mixed in with `UnmanagedLocationMixin` to handle unmanaged locations.
+
+File Handling During Publishing
+-------------------------------
+
+- When publishing a single file, if the file size is not provided, it will be calculated from the filesystem.
+- The file type will be set based on the file extension if not already specified.
+- For collections of files, the system attempts to parse the collection using `clique.parse`. If parsing fails, the file is treated as a single file.
+
+Event Hub and Schema Caching
+----------------------------
+
+- The embedded event hub can be automatically connected to the event server to enable publishing and subscribing to **non-local** events if `auto_connect_event_hub` is set to `True`.
+- If `auto_connect_event_hub` is `False`, only **local** event publishing and subscribing is possible until the event hub is manually connected.
+- The event hub connection is performed in a background thread to improve session startup time.
+- Subscribing to events does not require a connected event hub, but plugins that require a connected event hub should check the connection status explicitly.
+- Schema caching can be enabled by setting `schema_cache_path` to a folder path or by using the environment variable `FTRACK_API_SCHEMA_CACHE_PATH`.
+
+Summary
+-------
+
+Publishing for web review involves preparing content in appropriate locations, managing review session invitations, and handling event hub connections for event-driven workflows. The system provides robust error handling and compatibility checks to ensure smooth operation across different server versions.

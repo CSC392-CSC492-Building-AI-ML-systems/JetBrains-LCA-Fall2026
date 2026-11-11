@@ -1,0 +1,70 @@
+Internal organization of NumPy arrays
+======================================
+
+This section provides an overview of the internal structure and organization of NumPy arrays, focusing on key aspects such as data type descriptors, API versioning, and error handling conventions used within the core implementation.
+
+Data Type Descriptors
+---------------------
+
+NumPy arrays rely on data type descriptors (`PyArray_Descr`) to define the type and layout of the array elements. These descriptors contain important metadata, including information about fields and type numbers.
+
+- **Builtin vs User-Defined Types**  
+  The function `arraydescr_isbuiltin_get` determines whether a data type descriptor corresponds to a built-in type or a user-defined type:
+  
+  - Returns `1` if the descriptor represents a built-in type (i.e., it has no fields).
+  - Returns `2` if it is a user-defined data type descriptor.
+  - Returns `0` if it is neither, which typically means it is a copy of another descriptor.
+  
+  This distinction is crucial for internal operations that depend on the nature of the data type.
+
+- **Type Number Checks**  
+  The macro `PyTypeNum_ISUSERDEF(self->type_num)` is used to identify user-defined types by checking the type number associated with the descriptor.
+
+API Versioning and Compatibility
+--------------------------------
+
+NumPy maintains a minor API version number to ensure compatibility across different builds and downstream users. This versioning strategy is designed to balance stability and access to new features:
+
+- **Internal Builds**  
+  When building NumPy internally (`NPY_INTERNAL_BUILD` defined), the API version targets the current version, ensuring full access to the latest features and internal changes.
+
+- **Downstream Users**  
+  For external users, the default API version is set to an older, stable version to maximize compatibility. Users can choose to extend or narrow this version depending on their needs.
+
+- **Python Version Support Matrix**  
+  The API versioning also considers supported Python versions. For example, NumPy 1.25.x supports Python 3.9 through 3.11 (and experimental 3.12), while earlier NumPy versions supported older Python releases. This ensures that the stable ABI aligns with supported Python versions and their lifecycle.
+
+Error Handling and Argument Parsing
+-----------------------------------
+
+Robust error handling is a key aspect of NumPy's internal functions, especially when dealing with argument parsing and function calls:
+
+- **Argument Validation**  
+  Internal functions rigorously check for invalid or unexpected arguments, such as `NULL` names or data pointers, and raise `SystemError` exceptions with descriptive messages when inconsistencies are detected.
+
+- **Positional and Keyword Arguments**  
+  The code enforces strict rules on the ordering and marking of positional-only, keyword-only, and optional arguments. For example, encountering a non-required argument after a required one marked with `|` or `$` triggers an internal error.
+
+- **Limits on Number of Arguments**  
+  There is a maximum limit on the number of keyword arguments (`_NPY_MAX_KWARGS`) allowed for easier parsing and maintenance. Exceeding this limit results in a `SystemError`, prompting developers to adjust the limit if necessary.
+
+Module Imports and Method Calls
+-------------------------------
+
+Certain internal operations involve importing specialized modules and invoking methods dynamically:
+
+- The `_numpy_internal` module (`numpy.core._internal`) is imported to access internal helper functions such as `_array_descr`, which retrieves array descriptor information.
+
+- Reference counting is carefully managed to avoid memory leaks, with explicit `Py_DECREF` calls after module usage.
+
+Summary
+-------
+
+The internal organization of NumPy arrays is designed to provide a flexible, efficient, and robust foundation for array operations. Key components include:
+
+- Clear differentiation between built-in and user-defined data types.
+- Careful API versioning to maintain backward compatibility while enabling progress.
+- Strict error checking and argument parsing to ensure internal consistency.
+- Dynamic module imports for accessing specialized internal functionality.
+
+Understanding these internals is essential for developers working on NumPy's core or extending its capabilities at a low level.

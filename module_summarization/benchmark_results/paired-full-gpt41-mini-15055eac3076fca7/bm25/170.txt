@@ -1,0 +1,66 @@
+Handling Large Datasets
+=======================
+
+When working with large datasets, efficient data handling and processing become critical to ensure performance and resource management. This documentation outlines strategies and features available for handling large spectral cubes and related data structures.
+
+Caching Function Results
+------------------------
+
+To optimize repeated computations, a caching mechanism is implemented via the `cached` decorator. This decorator stores the results of function calls keyed by the function and its arguments, avoiding redundant calculations and improving performance when working with large data.
+
+Example usage:
+
+```python
+@cached
+def expensive_computation(self, param):
+    ...
+```
+
+This approach ensures that once a function is called with a particular set of arguments, subsequent calls return the cached result, reducing computational overhead.
+
+Moment Map Computation Strategies
+---------------------------------
+
+Moment maps are commonly used to summarize spectral cube data. Different strategies for computing moment maps are available, each suited to different dataset sizes and memory constraints:
+
+- **how='cube'**: Fastest for small cubes that fit entirely into memory.
+- **how='slice'**: Recommended for most larger datasets; processes data slice-by-slice.
+- **how='ray'**: Suitable for very large cubes with contiguous data along the moment axis.
+
+Note that for the first moment, the interpretation of the result depends on the axis:
+
+- For angular axes (axis=1 or 2), the moment map gives angular offsets relative to the cube face.
+- For the spectral axis (axis=0), the moment map provides the absolute velocity or frequency.
+
+Warning: When computing the second moment (variance), the output is a variance map. To obtain linewidth maps, use specialized methods such as `SpectralCube.linewidth_fwhm()` or `SpectralCube.linewidth_sigma()`.
+
+Data Endianness Handling
+------------------------
+
+Handling data endianness correctly is important when working with binary data from different architectures. The system ensures that data arrays are converted to native byte order when necessary, which is crucial for compatibility with non-NumPy functions sensitive to endianness.
+
+Tests confirm that both big-endian and little-endian data are correctly interpreted and converted to native byte order within the spectral cube objects.
+
+Dask Integration for Large Data
+-------------------------------
+
+For very large datasets, integration with Dask allows out-of-core computation and parallel processing. This enables working with data that do not fit into memory by chunking and lazy evaluation.
+
+Note: Certain data formats, such as CASA datasets, require `use_dask=True` when reading, as they cannot be loaded fully into memory.
+
+Data Slicing and Masking
+------------------------
+
+Efficient slicing of large datasets is supported, allowing access to subsets of the data without loading the entire cube into memory. Masking functionality is also available to handle missing or invalid data points gracefully.
+
+Metadata and Header Management
+------------------------------
+
+The system maintains accurate metadata and header information consistent with the underlying data arrays. For example, the FITS header keyword `NAXIS` reflects the number of data dimensions, and axis sizes (`NAXIS1`, `NAXIS2`, `NAXIS3`, etc.) correspond to the shape of the data array.
+
+Further Resources
+-----------------
+
+For more detailed information and advanced usage, please refer to the official documentation on handling large datasets:
+
+https://spectral-cube.readthedocs.io/en/latest/big_data.html

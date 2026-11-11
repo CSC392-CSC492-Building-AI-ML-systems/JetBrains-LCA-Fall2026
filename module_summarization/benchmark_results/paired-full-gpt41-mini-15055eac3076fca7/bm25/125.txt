@@ -1,0 +1,88 @@
+FITS Headers
+============
+
+This section documents the handling and comparison of FITS headers within the Astropy `io.fits` subpackage. FITS headers are critical components of FITS files, containing metadata about the data stored in the file extensions.
+
+Overview
+--------
+
+The Astropy FITS module provides comprehensive support for reading, writing, and manipulating FITS headers. It supports traditional header formats as well as more advanced features such as header comparison and handling of invalid or non-standard keywords.
+
+Key Features
+------------
+
+- **Reading and Writing Headers**  
+  FITS headers can be accessed and modified through the `Header` object associated with each HDU (Header/Data Unit). Headers can be read from existing FITS files or created anew when writing files.
+
+- **Handling History Entries**  
+  The `HISTORY` keyword is used to store history entries in the header. Multiple history entries can be added and preserved when writing and reopening FITS files.
+
+- **Support for Invalid Keywords**  
+  The module allows opening FITS files containing invalid or non-standard keywords, issuing warnings but still permitting access to the header data. This ensures compatibility with a wide range of FITS files encountered in practice.
+
+- **Header Comparison**  
+  The module provides tools to compare headers between two HDUs, identifying differences in extension versions, extension levels, extension types, header cards, and data content.
+
+Header Comparison Attributes
+----------------------------
+
+When comparing two HDUs, the following attributes are used to describe differences:
+
+- **diff_extlevels**  
+  A 2-tuple containing the differing EXTLEVEL values if the two HDUs have different extension levels.
+
+- **diff_extension_types**  
+  A 2-tuple containing the differing XTENSION values if the two HDUs have different extension types.
+
+- **diff_headers**  
+  A `HeaderDiff` object representing the differences between the two headers. This object always exists and can be queried for whether the headers are identical via the `identical` attribute.
+
+- **diff_data**  
+  An object representing differences in the data portion of the HDUs. Depending on the data type, this may be an `ImageDataDiff`, `TableDataDiff`, or `RawDataDiff`. This attribute is only present if both HDUs contain non-empty data of the same type.
+
+Error Handling and Warnings
+---------------------------
+
+- **Broken Pipe Errors**  
+  When printing headers to standard output, a `Broken pipe` OSError may occur if the output is prematurely closed (e.g., piping output to `head`). This error is caught and silently ignored to allow smooth operation in pipelines.
+
+- **Warnings for Invalid Header Cards**  
+  When headers contain invalid cards or keywords, warnings of type `AstropyUserWarning` are issued. These warnings alert the user but do not prevent reading or writing the FITS files.
+
+Usage Examples
+--------------
+
+- **Adding History Entries**
+
+  ```python
+  from astropy.io import fits
+
+  hdu = fits.PrimaryHDU()
+  history = ["Created by Astropy", "Processed on 2024-06-01"]
+  for item in history:
+      hdu.header["HISTORY"] = item
+
+  hdu.writeto("example.fits")
+
+  with fits.open("example.fits") as hdul:
+      print(hdul[0].header["HISTORY"])  # Prints the list of history entries
+  ```
+
+- **Opening Files with Invalid Keywords**
+
+  The module allows opening FITS files with invalid header keywords, issuing warnings but still providing access to the header data.
+
+- **Comparing Headers**
+
+  The header comparison tools can be used to detect differences between two FITS HDUs, including extension versions, levels, types, header cards, and data.
+
+Additional Notes
+----------------
+
+- The FITS header handling is part of the Astropy `io.fits` subpackage, which includes command-line scripts for working with FITS files.
+
+- The module supports remote data access through integration with the `fsspec` package, enabling FITS files to be opened from remote storage systems.
+
+- The codebase is licensed under a 3-clause BSD style license.
+
+This documentation provides an overview of the FITS header handling capabilities in Astropy, highlighting key features, error handling, and usage patterns to facilitate effective use of FITS files in scientific workflows.

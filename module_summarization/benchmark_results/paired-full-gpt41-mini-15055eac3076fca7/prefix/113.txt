@@ -1,0 +1,96 @@
+Plans
+=====
+
+This module provides a collection of experimental plans for data acquisition and scanning in scientific experiments. These plans are designed to work with detectors and motors (or other settable devices) to automate measurements and control experimental parameters.
+
+count
+-----
+
+Take one or more readings from detectors.
+
+**Parameters**
+
+- `detectors` : list  
+  List of 'readable' objects (detectors) from which data will be collected.
+
+- `num` : integer, optional  
+  Number of readings to take; default is 1.  
+  If `None`, capture data until canceled.
+
+- `delay` : iterable or scalar, optional  
+  Time delay in seconds between successive readings; default is 0.
+
+- `per_shot` : callable, optional  
+  Hook for customizing action of inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+      ...
+  ```
+
+- `md` : dict, optional  
+  Metadata dictionary to attach to the plan.
+
+**Notes**
+
+- If `delay` is an iterable, it must have at least `num - 1` entries or the plan will raise a `ValueError` during iteration.
+
+**Behavior**
+
+The plan stages the detectors, runs the acquisition loop for the specified number of readings, and yields messages that can be consumed by a RunEngine or similar orchestrator.
+
+list_scan
+---------
+
+Scan over one or more variables in steps simultaneously (inner product).
+
+**Parameters**
+
+- `detectors` : list  
+  List of 'readable' objects (detectors) to read data from.
+
+- `*args` : variable length argument list  
+  For one dimension, specify a motor and a list of points to scan over:  
+  ```python
+  motor, [point1, point2, ...]
+  ```  
+  For multiple dimensions, specify pairs of motors and their respective point lists:  
+  ```python
+  motor1, [point1, point2, ...],  
+  motor2, [point1, point2, ...],  
+  ...,  
+  motorN, [point1, point2, ...]
+  ```  
+  Motors can be any 'settable' object (motor, temperature controller, etc.).
+
+- `per_step` : callable, optional  
+  Hook for customizing action of inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  f(detectors, motor, step) -> plan (a generator)
+  ```
+
+- `md` : dict, optional  
+  Metadata dictionary to attach to the plan.
+
+**Raises**
+
+- `ValueError` if the number of arguments in `*args` is not even (each motor must have a corresponding list of points).
+
+- `ValueError` if the lengths of all point lists are not the same.
+
+**Behavior**
+
+The plan verifies that all point lists have the same length, then performs a simultaneous scan over all specified motors and points, yielding messages for each step. It collects metadata including the names of detectors and motors, number of points, and other plan arguments.
+
+**See Also**
+
+- `bluesky.plans.rel_list_scan`  
+- `bluesky.plans.list_grid_scan`  
+- `bluesky.plans.rel_list_grid_scan`  
+
+---
+
+This module depends on several utility modules and plan stubs for core functionality, including staging devices, running decorators, and repeating actions. It also attempts to use `cytools` for performance optimization, falling back to `toolz` if `cytools` is not available.
+
+The plans are designed to be used with a RunEngine or similar execution engine that can interpret the yielded messages and orchestrate the experiment accordingly.

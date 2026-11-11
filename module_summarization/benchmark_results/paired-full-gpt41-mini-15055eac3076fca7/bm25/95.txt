@@ -1,0 +1,110 @@
+Schedulers
+==========
+
+Stateless Learning Rate Schedulers
+----------------------------------
+
+This module provides stateless learning rate schedulers designed to address some of the limitations of PyTorch's built-in schedulers found in :mod:`torch.optim.lr_scheduler`. The primary goal of these schedulers is to integrate seamlessly with Composer's :mod:`~composer.core.time` abstraction, allowing schedulers to be configured using explicit and arbitrary time units.
+
+Unlike traditional schedulers that maintain internal state and update learning rates based on step counts or epochs, stateless schedulers compute the learning rate multiplier directly from the current training state. This design enables more flexible and transparent scheduling strategies.
+
+Key Concepts
+------------
+
+- **Stateless Scheduler**: A callable that takes the current training :class:`~composer.core.State` and returns a learning rate multiplier (a float). This multiplier is applied to the optimizer's initial learning rate to produce the effective learning rate at any given time.
+
+- **Learning Rate Multiplier**: Denoted as :math:`\alpha(t)`, it modifies the initial learning rate :math:`\eta_i` to produce the current learning rate :math:`\eta(t) = \eta_i \times \alpha(t)`.
+
+- **Scale Schedule Ratio (SSR)**: A factor :math:`\sigma` used to stretch or compress the scheduler's timeline, such that the learning rate multiplier at time :math:`t` is computed as :math:`\alpha_{\sigma}(t) = \alpha(t / \sigma)`.
+
+ComposerScheduler Interface
+---------------------------
+
+The core interface for stateless schedulers is the :class:`ComposerScheduler` protocol. Any callable matching the signature below can serve as a scheduler:
+
+```python
+def scheduler(state: State) -> float:
+    ...
+```
+
+Here, `state` is the current training state, and the function returns a float multiplier for the learning rate.
+
+Example:
+
+```python
+def ten_epoch_decay_scheduler(state: State) -> float:
+    if state.timestamp.epoch < 10:
+        return 1.0
+    return 0.5
+```
+
+This scheduler maintains the initial learning rate for the first 10 epochs, then halves it thereafter.
+
+Schedulers can also be implemented as callable classes:
+
+```python
+class VariableEpochDecayScheduler(ComposerScheduler):
+
+    def __init__(self, num_epochs: int):
+        self.num_epochs = num_epochs
+
+    def __call__(self, state: State) -> float:
+        if state.time.epoch < self.num_epochs:
+            return 1.0
+        return 0.5
+
+ten_epoch_decay_scheduler = VariableEpochDecayScheduler(num_epochs=10)
+```
+
+Using Schedulers with Composer Trainer
+--------------------------------------
+
+Schedulers can be passed to the Composer `Trainer` as a list:
+
+```python
+trainer = Trainer(
+    schedulers=[ten_epoch_decay_scheduler],
+    ...
+)
+```
+
+Multiple schedulers can be combined, and their effects multiply to produce the final learning rate multiplier.
+
+Integration with PyTorch
+------------------------
+
+The function :func:`compile_composer_scheduler` converts a stateless :class:`ComposerScheduler` into a PyTorch-compatible scheduler object (`PyTorchScheduler`). This wrapper provides a `.step()` method but internally recalculates the learning rate based on the bound training state, ignoring any internal step count.
+
+Usage:
+
+```python
+compiled_scheduler = compile_composer_scheduler(scheduler, state)
+```
+
+Note that this function currently supports only a single optimizer.
+
+Available Scheduler Implementations
+-----------------------------------
+
+The module includes a variety of predefined schedulers, including but not limited to:
+
+- :class:`ConstantScheduler` — maintains a constant learning rate multiplier.
+- :class:`StepScheduler` — decays the learning rate by a factor at fixed intervals.
+- :class:`MultiStepScheduler` — decays the learning rate at multiple specified milestones.
+- :class:`LinearScheduler` — linearly interpolates the learning rate multiplier between two values.
+- :class:`ExponentialScheduler` — exponentially decays the learning rate multiplier.
+- :class:`CosineAnnealingScheduler` — applies cosine annealing to the learning rate multiplier.
+- :class:`CosineAnnealingWarmRestartsScheduler` — cosine annealing with warm restarts.
+- :class:`PolynomialScheduler` — polynomial decay of the learning rate multiplier.
+- Variants with warmup phases, such as :class:`ConstantWithWarmupScheduler`, :class:`LinearWithWarmupScheduler`, etc.
+
+These schedulers can be composed and customized to fit a wide range of training schedules.
+
+Notes
+-----
+
+- Stateless schedulers provide a clean and flexible way to define learning rate schedules that depend explicitly on training time abstractions.
+- The multiplicative nature of combining schedulers allows for complex schedules to be built from simpler components.
+- Integration with Composer's state and time abstractions enables schedulers to be defined in terms of epochs, batches, or any other time unit supported by Composer.
+
+For more detailed usage and examples, see the :class:`~.ComposerScheduler` interface and the Composer Trainer documentation.

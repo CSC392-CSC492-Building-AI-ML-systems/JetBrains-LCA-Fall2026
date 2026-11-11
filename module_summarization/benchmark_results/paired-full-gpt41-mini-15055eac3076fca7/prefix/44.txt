@@ -1,0 +1,87 @@
+Azure Storage Library Provider
+==============================
+
+The `AzureStorageLibraryProvider` class is a library provider that interfaces with Microsoft Azure Storage containers. It allows reading and listing blobs stored in an Azure Blob Storage container, supporting both public containers and those secured with Shared Access Signatures (SAS).
+
+Configuration
+-------------
+
+The provider is configured using a URL with the following format:
+
+```
+azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER
+```
+
+If the container's Public Access Level is not set to "Public access", an Access Policy with "Read" and "List" permissions must be created. Additionally, a Shared Access Signature (SAS) query string must be appended to the URL, for example:
+
+```
+azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER?sv=2020-10-02&si=XXXX&sr=c&sig=XXXXXXXXXXXXXX
+```
+
+Features
+--------
+
+- **Listing blobs**: The provider can list blobs and directories within the specified Azure Blob Storage container.
+- **Reading blobs**: Supports reading blob contents asynchronously.
+- **Caching**: Supports local caching of blob contents and their ETags to optimize repeated reads.
+- **Asynchronous operation**: Uses `aiohttp` for asynchronous HTTP requests to Azure Blob Storage.
+- **Automatic model loading**: Loads and parses the container's blob list into an internal directory and item model.
+
+Usage
+-----
+
+### Initialization
+
+```python
+provider = AzureStorageLibraryProvider(library, path, layer)
+```
+
+- `library`: The library instance this provider belongs to.
+- `path`: The Azure Blob Storage URL with the `azure+` prefix.
+- `layer`: The layer associated with this provider.
+
+### Listing Items
+
+```python
+items = await provider.list(path)
+```
+
+- `path`: A string representing the directory path within the container (must start with `/`).
+- Returns a list of `LibraryItem` instances representing blobs and directories.
+
+### Reading Items
+
+```python
+stream = await provider.read(path)
+```
+
+- `path`: A string representing the blob path within the container (must start with `/`).
+- Returns an asynchronous IO stream for reading the blob content.
+- Utilizes local caching if enabled and available.
+
+Internal Structure
+------------------
+
+- **Model**: An internal representation of the container's directory structure, composed of `AzureDirectory` and `AzureItem` objects.
+- **CacheDir**: Directory path for caching blob contents and ETags. Configurable via the `azure_cache` setting in the library configuration.
+- **Logging**: Uses Python's `logging` module to log warnings and informational messages.
+
+Notes
+-----
+
+- The provider schedules its startup asynchronously and loads the blob list model on initialization.
+- Cache directory creation is handled automatically if caching is enabled.
+- The provider currently includes a TODO to periodically refresh the model and clean up the cache.
+- Proper error handling is implemented for HTTP request failures and missing paths.
+
+Dependencies
+------------
+
+- `aiohttp` for asynchronous HTTP requests.
+- Standard Python libraries: `os`, `io`, `hashlib`, `logging`, `tempfile`, `dataclasses`, `urllib.parse`, `xml.dom.minidom`.
+- Internal dependencies: `Config`, `LibraryItem`, and `LibraryProviderABC`.
+
+Logging
+-------
+
+The provider logs important events and warnings using the logger named after its module (`__name__`), facilitating debugging and monitoring of Azure Storage interactions.

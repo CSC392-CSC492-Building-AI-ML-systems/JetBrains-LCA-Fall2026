@@ -1,0 +1,140 @@
+Storage Driver Documentation
+============================
+
+Overview
+--------
+
+The Storage driver system provides an interface for reading and writing data to various storage backends through a unified API. It is designed to work with different storage types by implementing specific StorageIODriver classes that handle the low-level input/output operations.
+
+Key Components
+--------------
+
+StorageInterface
+~~~~~~~~~~~~~~~~
+
+The `StorageInterface` class acts as the main interface to the storage system. It dynamically manages folders and variables within the storage file or backend. When accessing an attribute that does not explicitly exist, it automatically creates a new storage directory or variable, represented by `StorageInterfaceVarDir` instances.
+
+The `StorageInterface` requires an instance of a fully implemented `StorageIODriver` subclass to function. This driver handles the actual read/write/append operations on the storage medium.
+
+Initialization
+~~~~~~~~~~~~~~
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_storage = StorageInterface(my_driver)
+```
+
+Here, `NetCDFIODriver` is an example of a `StorageIODriver` implementation for NetCDF files.
+
+Adding Metadata
+~~~~~~~~~~~~~~~
+
+You can attach additional metadata to the storage file using the `add_metadata` method:
+
+```python
+my_storage.add_metadata('my_index', 4)
+```
+
+This metadata is stored alongside the file and can be used for descriptive or organizational purposes.
+
+File Name Property
+~~~~~~~~~~~~~~~~~~
+
+The `file_name` property returns the name of the storage file or resource:
+
+```python
+filename = my_storage.file_name
+```
+
+Storage Driver Property
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The `storage_driver` property provides access to the underlying `StorageIODriver` instance managing the IO operations:
+
+```python
+driver = my_storage.storage_driver
+```
+
+Usage Examples
+--------------
+
+Writing and Reading Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can write data to a variable and read it back as follows:
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_storage = StorageInterface(my_driver)
+
+my_data = [4, 2, 1, 6]
+my_storage.my_variable.write(my_data)
+
+retrieved_data = my_storage.my_variable.read()
+```
+
+Creating Directories and Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can create a directory (folder) and store multiple variables inside it:
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_storage = StorageInterface(my_driver)
+
+DATA1 = "some string"
+DATA2 = (4.5, 7.0, -23.1)
+
+my_storage.vardir.var1.write(DATA1)
+my_storage.vardir.var2.write(DATA2)
+
+var1 = my_storage.vardir.var1.read()
+var2 = my_storage.vardir.var2.read()
+```
+
+Appending Data Dynamically
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The interface supports appending data to variables dynamically, useful for iterative data generation:
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_storage = StorageInterface(my_driver)
+
+for i in range(10):
+    value = i**2
+    my_storage.looper.append(value)
+```
+
+Writing Data at Specific Indices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can write data at a specific index in an appendable variable by specifying the `at_index` parameter:
+
+```python
+my_storage.the_list.write(new_data, at_index=0)
+```
+
+This replaces the data at the given index. Compatibility checks for the data are handled by the storage driver.
+
+Supported Data Types
+--------------------
+
+The storage system supports various data types, including but not limited to:
+
+- Strings
+- Numeric arrays (e.g., NumPy arrays)
+- Tuples
+- Lists
+
+The exact support depends on the underlying `StorageIODriver` implementation.
+
+Extensibility
+-------------
+
+To support new storage backends, implement a subclass of `StorageIODriver` that provides the necessary read, write, append, and metadata handling methods. Then, instantiate `StorageInterface` with this driver to interact with the new storage type seamlessly.
+
+Summary
+-------
+
+The Storage driver framework provides a flexible and dynamic way to manage data storage across different backends. By abstracting the IO operations through `StorageIODriver` implementations and providing a dynamic interface via `StorageInterface`, it simplifies data management tasks and enhances code portability.

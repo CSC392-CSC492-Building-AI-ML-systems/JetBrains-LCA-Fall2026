@@ -1,0 +1,83 @@
+Image Extraction
+================
+
+Charge extraction algorithms are used to reduce the camera image waveforms to one value per pixel, representing the extracted charge and pulse timing information. This process is essential for further analysis steps in imaging atmospheric Cherenkov telescope data processing.
+
+Overview
+--------
+
+The extraction methods operate on the waveform data recorded by each pixel of the camera. Each waveform consists of multiple time samples, and the goal is to integrate the signal over a suitable time window to obtain the total charge and estimate the pulse time.
+
+The extraction algorithms implemented include various windowing techniques centered around peaks or sliding windows to maximize the signal integration.
+
+Key Functions
+-------------
+
+extract_around_peak
+~~~~~~~~~~~~~~~~~~~
+
+This function integrates the waveform samples around a specified peak position using a fixed window width and shift. It also calculates the pulse time as the weighted average of the samples within the integration window.
+
+- **Parameters:**
+  - `waveforms` (ndarray): The waveform samples for a pixel (1D array).
+  - `peak_index` (int): The index of the peak sample in the waveform.
+  - `width` (int): The size of the integration window.
+  - `shift` (int): The shift of the integration window relative to the peak.
+  - `sampling_rate_ghz` (float): The camera sampling rate in GHz.
+- **Returns:**
+  - `charge` (float): The sum of the waveform samples within the integration window.
+  - `peak_time` (float): The pulse time in nanoseconds, computed as the weighted average of sample indices.
+
+The integration window is clipped to the valid range of the waveform samples. Only positive samples contribute to the weighted average for pulse time calculation.
+
+extract_sliding_window
+~~~~~~~~~~~~~~~~~~~~~~
+
+This function finds the window of fixed width within the waveform that yields the largest sum of consecutive samples. It then calculates the pulse time as the weighted average of the samples within this window.
+
+- **Parameters:**
+  - `waveforms` (ndarray): The waveform samples for a pixel (1D array).
+  - `width` (int): The size of the sliding integration window.
+  - `sampling_rate_ghz` (float): The camera sampling rate in GHz.
+- **Returns:**
+  - `charge` (float): The maximum sum of consecutive samples within any window of the given width.
+  - `peak_time` (float): The pulse time in nanoseconds, computed as the weighted average of sample indices within the window of maximum sum.
+
+This method is useful when the peak position is not known a priori and the integration window needs to be optimized to capture the maximum signal.
+
+Extraction Classes and Utilities
+--------------------------------
+
+The module also provides several extractor classes implementing different extraction strategies, such as:
+
+- `ImageExtractor`
+- `FlashCamExtractor`
+- `FullWaveformSum`
+- `FixedWindowSum`
+- `GlobalPeakWindowSum`
+- `LocalPeakWindowSum`
+- `SlidingWindowMaxSum`
+- `NeighborPeakWindowSum`
+- `BaselineSubtractedNeighborPeakWindowSum`
+- `TwoPassWindowSum`
+
+These classes encapsulate various algorithms for charge extraction, including baseline subtraction, neighbor pixel information, and multi-pass integration.
+
+Additional utility functions support the extraction process, including:
+
+- `neighbor_average_maximum`
+- `subtract_baseline`
+- `integration_correction`
+
+Usage Notes
+-----------
+
+- The extraction functions expect waveforms as numpy arrays with shape `(n_pixels, n_samples)`.
+- Sampling rates must be provided in GHz, typically converted from astropy units before use.
+- The output charge values represent the integrated signal per pixel and are used in subsequent image cleaning and parameterization steps.
+- Pulse timing information is provided in nanoseconds and can be used for timing-based analyses.
+
+Summary
+-------
+
+Image extraction reduces complex waveform data into meaningful charge and timing values per pixel, enabling efficient and accurate analysis of Cherenkov telescope camera data. The provided algorithms offer flexible and optimized methods to perform this critical step in the data processing pipeline.

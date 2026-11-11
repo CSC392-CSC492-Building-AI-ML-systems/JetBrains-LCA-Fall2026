@@ -1,0 +1,103 @@
+# FleurXMLModifier
+
+The `FleurXMLModifier` class provides a structured and robust way to organize and group modifications to a `inp.xml` input file used by Fleur. It acts as a low-level interface for applying changes to Fleur input files, leveraging XML setting methods from the `masci_tools.util.xml` modules.
+
+---
+
+## Overview
+
+`FleurXMLModifier` collects a series of modification tasks without immediately applying them to the input file. Instead, it stores these tasks internally and applies all changes in a single operation when requested. This approach allows for better management of input modifications, including the ability to undo changes before they are applied.
+
+---
+
+## Features
+
+- **Task Collection:** Changes are added as tasks, which are stored internally and can be applied later.
+- **Multiple Setter Support:** Supports XML setting methods from different modules (`xpath`, `schema_dict`, `nmmpmat`).
+- **Undo Capability:** Allows undoing the last change or all changes before applying them.
+- **Batch Modification:** Applies all collected changes to an input XML file in one go.
+- **Validation:** Optionally validates method signatures when adding tasks.
+
+---
+
+## Usage Example
+
+```python
+from masci_tools.io.fleurxmlmodifier import FleurXMLModifier
+
+# Create a modifier instance
+fmode = FleurXMLModifier()
+
+# Add changes by calling setter methods (these do not modify the file immediately)
+fmode.set_inpchanges({'Kmax': 4.0})  # Set Kmax to 4.0
+fmode.shift_value({'Gmax': 5.0})     # Add 5 to the current value of Gmax
+
+# Set the local orbital configuration on all iron atoms to '3s 3p'
+fmode.set_species('all-Fe', {'lo': [{'n': 3, 'l': 's', 'type': 'SCLO'},
+                                    {'n': 3, 'l': 'p', 'type': 'SCLO'}]})
+
+# Undo the last change
+fmode.undo()
+
+# Undo all changes
+fmode.undo(revert_all=True)
+
+# Apply all collected changes to an input XML file
+new_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')
+```
+
+---
+
+## Constructor
+
+```python
+FleurXMLModifier(validate_signatures: bool = True)
+```
+
+- **validate_signatures** (`bool`, optional): If `True`, validates the signatures of setter methods when tasks are added. Defaults to `True`.
+
+---
+
+## Methods
+
+### fromList
+
+```python
+@classmethod
+fromList(cls, task_list: list[tuple[str, dict[str, Any]]], *args: Any, **kwargs: Any) -> FleurXMLModifier
+```
+
+Creates a `FleurXMLModifier` instance from a list of tasks to be added immediately.
+
+- **task_list** (`list` of `tuple`): Each tuple contains the name of the setter method and a dictionary of arguments for that method.
+
+---
+
+## Internal Attributes
+
+- `_tasks` (`list` of `ModifierTask`): Stores the list of modification tasks to be applied.
+- `validate_signatures` (`bool`): Indicates whether to validate method signatures.
+- `_xpath_functions`, `_schema_dict_functions`, `_nmmpmat_functions` (`dict`): Dictionaries mapping setter method names to their implementations for different modification strategies.
+- `_extra_functions` (`dict`): Allows extension of setter methods beyond the default sets.
+
+---
+
+## Notes
+
+- The setter methods correspond to those defined in the `masci_tools.util.xml.xml_setters_names` and related modules.
+- The class is designed to be a low-level tool; higher-level interfaces such as `FleurinpModifier` in `aiida_fleur` may provide more user-friendly APIs.
+- Docstrings for setter methods are automatically generated from their implementations in the XML utility modules and may be overwritten by pre-commit hooks.
+
+---
+
+## License and Source
+
+- This class is part of the Masci-tools package (Material Science Tools).
+- Source code is hosted on GitHub: [https://github.com/judftteam/masci-tools](https://github.com/judftteam/masci-tools)
+- For license details, see the `LICENSE.txt` file in the repository.
+
+---
+
+## Summary
+
+`FleurXMLModifier` is a powerful utility for managing complex modifications to Fleur input XML files in a controlled and reversible manner. It is especially useful for batch processing and automated workflows where multiple changes need to be applied consistently and safely.

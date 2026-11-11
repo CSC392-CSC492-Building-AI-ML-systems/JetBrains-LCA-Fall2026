@@ -1,0 +1,145 @@
+Asynchronous Queues for Coroutines
+==================================
+
+The `tornado.queues` module provides asynchronous queue implementations designed to coordinate producer and consumer coroutines efficiently. These queues implement an asynchronous producer/consumer pattern, allowing coroutines to safely exchange data without blocking the event loop.
+
+Overview
+--------
+
+The primary class, `Queue`, supports multiple producers and consumers, managing the flow of items with optional size limits. If the queue's `maxsize` is set to zero (the default), the queue size is unbounded.
+
+Unlike the standard library's `queue` module, these queues are **not thread-safe**. To interact with them from other threads, use `.IOLoop.add_callback` to schedule calls on the `.IOLoop` thread.
+
+Basic Usage Example
+-------------------
+
+```python
+import asyncio
+from tornado.ioloop import IOLoop
+from tornado.queues import Queue
+
+q = Queue(maxsize=2)
+
+async def consumer():
+    async for item in q:
+        try:
+            print('Doing work on %s' % item)
+            await asyncio.sleep(0.01)
+        finally:
+            q.task_done()
+
+async def producer():
+    for item in range(5):
+        await q.put(item)
+        print('Put %s' % item)
+
+async def main():
+    # Start consumer without waiting (since it never finishes).
+    IOLoop.current().spawn_callback(consumer)
+    await producer()     # Wait for producer to put all tasks.
+    await q.join()       # Wait for consumer to finish all tasks.
+    print('Done')
+
+asyncio.run(main())
+```
+
+Output:
+
+```
+Put 0
+Put 1
+Doing work on 0
+Put 2
+Doing work on 1
+Put 3
+Doing work on 2
+Put 4
+Doing work on 3
+Doing work on 4
+Done
+```
+
+Features
+--------
+
+- **Asynchronous iteration:** The queue supports `async for` iteration, allowing consumers to process items as they become available.
+- **Task tracking:** The `task_done()` method signals that a formerly enqueued task is complete. The `join()` method blocks until all items have been processed.
+- **Bounded queues:** By specifying `maxsize`, producers will wait when the queue is full, providing backpressure.
+- **Multiple queue types:** Besides the standard FIFO `Queue`, there is also a `LifoQueue` which retrieves the most recently put items first.
+
+Legacy Support
+--------------
+
+For Python versions prior to 3.5 that lack native coroutine support, consumer coroutines can be implemented using Tornado's `@gen.coroutine` decorator and `yield` syntax:
+
+```python
+@gen.coroutine
+def consumer():
+    while True:
+        item = yield q.get()
+        try:
+            print('Doing work on %s' % item)
+            yield gen.sleep(0.01)
+        finally:
+            q.task_done()
+```
+
+Queue Types
+-----------
+
+### Queue
+
+A first-in, first-out queue for coordinating producer and consumer coroutines.
+
+- `maxsize`: Maximum number of items allowed in the queue. Zero means unlimited.
+- `put(item)`: Asynchronously put an item into the queue, waiting if necessary.
+- `get()`: Asynchronously remove and return an item from the queue, waiting if necessary.
+- `task_done()`: Indicate that a formerly enqueued task is complete.
+- `join()`: Block until all items have been processed.
+
+### LifoQueue
+
+A subclass of `Queue` that retrieves the most recently put items first (last-in, first-out).
+
+Example:
+
+```python
+import asyncio
+from tornado.queues import LifoQueue
+
+async def main():
+    q = LifoQueue()
+    q.put(3)
+    q.put(2)
+    q.put(1)
+
+    print(await q.get())
+    print(await q.get())
+    print(await q.get())
+
+asyncio.run(main())
+```
+
+Output:
+
+```
+1
+2
+3
+```
+
+Notes
+-----
+
+- These queues are designed for use within a single event loop and are not safe for concurrent access from multiple threads.
+- For thread-safe communication, use `.IOLoop.add_callback` to schedule queue operations on the event loop thread.
+- The API and behavior are similar to the standard library's `asyncio.Queue`, but tailored for Tornado's event loop and coroutine model.
+
+License
+-------
+
+These queue implementations are licensed under the Apache License, Version 2.0.
+
+---
+
+This asynchronous producer/consumer pattern enables efficient and clean coordination between coroutines, facilitating concurrent programming in Tornado applications.

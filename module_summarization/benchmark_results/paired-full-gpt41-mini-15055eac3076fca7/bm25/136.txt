@@ -1,0 +1,104 @@
+Image Extraction
+================
+
+The image extraction module provides a set of algorithms and components designed to extract charge and pulse timing information from waveform data recorded by Cherenkov telescope cameras. These extractors reduce the raw waveform data into meaningful image parameters on a per-pixel basis, which are essential for subsequent event reconstruction and analysis.
+
+Overview
+--------
+
+Image extraction involves processing the waveform data (time series of signal samples) from each pixel of a camera to determine the total charge (integrated signal) and the pulse time (peak or centroid time). The extraction takes into account the sampling rate of the waveform and the characteristics of the camera and telescope.
+
+The base class for all extractors is `ImageExtractor`, which provides the interface and common functionality for charge and pulse time extraction. Various specialized extractors inherit from this base class, implementing different algorithms optimized for specific camera types or analysis goals.
+
+Base Class: ImageExtractor
+--------------------------
+
+`ImageExtractor` is a `TelescopeComponent` responsible for handling the extraction of charge and pulse time from image cubes (waveforms). It uses information about the subarray and camera configuration, including reference pulse shapes, sampling rates, and neighboring pixels, to perform the extraction accurately.
+
+### Parameters
+
+- **subarray** (`ctapipe.instrument.SubarrayDescription`):  
+  Provides detailed information about the telescope subarray and camera, such as reference pulse shapes, sampling rates, and pixel neighbors. This information is crucial for configuring the extractor and performing accurate charge extraction.
+
+- **config** (`traitlets.loader.Config` or None):  
+  Configuration options passed from configuration files or command-line arguments to set traitlet values.
+
+- **tool** (`ctapipe.core.Tool` or None):  
+  The tool executable invoking the extractor, used to pass the appropriate logger.
+
+### Extraction Method
+
+The extractor is called with the following inputs:
+
+- **waveforms** (`numpy.ndarray`):  
+  The waveform data array with shape `(n_pixels, n_samples)`.
+
+- **tel_id** (`int`):  
+  Telescope identifier used to select the correct configuration and instrument properties.
+
+- **selected_gain_channel** (`numpy.ndarray`):  
+  Array indicating the gain channel selected per pixel, used for gain-dependent corrections.
+
+- **broken_pixels** (`numpy.ndarray`):  
+  Mask or list of pixels flagged as broken or invalid.
+
+The output is a `DL1CameraContainer` containing the extracted image (charge), peak time, and validity flags.
+
+FullWaveformSum Extractor
+-------------------------
+
+`FullWaveformSum` is a simple extractor that sums the entire waveform for each pixel to obtain the charge. It also determines the peak time using the full waveform range.
+
+Example usage:
+
+```python
+charge, peak_time = extract_around_peak(
+    waveforms, 0, waveforms.shape[-1], 0, self.sampling_rate_ghz[tel_id]
+)
+return DL1CameraContainer(image=charge, peak_time=peak_time, is_valid=True)
+```
+
+FlashCamExtractor
+-----------------
+
+The `FlashCamExtractor` is tailored for the FlashCam camera and applies advanced signal preprocessing steps:
+
+- **Upsampling**: Waveforms are upsampled to achieve a 1 ns sampling interval.
+
+- **Pole-zero deconvolution**: This step recovers the original impulse shape or narrows the pulse by compensating for the detector response convolution.
+
+- **Window integration**: The waveform is integrated in a window around the peak, which is defined based on neighboring pixels.
+
+- **Waveform clipping**: To reduce afterpulse contributions in neighbor sums, waveforms are clipped.
+
+- **Leading edge timing (optional)**: If enabled, the extractor computes the leading edge time using an adaptive centroid method instead of the peak time.
+
+This extractor is optimized specifically for FlashCam data and follows methodologies described in Smith (1997).
+
+Additional Extractors and Utilities
+-----------------------------------
+
+The module also includes a variety of other extractors and utility functions, such as:
+
+- `FixedWindowSum`
+- `GlobalPeakWindowSum`
+- `LocalPeakWindowSum`
+- `SlidingWindowMaxSum`
+- `NeighborPeakWindowSum`
+- `BaselineSubtractedNeighborPeakWindowSum`
+- `TwoPassWindowSum`
+
+and helper functions like:
+
+- `extract_around_peak`
+- `extract_sliding_window`
+- `neighbor_average_maximum`
+- `subtract_baseline`
+- `integration_correction`
+
+These provide a flexible framework to select and customize the extraction method best suited for the data and analysis requirements.
+
+Summary
+-------
+
+Image extraction is a critical step in the data processing chain of Cherenkov telescope arrays. The provided extractors in this module enable robust and configurable extraction of charge and pulse timing information from raw waveform data, leveraging detailed instrument knowledge and advanced signal processing techniques.

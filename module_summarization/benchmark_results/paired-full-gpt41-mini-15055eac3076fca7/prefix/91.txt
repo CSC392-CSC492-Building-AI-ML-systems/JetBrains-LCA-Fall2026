@@ -1,0 +1,86 @@
+RandAugment Module
+==================
+
+Overview
+--------
+The `rand_augment` module provides an implementation of the RandAugment data augmentation scheme as described in the paper [RandAugment: Practical automated data augmentation with a reduced search space](https://arxiv.org/abs/1909.13719). This augmentation technique applies a random selection of image transformations with varying magnitudes to batches of images or videos, enhancing the diversity of training data for machine learning models.
+
+Function: `rand_augment`
+------------------------
+```python
+rand_augment(
+    data: DataNode,
+    n: int,
+    m: int,
+    num_magnitude_bins: int = 31,
+    shape: Optional[Union[DataNode, Tuple[int, int]]] = None,
+    fill_value: Optional[int] = 128,
+    interp_type: Optional[types.DALIInterpType] = None,
+    max_translate_abs: Optional[int] = None,
+    max_translate_rel: Optional[float] = None,
+    seed: Optional[int] = None,
+    monotonic_mag: bool = True,
+    excluded: Optional[List[str]] = None,
+) -> DataNode
+```
+
+Applies the RandAugment augmentation scheme to a batch of samples.
+
+Parameters
+----------
+- **data** (`DataNode`):  
+  A batch of samples to be augmented. Supported inputs are images with `HWC` layout or videos with `FHWC` layout. The data type must be `uint8`.
+
+- **n** (`int`):  
+  The number of augmentation operations to randomly select and apply to each sample.
+
+- **m** (`int`):  
+  The magnitude (strength) of each augmentation operation. Must be an integer in the range `[0, num_magnitude_bins - 1]`.
+
+- **num_magnitude_bins** (`int`, optional, default=31):  
+  The number of discrete bins into which the magnitude range is divided.
+
+- **shape** (`DataNode` or `Tuple[int, int]`, optional):  
+  The spatial dimensions (height, width) of the input images or video frames. When provided, translation magnitudes are scaled relative to these dimensions using `max_translate_rel`. If omitted, translation magnitudes use absolute pixel values defined by `max_translate_abs`.
+
+- **fill_value** (`int`, optional, default=128):  
+  The pixel value used to fill areas introduced by geometric transformations such as translation, shear, and rotation. If `None`, border pixels are replicated.
+
+- **interp_type** (`types.DALIInterpType`, optional):  
+  The interpolation method used for geometric transformations. Supported options include `types.INTERP_LINEAR` (default) and `types.INTERP_NN`.
+
+- **max_translate_abs** (`int` or `Tuple[int, int]`, optional):  
+  Maximum absolute pixel shift allowed for translation augmentations when `shape` is not specified. If a tuple, the first element limits vertical translation and the second limits horizontal translation. Defaults to 100 pixels.
+
+- **max_translate_rel** (`float` or `Tuple[float, float]`, optional):  
+  Maximum relative translation shift as a fraction of image dimensions when `shape` is specified. If a tuple, the first element limits vertical translation and the second limits horizontal translation. Defaults to approximately 0.45 (equivalent to 100/224).
+
+- **seed** (`int`, optional):  
+  Seed for random number generation to ensure reproducibility of augmentation operations and magnitude negations.
+
+- **monotonic_mag** (`bool`, optional, default=True):  
+  Controls the behavior of magnitude scaling for certain augmentations. When `True`, operation strengths increase monotonically with magnitude bins. When `False`, some color operations such as `posterize` and `solarize` decrease in strength with increasing magnitude, and enhancements like `brightness`, `contrast`, `color`, and `sharpness` use a non-monotonic range. This option allows compatibility with different RandAugment variants.
+
+- **excluded** (`List[str]`, optional):  
+  A list of augmentation operation names to exclude from the default augmentation suite. For custom augmentation sets or fine-tuning, consider using the lower-level `apply_rand_augment` function.
+
+Returns
+-------
+- **DataNode**:  
+  A batch of augmented samples with the same layout and data type as the input.
+
+Usage Notes
+-----------
+- The function supports both images and videos, provided they conform to the expected layout and data type.
+- Translation magnitudes can be specified either in absolute pixels or relative to image dimensions, depending on whether `shape` is provided.
+- The `monotonic_mag` parameter allows users to select between different RandAugment magnitude scaling behaviors to match various implementations.
+- To customize the augmentation operations beyond excluding some defaults, use the `apply_rand_augment` function directly.
+
+License
+-------
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.
+
+References
+----------
+- Ekin D. Cubuk, Barret Zoph, Dandelion Mane, Vijay Vasudevan, Quoc V. Le, "RandAugment: Practical automated data augmentation with a reduced search space", arXiv:1909.13719, 2019.  
+  https://arxiv.org/abs/1909.13719

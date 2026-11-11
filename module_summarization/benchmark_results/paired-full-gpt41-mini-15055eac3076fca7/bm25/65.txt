@@ -1,0 +1,121 @@
+Probability Calibration Tutorial
+==================================
+
+Introduction
+------------
+
+Probability calibration, also known as reliability diagram, is a technique used to evaluate and visualize how well the predicted probabilities of a binary classifier reflect the true likelihood of an event. A well-calibrated model outputs probabilities that correspond closely to the actual frequencies of the positive class.
+
+A calibration curve plots the average predicted probability for each bin against the fraction of positive classes in that bin. This visualization helps to assess whether the predicted probabilities are overconfident, underconfident, or well-calibrated.
+
+Understanding Calibration Curves
+--------------------------------
+
+Given a set of true labels and predicted probabilities from a binary classifier, the calibration curve is constructed as follows:
+
+- The predicted probabilities are divided into bins (default is 5 bins) according to a specified strategy (e.g., uniform binning).
+- For each bin, the average predicted probability is computed.
+- For each bin, the fraction of positive samples (true labels) is calculated.
+- These two values are plotted against each other, with the average predicted probability on the x-axis and the fraction of positives on the y-axis.
+
+If the model is perfectly calibrated, the points will lie on the diagonal line y = x.
+
+Using CalibrationDisplay for Visualization
+------------------------------------------
+
+The `CalibrationDisplay` class provides a convenient way to visualize calibration curves. It is recommended to create a `CalibrationDisplay` instance using one of the following class methods:
+
+- `CalibrationDisplay.from_estimator(estimator, X, y, ...)`: Plots the calibration curve using a fitted classifier and data.
+- `CalibrationDisplay.from_predictions(y_true, y_prob, ...)`: Plots the calibration curve using true labels and predicted probabilities.
+
+Both methods accept parameters to customize the number of bins, binning strategy, positive class label, and plotting options.
+
+Example Usage
+-------------
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.calibration import CalibrationDisplay
+from sklearn.linear_model import LogisticRegression
+
+# Generate synthetic binary classification data
+X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
+
+# Split into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+# Train a classifier
+clf = LogisticRegression()
+clf.fit(X_train, y_train)
+
+# Plot calibration curve using the fitted estimator
+CalibrationDisplay.from_estimator(
+    clf,
+    X_test,
+    y_test,
+    n_bins=10,
+    strategy='uniform',
+    name='Logistic Regression',
+    ref_line=True
+)
+```
+
+Parameters
+----------
+
+- `estimator` : A fitted binary classifier or pipeline with a `predict_proba` method.
+- `X` : array-like of shape (n_samples, n_features)
+  Input features for prediction.
+- `y` : array-like of shape (n_samples,)
+  True binary labels.
+- `y_true` : array-like of shape (n_samples,)
+  True labels for the samples.
+- `y_prob` : array-like of shape (n_samples,)
+  Predicted probabilities for the positive class.
+- `n_bins` : int, default=5
+  Number of bins to discretize the [0, 1] interval.
+- `strategy` : {'uniform', 'quantile'}, default='uniform'
+  Strategy used to define the widths of the bins.
+- `pos_label` : int, float, bool or str, default=None
+  The positive class label. If None, the second class in `estimator.classes_` is used.
+- `name` : str or None, default=None
+  Name of the estimator for labeling the plot.
+- `ref_line` : bool, default=True
+  Whether to plot the reference line y = x.
+- `ax` : matplotlib Axes or None, default=None
+  Axes object to plot on. If None, a new figure and axes are created.
+- `**kwargs` : Additional keyword arguments passed to `matplotlib.pyplot.plot`.
+
+Attributes of CalibrationDisplay
+--------------------------------
+
+- `line_` : matplotlib Artist
+  The plotted calibration curve line.
+- `ax_` : matplotlib Axes
+  The axes containing the calibration curve.
+- `figure_` : matplotlib Figure
+  The figure containing the plot.
+
+Additional Notes
+----------------
+
+- Calibration curves are particularly useful for binary classifiers where the predicted probabilities are used for decision making.
+- The calibration curve can reveal if a model is overconfident (curve below the diagonal) or underconfident (curve above the diagonal).
+- Calibration methods such as Platt scaling (sigmoid calibration) or isotonic regression can be applied to improve probability estimates.
+- The scikit-learn library provides utilities to compute calibration curves and visualize them effectively.
+
+See Also
+--------
+
+- `calibration_curve` : Function to compute true and predicted probabilities for calibration curves.
+- `CalibrationDisplay.from_predictions` : Plot calibration curve from true labels and predicted probabilities.
+- `CalibrationDisplay.from_estimator` : Plot calibration curve from an estimator and data.
+
+References
+----------
+
+- Niculescu-Mizil, A., & Caruana, R. (2005). Predicting good probabilities with supervised learning. In Proceedings of the 22nd international conference on Machine learning (pp. 625-632).
+- Platt, J. (2000). Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods. Advances in large margin classifiers.
+
+This tutorial provides an overview of probability calibration and how to generate calibration plots using scikit-learn’s visualization tools. Proper calibration is essential for reliable probabilistic predictions in many machine learning applications.

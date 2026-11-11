@@ -1,0 +1,92 @@
+Unified Renderable Interface
+============================
+
+The unified renderable interface provides a consistent and extensible way to render components using Django templates. It is centered around the abstract base class `AbstractRenderable` and its extension `AbstractRenderableWithCss`, which add support for rendering with context data and managing CSS classes respectively.
+
+AbstractRenderable
+------------------
+
+`AbstractRenderable` is an abstract base class that defines the core interface for rendering a component. It provides helper methods to specify the template and context data used during rendering.
+
+### Attributes
+
+- `template_name`  
+  The default template name or names used for rendering. This should be set by subclasses or overridden by the `get_template_names()` method.
+
+### Methods
+
+- `get_template_names()`  
+  Returns the template name(s) to be used for rendering. By default, it returns the value of `template_name`.  
+  Raises `NotImplementedError` if no template name is set or overridden.
+
+- `get_context_data(request=None)`  
+  Returns a dictionary of context data passed to the template during rendering. By default, it returns a dictionary with a single key `'me'` referencing the renderable instance itself.  
+  The optional `request` parameter can be used to customize context based on the current HTTP request.
+
+- `render(request=None, extra_context_data=None)`  
+  Renders the template(s) returned by `get_template_names()` with the context data from `get_context_data()`, optionally extended by `extra_context_data`.  
+  The optional `request` parameter is forwarded to both `get_context_data()` and Django's `render_to_string()` function to support request-aware rendering.
+
+Example usage:
+
+```python
+class MyRenderable(AbstractRenderable):
+    template_name = 'my_template.html'
+
+    def get_context_data(self, request=None):
+        context = super().get_context_data(request=request)
+        context['foo'] = 'bar'
+        return context
+```
+
+AbstractRenderableWithCss
+-------------------------
+
+`AbstractRenderableWithCss` extends `AbstractRenderable` by adding a unified API for managing CSS classes associated with the rendered component. This allows consistent styling and easier integration with frontend frameworks or testing utilities.
+
+### Methods
+
+- `get_base_css_classes_list()`  
+  Returns a list of base CSS classes that should always be applied. Defaults to an empty list.
+
+- `get_extra_css_classes_list()`  
+  Returns a list of additional CSS classes that can be appended dynamically. Defaults to an empty list.
+
+- `get_css_classes_list()`  
+  Returns the combined list of CSS classes by concatenating the base and extra CSS classes.  
+  Subclasses should override this method to customize the CSS classes applied to the component.
+
+- `get_test_css_class_suffixes_list()`  
+  Returns a list of CSS class suffixes to include when running automated tests. These suffixes are processed through the `cradmin_test_css_class` template tag to generate test-specific CSS classes. Defaults to an empty list.
+
+### Properties
+
+- `css_classes`  
+  A string of CSS classes joined by spaces, derived from `get_css_classes_list()`.  
+  This property automatically includes test CSS classes if the setting `DJANGO_CRADMIN_INCLUDE_TEST_CSS_CLASSES` is enabled.  
+  Subclasses should not override this property directly but instead override `get_css_classes_list()`.
+
+Example usage:
+
+```python
+class MyCssRenderable(AbstractRenderableWithCss):
+    def get_base_css_classes_list(self):
+        return ['base-class']
+
+    def get_extra_css_classes_list(self):
+        return ['extra-class']
+
+    def get_test_css_class_suffixes_list(self):
+        return ['mycomponent']
+```
+
+Utility Functions
+-----------------
+
+- `join_css_classes_list(css_classes_list)`  
+  Joins a list of CSS class names into a single string separated by spaces. This is used internally to convert the list of CSS classes into a format suitable for HTML attributes.
+
+Summary
+-------
+
+The unified renderable interface simplifies the process of creating reusable, template-driven components in Django by standardizing how templates, context data, and CSS classes are managed. By subclassing `AbstractRenderable` or `AbstractRenderableWithCss`, developers can focus on defining the component's behavior and appearance while leveraging a consistent rendering API.

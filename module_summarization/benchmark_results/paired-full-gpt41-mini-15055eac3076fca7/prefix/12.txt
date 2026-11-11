@@ -1,0 +1,107 @@
+A Quick Dive into Using the ftrack API
+======================================
+
+Introduction
+------------
+
+The ftrack API provides a powerful and flexible way to interact with an ftrack server programmatically. This tutorial offers a quick overview of how to establish a session, authenticate, and begin working with the API.
+
+Creating a Session
+------------------
+
+To start interacting with an ftrack server, you first need to create a `Session` object. A session represents an isolated connection to an ftrack server and manages authentication, caching, event handling, and plugin management.
+
+Here is a basic example of creating a session:
+
+```python
+import ftrack_api
+
+# Create a session with default environment variables
+session = ftrack_api.Session()
+```
+
+### Parameters for Session Initialization
+
+- **server_url**: The URL of the ftrack server, including port number if necessary. If not provided, the session will attempt to read it from the environment variable `FTRACK_SERVER`.
+
+- **api_key** and **api_user**: Credentials used for authentication. If not specified, these will be read from the environment variables `FTRACK_API_KEY` and `FTRACK_API_USER` respectively.
+
+- **auto_populate**: When set to `True` (default), entity attributes are automatically fetched from the server when accessed if they are not already loaded.
+
+- **plugin_paths**: A list of paths to search for plugins. Defaults to the environment variable `FTRACK_EVENT_PLUGIN_PATH` if not specified.
+
+- **cache**: An instance of a cache implementing the `ftrack_api.cache.Cache` interface or a callable returning such an instance. This cache is used to store session data locally.
+
+- **cache_key_maker**: An instance implementing the `ftrack_api.cache.KeyMaker` interface to generate keys for cached objects. Defaults to `ftrack_api.cache.StringKeyMaker` if not provided.
+
+- **auto_connect_event_hub**: If `True`, the embedded event hub will automatically connect to the event server, enabling publishing and subscribing to non-local events. If `False`, only local events are available until the event hub is manually connected.
+
+- **schema_cache_path**: Path to a directory where schema caching is enabled. If not set, the environment variable `FTRACK_API_SCHEMA_CACHE_PATH` is used. If neither is set, a temporary directory is used. Set to `False` to disable schema caching.
+
+- **plugin_arguments**: A dictionary of keyword arguments passed to plugin register functions upon discovery.
+
+Authentication
+--------------
+
+Authentication is handled automatically when you create a session with your API key and user. Internally, the `SessionAuthentication` class attaches the necessary headers to HTTP requests:
+
+- `ftrack-api-key`: Your API key.
+- `ftrack-user`: Your ftrack username.
+
+This ensures that all requests made through the session are properly authenticated.
+
+Working with Entities
+---------------------
+
+Once a session is established, you can query and manipulate entities such as projects, tasks, assets, and more. The session manages fetching and caching of entity attributes transparently.
+
+Example of querying projects:
+
+```python
+projects = session.query('Project').all()
+for project in projects:
+    print(project['name'])
+```
+
+Event Hub
+---------
+
+The session includes an embedded event hub that allows you to publish and subscribe to events within the ftrack ecosystem.
+
+- If `auto_connect_event_hub` is enabled, the event hub connects automatically in a background thread.
+- Subscribing to events does not require the event hub to be connected.
+- Publishing non-local events requires a connected event hub.
+
+You can manually connect the event hub if needed:
+
+```python
+session.event_hub.connect()
+```
+
+Plugins
+-------
+
+The ftrack API supports plugins to extend functionality. You can specify plugin paths during session initialization or rely on environment variables.
+
+Plugins can receive arguments via the `plugin_arguments` parameter, allowing customization during registration.
+
+Caching
+-------
+
+Caching improves performance by storing data locally. The session uses a layered cache with a memory cache at the top level by default.
+
+You can provide your own cache implementation or a callable that returns one. The session manages cache keys using a key maker.
+
+Schema caching can be enabled to cache schema information, reducing overhead during session startup.
+
+Summary
+-------
+
+- Create a `Session` to connect and authenticate with an ftrack server.
+- Use environment variables or explicit parameters to configure the session.
+- Access and manipulate entities through the session.
+- Utilize the event hub for event-driven programming.
+- Extend functionality with plugins.
+- Improve performance with caching and schema caching.
+
+This quick dive should help you get started with the ftrack API and begin integrating it into your workflows. For more detailed information, refer to the full API documentation.

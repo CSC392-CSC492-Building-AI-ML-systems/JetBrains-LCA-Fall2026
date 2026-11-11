@@ -1,0 +1,77 @@
+BaseUser Module Documentation
+=============================
+
+Overview
+--------
+The `BaseUser` module provides a foundational user model designed for authentication purposes within the Piccolo ORM framework. It defines a user table with essential fields and methods to manage user credentials securely, including password hashing and validation.
+
+Class: BaseUser
+---------------
+`BaseUser` inherits from `Table` and represents a user entity with authentication support. It is mapped to the database table named `piccolo_user`.
+
+### Attributes
+
+- **id** (`Serial`): Auto-incrementing primary key for the user.
+- **username** (`Varchar`): Unique username with a maximum length of 100 characters.
+- **password** (`Secret`): Hashed password stored securely with a maximum length of 255 characters.
+- **first_name** (`Varchar`): Optional first name of the user.
+- **last_name** (`Varchar`): Optional last name of the user.
+- **email** (`Varchar`): Unique email address with a maximum length of 255 characters.
+- **active** (`Boolean`): Indicates whether the user account is active. Defaults to `False`.
+- **admin** (`Boolean`): Indicates if the user has admin access to the Piccolo admin GUI. Defaults to `False`.
+- **superuser** (`Boolean`): Indicates if the user can manage other users' passwords in the admin GUI. Defaults to `False`.
+- **last_login** (`Timestamp`): Records the last login time of the user. Nullable.
+
+### Internal Configuration
+
+- `_min_password_length` (int): Minimum allowed password length (default 6).
+- `_max_password_length` (int): Maximum allowed password length (default 128).
+- `_pbkdf2_iteration_count` (int): Number of iterations used in PBKDF2 hashing (default 600,000), following OWASP recommendations.
+
+Initialization
+--------------
+When a `BaseUser` instance is created, if a raw password is provided, it is automatically hashed using the PBKDF2 SHA-256 algorithm unless it is already hashed.
+
+Methods
+-------
+
+### Class Methods
+
+- **get_salt() -> str**  
+  Generates a cryptographically secure random salt as a hexadecimal string.
+
+- **get_readable() -> Readable**  
+  Returns a `Readable` instance that provides a human-readable representation of the user, typically displaying the username.
+
+- **_validate_password(password: str)**  
+  Validates a raw password against length constraints and ensures it is not already hashed. Raises `ValueError` if validation fails.
+
+- **update_password_sync(user: Union[str, int], password: str)**  
+  Synchronous method to update a user's password. Accepts either a username (`str`) or user ID (`int`) and the new raw password.
+
+- **update_password(user: Union[str, int], password: str)** (async)  
+  Asynchronous method to update a user's password. Validates and hashes the new password before updating the database.
+
+- **hash_password(password: str, salt: str = "", iterations: Optional[int] = None) -> str**  
+  Hashes a raw password using PBKDF2 with SHA-256. Generates a new salt if none is provided and uses the configured iteration count unless overridden. Raises `ValueError` if the password is excessively long.
+
+Usage Notes
+-----------
+- Passwords must be provided in raw form when creating or updating users; the module handles hashing automatically.
+- The module enforces password length constraints and prevents storing already hashed passwords directly.
+- Admin and superuser flags control access levels within the Piccolo admin interface.
+- The `last_login` timestamp can be used to track user activity.
+
+Security Considerations
+-----------------------
+- Passwords are hashed using PBKDF2 with SHA-256 and a high iteration count (600,000) to resist brute-force attacks.
+- Salts are generated securely using `secrets.token_hex`.
+- Password validation prevents weak or improperly formatted passwords from being stored.
+
+Logging
+-------
+The module uses Python's standard logging library to emit warnings when potentially insecure operations are attempted, such as providing an already hashed password or excessively long passwords.
+
+Summary
+-------
+The `BaseUser` module offers a robust and secure user model tailored for authentication workflows, integrating best practices for password management and user administration within the Piccolo ORM ecosystem.

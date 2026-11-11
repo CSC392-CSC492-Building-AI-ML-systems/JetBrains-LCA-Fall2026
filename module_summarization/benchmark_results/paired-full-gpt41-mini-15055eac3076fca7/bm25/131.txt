@@ -1,0 +1,73 @@
+Scheme to Verify FITS Data
+==========================
+
+This document describes the verification scheme used to ensure the integrity and compliance of FITS (Flexible Image Transport System) data files. The verification process includes checksum and datasum validation, standard compliance checks, and error handling strategies to maintain FITS data quality.
+
+Checksum and Datasum Verification
+---------------------------------
+
+Each Header Data Unit (HDU) in a FITS file may contain checksum and datasum keywords used to verify data integrity. The verification scheme performs the following checks:
+
+- **Datasum Presence**: For each HDU, the presence of the datasum keyword is verified. If the datasum is missing, a warning is logged indicating the HDU index and filename, and the verification returns a failure status.
+
+- **Checksum Validation**: The verification process scans warning messages for indications of checksum or datasum verification failures. If any such failure is detected, a warning is logged with the filename and the specific failure message, and the verification returns a failure status.
+
+- **Success Logging**: If all checks pass, an informational log entry is made confirming the file is OK.
+
+Standard Compliance Verification
+--------------------------------
+
+The scheme includes a compliance check against the FITS standard using the `verify_compliance` function:
+
+- The FITS file is opened and verified using the `verify("exception")` method, which raises an exception if any compliance errors are found.
+
+- Verification errors are caught and handled appropriately, ensuring that non-compliant files are flagged.
+
+Header and Card Verification and Fixing
+---------------------------------------
+
+The verification scheme also addresses issues in FITS header cards:
+
+- **Card Parsing and Fixing**: Cards that are not parsable according to the FITS standard are assumed to have string values, with comments separated by slashes. Such cards are fixed by quoting string values properly and issuing verification warnings.
+
+- **Value String Integrity**: When assigning values to header cards, the scheme ensures that fixed value strings remain intact if the assigned values are identical to existing ones.
+
+- **Exponent Sign Repair**: The scheme repairs exponent signs in floating-point values within header cards, issuing warnings when such fixes are applied.
+
+Error Handling Strategies
+-------------------------
+
+The verification scheme supports multiple error handling modes:
+
+- **Exception Mode**: Verification errors raise exceptions (`fits.VerifyError`), allowing calling code to handle errors explicitly.
+
+- **Warning Mode**: Verification errors issue warnings (`fits.verify.VerifyWarning`) without interrupting execution, enabling users to be informed of issues while continuing processing.
+
+- **Ignore Mode**: Verification errors can be ignored, suppressing warnings and exceptions, useful in contexts where strict compliance is not mandatory.
+
+Testing and Validation
+----------------------
+
+The verification scheme is accompanied by tests that:
+
+- Confirm that verification warnings are issued when expected.
+
+- Ensure that exceptions are raised on verification errors when using exception mode.
+
+- Validate that repaired header cards conform to expected formats.
+
+- Check that the verification process correctly identifies and handles missing or malformed header keywords.
+
+Logging
+-------
+
+Throughout the verification process, logging is used to provide feedback on the status of each file:
+
+- Warnings are logged for missing datasums and failed checksum verifications.
+
+- Informational messages confirm successful verification.
+
+Summary
+-------
+
+This verification scheme provides a robust framework for validating FITS files, ensuring data integrity through checksum and datasum checks, enforcing FITS standard compliance, repairing common header card issues, and offering flexible error handling modes. It is essential for maintaining the reliability and usability of FITS data in scientific applications.

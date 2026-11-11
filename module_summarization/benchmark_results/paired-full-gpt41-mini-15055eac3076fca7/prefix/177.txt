@@ -1,0 +1,70 @@
+Pipelines and Composite Estimators
+==================================
+
+The `sklearn.pipeline` module provides utilities to build composite estimators by chaining together multiple transforms and a final estimator. This design allows for assembling several processing steps into a single object that can be cross-validated and parameter-tuned as a whole.
+
+Pipeline
+--------
+
+A `Pipeline` is a sequential chain of transforms followed by a final estimator. Each intermediate step in the pipeline must implement both `fit` and `transform` methods, making them transformers. The final step only needs to implement `fit`, as it is the estimator that produces predictions or outputs.
+
+The main purpose of a `Pipeline` is to streamline workflows where multiple data transformations are applied before fitting a model. It also facilitates parameter tuning across all steps by allowing parameters to be set using a double underscore (`'__'`) syntax to separate step names and parameter names.
+
+For example, given a pipeline with steps named `'scaler'` and `'svc'`, parameters of the final estimator can be set as `'svc__C=10'`.
+
+Caching of fitted transformers is supported via the `memory` parameter, which can speed up repeated fitting by storing intermediate results.
+
+Example usage:
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svc', SVC())
+])
+
+pipe.fit(X_train, y_train)
+score = pipe.score(X_test, y_test)
+print(score)  # e.g., 0.88
+
+# Setting parameters of the final estimator
+pipe.set_params(svc__C=10).fit(X_train, y_train)
+```
+
+Attributes of a Pipeline include:
+
+- `named_steps`: A dictionary-like object to access steps by name.
+- `classes_`: The class labels if the final estimator is a classifier.
+- `n_features_in_`: Number of features seen during fitting (if available).
+- `feature_names_in_`: Names of features seen during fitting (if available).
+
+Composite Estimators
+--------------------
+
+Composite estimators are estimators composed of multiple other estimators, such as pipelines or feature unions. They enable complex workflows by combining transformers and estimators into a single object that behaves like a standard estimator.
+
+This modular approach allows for:
+
+- Encapsulation of preprocessing and modeling steps.
+- Simplified parameter tuning and cross-validation.
+- Reusability and clearer code organization.
+
+The `Pipeline` class is a primary example of a composite estimator, chaining multiple transformers and a final estimator sequentially.
+
+Additional utilities such as `FeatureUnion` allow combining multiple transformer objects in parallel, concatenating their outputs.
+
+See Also
+--------
+
+- `make_pipeline`: A convenience function to create a pipeline without naming each step explicitly.
+- `FeatureUnion`: To combine multiple transformer objects in parallel.
+
+For more detailed examples and usage, refer to the User Guide section on pipelines and composite estimators.

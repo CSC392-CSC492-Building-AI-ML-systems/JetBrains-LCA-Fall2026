@@ -1,0 +1,101 @@
+Markov Chain Monte Carlo (MCMC) Framework
+=========================================
+
+Overview
+--------
+
+This module provides a comprehensive framework for performing equilibrium sampling of biomolecular systems using Markov chain Monte Carlo (MCMC) methods. It is designed to sample from a specified thermodynamic state of a system, enabling efficient exploration of the system's configurational space.
+
+Supported Move Types
+--------------------
+
+The framework currently supports several types of MCMC moves, which can be combined to create complex sampling schemes:
+
+- **Langevin Dynamics**  
+  Implements Langevin dynamics integration, assuming negligible integration error. Use with caution.
+
+- **Hybrid Monte Carlo (HMC)**  
+  Combines molecular dynamics trajectories with Metropolis acceptance criteria to propose new states.
+
+- **Generalized Hybrid Monte Carlo (GHMC)**  
+  A Metropolized Langevin dynamics method that generalizes HMC by incorporating stochastic velocity randomization.
+
+- **Monte Carlo Barostat Moves**  
+  Enables volume changes to sample the isobaric-isothermal ensemble.
+
+These moves can be composed using helper classes such as `SequenceMove` and `WeightedMove` to create sequences or weighted combinations of moves, enhancing sampling efficiency.
+
+Key Components
+--------------
+
+### MCMCMove (Abstract Base Class)
+
+Defines the interface for all MCMC moves. Each move must implement the `apply` method, which takes the current thermodynamic and sampler states and returns updated states after attempting the move. Moves may modify the thermodynamic state, the sampler state, or both.
+
+### MCMCSampler
+
+The core sampler class that manages the Markov chain. It maintains the current thermodynamic and sampler states and applies a set of moves at each iteration. The move set can be specified as:
+
+- A list or tuple of moves, which are applied sequentially each iteration.
+- A dictionary mapping moves to unnormalized weights, from which moves are selected probabilistically.
+
+The sampler supports flexible configuration of moves and can be used to run simulations that combine multiple MCMC move types.
+
+### GHMCMove
+
+Implements the Generalized Hybrid Monte Carlo move, which propagates the system using a Metropolized Langevin integrator. Parameters such as timestep and collision rate can be specified to control the dynamics.
+
+Usage Example
+-------------
+
+```python
+from simtk import unit
+from openmmtools import testsystems, cache
+from openmmtools.states import ThermodynamicState, SamplerState
+from openmmtools.mcmc import MCMCSampler, GHMCMove, WeightedMove
+
+# Create a test system
+test_system = testsystems.AlanineDipeptideVacuum()
+
+# Define thermodynamic state (e.g., temperature and pressure)
+thermo_state = ThermodynamicState(system=test_system.system, temperature=300*unit.kelvin)
+
+# Create initial sampler state (positions, velocities, etc.)
+sampler_state = SamplerState(positions=test_system.positions)
+
+# Create a context cache to reuse OpenMM contexts efficiently
+context_cache = cache.ContextCache()
+
+# Define moves
+ghmc_move = GHMCMove(timestep=2.0*unit.femtoseconds, collision_rate=1.0/unit.picoseconds, context_cache=context_cache)
+
+# Combine moves with weights if desired
+move_set = WeightedMove({ghmc_move: 1.0})
+
+# Initialize the MCMC sampler
+sampler = MCMCSampler(thermodynamic_state=thermo_state, sampler_state=sampler_state, move_set=move_set)
+
+# Run the sampler for a number of iterations
+for iteration in range(1000):
+    sampler.step()
+    # Access sampler.thermodynamic_state and sampler.sampler_state as needed
+```
+
+Context Caching
+---------------
+
+By default, MCMC moves use the fastest available OpenMM platform and share a global `ContextCache` to minimize the overhead of context creation. For specialized use cases, users can provide their own context caches or disable caching entirely by using a `DummyContextCache`.
+
+References
+----------
+
+Jun S. Liu. *Monte Carlo Strategies in Scientific Computing*. Springer, 2008.
+
+License
+-------
+
+All code in this framework is released under the MIT License. This software is provided "as is", without warranty of any kind.
+
+---
+
+This framework enables flexible and efficient MCMC sampling for biomolecular simulations, facilitating advanced sampling techniques and integration with OpenMM-based systems.

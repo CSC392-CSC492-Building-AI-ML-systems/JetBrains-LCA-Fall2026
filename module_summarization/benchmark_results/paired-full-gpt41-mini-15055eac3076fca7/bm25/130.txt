@@ -1,0 +1,55 @@
+Less Frequently Used FITS Data Structures
+=========================================
+
+This document provides an overview of some of the less commonly used data structures and features encountered in FITS (Flexible Image Transport System) files. These structures are important for specialized use cases and advanced FITS file manipulations.
+
+Card Keywords and Construction
+------------------------------
+
+- **Long Keywords**  
+  FITS card keywords traditionally have a maximum length of 8 characters. However, longer keywords are allowed but will generate a warning. This is useful when more descriptive keywords are needed, but care should be taken as some FITS readers may not support them fully.
+
+- **Illegal Characters in Keywords**  
+  Keywords containing illegal characters (e.g., symbols like '+') are not outright rejected. Instead, such keywords are converted into HIERARCH cards, which allow for extended keyword names and hierarchical naming conventions. This provides flexibility in keyword naming while maintaining FITS compliance.
+
+- **Card Constructor Validation**  
+  The `Card` constructor performs validation on its arguments. It raises exceptions when illegal or malformed data structures are passed, such as tuples or dictionaries where not expected, or when the keyword is too long without proper handling. This ensures that FITS cards are constructed correctly and conform to the standard.
+
+Data Arrays and Dimensions
+--------------------------
+
+- **String Arrays and Byte Arrays**  
+  When reading FITS files containing string arrays, it may be necessary to convert these strings to byte arrays for correct comparison and processing, especially in Python 3 environments. This ensures data integrity when manipulating or validating FITS data.
+
+- **Mismatch Between TFORMn and TDIMn Keywords**  
+  The `TFORMn` keyword specifies the data format and repeat count for a column, while `TDIMn` specifies the dimensionality of the data. Normally, the product of the dimensions in `TDIMn` must be less than or equal to the repeat count in `TFORMn`.  
+  - If the product is less than the repeat count, the trailing bytes are treated as unspecified fill values, which is allowed by the FITS standard.  
+  - If the product exceeds the repeat count, this is considered an error and should be handled accordingly.
+
+File Handling and Updates
+-------------------------
+
+- **In-Place Updates vs. File Rewrites**  
+  When modifying FITS files:  
+  - Changes that do not alter the size structure of the HDUList (Header/Data Unit List) can be written back "in place" without rewriting the entire file. Examples include modifying header keywords or data values without changing the overall size.  
+  - Changes that affect the size structure, such as adding or deleting HDUs, expanding or reducing headers beyond existing block sizes (2880 bytes per block), or changing data sizes, require rewriting the file. In such cases, the HDUList is written to a temporary file, the original file is deleted, and the temporary file is renamed to the original filename.
+
+- **Append Mode**  
+  Opening a FITS file in append mode allows only the addition of new HDUs. Existing data cannot be modified in this mode. This is useful for extending FITS files without risking alteration of existing data.
+
+Image Compression and Tiling
+----------------------------
+
+- **Tile Size Constraints for Compression**  
+  Certain compression algorithms, such as Hcompress, are inherently two-dimensional. When using such algorithms:  
+  - The tile size must be specified with two dimensions greater than zero, corresponding to the image's first two axes.  
+  - For higher-dimensional images, the tile size for axes beyond the second must be set to 1.  
+  - If the tile size is set to zero for the first two dimensions, the entire image is compressed as a single tile.
+
+- **Row-by-Row Tiling**  
+  Some compression algorithms use row-by-row tiling, but this is not appropriate for inherently 2D algorithms like Hcompress. For images with fewer than 30 rows, special considerations may apply to optimize compression.
+
+Summary
+-------
+
+While the core FITS data structures such as standard headers, image data, and binary tables are widely used and well-supported, these less frequently encountered features provide additional flexibility and power for specialized applications. Understanding these structures helps in handling complex FITS files, ensuring compatibility, and leveraging advanced FITS capabilities.

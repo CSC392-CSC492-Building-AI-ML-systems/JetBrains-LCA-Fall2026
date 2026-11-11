@@ -1,0 +1,89 @@
+Random Projection Transformers
+==============================
+
+Overview
+--------
+
+Random Projections provide a simple and computationally efficient technique to reduce the dimensionality of data. By accepting a controlled amount of accuracy loss (manifested as additional variance), random projections enable faster processing times and smaller model sizes. The key idea is to project high-dimensional data into a lower-dimensional space while approximately preserving the pairwise distances between samples.
+
+The theoretical foundation of random projections is the Johnson-Lindenstrauss lemma, which guarantees that a small set of points in a high-dimensional Euclidean space can be embedded into a much lower-dimensional space such that distances between points are nearly preserved. The embedding map can be chosen to be Lipschitz continuous and even an orthogonal projection.
+
+More details on the Johnson-Lindenstrauss lemma can be found at:
+https://en.wikipedia.org/wiki/Johnson%E2%80%93Lindenstrauss_lemma
+
+Key Components
+--------------
+
+- **SparseRandomProjection**: Implements random projection using sparse random matrices, which can be more memory efficient and faster for high-dimensional data.
+
+- **GaussianRandomProjection**: Implements random projection using dense Gaussian random matrices.
+
+- **johnson_lindenstrauss_min_dim**: A utility function to compute the minimal number of components required to guarantee an epsilon-embedding with high probability, based on the Johnson-Lindenstrauss lemma.
+
+Functions
+---------
+
+### johnson_lindenstrauss_min_dim(n_samples, *, eps=0.1)
+
+Compute a 'safe' minimum number of components to project data into, ensuring that the distortion of pairwise distances is bounded by a factor of (1 ± eps) with high probability.
+
+Parameters
+~~~~~~~~~~
+
+- **n_samples** : int or array-like of int  
+  Number of samples in the dataset. Must be greater than zero. If an array is provided, the function computes the minimal dimension for each element.
+
+- **eps** : float or array-like of floats, default=0.1  
+  Maximum distortion allowed in the embedding, must be in the interval (0, 1). Can be a scalar or an array.
+
+Returns
+~~~~~~~
+
+- **n_components** : int or ndarray of int  
+  The minimal number of components required to guarantee an epsilon-embedding with high probability.
+
+Notes
+~~~~~
+
+The minimal number of components depends logarithmically on the number of samples and inversely on the square of eps, but is independent of the original number of features.
+
+References
+~~~~~~~~~~
+
+1. https://en.wikipedia.org/wiki/Johnson%E2%80%93Lindenstrauss_lemma  
+2. Sanjoy Dasgupta and Anupam Gupta, 1999, "An elementary proof of the Johnson-Lindenstrauss Lemma."  
+   https://citeseerx.ist.psu.edu/doc_view/pid/95cd464d27c25c9c8690b378b894d337cdf021f9
+
+Examples
+--------
+
+```python
+from sklearn.random_projection import johnson_lindenstrauss_min_dim
+
+# Minimal dimension for 1 million samples with 50% distortion
+johnson_lindenstrauss_min_dim(1e6, eps=0.5)
+# Output: 663
+
+# Minimal dimensions for multiple eps values
+johnson_lindenstrauss_min_dim(1e6, eps=[0.5, 0.1, 0.01])
+# Output: array([    663,   11841, 1112658])
+
+# Minimal dimensions for multiple sample sizes
+johnson_lindenstrauss_min_dim([1e4, 1e5, 1e6], eps=0.1)
+# Output: array([ 7894,  9868, 11841])
+```
+
+Internal Utilities
+------------------
+
+- **_check_density(density, n_features)**  
+  Validates and computes the density parameter for sparse random projection matrices. If density is set to "auto", it defaults to 1 / sqrt(n_features). Density must be in the interval (0, 1].
+
+- **_check_input_size(n_components, n_features)**  
+  (Functionality not fully shown) Presumably checks the validity of the input size parameters for the projection.
+
+Authors and License
+-------------------
+
+- Authors: Olivier Grisel, Arnaud Joly  
+- License: BSD 3-Clause License

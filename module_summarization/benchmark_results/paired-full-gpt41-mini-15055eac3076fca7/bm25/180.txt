@@ -1,0 +1,87 @@
+Cross-validation: Evaluating Estimator Performance
+====================================================
+
+Cross-validation is a robust statistical method used to estimate the skill of machine learning models. It is primarily used to assess how the results of a predictive model will generalize to an independent dataset. This technique is essential for evaluating estimator performance, especially when the goal is to predict how well a model will perform on unseen data.
+
+Overview
+--------
+
+Cross-validation involves partitioning the original dataset into a set of training and test subsets. The estimator is trained on the training subset and evaluated on the test subset. This process is repeated multiple times according to a specified cross-validation splitting strategy, and the results are aggregated to provide an overall performance estimate.
+
+Key Functionality
+-----------------
+
+### Generating Cross-Validated Estimates
+
+The function to generate cross-validated estimates produces predictions for each input data point by splitting the data according to the cross-validation strategy (`cv`). Each sample belongs to exactly one test set, and its prediction is computed using an estimator fitted on the corresponding training set.
+
+It is important to note that passing these predictions into an evaluation metric may not always provide a valid measure of generalization performance. Differences can arise compared to other cross-validation utilities unless all test sets have equal size and the metric decomposes over samples.
+
+### Parameters
+
+- **estimator**: The machine learning estimator instance to be evaluated. It must implement a `fit` method and the prediction method specified by the `method` parameter (default is `"predict"`).
+
+- **X**: The input data, which can be an array-like or sparse matrix of shape `(n_samples, n_features)`.
+
+- **y**: The target variable for supervised learning, with shape `(n_samples,)` or `(n_samples, n_outputs)`. This parameter is optional depending on the estimator.
+
+- **groups**: Optional group labels for the samples used while splitting the dataset into train/test sets.
+
+- **cv**: Determines the cross-validation splitting strategy. It can be:
+  - `None` (default), which uses 5-fold cross-validation,
+  - An integer specifying the number of folds,
+  - A cross-validation splitter object,
+  - An iterable yielding train/test splits as arrays of indices.
+
+  For integer or `None` inputs, if the estimator is a classifier and the target `y` is binary or multiclass, `StratifiedKFold` is used to preserve class distribution. Otherwise, `KFold` is used. Both splitters are instantiated with `shuffle=False` to ensure reproducibility.
+
+- **scoring**: A string or callable to evaluate the predictions on the test set. If `None`, the estimator’s default scorer is used.
+
+### Returns
+
+- **scores**: An array of float values representing the score of the estimator for each run of the cross-validation.
+
+Usage Notes
+-----------
+
+- Cross-validation helps in understanding the variability of the model’s performance across different subsets of data.
+- It is particularly useful for model selection and hyperparameter tuning.
+- The choice of cross-validation strategy (`cv`) can significantly affect the evaluation results.
+- When using multiple metrics or requiring additional information such as training scores or timing, consider using `cross_validate`.
+- For diagnostic purposes, `cross_val_predict` can be used to obtain predictions from each split.
+
+Example
+-------
+
+```python
+from sklearn import datasets, linear_model
+from sklearn.model_selection import cross_val_score
+
+# Load dataset
+diabetes = datasets.load_diabetes()
+X = diabetes.data[:150]
+y = diabetes.target[:150]
+
+# Initialize estimator
+lasso = linear_model.Lasso()
+
+# Perform 3-fold cross-validation
+scores = cross_val_score(lasso, X, y, cv=3)
+print(scores)
+```
+
+Output:
+
+```
+[0.3315057  0.08022103 0.03531816]
+```
+
+Further Reading
+---------------
+
+- :ref:`User Guide <cross_validation>` for detailed explanations of cross-validation strategies.
+- `cross_validate` for evaluating multiple metrics and obtaining additional information.
+- `cross_val_predict` for generating cross-validated predictions.
+- `sklearn.metrics.make_scorer` for creating custom scoring functions.
+
+Cross-validation remains a cornerstone technique in machine learning for reliable model evaluation and selection, ensuring that models generalize well to new, unseen data.

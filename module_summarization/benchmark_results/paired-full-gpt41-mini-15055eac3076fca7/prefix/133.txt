@@ -1,0 +1,113 @@
+Storage Driver Documentation
+============================
+
+Overview
+--------
+
+The Storage driver module provides classes and interfaces to store arbitrary NetCDF (or other) options and describe how to handle them. It is designed to facilitate structured storage of variables on disk, allowing dynamic creation and management of variables and directories without keeping data in memory unnecessarily.
+
+Key Components
+--------------
+
+### StorageInterfaceDirVar
+
+The `StorageInterfaceDirVar` (SIDV) class is a versatile and dynamic class that represents variables stored on disk as methods of the `StorageInterface` and other instances of itself. It provides a structured way to interact with stored data, treating variables and directories as properties of the class.
+
+This class is not intended to be used directly by users but serves as an internal mechanism to manage storage variables and directories. It is currently implemented outside the main `StorageInterface` class to clearly show its API.
+
+#### Features
+
+- Dynamic creation of new variables and folders by accessing them as properties.
+- Data is not stored in memory but passed directly to the writer or fetched from disk on demand.
+- Supports both fixed-size variables and appendable variables.
+- Metadata buffering and management for stored variables.
+
+#### Initialization
+
+```python
+StorageInterfaceDirVar(name, storage_interface, predecessor=None)
+```
+
+- `name` (str): The name of the storage variable on disk. The full path is determined from the predecessor chain.
+- `storage_interface` (StorageInterface): The interface handling top-level IO operations on the file.
+- `predecessor` (StorageInterfaceDirVar, optional): The directory-like SIDV instance above this one.
+
+#### User Methods
+
+These methods are used to store and read data from disk. They cannot be used as names for child SIDV instances.
+
+##### write(data, at_index=None)
+
+Write data to a variable that cannot be appended to or write data at a specific index of an appendable variable.
+
+- `data`: The data to be written to disk. The storage system processes the data after stripping units and assigning them to the SIDV instance.
+- `at_index` (int or None, optional): If specified, overwrites the data at the given index in an appendable variable.
+
+Raises an error if the SIDV instance represents a directory.
+
+**Examples:**
+
+Store a NumPy identity matrix to the variable "my_arr":
+
+```python
+import numpy as np
+my_driver = NetCDFIODriver('my_store.nc')
+my_store = StorageInterface(my_driver)
+x = np.eye(3)
+my_store.my_arr.write(x)
+```
+
+Save two entries of a list, then update the first entry:
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_store = StorageInterface(my_driver)
+x = [0, 0, 1]
+my_store.the_list.append(x)
+my_store.the_list.append(x)
+y = [1, 1, 1]
+my_store.the_list.write(y, at_index=0)
+```
+
+##### append(data)
+
+Append data to a variable whose size changes with each call. The first dimension of the variable on disk is extended by the new data after size verification. If the variable does not exist, it is created with a dynamic first dimension inferred from the data.
+
+Raises an error if the SIDV instance represents a directory.
+
+- `data`: The data to append to the variable on disk.
+
+(Note: The full implementation details of `append` are not shown here.)
+
+Usage Notes
+-----------
+
+- The `StorageInterfaceDirVar` class is designed to be used internally by the `StorageInterface` and should not be instantiated directly.
+- Variables and directories are represented as properties of the storage interface, allowing intuitive access and manipulation.
+- Data is written and read on demand, minimizing memory usage.
+- Metadata associated with variables is buffered and written to disk as needed.
+
+Integration
+-----------
+
+The storage driver works in conjunction with IO drivers such as `NetCDFIODriver` to handle the actual file operations. The `StorageInterface` acts as the main interface for users to interact with stored data, leveraging the dynamic capabilities of `StorageInterfaceDirVar`.
+
+Example integration with `NetCDFIODriver`:
+
+```python
+from iodrivers import NetCDFIODriver
+
+driver = NetCDFIODriver('example_store.nc')
+storage = StorageInterface(driver)
+
+# Write data
+storage.variable_name.write(data)
+
+# Append data
+storage.variable_name.append(more_data)
+```
+
+Summary
+-------
+
+The Storage driver module provides a flexible and dynamic system for managing stored variables and directories on disk, abstracting the complexities of file IO and data management. It supports both fixed and appendable variables, metadata handling, and seamless integration with various IO drivers.

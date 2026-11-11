@@ -1,0 +1,77 @@
+Probability Calibration
+=======================
+
+Probability calibration is the process of adjusting the predicted probabilities of a classifier to better reflect the true likelihood of outcomes. Many classifiers produce scores or probabilities that are not well calibrated, meaning that the predicted probabilities do not correspond well to the actual frequencies of the outcomes. Calibration methods aim to transform these outputs into well-calibrated probabilities.
+
+Overview
+--------
+
+The `CalibratedClassifierCV` class provides a way to calibrate the predicted probabilities of a classifier using cross-validation. It supports two main calibration methods:
+
+- **Sigmoid calibration (Platt's method):** Fits a logistic regression model to the classifier's scores.
+- **Isotonic regression:** A non-parametric calibration method that fits a piecewise constant non-decreasing function.
+
+Calibration Methods
+-------------------
+
+### Sigmoid Calibration
+
+Sigmoid calibration fits a logistic regression model to the decision function or predicted probabilities of the base classifier. This method is parametric and tends to work well when the calibration dataset is small. It is also known as Platt scaling.
+
+### Isotonic Regression
+
+Isotonic regression is a non-parametric calibration method that fits a monotonically increasing function to the predicted probabilities. It is more flexible than sigmoid calibration but can overfit when the calibration dataset is small (typically less than 1000 samples).
+
+Using CalibratedClassifierCV
+----------------------------
+
+The `CalibratedClassifierCV` class calibrates the probabilities of a base classifier using cross-validation. It can be used as follows:
+
+- When `ensemble=True` (default), for each fold in the cross-validation, a copy of the base estimator is trained on the training subset and calibrated on the testing subset. Predictions are made by averaging the calibrated probabilities from all folds.
+- When `ensemble=False`, cross-validation is used to obtain unbiased predictions for calibration, but the final model is trained on the entire dataset and used for prediction.
+- When `cv="prefit"`, the base estimator is assumed to be already fitted, and calibration is performed on the provided data without cross-validation. The user must ensure that the calibration data is separate from the training data.
+
+Calibration is performed based on the classifier's `decision_function` if available; otherwise, it uses `predict_proba`.
+
+Parameters
+----------
+
+- **estimator** : estimator instance, default=None  
+  The base classifier whose predicted probabilities need calibration. If None, a `LinearSVC` is used by default.
+
+- **method** : {'sigmoid', 'isotonic'}, default='sigmoid'  
+  The calibration method to use. 'sigmoid' corresponds to Platt's method, and 'isotonic' corresponds to isotonic regression.
+
+- **cv** : int, cross-validation generator, iterable or "prefit", default=None  
+  Determines the cross-validation splitting strategy. If "prefit", no cross-validation is performed and the estimator is assumed to be pre-fitted.
+
+- **n_jobs** : int, default=None  
+  Number of jobs to run in parallel during fitting. Only effective when `cv` is not "prefit".
+
+- **ensemble** : bool, default=True  
+  Controls how the calibrator is fitted when `cv` is not "prefit". If True, an ensemble of calibrated classifiers is created from each fold. If False, cross-validation is used only to obtain unbiased predictions for calibration.
+
+Usage Notes
+-----------
+
+- Isotonic calibration requires a sufficiently large calibration dataset to avoid overfitting.
+- When using `cv="prefit"`, the user must ensure that the data used for calibration is disjoint from the data used to fit the base estimator.
+- The calibrated probabilities can improve the reliability of probabilistic predictions, which is important for decision-making processes that depend on accurate probability estimates.
+
+References
+----------
+
+For more detailed information, see the :ref:`User Guide <calibration>`.
+
+Authors
+-------
+
+- Alexandre Gramfort <alexandre.gramfort@telecom-paristech.fr>  
+- Balazs Kegl <balazs.kegl@gmail.com>  
+- Jan Hendrik Metzen <jhm@informatik.uni-bremen.de>  
+- Mathieu Blondel <mathieu@mblondel.org>
+
+License
+-------
+
+BSD 3-Clause License

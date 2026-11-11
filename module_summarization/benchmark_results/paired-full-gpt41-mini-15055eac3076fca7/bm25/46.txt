@@ -1,0 +1,102 @@
+Storage Module
+==============
+
+Overview
+--------
+
+This module provides storage services with support for multiple backend implementations, including ElasticSearch and MongoDB. It is designed to be used within the ASAB framework and depends on various external libraries such as `aiohttp`, `pymongo`, `motor`, and optionally `cryptography` for encryption support.
+
+The module defines abstract base classes and concrete implementations for storage services and upsertors, enabling asynchronous operations and version-controlled upserts to prevent conflicts.
+
+Configuration
+-------------
+
+The module uses the ASAB configuration system and defines default configuration options under the `asab:storage` section. These options include settings for ElasticSearch and MongoDB backends, as well as optional encryption keys.
+
+Example configuration defaults:
+
+- ElasticSearch:
+  - `elasticsearch_url`: URL(s) of ElasticSearch nodes (e.g., `http://localhost:9200/`)
+  - `elasticsearch_username`: Username for ElasticSearch authentication
+  - `elasticsearch_password`: Password for ElasticSearch authentication
+  - `elasticsearch_api_key`: API key for ElasticSearch authentication
+  - `refresh`: Controls the visibility of operations to search (`true`, `false`, `wait_for`)
+  - `scroll_timeout`: Timeout for scroll operations (e.g., `1m`)
+  - SSL options can be configured via the TLS module.
+
+- MongoDB:
+  - `mongodb_uri`: MongoDB connection URI (default: `mongodb://localhost:27017`)
+  - `mongodb_database`: Name of the MongoDB database (default: `asabdb`)
+
+- Encryption:
+  - `aes_key`: A non-empty AES key enables AES encryption of selected fields. Requires the `cryptography` package.
+
+StorageServiceABC
+----------------
+
+An abstract base class defining the interface for storage services.
+
+### Methods
+
+- `upsertor(collection: str, obj_id=None, version: int = 0) -> UpsertorABC`
+
+  Creates an upsertor object for the specified collection.
+
+  - If updating an existing object, specify its `obj_id` and current `version` (read from storage upfront).
+  - If inserting a new object without a specific `obj_id`, set `obj_id` to `None` and `version` to `0`.
+  - To insert a new object with a specific `obj_id`, specify `obj_id` and set `version` to `0`. If a colliding object exists, the operation will fail with `DuplicateError`.
+
+  The version parameter is used to implement optimistic concurrency control, preventing conflicting updates.
+
+StorageService for ElasticSearch
+-------------------------------
+
+A concrete implementation of `StorageServiceABC` for ElasticSearch backend.
+
+- Depends on the `aiohttp` library for asynchronous HTTP requests.
+- Supports multiple ElasticSearch nodes.
+- Supports optional AES encryption of selected fields if an AES key is provided.
+- Supports webhook URIs for change stream notifications, requiring the ASAB `ProactorService`.
+- Uses SSL context for secure connections when connecting to HTTPS ElasticSearch nodes.
+
+StorageService for MongoDB
+--------------------------
+
+A concrete implementation of `StorageServiceABC` for MongoDB backend.
+
+- Depends on `pymongo` and `motor` libraries for synchronous and asynchronous MongoDB operations.
+- Connects to MongoDB using the configured URI and database name.
+- Uses BSON codec options to ensure timezone-aware datetime handling with UTC.
+- Provides an asynchronous MongoDB client (`motor.motor_asyncio.AsyncIOMotorClient`).
+
+UpsertorABC and MongoDBUpsertor
+-------------------------------
+
+The module defines an abstract base class `UpsertorABC` and concrete upsertor implementations such as `MongoDBUpsertor` (not fully shown in the code snippet).
+
+Upsertors are responsible for performing insert or update operations on storage collections with support for versioning and conflict detection.
+
+Error Handling
+--------------
+
+- `DuplicateError` is raised when attempting to insert an object with an `obj_id` that already exists in the storage.
+- Connection errors and authentication failures are handled appropriately, with retries or exceptions as needed.
+
+Dependencies
+------------
+
+- `aiohttp` for asynchronous HTTP requests (ElasticSearch).
+- `pymongo` and `motor` for MongoDB operations.
+- `cryptography` (optional) for AES encryption support.
+- `asab` framework for configuration and service management.
+
+Usage Notes
+-----------
+
+- When using encryption, ensure the `cryptography` package is installed.
+- For ElasticSearch, configure the `elasticsearch_url` and authentication parameters as needed.
+- For MongoDB, configure the `mongodb_uri` and `mongodb_database`.
+- Use the `upsertor` method to obtain an upsertor object for performing insert or update operations with version control.
+- Handle `DuplicateError` exceptions when inserting objects with specific IDs to avoid conflicts.
+
+This module enables flexible and robust storage operations within ASAB-based applications, supporting multiple backends and advanced features such as encryption and change stream notifications.

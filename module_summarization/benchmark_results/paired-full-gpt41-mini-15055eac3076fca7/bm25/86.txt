@@ -1,0 +1,104 @@
+PostgresEngine
+==============
+
+The `PostgresEngine` class is used to connect to a PostgreSQL database asynchronously using the `asyncpg` adapter. It provides support for managing database connections, transactions, and executing queries efficiently.
+
+Initialization
+--------------
+
+To create an instance of `PostgresEngine`, you need to provide a configuration dictionary with connection parameters. Common configuration options include:
+
+- `host`: The database server host.
+- `port`: The port number to connect to.
+- `database`: The name of the database.
+- Other parameters supported by `asyncpg`.
+
+Example:
+
+```python
+DB = PostgresEngine(
+    config={'database': 'main_db'}
+)
+```
+
+### Extra Nodes (Read Replicas)
+
+You can specify additional database nodes (such as read replicas) by passing a mapping of names to `PostgresEngine` instances via the `extra_nodes` parameter. This allows you to direct queries to different nodes, for example, to distribute read queries to replicas.
+
+Example:
+
+```python
+DB = PostgresEngine(
+    config={'database': 'main_db'},
+    extra_nodes={
+        'read_replica_1': PostgresEngine(
+            config={
+                'database': 'main_db',
+                'host': 'read_replicate.my_db.com'
+            },
+            extensions=()
+        )
+    }
+)
+```
+
+Note that for read-only replicas, you may want to disable extensions by setting `extensions=()`.
+
+Transactions
+------------
+
+The `PostgresTransaction` class provides an asynchronous context manager for wrapping queries in a transaction. It supports nested transactions using savepoints.
+
+Usage example:
+
+```python
+async with engine.transaction():
+    # Run some queries within a transaction
+    await Band.select().run()
+```
+
+If nested transactions are allowed (`allow_nested=True`), creating a new transaction inside an existing one will create a savepoint instead of a full transaction.
+
+Atomic Queries
+--------------
+
+The `Atomic` class allows building up a transaction programmatically by adding queries to it and then running them together.
+
+Usage example:
+
+```python
+transaction = engine.atomic()
+transaction.add(Foo.create_table())
+
+# Run synchronously
+transaction.run_sync()
+
+# Or run asynchronously
+await transaction.run()
+```
+
+Connection and Transaction Management
+-------------------------------------
+
+- When a transaction is committed or rolled back, the connection is released back to the pool or closed if no pool is used.
+- The engine manages the current transaction context to ensure proper cleanup.
+- Queries can be executed on specific nodes by specifying the node name, for example:
+
+```python
+await MyTable.select().run(node="read_replica_1")
+```
+
+Extensions
+----------
+
+By default, the engine enables the `uuid-ossp` extension. You can customize the extensions loaded by passing a sequence of extension names during initialization.
+
+Logging
+-------
+
+The engine supports optional logging of queries and responses via the `log_queries` and `log_responses` parameters.
+
+Summary
+-------
+
+The `PostgresEngine` module provides a robust asynchronous interface for interacting with PostgreSQL databases, supporting connection pooling, transactions (including nested transactions), multiple database nodes (e.g., read replicas), and programmatic transaction building. It is designed to integrate seamlessly with query objects and supports extension management and logging for enhanced functionality.

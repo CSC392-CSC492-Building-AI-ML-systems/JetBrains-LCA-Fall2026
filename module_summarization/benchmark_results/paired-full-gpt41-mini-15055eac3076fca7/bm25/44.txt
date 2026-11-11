@@ -1,0 +1,143 @@
+Library Providers
+=================
+
+This module provides several implementations of `LibraryProviderABC` to enable loading and managing libraries from various sources such as ZooKeeper, filesystem, Azure Storage, and Git repositories.
+
+ZooKeeperLibraryProvider
+------------------------
+
+The `ZooKeeperLibraryProvider` allows configuration of a library provider backed by a ZooKeeper ensemble. It supports multiple configuration variants:
+
+1. **Fully configured from `[zookeeper]` section**
+
+   Example configuration:
+
+   .. code-block:: ini
+
+       [zookeeper]
+       servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+       path=/library
+
+       [library]
+       providers:
+           zk://
+
+2. **Configured by `servers` from `[zookeeper]` section and path from URL**
+
+   The path will be `/library`.
+
+   .. code-block:: ini
+
+       [zookeeper]
+       servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+       path=/else
+
+       [library]
+       providers:
+           zk:///library
+
+2.1 **Special case of 2) with path `/`**
+
+   The path will be `/`.
+
+   .. code-block:: ini
+
+       [zookeeper]
+       servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+       path=/else
+
+       [library]
+       providers:
+           zk:///
+
+3. **Fully configured from URL**
+
+   .. code-block:: ini
+
+       [library]
+       providers:
+           zk://zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181/library
+
+4. **Configured by `servers` from `[zookeeper]` section and joined `path` from `[zookeeper]` and path from URL**
+
+   The path will be `/else/library`.
+
+   .. code-block:: ini
+
+       [zookeeper]
+       servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+       path=/else
+
+       [library]
+       providers:
+           zk://./library
+
+If the `path` from the `[zookeeper]` section is missing, the application class name will be used as a default path, e.g., `/BSQueryApp/library`.
+
+FileSystemLibraryProvider
+-------------------------
+
+The `FileSystemLibraryProvider` reads library items from the local filesystem. It supports monitoring changes using inotify (if available) to detect file system events and update the library accordingly.
+
+Constructor parameters include:
+
+- `library`: The library instance to populate.
+- `path`: The filesystem path to the library root.
+- `layer`: The layer of the library.
+- `set_ready` (optional): Boolean flag to defer or disable the readiness state setting.
+
+AzureStorageLibraryProvider
+---------------------------
+
+The `AzureStorageLibraryProvider` reads library items from a Microsoft Azure Storage container.
+
+Configuration format:
+
+.. code-block:: ini
+
+    azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER
+
+If the container's public access level is not set to "Public access", an Access Policy with "Read" and "List" permissions must be created, and a Shared Access Signature (SAS) query string must be appended to the URL in the configuration:
+
+.. code-block:: ini
+
+    azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER?sv=2020-10-02&si=XXXX&sr=c&sig=XXXXXXXXXXXXXX
+
+GitLibraryProvider
+------------------
+
+The `GitLibraryProvider` is a read-only provider that clones a remote Git repository to a temporary directory and uses the `FileSystemLibraryProvider` to read files from it.
+
+To read from a local Git repository, use the `FileSystemLibraryProvider` instead.
+
+Configuration example:
+
+.. code-block:: ini
+
+    [library]
+    providers=git+<URL or deploy token>#<branch name>
+
+Optional configuration for repository cache location:
+
+.. code-block:: ini
+
+    [library:git]
+    repodir=<optional location of the repository cache>
+
+The Git URL format is:
+
+    git+http[s]://[<username>:<deploy token>@]<url>[#<branch>]
+
+This provider requires the `pygit2` package to be installed.
+
+Summary
+-------
+
+This module enables flexible library provisioning from multiple backends:
+
+- ZooKeeper for distributed configuration management.
+- Local filesystem with optional inotify support.
+- Microsoft Azure Blob Storage with SAS token support.
+- Remote Git repositories with branch selection.
+
+Each provider implements the `LibraryProviderABC` interface and integrates with the application’s library management system to provide dynamic and configurable library sources.

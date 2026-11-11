@@ -1,0 +1,156 @@
+Working with Entities
+=====================
+
+This section provides an overview of working with entities in the ftrack API, including how to handle collections of entities, inspect their states, and perform operations such as resetting entities on the server side.
+
+Handling Collections of Entities
+-------------------------------
+
+When working with entities, it is common to process one or more entities at a time. The API allows you to pass a single entity or a collection of entities (list, tuple, or `ftrack_api.query.QueryResult`). If a single entity is provided, it will be automatically wrapped into a list for uniform processing.
+
+Example:
+
+```python
+if not isinstance(entities, (list, tuple, ftrack_api.query.QueryResult)):
+    entities = [entities]
+```
+
+Note on Mixed Entity Types:
+
+Currently, handling a mixed collection of different entity types is a consideration. The recommended approach is to either fail or ignore projections that are not present in the entity type. This is especially relevant when dealing with hierarchies such as `User` and `Group`, both deriving from `Resource`.
+
+Entity State Inspection
+-----------------------
+
+Entities can be inspected to determine their current state within the session. The states include:
+
+- **Created**: Newly created entities that have not yet been persisted to the server.
+- **Modified**: Entities that have been locally modified.
+- **Deleted**: Entities that have been marked for deletion.
+
+The API provides convenient properties to retrieve lists of entities by their state:
+
+```python
+@property
+def created(self):
+    '''Return list of newly created entities.'''
+    entities = self._local_cache.values()
+    states = ftrack_api.inspection.states(entities)
+
+    return [
+        entity for (entity, state) in itertools.izip(entities, states)
+        if state is ftrack_api.symbol.CREATED
+    ]
+
+@property
+def modified(self):
+    '''Return list of locally modified entities.'''
+    entities = self._local_cache.values()
+    states = ftrack_api.inspection.states(entities)
+
+    return [
+        entity for (entity, state) in itertools.izip(entities, states)
+        if state is ftrack_api.symbol.MODIFIED
+    ]
+
+@property
+def deleted(self):
+    '''Return list of deleted entities.'''
+    entities = self._local_cache.values()
+    states = ftrack_api.inspection.states(entities)
+
+    return [
+        entity for (entity, state) in itertools.izip(entities, states)
+        if state is ftrack_api.symbol.DELETED
+    ]
+```
+
+Note on Created Entities:
+
+Created entities that are not yet persisted have no remote values. It is reasonable to iterate over an entity's properties and see that some of them are `NOT_SET`. Such entities are skipped during operations that require remote data.
+
+Populating Entity Projections
+-----------------------------
+
+When populating projections (specific attributes) for entities, the API processes only entities that exist remotely (i.e., not newly created entities). The process involves:
+
+1. Filtering out newly created entities since they have no remote data.
+2. Using the first entity as a reference to determine the entity type and primary key attributes.
+3. Constructing a query to select the requested projections from the entity type.
+4. Collecting primary key values for all entities to process.
+
+Example:
+
+```python
+entities_to_process = []
+
+for entity in entities:
+    if ftrack_api.inspection.state(entity) is ftrack_api.symbol.CREATED:
+        # Skip newly created entities as no remote data exists yet.
+        continue
+    entities_to_process.append(entity)
+
+if entities_to_process:
+    reference_entity = entities_to_process[0]
+    entity_type = reference_entity.entity_type
+    query = 'select {0} from {1}'.format(projections, entity_type)
+
+    primary_key_definition = reference_entity.primary_key_attributes
+    entity_keys = [
+        ftrack_api.inspection.primary_key(entity).values()
+        for entity in entities_to_process
+    ]
+```
+
+Operation Recording Context
+---------------------------
+
+The API supports temporarily setting operation recording on or off within a context manager. This is useful when you want to make changes to entities without recording those operations.
+
+Example:
+
+```python
+with session.operation_recording(False):
+    entity['name'] = 'change_not_recorded'
+```
+
+The current setting will be restored automatically when the context exits.
+
+Resetting Entities on the Server Side
+-------------------------------------
+
+You can perform server-side resets on entities using the `reset_remote` method. This method requires specifying a reset type supported by the server and optionally the entity to reset.
+
+Example:
+
+```python
+def reset_remote(self, reset_type, entity=None):
+    '''Perform a server side reset.
+
+    *reset_type* is a server side supported reset type,
+    passing the optional *entity* to perform the option upon.
+
+    Please refer to ftrack documentation for a complete list of
+    supported server side reset types.
+    '''
+
+    payload = {
+        'action': 'reset_remote',
+        'reset_type': reset_type
+    }
+    # Additional implementation details...
+```
+
+Refer to the official ftrack documentation for a complete list of supported reset types and their usage.
+
+Summary
+-------
+
+- Entities can be handled individually or as collections.
+- Entity states (`CREATED`, `MODIFIED`, `DELETED`) can be inspected and filtered.
+- Newly created entities have no remote data and are treated accordingly.
+- Projections can be populated for entities that exist remotely.
+- Operation recording can be temporarily disabled using a context manager.
+- Server-side resets can be performed via the `reset_remote` method.
+
+This functionality enables robust and flexible management of entities within the ftrack API.

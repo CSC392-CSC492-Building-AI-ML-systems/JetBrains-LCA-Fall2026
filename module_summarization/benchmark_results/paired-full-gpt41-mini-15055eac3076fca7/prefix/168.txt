@@ -1,0 +1,61 @@
+Feature Extraction for Model Inspection
+=======================================
+
+This module provides utilities for extracting intermediate features from PyTorch models, enabling detailed inspection and analysis of model internals. Feature extraction is essential for understanding model behavior, debugging, and visualizing activations at various layers.
+
+Key Components
+--------------
+
+- **create_feature_extractor**  
+  A function to create a new `torch.fx.GraphModule` that returns intermediate features from specified nodes or modules within a model. This allows users to obtain outputs from arbitrary layers without modifying the original model code.
+
+- **get_graph_node_names**  
+  A utility function to retrieve the names of nodes in the FX graph of a model, facilitating the identification of layers or operations from which features can be extracted.
+
+Tracing with Leaf Modules
+-------------------------
+
+The feature extraction utilities leverage FX tracing to capture the computation graph of a model. To handle complex models with nested modules, the tracing process supports the concept of *leaf modules* — modules that are treated as atomic units and not traced through internally. This is managed by the `LeafModuleAwareTracer` class, which extends `torch.fx.Tracer`:
+
+- **LeafModuleAwareTracer**  
+  Allows specifying a set of leaf modules that should not be traced into. Instead, calls to these modules are represented as single nodes in the FX graph, simplifying the graph and focusing on relevant submodules.
+
+Node Path Tracing and Naming
+----------------------------
+
+To facilitate precise feature extraction, it is important to have clear and unique names for each node in the computation graph. The `NodePathTracer` class extends `LeafModuleAwareTracer` to provide enhanced naming and tracking of nodes:
+
+- **NodePathTracer**  
+  Records the qualified name of each node during tracing. The qualified name is a dot-separated path that reflects the hierarchy from the top-level module down to the leaf operation or module, excluding the top-level module name itself. For example, a ReLU module applied in the forward method might be named simply `"relu"`.
+
+  Features of `NodePathTracer` include:
+  
+  - Maintaining a mapping from each FX `Node` to its qualified name (`node_to_qualname`).
+  - Ensuring node names are unique by appending suffixes like `_1`, `_2`, etc., when duplicates occur.
+  - Overriding `call_module` to track the current module's qualified name during tracing.
+  - Overriding `create_proxy` to intercept operations and record their qualified names.
+
+Usage Overview
+--------------
+
+1. **Specify Leaf Modules (Optional):**  
+   When tracing a model, you can specify which modules should be treated as leaves to simplify the graph.
+
+2. **Trace the Model:**  
+   Use `NodePathTracer` or `LeafModuleAwareTracer` to trace the model and obtain an FX graph with well-defined node names.
+
+3. **Create Feature Extractor:**  
+   Use `create_feature_extractor` to generate a new model that outputs intermediate features from specified nodes.
+
+4. **Inspect Features:**  
+   Run inputs through the feature extractor to obtain activations from desired layers for inspection or visualization.
+
+Benefits
+--------
+
+- Enables non-invasive extraction of intermediate features without modifying the original model.
+- Provides clear and consistent naming of nodes for easy identification.
+- Supports complex models with nested modules by allowing leaf module specification.
+- Facilitates debugging, visualization, and understanding of model internals.
+
+This feature extraction framework is a powerful tool for researchers and practitioners aiming to gain deeper insights into their PyTorch models.

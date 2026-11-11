@@ -1,0 +1,84 @@
+Table Data
+==========
+
+This section documents the handling and manipulation of table data within FITS binary tables, focusing on compression, appending, column management, and data integrity.
+
+Compression of Table Data
+-------------------------
+
+Table data can be compressed using various algorithms, including GZIP and PLIO. The compression process involves converting the data to the appropriate byte order and then applying the selected compression algorithm.
+
+- Data is first converted to the native byte order using `data.astype(data.dtype.newbyteorder("="))`.
+- Compression is performed using `_compress_tile` with the algorithm specified by the header keyword `"ZCMPTYPE"` or fallback to `"GZIP_1"`.
+- Compressed data bytes are collected in a list `compressed_bytes`.
+- If a `zblank` value is provided, it is stored in the header under `"ZBLANK"`.
+
+The compressed data is stored in a structured NumPy array `table` with a big-endian byte order (`">"`). This array is based on the column definitions from the HDU's columns.
+
+If the table contains scaling columns `"ZSCALE"` and `"ZZERO"`, these are populated with the corresponding scale and zero arrays.
+
+The `"COMPRESSED_DATA"` field in the table stores the length of each compressed data chunk and the cumulative offsets for each row, facilitating efficient access to compressed segments.
+
+Special handling is applied for the `"PLIO_1"` compression type:
+
+- The size of each heap element is halved (`table["COMPRESSED_DATA"][:, 0] //= 2`).
+- Compressed data is stored in big-endian format.
+- Data arrays are reconstructed from the compressed bytes with appropriate byte order adjustments.
+
+Appending Tables
+----------------
+
+Appending one binary table to another involves:
+
+- Calculating the total number of rows as the sum of rows from both tables.
+- Creating a new `BinTableHDU` with enough space to hold all rows.
+- Copying data from the first table into the new HDU.
+- Appending data from the second table to the new HDU by extending each column's data array.
+- Writing the resulting table to a FITS file.
+
+This approach ensures that the combined table maintains consistent column definitions and data integrity.
+
+Column Management and Renaming
+------------------------------
+
+Columns within tables can be accessed and manipulated by name:
+
+- Accessing a column by name returns the corresponding column object.
+- Renaming a column updates the column's name and the underlying data dtype names.
+- Attempting to access a column by its old name after renaming raises a `KeyError`.
+- The list of column names in both the columns object and the data dtype reflects the updated names.
+
+This functionality allows dynamic modification of table schemas while preserving data consistency.
+
+Deep Copying Columns with Bit Array Format
+------------------------------------------
+
+Columns with the bit array format (denoted by format `"X"`) can be deep-copied without loss of data or structure. This is important for regression testing and ensuring that operations on columns do not inadvertently affect original data.
+
+Constructing Tables from Explicit Columns
+-----------------------------------------
+
+Tables can be constructed from explicit column definitions:
+
+- A `fits.Column` is created with a specified name, format, and data array.
+- The column may include a `bzero` parameter for zero-point offset.
+- A `BinTableHDU` is created from the list of columns.
+- Data integrity is verified by comparing the table data with the original arrays.
+- The resulting HDU can be combined with other HDUs into an `HDUList` and written to a FITS file.
+
+This method provides fine-grained control over table creation and data representation.
+
+Fallback Handling in Compression
+--------------------------------
+
+When compression fallback occurs (e.g., switching from a primary compression algorithm to GZIP), the table's compressed data fields are updated accordingly:
+
+- The `"GZIP_COMPRESSED_DATA"` field is set to the original compressed data.
+- The `"COMPRESSED_DATA"` field is reset to zero for the affected rows.
+
+This ensures that the table accurately reflects the compression state of each data segment.
+
+Summary
+-------
+
+The table data handling described here supports robust manipulation of FITS binary tables, including compression, appending, column renaming, and data integrity checks. Special considerations for compression algorithms and data formats ensure compatibility and performance across different use cases.

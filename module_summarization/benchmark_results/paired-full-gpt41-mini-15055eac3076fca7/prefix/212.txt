@@ -1,0 +1,104 @@
+Linear Mixed Effects Models
+============================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data. They allow estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.
+
+The `MixedLM` class fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups. For group *i*, the probability model is:
+
+.. math::
+
+   Y_i = X_i \\beta + Z_i \\gamma_i + \\epsilon_i
+
+where:
+
+- *n_i* is the number of observations in group *i*.
+- *Y_i* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).
+- *X_i* is an *n_i \\times k_{fe}* design matrix for the fixed effects (called `exog` in `MixedLM`).
+- \\( \\beta \\) is a *k_{fe}*-dimensional vector of fixed effects parameters (called `fe_params` in `MixedLM`).
+- *Z_i* is a design matrix for the random effects with *n_i* rows (called `exog_re` in `MixedLM`). The number of columns in *Z_i* can vary by group.
+- \\( \\gamma_i \\) is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of \\( \\gamma_i \\) (called `cov_re` in `MixedLM`) is common to all groups. The remaining elements of \\( \\gamma_i \\) are variance components. Each group receives its own independent realization of \\( \\gamma_i \\).
+- \\( \\epsilon_i \\) is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance \\( \\sigma^2 \\). The errors are independent both within and between groups.
+
+All of *Y*, *X*, and *Z* must be fully observed. The parameters \\( \\beta \\), \\( \\Psi \\) (covariance of random effects), and \\( \\sigma^2 \\) are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors \\( \\gamma \\) and \\( \\epsilon \\) are random and define the probability model.
+
+The marginal mean structure is:
+
+.. math::
+
+   E[Y | X, Z] = X \\beta
+
+If only the mean structure is of interest, generalized estimating equations (GEE) provide an alternative to linear mixed models.
+
+Random Effects
+--------------
+
+Two types of random effects are supported:
+
+1. **Standard random effects**: These are correlated with each other in arbitrary ways. Every group has the same number (*k_re*) of standard random effects, with the same joint distribution but independent realizations across groups.
+
+2. **Variance components**: These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Parameterization and Estimation
+-------------------------------
+
+The primary reference for the implementation details is:
+
+- Lindstrom, M.J., & Bates, D.M. (1988). "Newton Raphson and EM algorithms for linear mixed effects models for repeated measures data". *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+Additional resources:
+
+- http://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf
+- http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf
+- http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf
+
+Notation:
+
+- `cov_re` is the random effects covariance matrix (denoted \\( \\Psi \\)).
+
+- `scale` is the scalar error variance \\( \\sigma^2 \\).
+
+- For a single group, the marginal covariance matrix of `endog` given `exog` is:
+
+  .. math::
+
+     \\text{cov}(Y) = \\sigma^2 I + Z \\Psi Z'
+
+- `vcomp` is a vector of variance parameters. Its length depends on the number of keys in the `exog_vc` argument to `MixedLM` or the `vc_formula` argument when using formulas.
+
+Three parameterizations are used:
+
+1. **User parameterization**: The covariance of the response is \\( \\sigma^2 I + Z \\Psi Z' \\). This is the main parameterization visible to users.
+
+2. **Profile parameterization**: The covariance is expressed as \\( I + Z \\Psi_1 Z' \\), where \\( \\Psi = \\sigma^2 \\Psi_1 \\). This parameterization is used for the profile likelihood maximization.
+
+3. **Square root parameterization**: The Cholesky factor of \\( \\Psi_1 \\) is used instead of \\( \\Psi \\) directly. This is hidden from the user.
+
+The parameters can be packed into a vector by concatenating the fixed effects parameters (`fe_params`), the lower triangle or Cholesky square root of the random effects covariance matrix, and the variance components parameters. When unpacking, it is important to square or reflect the dependence structure depending on the parameterization.
+
+Score functions are implemented for both the random effects covariance matrix elements and the Cholesky factor parameters. The latter is used during optimization.
+
+Optimization uses generalized least squares (GLS) to profile out the fixed effects and scale parameters, optimizing the profile likelihood. Because of this profiling, the Hessian of the profiled log-likelihood is not calculated, and optimization methods requiring the Hessian (e.g., Newton-Raphson) cannot be used.
+
+Summary
+-------
+
+Linear mixed effects models provide a flexible framework for modeling data with complex dependence structures, including hierarchical and grouped data. The `MixedLM` class implements these models efficiently for grouped data, supporting both standard random effects and variance components, with robust estimation methods based on ML or REML.
+
+References
+----------
+
+- Lindstrom, M.J., & Bates, D.M. (1988). Newton Raphson and EM algorithms for linear mixed effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+- Additional user-focused resources:
+
+  - http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf
+
+  - http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf

@@ -1,0 +1,84 @@
+Kernel Approximation Functions
+===============================
+
+The `sklearn.kernel_approximation` module provides several functions and classes that approximate the feature mappings corresponding to certain kernels. These approximations enable efficient computation and scalability for kernel methods by transforming the input data into a finite-dimensional feature space that approximates the kernel-induced feature space.
+
+Overview
+--------
+
+Kernel methods often rely on implicit feature mappings defined by kernel functions. However, explicitly computing these feature maps can be computationally expensive or infeasible for large datasets. Kernel approximation techniques provide explicit, low-dimensional feature maps that approximate the kernel function, allowing the use of linear methods in the transformed space.
+
+The module implements approximate kernel feature maps based on techniques such as Fourier transforms and Count Sketches.
+
+PolynomialCountSketch
+---------------------
+
+The `PolynomialCountSketch` class implements an approximation of the polynomial kernel feature map using the Tensor Sketch algorithm.
+
+**Polynomial Kernel:**
+
+The polynomial kernel is defined as:
+
+.. math::
+
+    K(X, Y) = (\gamma \langle X, Y \rangle + \text{coef0})^{\text{degree}}
+
+where :math:`\gamma` is a scaling parameter, :math:`\text{coef0}` is a constant term, and :math:`\text{degree}` is the polynomial degree.
+
+**Approximation Method:**
+
+`PolynomialCountSketch` approximates this kernel by efficiently computing a Count Sketch of the outer product of a vector with itself using Fast Fourier Transforms (FFT). This approach leverages 2-wise independent hash functions to reduce the dimensionality while preserving the kernel structure.
+
+**Parameters:**
+
+- `gamma` (float, default=1.0): Parameter of the polynomial kernel.
+- `degree` (int, default=2): Degree of the polynomial kernel.
+- `coef0` (int, default=0): Constant term of the polynomial kernel.
+- `n_components` (int, default=100): Dimensionality of the output feature space. Typically, a larger number of components yields better approximation.
+- `random_state` (int, RandomState instance, default=None): Controls the randomness for hash function initialization to ensure reproducibility.
+
+**Attributes:**
+
+- `indexHash_` (ndarray): Indexes used in the Count Sketch hash functions.
+- `bitHash_` (ndarray): Random signs (+1 or -1) used in the Count Sketch hash functions.
+- `n_features_in_` (int): Number of features seen during fitting.
+- `feature_names_in_` (ndarray): Names of features seen during fitting (if available).
+
+**Usage Example:**
+
+```python
+from sklearn.kernel_approximation import PolynomialCountSketch
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+ps = PolynomialCountSketch(degree=3, random_state=1)
+X_features = ps.fit_transform(X)
+
+clf = SGDClassifier(max_iter=10, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+Related Kernel Approximation Classes
+------------------------------------
+
+- **AdditiveChi2Sampler**: Approximates the additive chi-squared kernel feature map.
+- **Nystroem**: Approximates kernel maps using a subset of the training data.
+- **RBFSampler**: Approximates the Radial Basis Function (RBF) kernel feature map using random Fourier features.
+- **SkewedChi2Sampler**: Approximates the "skewed chi-squared" kernel feature map.
+
+For a comprehensive list of built-in kernels and their approximations, see `sklearn.metrics.pairwise.kernel_metrics`.
+
+Notes
+-----
+
+- The choice of `n_components` balances the trade-off between approximation accuracy and computational efficiency.
+- Randomized methods rely on random state initialization for reproducibility.
+- These approximations enable scalable kernel methods suitable for large datasets.
+
+Further Reading
+---------------
+
+For more details on the polynomial kernel approximation and Tensor Sketch, refer to the :ref:`User Guide <polynomial_kernel_approx>`.

@@ -1,0 +1,208 @@
+Working with Large Data Sets
+============================
+
+Overview
+--------
+
+This module provides routines for distributed estimation, enabling efficient handling of large data sets by partitioning the data and performing estimation in a distributed manner. The framework supports multiple methods of distribution and estimation, allowing flexibility depending on the computational environment and the nature of the data.
+
+Distribution Methods
+--------------------
+
+Currently, the following distribution methods are supported:
+
+- **Sequential**: Runs without any additional dependencies, processing partitions one after another.
+- **Parallel**: Utilizes parallel computing frameworks to speed up estimation.
+  - **Joblib Backends**: Supports a variety of backends through joblib, enabling execution on different cluster types beyond standard local clusters. Examples include:
+    - `dask.distributed`
+    - `yarn`
+    - `ipyparallel`
+
+Estimation Methods
+------------------
+
+The framework supports several estimation methods tailored for large-scale data:
+
+- **Debiased Regularized Estimation** (default method): Implements debiasing techniques to improve the accuracy of regularized estimates.
+- **Simple Coefficient Averaging (Naive)**:
+  - Regularized averaging
+  - Unregularized averaging
+
+The debiased regularized estimation follows the methodology outlined in the paper:
+
+Jason D. Lee, Qiang Liu, Yuekai Sun, and Jonathan E. Taylor.  
+"Communication-Efficient Sparse Regression: A One-Shot Approach."  
+arXiv:1503.04337, 2015.  
+https://arxiv.org/abs/1503.04337
+
+Key Concepts and Variables
+--------------------------
+
+Several variables and concepts are central to the distributed estimation and debiasing procedures:
+
+- **wexog**  
+  A weighted design matrix used in the node-wise regression procedure to estimate the approximate inverse covariance matrix.
+
+- **nodewise_row**  
+  Produced during the node-wise regression step, where each variable is regressed on the others using LASSO. One such row is generated per variable.
+
+- **nodewise_weight**  
+  Derived from the gamma_hat values for each variable, these weights are used to reweight gamma_hat values in forming the approximate inverse covariance matrix.
+
+- **approx_inv_cov**  
+  An estimate of the approximate inverse covariance matrix, crucial for debiasing the coefficient averages and gradients. For ordinary least squares (OLS), this approximates:
+
+  .. math::
+
+      n \times (X^T X)^{-1}
+
+  where \(n\) is the sample size and \(X\) is the design matrix. This matrix is formed via node-wise regression.
+
+Functions
+---------
+
+### _est_regularized_naive(mod, pnum, partitions, fit_kwds=None)
+
+Estimates regularized fitted parameters for a given partition.
+
+**Parameters:**
+
+- `mod` : statsmodels model instance  
+  The model corresponding to the current data partition.
+
+- `pnum` : scalar  
+  Index of the current partition.
+
+- `partitions` : scalar  
+  Total number of partitions.
+
+- `fit_kwds` : dict-like or None  
+  Keyword arguments passed to the `fit_regularized` method.
+
+**Returns:**
+
+- Array of estimated parameters from the regularized fit.
+
+**Notes:**
+
+- Requires `fit_kwds` to be provided.
+
+---
+
+### _est_unregularized_naive(mod, pnum, partitions, fit_kwds=None)
+
+Estimates unregularized fitted parameters for a given partition.
+
+**Parameters:**
+
+- `mod` : statsmodels model instance  
+  The model corresponding to the current data partition.
+
+- `pnum` : scalar  
+  Index of the current partition.
+
+- `partitions` : scalar  
+  Total number of partitions.
+
+- `fit_kwds` : dict-like or None  
+  Keyword arguments passed to the `fit` method.
+
+**Returns:**
+
+- Array of estimated parameters from the unregularized fit.
+
+**Notes:**
+
+- Requires `fit_kwds` to be provided.
+
+---
+
+### _join_naive(params_l, threshold=0)
+
+Combines coefficient estimates from multiple partitions by averaging and applies thresholding.
+
+**Parameters:**
+
+- `params_l` : list of arrays  
+  List containing coefficient arrays from each partition.
+
+- `threshold` : scalar  
+  Coefficients with absolute values below this threshold are set to zero.
+
+**Returns:**
+
+- Array of averaged and thresholded coefficients.
+
+---
+
+### _calc_grad(mod, params, alpha, L1_wt, score_kwds)
+
+Calculates the log-likelihood gradient used in the debiasing procedure.
+
+**Parameters:**
+
+- `mod` : statsmodels model instance  
+  The model for the current partition.
+
+- `params` : array-like  
+  Estimated coefficients for the current partition.
+
+- `alpha` : scalar or array-like  
+  Penalty weight(s). If scalar, applies uniformly; if array, specifies penalty per coefficient.
+
+- `L1_wt` : scalar  
+  Fraction of penalty assigned to the L1 term (between 0 and 1).  
+  - 0 corresponds to ridge regression  
+  - 1 corresponds to lasso regression
+
+- `score_kwds` : dict-like or None  
+  Additional keyword arguments for the score function.
+
+**Returns:**
+
+- Array-like gradient vector of the same dimension as `params`.
+
+**Notes:**
+
+- For OLS, the gradient corresponds to:
+
+  .. math::
+
+      X^T (y - X \beta)
+
+  where \(\beta\) are the coefficients.
+
+---
+
+### _calc_wdesign_mat(mod, params, hess_kwds)
+
+Calculates the weighted design matrix necessary for estimating the approximate inverse covariance matrix.
+
+**Parameters:**
+
+- `mod` : statsmodels model instance  
+  The model for the current partition.
+
+- `params` : array-like  
+  Estimated coefficients for the current partition.
+
+- `hess_kwds` : dict-like or None  
+  Keyword arguments for Hessian calculation.
+
+**Returns:**
+
+- Weighted design matrix used in node-wise regression.
+
+Usage Notes
+-----------
+
+- The distributed estimation framework is designed to handle large datasets by splitting data into partitions and performing estimation on each partition independently.
+- Debiasing techniques improve the accuracy of coefficient estimates obtained from regularized regression methods.
+- The framework is extensible and can be adapted to various models supported by statsmodels, provided they implement the necessary interfaces.
+- Parallel execution requires appropriate setup of joblib backends or other parallel computing frameworks.
+
+References
+----------
+
+- Lee, J. D., Liu, Q., Sun, Y., & Taylor, J. E. (2015). Communication-Efficient Sparse Regression: A One-Shot Approach. arXiv preprint arXiv:1503.04337.  
+  https://arxiv.org/abs/1503.04337

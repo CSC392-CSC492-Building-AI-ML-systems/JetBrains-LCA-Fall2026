@@ -1,0 +1,102 @@
+Visitors Module
+===============
+
+The `visitors` module provides a set of functions to traverse and manipulate SQL expression structures in a flexible and extensible manner. These traversal utilities are primarily designed to work with SQLAlchemy's internal expression objects, allowing users to visit, clone, or replace elements within complex SQL constructs.
+
+Key Functions
+-------------
+
+traverse(obj, opts, visitors)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Traverse and visit the given expression structure using a breadth-first iterator.
+
+- **Parameters:**
+  - `obj` (:class:`_expression.ClauseElement`): The SQL expression structure to be traversed.
+  - `opts` (Mapping[str, Any]): A dictionary of iteration options. This dictionary is usually empty in modern usage.
+  - `visitors` (Mapping[str, Callable]): A dictionary of visit functions keyed by visit names. Each function is called when the corresponding element type is encountered.
+
+- **Description:**
+  This function uses the :func:`.iterate` function internally to perform a breadth-first traversal of the expression tree. For each element encountered, if a visitor function is registered for its visit name, that function is called with the element as an argument.
+
+- **Example:**
+
+  .. code-block:: python
+
+      from sqlalchemy.sql import visitors
+
+      stmt = select(some_table).where(some_table.c.foo == 'bar')
+
+      def visit_bindparam(bind_param):
+          print("found bound value: %s" % bind_param.value)
+
+      visitors.traverse(stmt, {}, {"bindparam": visit_bindparam})
+
+- **See Also:**
+  - :func:`.iterate`
+  - :func:`.traverse_using`
+
+traverse_using(iterator, obj, visitors)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Visit the given expression structure using a provided iterator of objects.
+
+- **Parameters:**
+  - `iterator` (Iterable[:class:`_expression.ClauseElement`]): An iterable or sequence yielding expression elements, typically produced by :func:`.iterate`.
+  - `obj` (:class:`_expression.ClauseElement` or None): The root expression element that was the target of iteration.
+  - `visitors` (Mapping[str, Callable]): A dictionary of visit functions keyed by visit names.
+
+- **Description:**
+  This function iterates over the provided iterator and calls the corresponding visitor function for each element if one is registered. It is usually called internally by :func:`.traverse`.
+
+- **See Also:**
+  - :func:`.traverse`
+
+replacement_traverse(obj, opts, replace)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Clone the given expression structure, allowing element replacement by a replacement function.
+
+- **Parameters:**
+  - `obj` (:class:`_expression.ClauseElement` or None): The SQL expression structure to clone and traverse.
+  - `opts` (Mapping[str, Any]): A dictionary of iteration options.
+  - `replace` (Callable): A replacement function that receives each element and returns a new element to replace it, or `None` to keep the original.
+
+- **Description:**
+  This function clones the entire expression structure, passing each element to the `replace` function. If the function returns a new element, it replaces the original in the cloned structure. If it returns `None`, the original element is retained. This is useful for scenarios such as replacing FROM clauses within SQL constructs.
+
+- **See Also:**
+  - :func:`.cloned_traverse`
+
+iterate(obj, opts)
+~~~~~~~~~~~~~~~~~
+
+Generate an iterator for breadth-first traversal of the given expression structure.
+
+- **Parameters:**
+  - `obj` (:class:`_expression.ClauseElement`): The root expression element to iterate over.
+  - `opts` (Mapping[str, Any]): A dictionary of iteration options.
+
+- **Description:**
+  This generator yields the root element and then iteratively yields all child elements in a breadth-first manner using a queue. It is the underlying iterator used by :func:`.traverse`.
+
+- **Usage:**
+  Typically used internally by traversal functions, but can be used directly to inspect or process elements in breadth-first order.
+
+Additional Notes
+----------------
+
+- The traversal functions rely on the internal methods of expression elements such as `get_children()` and `_copy_internals()` to navigate and clone the expression trees.
+- The visitor functions receive elements based on their visit names, which correspond to the type or role of the element within the SQL expression.
+- The module supports type overloads for better type checking and clarity in function signatures.
+- The traversal options dictionary (`opts`) is generally empty in modern usage but can be used to customize traversal behavior.
+- The module is designed to be extensible and supports complex operations such as cloning with modifications and conditional replacements.
+
+See Also
+--------
+
+- :func:`.cloned_traverse` — Clone an expression structure with visitor functions applied to cloned elements.
+- :func:`.replacement_traverse` — Clone and replace elements unconditionally using a replacement function.
+- :func:`.iterate` — Generate a breadth-first iterator over an expression structure.
+
+This module is a core utility for advanced manipulation and inspection of SQL expression trees within SQLAlchemy.

@@ -1,0 +1,126 @@
+# Stateless Learning Rate Schedulers
+
+This module provides **stateless learning rate schedulers** designed to address limitations found in PyTorch's built-in schedulers (`torch.optim.lr_scheduler`). The primary goal of these schedulers is to integrate seamlessly with Composer's time abstraction (`~composer.core.time`), allowing schedulers to be configured and operate using explicit and arbitrary time units such as epochs, batches, or tokens.
+
+---
+
+## Overview
+
+Stateless schedulers differ from traditional schedulers by not maintaining internal state. Instead, they compute the learning rate multiplier purely as a function of the current training state and time. This design enables:
+
+- **Flexibility:** Schedulers can be defined over any time unit (epochs, batches, tokens, etc.).
+- **Composability:** Multiple schedulers can be combined multiplicatively.
+- **Reproducibility:** Since schedulers are pure functions of state, their behavior is deterministic and easier to reason about.
+
+---
+
+## Key Concepts
+
+### ComposerScheduler Protocol
+
+The core abstraction is the `ComposerScheduler` protocol, which defines the interface for all stateless schedulers.
+
+```python
+class ComposerScheduler(Protocol):
+    def __call__(self, state: State, ssr: float = 1.0) -> float:
+        ...
+```
+
+- **Input:**
+  - `state` (`State`): The current training state, including the current timestamp and other relevant metadata.
+  - `ssr` (`float`): The *scale schedule ratio* (SSR), which allows the scheduler to stretch or compress its schedule. The multiplier output at time `t` with SSR `σ` is defined as the multiplier at time `t / σ` with SSR 1.0.
+
+- **Output:**
+  - A floating-point multiplier `α` to scale the optimizer's base learning rate.
+
+Schedulers implementing this interface return a multiplier `α(t)` such that the effective learning rate at time `t` is:
+
+\[
+\eta(t) = \eta_i \times \alpha(t)
+\]
+
+where \(\eta_i\) is the initial learning rate set in the optimizer.
+
+---
+
+## Usage Examples
+
+### Simple Function Scheduler
+
+A scheduler that halves the learning rate after 10 epochs:
+
+```python
+def ten_epoch_decay_scheduler(state: State) -> float:
+    if state.timestamp.epoch < 10:
+        return 1.0
+    return 0.5
+```
+
+This function can be passed directly as a scheduler to the Composer trainer.
+
+### Callable Class Scheduler
+
+Schedulers can also be implemented as callable classes to allow parameterization:
+
+```python
+class VariableEpochDecayScheduler(ComposerScheduler):
+    def __init__(self, num_epochs: int):
+        self.num_epochs = num_epochs
+
+    def __call__(self, state: State) -> float:
+        if state.timestamp.epoch < self.num_epochs:
+            return 1.0
+        return 0.5
+
+ten_epoch_decay_scheduler = VariableEpochDecayScheduler(num_epochs=10)
+```
+
+---
+
+## Scheduler Composition
+
+Multiple schedulers can be used simultaneously. Their effects multiply to produce the final learning rate multiplier:
+
+\[
+\alpha_{\text{final}}(t) = \prod_i \alpha_i(t)
+\]
+
+This allows combining warmup schedules, decay schedules, and other custom schedules flexibly.
+
+---
+
+## Provided Schedulers
+
+The module exports a variety of commonly used schedulers, including but not limited to:
+
+- `ConstantScheduler`
+- `StepScheduler`
+- `MultiStepScheduler`
+- `LinearScheduler`
+- `ExponentialScheduler`
+- `CosineAnnealingScheduler`
+- `CosineAnnealingWarmRestartsScheduler`
+- `PolynomialScheduler`
+- Warmup variants such as `MultiStepWithWarmupScheduler`, `ConstantWithWarmupScheduler`, `LinearWithWarmupScheduler`, `CosineAnnealingWithWarmupScheduler`, and `PolynomialWithWarmupScheduler`
+
+Each of these implements the `ComposerScheduler` interface and can be used interchangeably.
+
+---
+
+## Integration with Composer Trainer
+
+Schedulers implementing the `ComposerScheduler` interface can be passed directly to the Composer `Trainer` via the `schedulers` argument. The trainer will call the scheduler with the current training state to obtain the learning rate multiplier at each step.
+
+---
+
+## Notes
+
+- The schedulers return a **multiplier** rather than an absolute learning rate.
+- The `scale_schedule_ratio` parameter allows dynamic adjustment of the schedule's speed.
+- The stateless design ensures that schedulers are pure functions of the training state, improving reproducibility and debuggability.
+
+---
+
+## Summary
+
+This module provides a flexible, extensible, and composable framework for defining learning rate schedules in a stateless manner, tightly integrated with Composer's time abstractions. It enables precise control over learning rate schedules across arbitrary time units and supports complex scheduling strategies through simple function or class implementations.

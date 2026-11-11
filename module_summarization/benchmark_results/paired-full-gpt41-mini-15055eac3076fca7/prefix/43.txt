@@ -1,0 +1,149 @@
+Config Usage
+============
+
+The `ConfigParser` class is an enhanced configuration parser built on top of Python's standard `configparser.ConfigParser`. It provides additional features such as default configuration values, environment variable expansion, URL validation, automatic reading from Zookeeper, and support for nested includes.
+
+Overview
+--------
+
+`ConfigParser` is designed to simplify configuration management in applications by providing sensible defaults and extended functionality. It supports hierarchical configuration files, environment variable overrides, and platform-specific defaults.
+
+Default Configuration
+---------------------
+
+The class comes with a predefined set of default configuration values organized into sections. Some of the key default sections and options include:
+
+- **general**
+  - `config_file`: Path to the main configuration file, defaulted from the `ASAB_CONFIG` environment variable.
+  - `tick_period`: Interval in seconds for periodic tasks (default: 1).
+  - `var_dir`: Directory for variable data, defaulting to a hidden directory in the user's home folder based on the application name.
+  - `pidfile`: Location of the PID file; special value `'!'` resolves to a platform-specific path.
+  - `working_dir`: Working directory for the application.
+  - `uid`, `gid`: User and group IDs for daemonization.
+
+- **asab:metrics**
+  - `native_metrics`: Enable native metrics collection (default: `"true"`).
+  - `web_requests_metrics`: Enable web request metrics (default: `False`).
+  - `expiration`: Metrics expiration time in seconds (default: 60).
+
+- **asab:doc**
+  - `default_route_tag`: Default tag for documentation routing (default: `"module_name"`).
+
+- **logging**
+  - `verbose`: Verbosity flag, defaulted from the `ASAB_VERBOSE` environment variable.
+  - `app_name`: Application name, derived from the executable name.
+  - `sd_id`: Structured data ID for logging (default: `"sd"`).
+  - `level`: Logging level (default: `"NOTICE"`).
+  - `levels`: Additional logging levels.
+
+- **logging:console**
+  - `format`: Log message format.
+  - `datefmt`: Date format for log messages.
+
+- **logging:syslog**
+  - `enabled`: Enable syslog logging (default: `"false"`).
+  - `address`: Syslog socket address, platform-dependent.
+  - `format`: Syslog message format, platform-dependent.
+
+- **logging:file**
+  - `path`: Log file path.
+  - `format`: Log message format.
+  - `datefmt`: Date format for log messages.
+  - `backup_count`: Number of backup files to keep.
+  - `backup_max_bytes`: Maximum size of log files before rotation.
+  - `rotate_every`: Rotation interval.
+
+- **library**
+  - `azure_cache`: Enable or specify path for Azure cache (default: `"false"`).
+
+- **passwords**
+  - A dedicated section to securely store passwords referenced elsewhere in the configuration.
+
+- **housekeeping**
+  - `at`: Time to run housekeeping tasks (default: `"03:00"`).
+  - `limit`: Time limit for housekeeping (default: `"05:00"`).
+  - `run_at_startup`: Whether to run housekeeping at startup (default: `"no"`).
+
+If the environment variable `ASAB_ZOOKEEPER_SERVERS` is set, the `zookeeper` section is automatically added with the `servers` option set accordingly.
+
+Adding Defaults
+---------------
+
+You can add or override default configuration values programmatically using the `add_defaults(dictionary: dict)` method. This method accepts a dictionary where keys are section names and values are dictionaries of key-value pairs to add.
+
+Example:
+
+```python
+config = ConfigParser()
+config.add_defaults({
+    'mysection': {
+        'mykey': 'myvalue',
+        'anotherkey': 'anothervalue'
+    }
+})
+```
+
+This method respects existing values and only sets defaults for keys that are not already present. It also expands environment variables in values automatically.
+
+Including Additional Configuration Files
+----------------------------------------
+
+The `ConfigParser` supports including additional configuration files via the `include` option in the `general` section. Multiple files can be specified separated by spaces or newlines. Wildcards are supported using glob patterns.
+
+Included files are read recursively, supporting nested includes. To prevent infinite loops, each included file is processed only once.
+
+Special includes starting with `zookeeper` are handled by reading configuration from Zookeeper servers.
+
+Example in configuration file:
+
+```ini
+[general]
+include = /etc/myapp/conf.d/*.ini
+```
+
+Environment Variable Expansion
+------------------------------
+
+Values containing environment variables (e.g., `${HOME}`) are automatically expanded when defaults are added or configuration files are read.
+
+Platform-Specific Defaults
+--------------------------
+
+Certain defaults, such as syslog socket paths and PID file locations, are platform-dependent and automatically set based on the detected operating system.
+
+Logging Configuration
+---------------------
+
+The logging configuration supports multiple handlers including console, syslog, and file logging. Each handler has its own section with customizable formats, levels, and other parameters.
+
+Password Management
+-------------------
+
+Passwords can be securely stored in the `[passwords]` section and referenced elsewhere in the configuration using the syntax `${passwords:<password_key>}`. This allows sensitive information to be kept separate and not exposed by default APIs.
+
+Usage Summary
+-------------
+
+1. Instantiate the `ConfigParser`.
+2. Optionally add or override default values using `add_defaults()`.
+3. Load configuration files, which can include nested includes and environment variable expansion.
+4. Access configuration values using standard `configparser` methods.
+
+Example:
+
+```python
+config = ConfigParser()
+config.add_defaults(ConfigParser._default_values)
+config.read('myapp.ini')
+
+tick_period = config.getint('general', 'tick_period')
+```
+
+Logging
+-------
+
+The class uses Python's standard logging module for warnings and informational messages during configuration loading and processing.
+
+---
+
+This enhanced `ConfigParser` provides a robust and flexible way to manage application configuration with sensible defaults, environment awareness, and support for complex configuration setups.

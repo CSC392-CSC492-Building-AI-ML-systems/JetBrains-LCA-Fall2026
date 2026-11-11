@@ -1,0 +1,83 @@
+Tuning the hyper-parameters of an estimator
+============================================
+
+When building machine learning models, selecting the best hyper-parameters for an estimator is crucial for achieving optimal performance. Hyper-parameter tuning involves searching over a specified parameter space to find the combination of parameters that yields the best results according to a chosen metric.
+
+GridSearchCV
+------------
+
+`GridSearchCV` is a powerful tool in scikit-learn that exhaustively searches over a specified parameter grid for an estimator. It performs cross-validation to evaluate each combination of parameters and selects the best set based on the scoring metric.
+
+### Basic Usage
+
+You provide an estimator, a parameter grid (a dictionary mapping parameter names to lists of values), and optionally a cross-validation scheme and scoring method. `GridSearchCV` fits the estimator on the training data for each parameter combination and evaluates performance.
+
+```python
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+
+param_grid = {'C': [0.1, 1, 10], 'penalty': ['l1', 'l2']}
+grid_search = GridSearchCV(LogisticRegression(), param_grid, cv=5, scoring='accuracy')
+grid_search.fit(X_train, y_train)
+```
+
+After fitting, the best parameters can be accessed via `grid_search.best_params_`, and the best estimator via `grid_search.best_estimator_`.
+
+### Attributes and Methods
+
+- `cv_results_`: A dictionary containing detailed results for each parameter combination, including mean test scores, fit times, and parameter settings.
+- `best_params_`: The parameter setting that gave the best results on the hold-out data.
+- `best_estimator_`: The estimator fitted with the best parameters on the whole dataset.
+- `score(X, y)`: Returns the score of the best estimator on the given test data.
+- `predict(X)`, `predict_proba(X)`, `decision_function(X)`, `transform(X)`: Available if the underlying estimator supports these methods and if `refit=True`.
+
+### Handling Estimators as Parameters
+
+When parameters themselves are estimators (e.g., in a pipeline), `GridSearchCV` clones these estimators before fitting to avoid side effects. For example, when tuning the regressor step in a pipeline:
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LinearRegression, Ridge
+
+pipe = Pipeline([("regressor", LinearRegression())])
+param_grid = {"regressor": [LinearRegression(), Ridge()]}
+grid_search = GridSearchCV(pipe, param_grid, cv=2)
+grid_search.fit(X, y)
+```
+
+### Using Multiple Scoring Metrics
+
+`GridSearchCV` supports multiple scoring metrics by passing a list or dictionary of scoring functions. When multiple metrics are used, the `refit` parameter can specify which metric to optimize for selecting the best parameters.
+
+### Refitting Behavior
+
+By default, `GridSearchCV` refits the best estimator on the whole dataset after the search. Setting `refit=False` disables this behavior, which means attributes like `best_estimator_` and methods like `predict` will not be available. Attempting to call these methods without refitting will raise meaningful errors.
+
+### Exception Handling
+
+`GridSearchCV` raises appropriate exceptions when invalid scoring methods are provided or when methods are called before refitting.
+
+ParameterSampler
+----------------
+
+`ParameterSampler` is a generator that yields random combinations of parameters from given distributions or lists. It is useful for randomized hyper-parameter search, where sampling is done either with or without replacement depending on the input.
+
+- If all parameters are lists, sampling is done without replacement.
+- If any parameter is a distribution (providing a `.rvs()` method), sampling is done with replacement.
+
+This approach is recommended for continuous hyper-parameter spaces.
+
+Example usage:
+
+```python
+from sklearn.model_selection import ParameterSampler
+from scipy.stats import uniform
+
+param_distributions = {'alpha': uniform(0, 1), 'max_iter': [100, 200, 300]}
+param_list = list(ParameterSampler(param_distributions, n_iter=10, random_state=0))
+```
+
+Summary
+-------
+
+Hyper-parameter tuning using `GridSearchCV` and `ParameterSampler` enables systematic and efficient exploration of parameter spaces to improve model performance. Proper use of these tools, including understanding their attributes, methods, and behaviors, is essential for robust model selection and evaluation.

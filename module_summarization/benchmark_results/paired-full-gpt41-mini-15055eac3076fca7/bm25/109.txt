@@ -1,0 +1,122 @@
+async.py
+========
+
+Asynchronous Scanning and Counting Plans
+----------------------------------------
+
+This module provides asynchronous scanning and counting plans designed for use in experimental control and data acquisition systems. These plans facilitate the collection of data from detectors while manipulating motors or other settable devices in a coordinated manner.
+
+Functions
+---------
+
+count(detectors, num=1, delay=None, *, per_shot=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Take one or more readings from detectors asynchronously.
+
+Parameters
+~~~~~~~~~~
+
+- **detectors** : list  
+  List of 'readable' objects (e.g., detectors) from which data will be collected.
+
+- **num** : int or None, optional  
+  Number of readings to take. Default is 1.  
+  If `None`, data capture continues until explicitly canceled.
+
+- **delay** : iterable or scalar, optional  
+  Time delay in seconds between successive readings. Default is 0.  
+  If an iterable, it must provide at least `num - 1` entries.
+
+- **per_shot** : callable, optional  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+      ...
+  ```
+
+- **md** : dict, optional  
+  Metadata dictionary to be associated with the plan.
+
+Returns
+~~~~~~~
+
+A generator that yields messages to be consumed by a RunEngine or similar orchestrator.
+
+Notes
+~~~~~
+
+- If `delay` is an iterable, it must have at least `num - 1` entries; otherwise, a `ValueError` will be raised during iteration.
+- The plan stages the detectors before starting and runs with the provided metadata.
+- The default `per_shot` function is `one_shot` from the `plan_stubs` module.
+
+list_scan(detectors, *args, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Scan over one or more variables in steps simultaneously, performing an inner product scan.
+
+Parameters
+~~~~~~~~~~
+
+- **detectors** : list  
+  List of 'readable' objects (e.g., detectors) to collect data from.
+
+- **\*args** : variable length argument list  
+  For one dimension: `motor, [point1, point2, ...]`.  
+  For multiple dimensions: pairs of motors and their corresponding position lists, e.g.,  
+  ```python
+  motor1, [point1, point2, ...],
+  motor2, [point1, point2, ...],
+  ...,
+  motorN, [point1, point2, ...]
+  ```  
+  Motors can be any 'settable' object such as motors, temperature controllers, etc.
+
+- **per_step** : callable, optional  
+  Hook for customizing the action of the inner loop (messages per step).  
+  Expected signature:  
+  ```python
+  f(detectors, motor, step) -> plan (a generator)
+  ```
+
+- **md** : dict, optional  
+  Metadata dictionary to be associated with the plan.
+
+Returns
+~~~~~~~
+
+A generator that yields messages to be consumed by a RunEngine or similar orchestrator.
+
+Raises
+~~~~~~
+
+- `ValueError` if the number of arguments in `*args` is not even (each motor must have a corresponding list of points).
+- `ValueError` if the lengths of all position lists are not the same.
+
+Notes
+~~~~~
+
+- The plan verifies that all position lists have the same length to ensure synchronized stepping.
+- Metadata includes information about detectors, motors, number of points, and intervals.
+- The plan pattern used is 'inner_list_product', indicating simultaneous stepping through all motors.
+
+See Also
+~~~~~~~~
+
+- :func:`bluesky.plans.rel_list_scan`  
+- :func:`bluesky.plans.list_grid_scan`  
+- :func:`bluesky.plans.rel_list_grid_scan`  
+
+---
+
+This module depends on several internal modules and utilities:
+
+- `plan_patterns`  
+- `utils` (including `Msg`)  
+- `preprocessors` (aliased as `bpp`)  
+- `plan_stubs` (aliased as `bps`)  
+
+It also attempts to use `cytools.partition` for efficient partitioning of iterables, falling back to `toolz.partition` if `cytools` is not available.
+
+The plans are designed to be used with a RunEngine or similar execution engine that drives the generator-based plans, handling asynchronous execution, staging, and metadata management.

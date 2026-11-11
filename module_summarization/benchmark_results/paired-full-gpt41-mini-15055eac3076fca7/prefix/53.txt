@@ -1,0 +1,78 @@
+Multiple Imputation through Chained Equations (MICE) Module
+=============================================================
+
+Overview
+--------
+
+This module provides an implementation of the Multiple Imputation through Chained Equations (MICE) methodology for handling missing data in statistical analyses. The MICE approach iteratively imputes missing values by modeling each variable with missing data conditional on other variables in the dataset. The key steps of the procedure are:
+
+1. Initial imputation of missing values using the mean of observed values for each variable.
+2. Iterative imputation for each variable with missing data (the "focus variable"):
+   - Fit an imputation model regressing the focus variable on other variables.
+   - Impute missing values using predictive mean matching (PMM).
+3. Fit the analysis model to the fully imputed dataset.
+4. Repeat the imputation and analysis steps multiple times and combine results to obtain parameter estimates and standard errors.
+
+The imputation models are specified via regression formulas and model classes, with ordinary least squares (OLS) regression as the default. The module supports two primary use cases:
+
+- Generating multiply imputed datasets for further analysis or sharing, using the `MICEData` class.
+- Performing multiple imputation combined with fitting an analysis model and pooling results, using the `MICE` class.
+
+Terminology
+-----------
+
+- **Analysis Model**: The statistical model of interest to be fit after imputation.
+- **Imputation Model**: A regression model used to impute missing values for a particular variable.
+- **Perturbation Method**: The technique used to introduce variability into parameter estimates during imputation. Supported methods include:
+  - *Gaussian*: Parameters are drawn from the Gaussian approximation to the sampling distribution.
+  - *Bootstrap*: Parameters are estimated from a bootstrapped version of the data.
+
+Class Structure
+---------------
+
+- **MICEData**  
+  Wraps a Pandas DataFrame and manages imputation models for variables with missing data. It supports iterative imputation cycles, predictive mean matching, and provides plotting utilities to assess imputation quality and missing data patterns. Users can customize imputation models via formulas and specify perturbation methods. The class also supports a `history_callback` hook to save or analyze intermediate imputed datasets.
+
+- **MICE**  
+  Combines a `MICEData` object with an analysis model specification. It runs the multiple imputation procedure, fits the analysis models on each imputed dataset, and pools the results to produce inference summaries encapsulated in a `MICEResults` object.
+
+Usage Examples
+--------------
+
+Imputing missing data with a custom formula for variable `x1` and saving multiple imputed datasets:
+
+```python
+>>> imp = mice.MICEData(data)
+>>> imp.set_imputer('x1', formula='x2 + np.square(x2) + x3')
+>>> for j in range(20):
+...     imp.update_all()
+...     imp.data.to_csv('data%02d.csv' % j)
+```
+
+Using `MICEData` as an iterator to generate imputed datasets:
+
+```python
+>>> imp = mice.MICEData(data)
+>>> j = 0
+>>> for data in imp:
+...     imp.data.to_csv('data%02d.csv' % j)
+...     j += 1
+```
+
+Notes
+-----
+
+- By default, `MICEData` conserves memory by overwriting the dataset with new imputations at each iteration and saving minimal intermediate information.
+- The `history_callback` function can be used to capture or save imputation states after each cycle.
+- Supported perturbation methods are `'gaussian'` and `'boot'`.
+- The module relies on predictive mean matching for imputations, ensuring realistic imputed values.
+
+References
+----------
+
+- Schafer, J.L. (1999). Multiple Imputation: A Primer. *Statistical Methods in Medical Research*.
+- Raghunathan, T.E., et al. (2001). A Multivariate Technique for Multiply Imputing Missing Values Using a Sequence of Regression Models. *Survey Methodology*.
+- SAS Institute (2014). Predictive Mean Matching Method for Monotone Missing Data. *SAS 9.2 User's Guide*.
+- Gelman, A., et al. (2009). Multiple Imputation with Diagnostics (mi) in R: Opening Windows into the Black Box. *Journal of Statistical Software*.
+
+This module facilitates robust handling of missing data through flexible and extensible multiple imputation techniques, enabling improved statistical inference in the presence of incomplete data.
