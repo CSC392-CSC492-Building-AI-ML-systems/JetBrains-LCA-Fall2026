@@ -52,6 +52,21 @@ read them as an order of magnitude. The same table as csv, and the full set of f
    random -1.0, infile -0.7, common -0.5, commited -0.2 (interval includes 0). No class improves, and the biggest loss is on lines that
    need names from other project files, the case an agent that searches and reads files was meant to help.
 
+## Why it loses: where the planner's edits land (failure split)
+
+We ran the E4 lexical failure split on the agent arm (the planner is replayed from its logged actions, no GPU; the rebuilt context equals
+the logged one on 8,673 of 8,676 lines). A wrong line is a *retrieval miss* if a name it needs from another file is not in the prompt.
+
+| arm | right | wrong, needs nothing from other files | wrong, retrieval miss | wrong, names visible |
+|---|---|---|---|---|
+| RAG F | 4,523 (52.1%) | 2,755 (31.8%) | 171 (2.0%) | 1,227 (14.1%) |
+| agent (v2) | 4,421 (51.0%) | 2,797 (32.2%) | 194 (2.2%) | 1,264 (14.6%) |
+
+- **The agent hardly ever supplies a missing name.** Of RAG F's 171 retrieval misses it makes all needed names visible on 7 (one of them right). Even a perfect planner could add only about 2 points this way, because only 2% of lines are retrieval misses.
+- **Its evictions remove names.** 35 lines lose a needed name that RAG F showed (RAG F right on 24 of them, the agent on 5); retrieval misses rise from 171 to 194.
+- **Most broken lines did not lose a name.** Of the 136 lines only RAG F gets right (among those the planner changed), 63 had their names visible in both prompts, 53 need nothing from other files, and only 20 became retrieval misses. The 34 lines only the agent gets right split 22 / 11 / 1 the same way.
+- **Reading, not a test:** extra code placed in the context perturbs a writer that already had a good context. The screen is lexical, and we did not run an ablation (for example adding random chunks) that would test this cause.
+
 ## What this does and does not show
 
 - It shows that this setup, a 7B planner with a small tool budget that may only add context, does not improve on a well-tuned retrieval
