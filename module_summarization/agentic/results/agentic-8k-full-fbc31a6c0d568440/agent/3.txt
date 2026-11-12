@@ -1,0 +1,112 @@
+Publishing for Web Review
+=========================
+
+This module provides functionality to publish content for web review sessions, manage review session invites, and handle related operations within the ftrack API.
+
+Review Session Invites
+----------------------
+
+The API allows sending invitations to review sessions to users or groups of users.
+
+### Sending a Single Invite
+
+To send an invite to a single review session invitee, use the method:
+
+```python
+send_review_session_invite(invitee)
+```
+
+- **invitee**: An instance of `ReviewSessionInvitee` representing the user or entity to invite.
+- **Note**: The invitee must be committed before sending the invite.
+
+### Sending Multiple Invites
+
+To send invites to multiple invitees at once, use:
+
+```python
+send_review_session_invites(invitees)
+```
+
+- **invitees**: A list of `ReviewSessionInvitee` objects.
+- **Note**: All invitees must be committed before sending the invites.
+
+Both methods internally perform operations to send the invites and handle server errors gracefully. If the server does not support the required action (e.g., `send_review_session_invite`), a `ServerCompatibilityError` is raised with a message prompting to update the server.
+
+Context Managers for Session Settings
+-------------------------------------
+
+Two context managers are provided to temporarily modify session settings during operations:
+
+### AutoPopulatingContext
+
+```python
+AutoPopulatingContext(session, auto_populate)
+```
+
+Temporarily changes the `auto_populate` attribute of a session within a context block.
+
+- **session**: The session object whose `auto_populate` setting will be changed.
+- **auto_populate**: The temporary value to set for `auto_populate`.
+
+Usage:
+
+```python
+with AutoPopulatingContext(session, True):
+    # operations with auto_populate enabled
+```
+
+Upon exiting the context, the original `auto_populate` value is restored.
+
+### OperationRecordingContext
+
+```python
+OperationRecordingContext(session, record_operations)
+```
+
+Temporarily changes the `record_operations` attribute of a session within a context block.
+
+- **session**: The session object whose `record_operations` setting will be changed.
+- **record_operations**: The temporary value to set for `record_operations`.
+
+Usage:
+
+```python
+with OperationRecordingContext(session, False):
+    # operations without recording
+```
+
+The original `record_operations` value is restored after exiting the context.
+
+OperationPayload Class
+----------------------
+
+The `OperationPayload` class represents the payload for operations sent to the server. It behaves like a mutable mapping (dictionary) and supports standard dictionary operations:
+
+- Initialization with optional data.
+- Getting, setting, and deleting items by key.
+- Iteration over keys.
+- Getting the number of items.
+
+Example:
+
+```python
+payload = OperationPayload(action='send_review_session_invite', review_session_invitee_id=invitee['id'])
+print(str(payload))  # <OperationPayload {'action': 'send_review_session_invite', 'review_session_invitee_id': 123}>
+```
+
+This class is used internally to construct operation data for API calls.
+
+Error Handling
+--------------
+
+When sending invites or performing operations, server errors are caught and inspected. If an action is not supported by the server version, a `ServerCompatibilityError` is raised with a descriptive message advising to update the server.
+
+Locations and Compatibility
+---------------------------
+
+The code handles specific component names such as `'ftrackreview-mp4'`, `'ftrackreview-webm'`, and `'ftrackreview-image'` by adding them to the `ftrack.review` location to maintain backwards compatibility.
+
+Summary
+-------
+
+This module facilitates publishing content for web review by managing review session invitations, handling session settings temporarily, and constructing operation payloads for server communication. It ensures compatibility with different server versions and provides clear error messages when actions are unsupported.

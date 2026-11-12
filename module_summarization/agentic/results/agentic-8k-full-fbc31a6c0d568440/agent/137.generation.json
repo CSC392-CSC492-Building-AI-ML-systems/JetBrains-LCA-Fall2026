@@ -1,0 +1,296 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "ImPACT: Image Pixel-wise fit for Atmospheric Cherenkov Telescopes\n==================================================================\n\nOverview\n--------\n\nImPACT (Image Pixel-wise fit for Atmospheric Cherenkov Telescopes) is a Monte Carlo template-based image fitting method designed for reconstructing the properties of atmospheric showers detected by Cherenkov telescopes. This method performs a maximum likelihood fit comparing observed camera images to a library of predicted image templates, enabling precise estimation of the shower axis, energy, and height of shower maximum.\n\nThe ImPACT reconstruction technique is computationally intensive and therefore uses fixed units internally to optimize performance:\n\n- Angular units are in radians\n- Distance units are in metres\n- Energy units are in TeV\n\nReferences\n----------\n\n- Parsons & Hinton, Astroparticle Physics 56 (2014), pp. 26-34 [parsons14]\n\nKey Features\n------------\n\n- Uses a library of image templates for different telescope types to predict expected camera images.\n- Performs maximum likelihood fitting to reconstruct shower parameters.\n- Incorporates priors on energy and shower maximum depth to guide the fit.\n- Supports multiple telescope camera types including LSTCam, NectarCam, FlashCam, and CHEC.\n- Accounts for pedestal noise and single photoelectron distribution widths in likelihood calculations.\n- Provides flexibility to include or exclude time gradient information in the fit.\n- Converts between different coordinate frames (Horizon, Ground, Tilted Ground, Nominal) for accurate geometry handling.\n- Uses atmospheric profile functions to convert height above ground to depth of shower maximum.\n\nUsage\n-----\n\n### Initialization\n\nCreate an instance of the `ImPACTReconstructor` class, specifying optional parameters such as the root directory for templates, minimiser choice, prior settings, template scaling, and whether to use time gradient information:\n\n```python\nreconstructor = ImPACTReconstructor(\n    root_dir=\".\",\n    minimiser=\"minuit\",\n    prior=\"\",\n    template_scale=1.0,\n    xmax_offset=0,\n    use_time_gradient=False,\n)\n```\n\n### Template Initialization\n\nBefore processing events, initialize the image templates for the telescope type:\n\n```python\nreconstructor.initialise_templates(tel_type)\n```\n\n### Prediction and Fitting\n\nTo reconstruct shower parameters, use the `predict` method with seed values for shower geometry and energy:\n\n```python\nreconstructed_shower, reconstructed_energy = reconstructor.predict(shower_seed, energy_seed)\n```\n\n- `shower_seed`: Initial guess of shower geometry (e.g., direction, core position).\n- `energy_seed`: Initial guess of shower energy.\n\nThe method performs a maximum likelihood fit to find the best shower parameters matching the observed images.\n\nInternal Details\n----------------\n\n- **Pedestal Noise and SPE Widths:** The likelihood calculation incorporates pedestal noise widths specific to each camera type, hardcoded as:\n\n  | Camera Type | Pedestal Width (p.e.) |\n  |-------------|----------------------|\n  | LSTCam      | 2.8                  |\n  | NectarCam   | 2.3                  |\n  | FlashCam    | 2.3                  |\n  | CHEC        | 0.5                  |\n  | DUMMY       | 0                    |\n\n  The single photoelectron (SPE) distribution width is fixed at 0.5 p.e.\n\n- **Atmospheric Profiles:** Atmospheric depth and altitude profiles are obtained from CORSIKA simulations for the Paranal site, enabling conversion between height above ground and atmospheric depth.\n\n- **Coordinate Frames:** The reconstruction uses several coordinate frames:\n\n  - **Nominal Frame:** Defined relative to the array pointing direction.\n  - **Horizon Frame (AltAz):** Standard astronomical altitude-azimuth frame.\n  - **Ground Frame:** Cartesian coordinates on the ground plane.\n  - **Tilted Ground Frame:** Ground frame rotated to align with the array pointing direction.\n\n- **Priors:** Priors on energy and shower maximum depth are applied to constrain the fit:\n\n  - Energy prior favors a power-law distribution.\n  - Shower maximum prior is based on expected depth as a function of energy.\n\n- **Likelihood Minimisation:** The fit is performed using a minimiser (default \"minuit\") that adjusts parameters to maximize the likelihood of the observed images given the templates.\n\nNotes\n-----\n\n- The method currently does not use Astropy units internally for performance reasons; all inputs and outputs are expected in the fixed units described above.\n- The template files are stored in compressed formats and loaded as needed.\n- The implementation supports resetting internal interpolators between events to avoid contamination from previous fits.\n\nConclusion\n----------\n\nImPACT provides a robust and precise method for reconstructing atmospheric shower parameters from Cherenkov telescope images by leveraging detailed Monte Carlo image templates and maximum likelihood fitting. Its design balances computational efficiency with physical accuracy, making it suitable for high-precision gamma-ray astronomy analyses.",
+  "prediction_sha256": "c0335495c4aebfcccf40e4a58359478c649fb1e16809da77389bbf89a9bb81b1",
+  "prompt_sha256": "c9146671024957f508c5b0fdf35f9c54642412a96001eed202597dc6cf972597",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 13882,
+    "completion_tokens": 1068,
+    "total_tokens": 14950
+  },
+  "cost_usd": 0.0072616,
+  "generation_seconds": 11.193602584007749,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "ImPACT"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 28,
+              "start_char": 21452,
+              "end_char": 22272,
+              "code": " array_direction\n        self.nominal_frame = NominalFrame(origin=self.array_direction)\n\n        # Finally run some functions to get ready for the event\n        self.get_hillas_mean()\n        self.initialise_templates(type_tel)\n\n    def reset_interpolator(self):\n        \"\"\"\n        This function is needed in order to reset some variables in the interpolator\n        at each new event. Without this reset, a new event starts with information\n        from the previous event.\n        \"\"\"\n        list(self.prediction.values())[0].reset()\n\n    def predict(self, shower_seed, energy_seed):\n        \"\"\"Predict method for the ImPACT reconstructor.\n        Used to calculate the reconstructed ImPACT shower geometry and energy.\n\n        Parameters\n        ----------\n        shower_seed: ReconstructedShowerContainer\n        ",
+              "code_tokens": 300,
+              "score": 7.944274388791
+            },
+            {
+              "chunk_id": 1,
+              "start_char": 1055,
+              "end_char": 1977,
+              "code": "   energy: float\n        Energy of the shower in TeV\n\n    Returns\n    -------\n    float: Expected depth of shower maximum\n    \"\"\"\n\n    x_max_exp = 300 + 93 * np.log10(energy)\n\n    return x_max_exp\n\n\ndef energy_prior(energy, index=-1):\n    return -2 * np.log(energy**index)\n\n\ndef xmax_prior(energy, xmax, width=100):\n    x_max_exp = guess_shower_depth(energy)\n    diff = xmax - x_max_exp\n    return -2 * np.log(norm.pdf(diff / width))\n\n\nclass ImPACTReconstructor(Component):\n    \"\"\"This class is an implementation if the impact_reco Monte Carlo\n    Template based image fitting method from parsons14.  This method uses a\n    comparision of the predicted image from a library of image\n    templates to perform a maximum likelihood fit for the shower axis,\n    energy and height of maximum.\n\n    Because this application is computationally intensive the usual\n    advice to use astropy units for all quantities is ignored (as",
+              "code_tokens": 300,
+              "score": 4.984152393631
+            },
+            {
+              "chunk_id": 2,
+              "start_char": 2148,
+              "end_char": 2819,
+              "code": " TeV\n\n    References\n    ----------\n    .. [parsons14] Parsons & Hinton, Astroparticle Physics 56 (2014), pp. 26-34\n\n    \"\"\"\n\n    # For likelihood calculation we need the with of the\n    # pedestal distribution for each pixel\n    # currently this is not availible from the calibration,\n    # so for now lets hard code it in a dict\n    ped_table = {\n        \"LSTCam\": 2.8,\n        \"NectarCam\": 2.3,\n        \"FlashCam\": 2.3,\n        \"CHEC\": 0.5,\n        \"DUMMY\": 0,\n    }\n    spe = 0.5  # Also hard code single p.e. distribution width\n\n    def __init__(\n        self,\n        root_dir=\".\",\n        minimiser=\"minuit\",\n        prior=\"\",\n        template_scale=1.0,\n        x",
+              "code_tokens": 300,
+              "score": 4.711458760756
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 1055,
+              "end_char": 4826,
+              "code": "   energy: float\n        Energy of the shower in TeV\n\n    Returns\n    -------\n    float: Expected depth of shower maximum\n    \"\"\"\n\n    x_max_exp = 300 + 93 * np.log10(energy)\n\n    return x_max_exp\n\n\ndef energy_prior(energy, index=-1):\n    return -2 * np.log(energy**index)\n\n\ndef xmax_prior(energy, xmax, width=100):\n    x_max_exp = guess_shower_depth(energy)\n    diff = xmax - x_max_exp\n    return -2 * np.log(norm.pdf(diff / width))\n\n\nclass ImPACTReconstructor(Component):\n    \"\"\"This class is an implementation if the impact_reco Monte Carlo\n    Template based image fitting method from parsons14.  This method uses a\n    comparision of the predicted image from a library of image\n    templates to perform a maximum likelihood fit for the shower axis,\n    energy and height of maximum.\n\n    Because this application is computationally intensive the usual\n    advice to use astropy units for all quantities is ignored (as\n    these slow down some computations), instead units within the class\n    are fixed:\n\n    - Angular units in radians\n    - Distance units in metres\n    - Energy units in TeV\n\n    References\n    ----------\n    .. [parsons14] Parsons & Hinton, Astroparticle Physics 56 (2014), pp. 26-34\n\n    \"\"\"\n\n    # For likelihood calculation we need the with of the\n    # pedestal distribution for each pixel\n    # currently this is not availible from the calibration,\n    # so for now lets hard code it in a dict\n    ped_table = {\n        \"LSTCam\": 2.8,\n        \"NectarCam\": 2.3,\n        \"FlashCam\": 2.3,\n        \"CHEC\": 0.5,\n        \"DUMMY\": 0,\n    }\n    spe = 0.5  # Also hard code single p.e. distribution width\n\n    def __init__(\n        self,\n        root_dir=\".\",\n        minimiser=\"minuit\",\n        prior=\"\",\n        template_scale=1.0,\n        xmax_offset=0,\n        use_time_gradient=False,\n    ):\n        \"\"\"\n        Create a new instance of ImPACTReconstructor\n        \"\"\"\n\n        # First we create a dictionary of image template interpolators\n        # for each telescope type\n        self.root_dir = root_dir\n        self.priors = prior\n        self.minimiser_name = minimiser\n\n        self.file_names = {\n            \"CHEC\": [\"GCT_05deg_ada.template.gz\", \"GCT_05deg_time.template.gz\"],\n            \"LSTCam\": [\"LST_05deg.template.gz\", \"LST_05deg_time.template.gz\"],\n            \"NectarCam\": [\"MST_05deg.template.gz\", \"MST_05deg_time.template.gz\"],\n            \"FlashCam\": [\"MST_xm_full.fits\"],\n        }\n\n        # We also need a conversion function from height above ground to\n        # depth of maximum To do this we need the conversion table from CORSIKA\n        (\n            self.thickness_profile,\n            self.altitude_profile,\n        ) = get_atmosphere_profile_functions(\"paranal\", with_units=False)\n\n        # Next we need the position, area and amplitude from each pixel in the event\n        # making this a class member makes passing them around much easier\n\n        self.pixel_x, self.pixel_y = None, None\n        self.image, self.time = None, None\n\n        self.tel_types, self.tel_id = None, None\n\n        # We also need telescope positions\n        self.tel_pos_x, self.tel_pos_y = None, None\n\n        # And the peak of the images\n        self.peak_x, self.peak_y, self.peak_amp = None, None, None\n        self.hillas_parameters, self.ped = None, None\n\n        self.prediction = dict()\n        self.time_prediction = dict()\n\n        self.array_direction = None\n        self.array_return = False\n        self.nominal_frame = None\n\n        # For now these factors are required to fix problems in templates\n        self.template_scale = template_scale\n        self.xmax_offset = xmax_offset\n        self.use_time_gradient = use_time_gradient\n\n    def initialise_templates(self, tel_type):\n        \"\"\"Check if templates for a given",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 28
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 28,
+              "start_char": 21452,
+              "end_char": 24570,
+              "code": " array_direction\n        self.nominal_frame = NominalFrame(origin=self.array_direction)\n\n        # Finally run some functions to get ready for the event\n        self.get_hillas_mean()\n        self.initialise_templates(type_tel)\n\n    def reset_interpolator(self):\n        \"\"\"\n        This function is needed in order to reset some variables in the interpolator\n        at each new event. Without this reset, a new event starts with information\n        from the previous event.\n        \"\"\"\n        list(self.prediction.values())[0].reset()\n\n    def predict(self, shower_seed, energy_seed):\n        \"\"\"Predict method for the ImPACT reconstructor.\n        Used to calculate the reconstructed ImPACT shower geometry and energy.\n\n        Parameters\n        ----------\n        shower_seed: ReconstructedShowerContainer\n            Seed shower geometry to be used in the fit\n        energy_seed: ReconstructedEnergyContainer\n            Seed energy to be used in fit\n\n        Returns\n        -------\n        ReconstructedShowerContainer, ReconstructedEnergyContainer:\n        \"\"\"\n        self.reset_interpolator()\n\n        horizon_seed = SkyCoord(az=shower_seed.az, alt=shower_seed.alt, frame=AltAz())\n        nominal_seed = horizon_seed.transform_to(self.nominal_frame)\n\n        source_x = nominal_seed.fov_lon.to_value(u.rad)\n        source_y = nominal_seed.fov_lat.to_value(u.rad)\n        ground = GroundFrame(x=shower_seed.core_x, y=shower_seed.core_y, z=0 * u.m)\n        tilted = ground.transform_to(\n            TiltedGroundFrame(pointing_direction=self.array_direction)\n        )\n        tilt_x = tilted.x.to(u.m).value\n        tilt_y = tilted.y.to(u.m).value\n        zenith = self.array_direction.zen\n\n        seeds = spread_line_seed(\n            self.hillas_parameters,\n            self.tel_pos_x,\n            self.tel_pos_y,\n            source_x,\n            source_y,\n            tilt_x,\n            tilt_y,\n            energy_seed.energy.value,\n            shift_frac=[1],\n        )[0]\n\n        # Perform maximum likelihood fit\n        fit_params, errors, like = self.minimise(\n            params=seeds[0],\n            step=seeds[1],\n            limits=seeds[2],\n            minimiser_name=self.minimiser_name,\n        )\n\n        # Create a container class for reconstructed shower\n\n        # Convert the best fits direction and core to Horizon and ground systems and\n        # copy to the shower container\n        nominal = SkyCoord(\n            fov_lon=fit_params[0] * u.rad,\n            fov_lat=fit_params[1] * u.rad,\n            frame=self.nominal_frame,\n        )\n        horizon = nominal.transform_to(AltAz())\n\n        tilted = TiltedGroundFrame(\n            x=fit_params[2] * u.m,\n            y=fit_params[3] * u.m,\n            z=0 * u.m,\n            pointing_direction=self.array_direction,\n        )\n        ground = project_to_ground(tilted)\n\n        h_max = (\n            fit_params[5]\n            * np.cos(zenith)\n            * self.get_shower_max(\n                fit_params[0],\n                fit_params[1],\n                fit_params[2],\n                fit_params[3],\n                zenith.to(u",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 28
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 29
+        },
+        "response": {
+          "status": "unknown_chunk",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 27
+        },
+        "response": {
+          "status": "unknown_chunk",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "8481e035d6d8d8233854eb0105a61d274d46693bf72a6276f43b94731ad4f70f",
+        "request_id": "chatcmpl-Ej8QcdyNJduJAXZtEuouulicl97LM",
+        "usage": {
+          "prompt_tokens": 164,
+          "completion_tokens": 15,
+          "total_tokens": 179,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.960000000000001e-05,
+        "seconds": 0.6090668750002806,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "40e364e9e3f9794c0f4fc5b609483b56cdfc7de426f38634f075b344728f7092",
+        "request_id": "chatcmpl-Ej8Qdc5tz1UCGC0s16PkELOwRf2hP",
+        "usage": {
+          "prompt_tokens": 993,
+          "completion_tokens": 15,
+          "total_tokens": 1008,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00042120000000000005,
+        "seconds": 0.983914458000072,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "d77c64ade65ea85338030223d4370eb4893c728767fc4fc6d4929753d98335a0",
+        "request_id": "chatcmpl-Ej8QdnmNzuqAdNfQJbgKSV0V6Ucl1",
+        "usage": {
+          "prompt_tokens": 2091,
+          "completion_tokens": 15,
+          "total_tokens": 2106,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008604000000000001,
+        "seconds": 0.7144057500008785,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "7cef62d41ced0c04cb2f6f735b7e6b63ecb3e4db446afc0db29180f3497728cd",
+        "request_id": "chatcmpl-Ej8QeVumtUrpPzCENSlrx2VfV28Rg",
+        "usage": {
+          "prompt_tokens": 2945,
+          "completion_tokens": 15,
+          "total_tokens": 2960,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001202,
+        "seconds": 0.6911064160012756,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "5e6ecd5810d6194c58a3caa9adad50bcdfadb175eaf11af5acf9d87b15e6079c",
+        "request_id": "chatcmpl-Ej8QfTWvJjiQQaTRMROvs89tOQPXO",
+        "usage": {
+          "prompt_tokens": 2981,
+          "completion_tokens": 15,
+          "total_tokens": 2996,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012164,
+        "seconds": 0.7481353340008354,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "e803859adde1ce63b89a24a135ca99e736805e12fa2d0f1c6f5bee54cb797788",
+        "request_id": "chatcmpl-Ej8QfWNxQCB7FIYIwTflTgKz1TRTd",
+        "usage": {
+          "prompt_tokens": 3016,
+          "completion_tokens": 15,
+          "total_tokens": 3031,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012304,
+        "seconds": 0.6904532920016209,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "e6810ddc198531f117b6656dd61d34e6a72d7e1d0df254899feb5599dcf99431",
+        "request_id": "chatcmpl-Ej8Qg5K02RIf9DX1VQ1AQK0fXiT3Q",
+        "usage": {
+          "prompt_tokens": 1692,
+          "completion_tokens": 978,
+          "total_tokens": 2670,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0022416000000000003,
+        "seconds": 6.756520459002786,
+        "retry_count": 0
+      }
+    ]
+  }
+}

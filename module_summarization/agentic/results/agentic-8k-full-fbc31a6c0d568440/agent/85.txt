@@ -1,0 +1,66 @@
+Piccolo Projects Module
+=======================
+
+Overview
+--------
+
+This module provides core functionality for managing Piccolo applications within a project. It includes classes and utilities to register Piccolo apps, locate and import app modules, manage database engine configurations, and handle dependencies between apps.
+
+Key Classes and Functions
+-------------------------
+
+AppRegistry
+~~~~~~~~~~~
+
+The `AppRegistry` class records all Piccolo apps in your project. It is typically instantiated and kept in the `piccolo_conf.py` configuration file.
+
+- **Initialization**: Accepts a list of app paths (e.g., `['blog.piccolo_app']`).
+- **App Configurations**: Loads and stores `AppConfig` instances for each app.
+- **Validation**: Ensures app names are unique to prevent conflicts.
+- **Methods**:
+  - `get_app_config(app_name)`: Returns the `AppConfig` for a given app name.
+  - `get_table_classes(app_name)`: Returns all Table subclasses defined in the specified app.
+  - `get_table_with_name(app_name, table_class_name)`: Retrieves a specific Table subclass by name from the app.
+
+Finder
+~~~~~~
+
+The `Finder` class contains methods to locate and load Piccolo apps and their tables within a project.
+
+- **Initialization**: Optionally accepts a `diagnose` flag to enable detailed error tracebacks when importing `piccolo_conf`.
+- **Core Methods**:
+  - `_import_app_modules(config_module_paths)`: Recursively imports all `piccolo_app.py` modules and their dependencies.
+  - `_deduplicate(config_modules)`: Removes duplicate app modules while preserving order.
+  - `get_piccolo_conf_module(module_name=None)`: Imports the `piccolo_conf` module, with support for environment variable override (`PICCOLO_CONF`) or explicit module name.
+  - `get_app_registry()`: Retrieves the `AppRegistry` instance from `piccolo_conf`.
+  - `get_engine(module_name=None)`: Retrieves the database `Engine` instance defined in `piccolo_conf`.
+  - `get_app_modules()`: Returns a deduplicated list of all imported Piccolo app modules.
+  - `get_app_names(sort_by_migration_dependencies=True)`: Returns all app names, optionally sorted by migration dependencies.
+  - `get_sorted_app_names()`: Alias for `get_app_names` with sorting enabled.
+  - `sort_app_configs(app_configs)`: Sorts a list of `AppConfig` instances based on migration dependencies.
+  - `get_app_configs(sort_by_migration_dependencies=True)`: Returns a list of `AppConfig` instances, optionally sorted by migration dependencies.
+
+PiccoloConfModule
+~~~~~~~~~~~~~~~~~
+
+A specialized module type representing the `piccolo_conf` module. It is expected to define:
+
+- `DB`: The database engine instance.
+- `APP_REGISTRY`: The `AppRegistry` instance.
+
+Constants
+---------
+
+- `DEFAULT_MODULE_NAME`: Default module name for configuration (`"piccolo_conf"`).
+- `ENVIRONMENT_VARIABLE`: Environment variable name to override config module (`"PICCOLO_CONF"`).
+- `ENGINE_VAR`: Name of the engine variable in config (`"DB"`).
+
+Usage Notes
+-----------
+
+- The module expects each Piccolo app to have a `piccolo_app.py` module exposing an `APP_CONFIG` object.
+- Migration dependencies between apps are respected and used to sort apps and their configurations.
+- Errors during import or configuration loading are handled gracefully, with optional diagnostic output.
+- The database engine must be an instance of `Engine`; warnings are issued if missing or incorrectly typed.
+
+This module is essential for Piccolo projects to manage app registration, configuration, and database connectivity in a structured and dependency-aware manner.

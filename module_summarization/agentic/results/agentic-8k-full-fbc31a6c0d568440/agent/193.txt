@@ -1,0 +1,90 @@
+Metadata Routing API
+====================
+
+The Metadata Routing API provides a standardized mechanism to handle and route metadata within meta-estimators and composite objects in scikit-learn. This API facilitates passing additional information (metadata) to specific methods of nested estimators, enabling more flexible and powerful model composition.
+
+Overview
+--------
+
+Metadata routing is managed through routing objects that store and handle metadata requests and routing information. The core components of this API include:
+
+- **MetadataRouter**: A class that stores and manages metadata routing information for a router object.
+- **MetadataRequest**: Represents a request for metadata parameters.
+- **MethodMapping**: Defines the mapping between child and parent method parameters.
+- **process_routing**: A utility function to validate and route metadata parameters during method calls.
+- **RequestMethod**: A descriptor class to dynamically generate methods for setting metadata requests.
+
+MetadataRouter
+--------------
+
+The `MetadataRouter` class is used by router objects to store and handle metadata routing. Routing information is stored as a dictionary mapping object names to `RouteMappingPair` instances, which pair a `MethodMapping` with routing information (either a `MetadataRequest` or another `MetadataRouter`).
+
+Key features:
+
+- **Initialization**: Requires the name of the owner object to which the routing requests belong.
+- **Adding self requests**: The router itself can be added as a consumer of metadata using `add_self_request(obj)`. This is necessary when the router also consumes metadata.
+- **Adding child objects**: Child objects and their corresponding method mappings can be added using the `add` method.
+- **Routing storage**: Maintains routing information internally and supports deep copying for safe reuse.
+
+MetadataRequest and MetadataRouter Retrieval
+--------------------------------------------
+
+The function `get_routing_for_object(obj)` retrieves the metadata routing information for a given object:
+
+- If the object is a `MetadataRequest` or `MetadataRouter`, a deep copy is returned.
+- If the object implements a `get_metadata_routing` method, a deep copy of its output is returned.
+- Otherwise, an empty `MetadataRequest` is returned.
+
+RequestMethod Descriptor
+------------------------
+
+`RequestMethod` is a descriptor class that dynamically creates methods to set metadata requests for specific estimator methods (e.g., `fit`, `predict`). It supports:
+
+- Defining accepted metadata parameters for the method.
+- Validating requested parameters against the method's signature.
+- Generating detailed docstrings explaining the usage and options for metadata routing.
+
+The generated methods allow users to specify whether metadata parameters should be requested, ignored, or aliased when passed to the corresponding method.
+
+process_routing Function
+------------------------
+
+The `process_routing(_obj, _method, /, **kwargs)` function is used inside router methods (such as `fit`) to validate and route metadata parameters.
+
+- `_obj`: The router or meta-estimator object implementing `get_metadata_routing`.
+- `_method`: The name of the method in which routing is processed (e.g., `"fit"`).
+- `**kwargs`: Metadata parameters to be routed.
+
+This function performs the following:
+
+1. Validates that `_obj` supports metadata routing.
+2. Checks that `_method` is one of the supported methods.
+3. Retrieves the routing requests for `_obj`.
+4. Validates the provided metadata parameters against the requests.
+5. Routes the parameters to the appropriate child objects and methods.
+
+It returns a `Bunch` object mapping object names to method names and their corresponding metadata values, which can then be passed to the respective methods.
+
+Usage Notes
+-----------
+
+- Metadata routing is only effective if `enable_metadata_routing=True` is set in scikit-learn's configuration.
+- This API is primarily intended for use within meta-estimators and composite estimators, such as pipelines.
+- Metadata parameters can be requested, ignored, or aliased to different names when passed to child estimators.
+- The API minimizes boilerplate code required to handle metadata routing in complex estimator compositions.
+
+Version Information
+-------------------
+
+- The Metadata Routing API was introduced in scikit-learn version 1.3.
+- The `RequestMethod` descriptor and `process_routing` function were added in version 1.3.
+- The API is designed to be extensible and to integrate seamlessly with scikit-learn's estimator interface.
+
+Further Reading
+---------------
+
+For detailed usage examples and guidance, please refer to the :ref:`User Guide <metadata_routing>` section in the scikit-learn documentation.
+
+---
+
+This API enables advanced users and developers to build meta-estimators that can flexibly handle additional metadata parameters, improving the expressiveness and configurability of composite models.

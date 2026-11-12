@@ -1,0 +1,98 @@
+# FleurXMLModifier
+
+The `FleurXMLModifier` class provides a structured and convenient way to group and organize modifications to a `inp.xml` file used by FLEUR. It leverages XML setting methods from the modules `masci_tools.util.xml.xml_setters_names` and `masci_tools.util.xml.xml_setters_basic` to collect and apply changes in a controlled manner.
+
+## Overview
+
+Instead of modifying an input XML file directly, `FleurXMLModifier` collects a series of modification tasks that can be applied all at once. This approach allows for better management of changes, including the ability to undo modifications before they are applied.
+
+## Basic Usage
+
+```python
+from masci_tools.io.fleurxmlmodifier import FleurXMLModifier
+
+# Create an instance of the modifier
+fmode = FleurXMLModifier()
+
+# Add changes by calling methods on the modifier instance.
+# The method names correspond to the setting methods in the xml_setters modules.
+# These calls do not modify the input file immediately but collect tasks.
+
+fmode.set_inpchanges({'Kmax': 4.0})  # Set Kmax to 4.0
+fmode.shift_value({'Gmax': 5.0})     # Add 5 to the current value of Gmax
+
+# Set the local orbital configuration on all iron atoms to '3s 3p'
+fmode.set_species('all-Fe', {'lo': [{'n': 3, 'l': 's', 'type': 'SCLO'},
+                                    {'n': 3, 'l': 'p', 'type': 'SCLO'}]})
+
+# Undo the last change
+# fmode.undo()
+
+# Undo all changes added so far
+# fmode.undo(revert_all=True)
+
+# Apply all collected changes to an input XML file
+new_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')
+```
+
+## Features
+
+- **Task Collection:** Changes are collected as tasks rather than applied immediately, allowing batch processing.
+- **Undo Capability:** Supports undoing the last change or all changes before applying them.
+- **Multiple Setter Support:** Integrates setter functions from different namespaces (`xpath`, `schema_dict`, `nmmpmat`) for flexible modification strategies.
+- **Validation:** Optionally validates method signatures and arguments to ensure correctness.
+- **Instantiation from Task List:** Can be instantiated directly from a list of modification tasks.
+
+## Methods
+
+### `__init__(validate_signatures: bool = True)`
+
+Initializes a new `FleurXMLModifier` instance.
+
+- `validate_signatures`: If `True`, validates the signatures of modification methods when tasks are added.
+
+### `fromList(task_list: list[tuple[str, dict[str, Any]]], *args, **kwargs) -> FleurXMLModifier`
+
+Class method to instantiate a `FleurXMLModifier` from a predefined list of tasks.
+
+- `task_list`: A list of tuples where the first element is the name of the modification method and the second is a dictionary of keyword arguments for that method.
+- Additional arguments are passed to the constructor.
+
+Returns an instance with the tasks added.
+
+### `add_task_list(task_list: list[tuple[str, dict[str, Any]]])`
+
+Adds multiple modification tasks to the current instance.
+
+- `task_list`: List of tuples with method names and keyword arguments.
+
+Raises a `ValueError` if an unknown modification method is specified.
+
+### `modify_xmlfile(xmlfile: XMLFileLike) -> tuple[etree._ElementTree, list[Path]]`
+
+Applies all collected modification tasks to the specified XML input file.
+
+- `xmlfile`: Path or file-like object pointing to the FLEUR input XML file.
+
+Returns a tuple containing the modified XML tree and a list of any additional files generated during modification.
+
+### `undo(revert_all: bool = False)`
+
+Reverts the last added modification task or all tasks if `revert_all` is set to `True`.
+
+## Internal Mechanisms
+
+- **Setter Functions:** The class maintains dictionaries of setter functions categorized by their modification approach (`xpath_functions`, `schema_dict_functions`, `nmmpmat_functions`). These functions are used to perform the actual XML modifications.
+- **Task Representation:** Each modification task is stored as a `ModifierTask` named tuple containing the method name and its arguments.
+- **Signature Validation:** The class can validate the arguments passed to modification methods to ensure they match the expected signatures.
+- **Extensibility:** Additional setter functions can be registered dynamically via the `_extra_functions` dictionary.
+
+## Notes
+
+- The class is designed to work with FLEUR input files and relies on the specific XML structure and setter functions defined in the `masci_tools` package.
+- It is recommended to use the `modify_xmlfile` method to apply all changes at once rather than modifying the XML file incrementally.
+- Undo functionality helps in managing complex sequences of modifications without immediate file changes.
+
+---
+
+This class is a powerful tool for programmatically managing FLEUR input XML files, enabling reproducible and maintainable workflows for input preparation and modification.

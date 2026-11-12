@@ -1,0 +1,92 @@
+Getting Started with Mitogen
+=============================
+
+Mitogen is a Python library designed to simplify and accelerate the process of managing remote connections and executing code across multiple hosts. It provides a powerful and efficient framework for creating and managing communication contexts, handling asynchronous calls, and pipelining multiple remote procedure calls (RPCs) with ease.
+
+This tutorial will guide you through the basics of using Mitogen, focusing on creating connections, executing remote calls, and using the CallChain feature for efficient pipelined RPCs.
+
+Creating a Connection
+---------------------
+
+Mitogen establishes connections to remote contexts, allowing you to execute code remotely. Connections are created asynchronously and managed internally by Mitogen’s router and broker components.
+
+Example of establishing a connection:
+
+```python
+# This is handled internally by Mitogen's connection management.
+# The connection setup involves creating child processes and setting up stdio streams.
+```
+
+Mitogen manages connection timeouts and shutdown events gracefully, ensuring robust communication channels.
+
+Executing Remote Calls
+----------------------
+
+Once a connection (context) is established, you can execute functions remotely. Mitogen supports synchronous and asynchronous calls, allowing you to choose the best approach for your use case.
+
+Using `call()` to execute a function remotely and wait for the result:
+
+```python
+result = context.call(some_function, arg1, arg2)
+```
+
+Using `call_async()` to execute a function asynchronously and retrieve the result later:
+
+```python
+recv = context.call_async(some_function, arg1, arg2)
+result = recv.get().unpickle()
+```
+
+Pipelining Calls with CallChain
+-------------------------------
+
+Mitogen provides the `CallChain` class to pipeline multiple calls into a single round-trip, reducing latency and improving performance. This is especially useful when you need to execute several dependent or independent calls on the remote context.
+
+Example usage of `CallChain`:
+
+```python
+from mitogen.parent import CallChain
+
+with CallChain(context, pipelined=True) as chain:
+    chain.call_no_reply(os.mkdir, '/tmp/foo')
+    chain.call_no_reply(os.mkdir, '/tmp/foo/bar')
+    recv = chain.call_async(subprocess.check_output, ['/bin/ls', '/tmp/foo'])
+    chain.call(do_something)
+
+    # Retrieve and process the result of the asynchronous call
+    if recv.get().unpickle() == 'baz':
+        pass
+```
+
+Key points about `CallChain`:
+
+- `call_no_reply()` schedules a call without waiting for a response.
+- `call_async()` schedules a call and returns a receiver object to get the result later.
+- `call()` schedules a call and waits for the result immediately.
+- If any call in the chain fails, subsequent calls are skipped, and exceptions are propagated asynchronously.
+- When pipelining is enabled, it is important to invoke `reset()` to discard any related exceptions and avoid unbounded memory usage. Using the context manager (`with` statement) ensures `reset()` is called automatically.
+
+Handling Exceptions and Limitations
+-----------------------------------
+
+Mitogen cannot invoke certain types of functions due to serialization limitations:
+
+- Closures: Functions that capture arbitrary program state cannot be serialized.
+- Anonymous functions (lambdas): No universal method exists to recover a reference.
+- Instance methods: Serializing arbitrary program state is required, which is unsupported.
+
+Attempting to call such functions will raise a `TypeError` with an explanatory message.
+
+Advanced Features
+-----------------
+
+- Mitogen manages stdio streams and replaces them with `/dev/null` when necessary to handle odd startup conditions.
+- It tracks context IDs and parent IDs internally to manage hierarchical relationships between contexts.
+- Protocols define the behavior associated with activity on streams, allowing flexible handling of connection initialization and message routing.
+
+Summary
+-------
+
+Mitogen offers a robust and efficient framework for remote execution in Python, with features like asynchronous calls, pipelining via `CallChain`, and automatic connection management. By leveraging these capabilities, you can build scalable and high-performance distributed applications with minimal overhead.
+
+For more detailed information and advanced usage, refer to the full Mitogen documentation and API reference.

@@ -1,0 +1,132 @@
+Getting Started with Mitogen
+=============================
+
+Mitogen is a Python library designed to simplify and optimize the creation of distributed applications by enabling efficient remote procedure calls and process management. This guide provides an overview of key concepts and usage patterns to help you get started quickly.
+
+Creating Efficient Communication Channels
+-----------------------------------------
+
+Mitogen uses UNIX socket pairs to establish communication channels between processes. Socket pairs are bidirectional and economical on file descriptor usage, allowing a single descriptor to serve both standard input and output. Additionally, socket buffers are tunable, which can improve file transfer throughput and reduce IO loop iterations.
+
+Example function to create a socket pair for child process stdio channels:
+
+```python
+def create_socketpair(size=None):
+    """
+    Create a socketpair for use as a child's UNIX stdio channels.
+    """
+    # Implementation details...
+```
+
+Disabling Terminal Echo
+-----------------------
+
+When working with terminal file descriptors, you may need to disable echo to prevent input from being displayed. Mitogen provides a utility function to disable echo on a given file descriptor:
+
+```python
+def disable_echo(fd):
+    """
+    Disable terminal echo on the specified file descriptor.
+    """
+    old = termios.tcgetattr(fd)
+    new = cfmakeraw(old)
+    flags = getattr(termios, 'TCSASOFT', 0)
+    if not mitogen.core.IS_WSL:
+        flags |= termios.TCSAFLUSH
+    termios.tcsetattr(fd, flags, new)
+```
+
+This function configures the terminal to raw mode, disabling echo and other input processing features.
+
+Using Call Chains for Efficient Remote Calls
+--------------------------------------------
+
+Mitogen supports pipelined remote procedure calls through the `CallChain` class. This allows multiple calls to be sent in a single round-trip, reducing latency and improving throughput.
+
+Example usage of `CallChain` with pipelining enabled:
+
+```python
+chain = mitogen.parent.CallChain(context, pipelined=True)
+chain.call_no_reply(os.mkdir, '/tmp/foo')
+chain.call_no_reply(os.mkdir, '/tmp/foo/bar')
+recv = chain.call_async(subprocess.check_output, '/tmp/foo')
+chain.call(do_something)
+
+if recv.get().unpickle() == 'baz':
+    pass
+```
+
+Key points about `CallChain`:
+
+- If any call in the chain fails, subsequent calls are not executed.
+- Exceptions are asynchronously delivered to the receiver.
+- The `reset()` method must be called to discard exceptions and prevent unbounded memory usage in long-running programs.
+- The context manager protocol is supported to automatically invoke `reset()`:
+
+```python
+with mitogen.parent.CallChain(context, pipelined=True) as chain:
+    chain.call_no_reply(...)
+    chain.call_no_reply(...)
+    chain.call(...)
+# chain.reset() is automatically called here
+```
+
+Limitations on Callable Types
+-----------------------------
+
+Mitogen cannot invoke certain types of callables due to serialization constraints:
+
+- **Closures:** Serializing arbitrary program state is not supported.
+- **Anonymous functions (lambdas):** No universal method exists to recover references.
+- **Instance methods:** Serializing instance state is not supported.
+
+Attempting to use these will raise a `TypeError` with an explanatory message.
+
+Example error messages:
+
+- "Mitogen cannot invoke closures, as doing so would require serializing arbitrary program state."
+- "Mitogen cannot invoke anonymous functions, as no universal method exists to recover a reference."
+- "Mitogen cannot invoke instance methods, as doing so would require serializing arbitrary program state."
+
+Buffer Size Considerations
+--------------------------
+
+Efficient IO depends on appropriate buffer sizes. Mitogen uses a chunk size of 131072 bytes (128 KiB) to optimize message sizes and reduce IO loop iterations.
+
+Notes on buffer sizes:
+
+- Most UNIX TTYs have fixed buffers of 2KiB-4KiB, which are not ideal for high throughput.
+- Pipe buffer sizes vary across UNIX systems; Linux defaults to 64KiB but can be smaller under memory pressure.
+- Intermediary processes (e.g., OpenSSH) may impose their own buffer limits (commonly 64KiB).
+
+Mitogen aims to use buffer sizes that are multiples of the chunk size to maximize efficiency.
+
+Standard IO Handling
+--------------------
+
+Mitogen includes mechanisms to manage standard IO streams safely, including temporarily redirecting stdio to `/dev/null` to handle unusual startup conditions or to avoid interference.
+
+Example snippet to nullify stdio:
+
+```python
+def _nullify_stdio(self):
+    """
+    Replace standard input, output, and error with /dev/null.
+    """
+    for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):
+        fd = os.open('/dev/null', mode)
+        if fd != stdfd:
+            os.dup2(fd, stdfd)
+            os.close(fd)
+```
+
+This ensures that the process does not accidentally read from or write to unintended file descriptors.
+
+Summary
+-------
+
+Mitogen provides powerful abstractions for remote execution and inter-process communication with a focus on efficiency and simplicity. By leveraging socket pairs, pipelined call chains, and careful buffer management, it enables scalable distributed applications in Python.
+
+To get started, create contexts and use `CallChain` for pipelined remote calls, handle exceptions properly with `reset()`, and avoid unsupported callable types such as closures and lambdas.
+
+For more detailed usage and advanced features, refer to the full Mitogen documentation.

@@ -1,0 +1,120 @@
+Analyzing a Collection of Text Documents
+========================================
+
+This section describes how to analyze a collection of text documents by converting them into numerical feature representations suitable for machine learning models. The primary focus is on extracting token counts and transforming these counts into normalized term-frequency or tf-idf representations.
+
+CountVectorizer: Converting Text to Token Counts
+------------------------------------------------
+
+The `CountVectorizer` class converts a collection of text documents into a matrix of token counts. This matrix is typically represented as a sparse matrix (`scipy.sparse.csr_matrix`) to efficiently handle large vocabularies and datasets.
+
+Key Features:
+- Produces a sparse representation of token counts.
+- If no vocabulary is provided, it builds one by analyzing the input data.
+- Supports different input types: filenames, file-like objects, or raw content.
+- Allows customization of text preprocessing, tokenization, stop word removal, and n-gram extraction.
+
+Parameters:
+
+- **input** : {'filename', 'file', 'content'}, default='content'  
+  Specifies the input type.  
+  - `'filename'`: Input is a list of filenames to read.  
+  - `'file'`: Input is a list of file-like objects with a `read` method.  
+  - `'content'`: Input is a sequence of strings or bytes.
+
+- **encoding** : str, default='utf-8'  
+  Encoding used to decode bytes or files.
+
+- **decode_error** : {'strict', 'ignore', 'replace'}, default='strict'  
+  How to handle decoding errors.
+
+- **strip_accents** : {'ascii', 'unicode'} or callable, default=None  
+  Removes accents and normalizes characters during preprocessing.
+
+- **lowercase** : bool, default=True  
+  Converts all characters to lowercase before tokenizing.
+
+- **preprocessor** : callable, default=None  
+  Custom preprocessing function overriding default preprocessing.
+
+- **tokenizer** : callable, default=None  
+  Custom tokenizer function overriding the default tokenization.
+
+- **stop_words** : {'english'}, list, default=None  
+  Stop words to remove from tokens.
+
+- **token_pattern** : str or None, default=r"(?u)\b\w\w+\b"  
+  Regular expression defining what constitutes a token.
+
+- **ngram_range** : tuple (min_n, max_n), default=(1, 1)  
+  Range of n-values for different n-grams to extract.
+
+- **analyzer** : {'word', 'char', 'char_wb'} or callable, default='word'  
+  Whether to analyze word or character n-grams.
+
+Usage:
+
+- `fit(raw_documents)`: Learn the vocabulary dictionary from the raw documents.
+- `transform(raw_documents)`: Transform documents to document-term matrix.
+- `fit_transform(raw_documents)`: Fit to data, then transform it.
+- `inverse_transform(X)`: Return terms per document with nonzero entries in X.
+- `get_feature_names_out()`: Get output feature names for transformation.
+
+Example:
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer
+
+documents = ["This is the first document.", "This document is the second document."]
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(documents)
+print(X.toarray())
+print(vectorizer.get_feature_names_out())
+```
+
+TfidfTransformer: Normalizing Token Counts
+------------------------------------------
+
+The `TfidfTransformer` transforms a count matrix to a normalized term-frequency (tf) or term-frequency times inverse document-frequency (tf-idf) representation.
+
+- **Term Frequency (tf)**: The raw count of a term in a document.
+- **Inverse Document Frequency (idf)**: A measure that downscales terms that appear frequently across many documents, highlighting more informative terms.
+
+The tf-idf value for a term *t* in a document *d* is computed as:
+
+```
+tf-idf(t, d) = tf(t, d) * idf(t)
+```
+
+This weighting scheme is widely used in information retrieval and document classification to emphasize important words and reduce the impact of common but less informative words.
+
+Usage:
+
+- Fit the transformer on a count matrix.
+- Transform the count matrix to tf or tf-idf representation.
+
+Example:
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+
+documents = ["This is the first document.", "This document is the second document."]
+count_vectorizer = CountVectorizer()
+X_counts = count_vectorizer.fit_transform(documents)
+
+tfidf_transformer = TfidfTransformer()
+X_tfidf = tfidf_transformer.fit_transform(X_counts)
+print(X_tfidf.toarray())
+```
+
+Additional Utilities
+--------------------
+
+- `_document_frequency(X)`: Counts the number of documents in which each term appears (non-zero counts per feature).
+- `Hasher`: A feature hasher that converts text to hashed feature vectors, useful for large-scale or streaming data.
+- `_make_int_array()`: Utility to create an integer array suitable for sparse matrix indices.
+
+Summary
+-------
+
+Analyzing a collection of text documents involves converting raw text into numerical feature vectors. The `CountVectorizer` extracts token counts, optionally applying preprocessing, tokenization, and n-gram extraction. The `TfidfTransformer` then normalizes these counts to emphasize informative terms. Together, these tools provide a robust pipeline for preparing text data for machine learning tasks such as classification, clustering, and retrieval.

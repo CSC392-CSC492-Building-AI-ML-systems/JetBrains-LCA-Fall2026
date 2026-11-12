@@ -1,0 +1,305 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Collection API\n==============\n\nOverview\n--------\n\nThis module provides the core functionality for adapting and managing Python collections within the SQLAlchemy ORM. It bridges the gap between arbitrary Python collections and the ORM's internal mechanisms, enabling event-driven mutation tracking and seamless integration of collections with ORM-mapped entities.\n\nKey Components\n--------------\n\nCollectionAdapter\n~~~~~~~~~~~~~~~~~\n\nThe `CollectionAdapter` class acts as a bridge between the ORM and arbitrary Python collections. It proxies base-level collection operations such as append, remove, and iteration to the underlying Python collection, while emitting add/remove events for entities entering or leaving the collection.\n\nThe ORM exclusively uses `CollectionAdapter` for interaction with entity collections, ensuring consistent behavior and event handling.\n\nAttributes:\n\n- `attr`: The `CollectionAttributeImpl` instance representing the collection attribute.\n- `_key`: The key (name) of the collection attribute.\n- `_data`: A weak reference to the adapted collection.\n- `owner_state`: The `InstanceState` of the owner object that holds the collection.\n- `_converter`: A protocol instance responsible for converting collection elements.\n- `invalidated`: A boolean flag indicating if the collection has been invalidated.\n- `empty`: A boolean flag indicating if the collection is in an \"empty\" state.\n\nImportant Methods:\n\n- `append_with_event(item, initiator=None)`: Adds an entity to the collection and fires mutation events.\n- `append_without_event(item)`: Adds or restores an entity to the collection without firing events.\n- `append_multiple_without_event(items)`: Adds multiple entities without firing events.\n- `bulk_appender()`: Returns the underlying collection's appender callable.\n- `_set_empty(user_data)`: Marks the collection as empty and stores user data.\n- `_reset_empty()`: Resets the collection from the empty state.\n- `_refuse_empty()`: Raises an error if mutation is attempted on an empty collection.\n- `_referenced_by_owner`: Property indicating if the owner state still refers to this collection.\n- `data`: Property returning the underlying adapted collection.\n\nDecorators for Collection Methods\n---------------------------------\n\nThe module provides decorators to mark methods on collection classes that modify the collection in specific ways, enabling the ORM to track changes accurately.\n\n- `removes_return()`: A static method decorator that marks a method as removing an entity from the collection. The return value of the method is considered the value to remove. This decorator adds \"remove from collection\" handling to the method without inspecting method arguments.\n\n  Example usage::\n\n      @collection.removes_return()\n      def pop(self):\n          ...\n\nCollection Adapter Retrieval\n----------------------------\n\n- `collection_adapter(collection)`: A utility function to fetch the `CollectionAdapter` associated with a given collection. When type checking is enabled, this function is explicitly defined; otherwise, it is implemented as an attribute getter for the `_sa_adapter` attribute.\n\nInstrumentation and Integration\n-------------------------------\n\nThe module ensures that built-in collection classes such as `InstrumentedList`, `InstrumentedSet`, and `KeyFuncDict` are instrumented for ORM integration. This instrumentation allows these collections to emit appropriate events and participate fully in the ORM's change tracking system.\n\nAdditional Utilities\n--------------------\n\nThe module imports and integrates various mapped collection utilities such as:\n\n- `mapped_collection`\n- `column_keyed_dict`\n- `attribute_keyed_dict`\n- `KeyFuncDict`\n- `column_mapped_collection`\n- `attribute_mapped_collection`\n- `MappedCollection`\n\nThese utilities provide specialized collection types and behaviors tailored for ORM use cases.\n\nSummary\n-------\n\nThis module is fundamental for managing collections within SQLAlchemy's ORM. By adapting arbitrary Python collections and providing event-driven mutation tracking, it enables robust and efficient handling of entity collections, ensuring that changes are properly detected and propagated throughout the ORM system.",
+  "prediction_sha256": "a75b8febf6e141f2bd67c3a76b9c3b25529cf1a05b1d825e1bd42354e1b3c23c",
+  "prompt_sha256": "ac145b3a1d3a3954414b923564e28c90281d5602a7e2eed450191fa9509d44f4",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12675,
+    "completion_tokens": 850,
+    "total_tokens": 13525
+  },
+  "cost_usd": 0.006430000000000001,
+  "generation_seconds": 10.700867624982493,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "collection_api"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 16,
+              "start_char": 15600,
+              "end_char": 16451,
+              "code": "YPE_CHECKING:\n\n    def collection_adapter(collection: Collection[Any]) -> CollectionAdapter:\n        \"\"\"Fetch the :class:`.CollectionAdapter` for a collection.\"\"\"\n\nelse:\n    collection_adapter = operator.attrgetter(\"_sa_adapter\")\n\n\nclass CollectionAdapter:\n    \"\"\"Bridges between the ORM and arbitrary Python collections.\n\n    Proxies base-level collection operations (append, remove, iterate)\n    to the underlying Python collection, and emits add/remove events for\n    entities entering or leaving the collection.\n\n    The ORM uses :class:`.CollectionAdapter` exclusively for interaction with\n    entity collections.\n\n\n    \"\"\"\n\n    __slots__ = (\n        \"attr\",\n        \"_key\",\n        \"_data\",\n        \"owner_state\",\n        \"_converter\",\n        \"invalidated\",\n        \"empty\",\n    )\n\n    attr: CollectionAttributeImpl\n    _key: str\n\n    # this is",
+              "code_tokens": 300,
+              "score": 0.868501523287
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 14824,
+              "end_char": 15557,
+              "code": "       def decorator(fn):\n            fn._sa_instrument_before = (\"fire_remove_event\", arg)\n            return fn\n\n        return decorator\n\n    @staticmethod\n    def removes_return():\n        \"\"\"Mark the method as removing an entity in the collection.\n\n        Adds \"remove from collection\" handling to the method.  The return\n        value of the method, if any, is considered the value to remove.  The\n        method arguments are not inspected::\n\n            @collection.removes_return()\n            def pop(self):...\n\n        For methods where the value to remove is known at call-time, use\n        collection.remove.\n\n        \"\"\"\n\n        def decorator(fn):\n            fn._sa_instrument_after = \"fire_remove_event\"\n           ",
+              "code_tokens": 300,
+              "score": 0.859988129982
+            },
+            {
+              "chunk_id": 65,
+              "start_char": 50933,
+              "end_char": 51853,
+              "code": "set_decorators(),\n        ),\n        # decorators are required for dicts and object collections.\n        dict: ({\"iterator\": \"values\"}, _dict_decorators()),\n    }\n)\n\n\ndef __go(lcls):\n    global keyfunc_mapping, mapped_collection\n    global column_keyed_dict, column_mapped_collection\n    global MappedCollection, KeyFuncDict\n    global attribute_keyed_dict, attribute_mapped_collection\n\n    from.mapped_collection import keyfunc_mapping\n    from.mapped_collection import column_keyed_dict\n    from.mapped_collection import attribute_keyed_dict\n    from.mapped_collection import KeyFuncDict\n\n    from.mapped_collection import mapped_collection\n    from.mapped_collection import column_mapped_collection\n    from.mapped_collection import attribute_mapped_collection\n    from.mapped_collection import MappedCollection\n\n    # ensure instrumentation is associated with\n    # these built-in classes; if a user-defined class\n  ",
+              "code_tokens": 300,
+              "score": 0.855449801384
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 16
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 16,
+              "start_char": 15600,
+              "end_char": 19504,
+              "code": "YPE_CHECKING:\n\n    def collection_adapter(collection: Collection[Any]) -> CollectionAdapter:\n        \"\"\"Fetch the :class:`.CollectionAdapter` for a collection.\"\"\"\n\nelse:\n    collection_adapter = operator.attrgetter(\"_sa_adapter\")\n\n\nclass CollectionAdapter:\n    \"\"\"Bridges between the ORM and arbitrary Python collections.\n\n    Proxies base-level collection operations (append, remove, iterate)\n    to the underlying Python collection, and emits add/remove events for\n    entities entering or leaving the collection.\n\n    The ORM uses :class:`.CollectionAdapter` exclusively for interaction with\n    entity collections.\n\n\n    \"\"\"\n\n    __slots__ = (\n        \"attr\",\n        \"_key\",\n        \"_data\",\n        \"owner_state\",\n        \"_converter\",\n        \"invalidated\",\n        \"empty\",\n    )\n\n    attr: CollectionAttributeImpl\n    _key: str\n\n    # this is actually a weakref; see note in constructor\n    _data: Callable[..., _AdaptedCollectionProtocol]\n\n    owner_state: InstanceState[Any]\n    _converter: _CollectionConverterProtocol\n    invalidated: bool\n    empty: bool\n\n    def __init__(\n        self,\n        attr: CollectionAttributeImpl,\n        owner_state: InstanceState[Any],\n        data: _AdaptedCollectionProtocol,\n    ):\n        self.attr = attr\n        self._key = attr.key\n\n        # this weakref stays referenced throughout the lifespan of\n        # CollectionAdapter.  so while the weakref can return None, this\n        # is realistically only during garbage collection of this object, so\n        # we type this as a callable that returns _AdaptedCollectionProtocol\n        # in all cases.\n        self._data = weakref.ref(data)  # type: ignore\n\n        self.owner_state = owner_state\n        data._sa_adapter = self\n        self._converter = data._sa_converter\n        self.invalidated = False\n        self.empty = False\n\n    def _warn_invalidated(self) -> None:\n        util.warn(\"This collection has been invalidated.\")\n\n    @property\n    def data(self) -> _AdaptedCollectionProtocol:\n        \"The entity collection being adapted.\"\n        return self._data()\n\n    @property\n    def _referenced_by_owner(self) -> bool:\n        \"\"\"return True if the owner state still refers to this collection.\n\n        This will return False within a bulk replace operation,\n        where this collection is the one being replaced.\n\n        \"\"\"\n        return self.owner_state.dict[self._key] is self._data()\n\n    def bulk_appender(self):\n        return self._data()._sa_appender\n\n    def append_with_event(\n        self, item: Any, initiator: Optional[AttributeEventToken] = None\n    ) -> None:\n        \"\"\"Add an entity to the collection, firing mutation events.\"\"\"\n\n        self._data()._sa_appender(item, _sa_initiator=initiator)\n\n    def _set_empty(self, user_data):\n        assert (\n            not self.empty\n        ), \"This collection adapter is already in the 'empty' state\"\n        self.empty = True\n        self.owner_state._empty_collections[self._key] = user_data\n\n    def _reset_empty(self) -> None:\n        assert (\n            self.empty\n        ), \"This collection adapter is not in the 'empty' state\"\n        self.empty = False\n        self.owner_state.dict[\n            self._key\n        ] = self.owner_state._empty_collections.pop(self._key)\n\n    def _refuse_empty(self) -> NoReturn:\n        raise sa_exc.InvalidRequestError(\n            \"This is a special 'empty' collection which cannot accommodate \"\n            \"internal mutation operations\"\n        )\n\n    def append_without_event(self, item: Any) -> None:\n        \"\"\"Add or restore an entity to the collection, firing no events.\"\"\"\n\n        if self.empty:\n            self._refuse_empty()\n        self._data()._sa_appender(item, _sa_initiator=False)\n\n    def append_multiple_without_event(self, items: Iterable[Any]) -> None:\n        \"\"\"Add or restore an entity to the collection, firing no events.\"\"\"\n        if self.empty:\n  ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 16
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 14
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 14,
+              "start_char": 14824,
+              "end_char": 18732,
+              "code": "       def decorator(fn):\n            fn._sa_instrument_before = (\"fire_remove_event\", arg)\n            return fn\n\n        return decorator\n\n    @staticmethod\n    def removes_return():\n        \"\"\"Mark the method as removing an entity in the collection.\n\n        Adds \"remove from collection\" handling to the method.  The return\n        value of the method, if any, is considered the value to remove.  The\n        method arguments are not inspected::\n\n            @collection.removes_return()\n            def pop(self):...\n\n        For methods where the value to remove is known at call-time, use\n        collection.remove.\n\n        \"\"\"\n\n        def decorator(fn):\n            fn._sa_instrument_after = \"fire_remove_event\"\n            return fn\n\n        return decorator\n\n\nif TYPE_CHECKING:\n\n    def collection_adapter(collection: Collection[Any]) -> CollectionAdapter:\n        \"\"\"Fetch the :class:`.CollectionAdapter` for a collection.\"\"\"\n\nelse:\n    collection_adapter = operator.attrgetter(\"_sa_adapter\")\n\n\nclass CollectionAdapter:\n    \"\"\"Bridges between the ORM and arbitrary Python collections.\n\n    Proxies base-level collection operations (append, remove, iterate)\n    to the underlying Python collection, and emits add/remove events for\n    entities entering or leaving the collection.\n\n    The ORM uses :class:`.CollectionAdapter` exclusively for interaction with\n    entity collections.\n\n\n    \"\"\"\n\n    __slots__ = (\n        \"attr\",\n        \"_key\",\n        \"_data\",\n        \"owner_state\",\n        \"_converter\",\n        \"invalidated\",\n        \"empty\",\n    )\n\n    attr: CollectionAttributeImpl\n    _key: str\n\n    # this is actually a weakref; see note in constructor\n    _data: Callable[..., _AdaptedCollectionProtocol]\n\n    owner_state: InstanceState[Any]\n    _converter: _CollectionConverterProtocol\n    invalidated: bool\n    empty: bool\n\n    def __init__(\n        self,\n        attr: CollectionAttributeImpl,\n        owner_state: InstanceState[Any],\n        data: _AdaptedCollectionProtocol,\n    ):\n        self.attr = attr\n        self._key = attr.key\n\n        # this weakref stays referenced throughout the lifespan of\n        # CollectionAdapter.  so while the weakref can return None, this\n        # is realistically only during garbage collection of this object, so\n        # we type this as a callable that returns _AdaptedCollectionProtocol\n        # in all cases.\n        self._data = weakref.ref(data)  # type: ignore\n\n        self.owner_state = owner_state\n        data._sa_adapter = self\n        self._converter = data._sa_converter\n        self.invalidated = False\n        self.empty = False\n\n    def _warn_invalidated(self) -> None:\n        util.warn(\"This collection has been invalidated.\")\n\n    @property\n    def data(self) -> _AdaptedCollectionProtocol:\n        \"The entity collection being adapted.\"\n        return self._data()\n\n    @property\n    def _referenced_by_owner(self) -> bool:\n        \"\"\"return True if the owner state still refers to this collection.\n\n        This will return False within a bulk replace operation,\n        where this collection is the one being replaced.\n\n        \"\"\"\n        return self.owner_state.dict[self._key] is self._data()\n\n    def bulk_appender(self):\n        return self._data()._sa_appender\n\n    def append_with_event(\n        self, item: Any, initiator: Optional[AttributeEventToken] = None\n    ) -> None:\n        \"\"\"Add an entity to the collection, firing mutation events.\"\"\"\n\n        self._data()._sa_appender(item, _sa_initiator=initiator)\n\n    def _set_empty(self, user_data):\n        assert (\n            not self.empty\n        ), \"This collection adapter is already in the 'empty' state\"\n        self.empty = True\n        self.owner_state._empty_collections[self._key] = user_data\n\n    def _reset_empty(self) -> None:\n        assert (\n            self.empty\n        ), \"This collection adapter is not in the 'empty' state\"\n        self",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 14
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 65
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 65,
+              "start_char": 50933,
+              "end_char": 52116,
+              "code": "set_decorators(),\n        ),\n        # decorators are required for dicts and object collections.\n        dict: ({\"iterator\": \"values\"}, _dict_decorators()),\n    }\n)\n\n\ndef __go(lcls):\n    global keyfunc_mapping, mapped_collection\n    global column_keyed_dict, column_mapped_collection\n    global MappedCollection, KeyFuncDict\n    global attribute_keyed_dict, attribute_mapped_collection\n\n    from.mapped_collection import keyfunc_mapping\n    from.mapped_collection import column_keyed_dict\n    from.mapped_collection import attribute_keyed_dict\n    from.mapped_collection import KeyFuncDict\n\n    from.mapped_collection import mapped_collection\n    from.mapped_collection import column_mapped_collection\n    from.mapped_collection import attribute_mapped_collection\n    from.mapped_collection import MappedCollection\n\n    # ensure instrumentation is associated with\n    # these built-in classes; if a user-defined class\n    # subclasses these and uses @internally_instrumented,\n    # the superclass is otherwise not instrumented.\n    # see [ticket:2406].\n    _instrument_class(InstrumentedList)\n    _instrument_class(InstrumentedSet)\n    _instrument_class(KeyFuncDict)\n\n\n__go(locals())",
+              "code_tokens": 395
+            }
+          ],
+          "code_tokens": 395
+        }
+      }
+    ],
+    "code_tokens_returned": 4295,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "66d2be35d67655bb010de812f0ea472e32b07a4513d539b4d7e0c6fcf2eef3b2",
+        "request_id": "chatcmpl-Ej9gB7QjYg7D9oQrLss4bVkVF3Tmi",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 15,
+          "total_tokens": 172,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 0.7906588749974617,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "bcfeeba4a24bfd59ba47a63bd3ddeb1b2d6bdb8b1253def8cdd3a64408406b42",
+        "request_id": "chatcmpl-Ej9gC5sU4MBqMNLte4xO09ecAgWLc",
+        "usage": {
+          "prompt_tokens": 936,
+          "completion_tokens": 15,
+          "total_tokens": 951,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00039840000000000003,
+        "seconds": 0.6202398749956046,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "c47173ffccea8a2a9e9118f3770e86a83420107abec155f7378a799422e03654",
+        "request_id": "chatcmpl-Ej9gDnzLN3W3oTrf4UBElQmnMmoLl",
+        "usage": {
+          "prompt_tokens": 1998,
+          "completion_tokens": 15,
+          "total_tokens": 2013,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008232000000000001,
+        "seconds": 0.7774144169961801,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "3e82a6814aba441f083ff9a7fe04865e0998bb7647a2e8854da5ca67b6264676",
+        "request_id": "chatcmpl-Ej9gDBhtmKM89mEb3b4c91yOENVvE",
+        "usage": {
+          "prompt_tokens": 2034,
+          "completion_tokens": 15,
+          "total_tokens": 2049,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008376,
+        "seconds": 0.7435492919976241,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "40fd72315f580c7a799f523994296c26e57437fe8fdd0acf3d40ed3613a3b773",
+        "request_id": "chatcmpl-Ej9gElfFhogDxoPp4N6XRSxXRN3kp",
+        "usage": {
+          "prompt_tokens": 3083,
+          "completion_tokens": 15,
+          "total_tokens": 3098,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012572,
+        "seconds": 0.6453135830015526,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "93a5a9a511ac694434c9ea4e4b8d229fa61df3e8fb75394ea9276ee232eea00e",
+        "request_id": "chatcmpl-Ej9gF9UHFH58HJGIRruLWqWgRIg94",
+        "usage": {
+          "prompt_tokens": 3119,
+          "completion_tokens": 15,
+          "total_tokens": 3134,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012716000000000001,
+        "seconds": 0.7420666249963688,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "4ef9f64b326272342fed062728b3f468509909bb344a8027e2b7c85409b07e33",
+        "request_id": "chatcmpl-Ej9gFzHmiWZDDbo6ahYrHjzHIqFx4",
+        "usage": {
+          "prompt_tokens": 1348,
+          "completion_tokens": 760,
+          "total_tokens": 2108,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0017552,
+        "seconds": 6.381624957997701,
+        "retry_count": 0
+      }
+    ]
+  }
+}

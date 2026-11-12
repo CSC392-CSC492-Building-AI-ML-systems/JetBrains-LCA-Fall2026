@@ -1,0 +1,42 @@
+{
+  "original_id": 156,
+  "repo": "mitogen-hq__mitogen",
+  "docfile_name": "howitworks.rst",
+  "source_sha256": "d8c6d5917989b07ea1d0c6f16df542f7bf3ceec8bb89e2ad5ad250b9953d5e21",
+  "context": "VICE = 111\n\n#: Special value used to signal disconnection or the inability to route a\n#: message, when it appears in the `reply_to` field. Usually causes\n#: :class:`mitogen.core.ChannelError` to be raised when it is received.\n#:\n#: It indicates the sender did not know how to process the message, or wishes\n#: no further messages to be delivered to it. It is used when:\n#:\n#:  * a remote receiver is disconnected or explicitly closed.\n#:  * a related message could not be delivered due to no route existing for it.\n#:  * a router is being torn down, as a sentinel value to notify\n#:    :meth:`mitogen.core.Router.add_handler` callbacks to clean up.\nIS_DEAD = 999\n\ntry:\n    BaseException\nexcept NameError:\n    BaseException = Exception\n\nPY24 = sys.version_info < (2, 5)\nPY3 = sys.version_info > (3,)\nif PY3:\n    b = str.encode\n    BytesType = bytes\n    UnicodeType = str\n    FsPathTypes = (str,)\n    BufferType = lambda buf\n\n  registered for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in\n\n.levelno, msg)\n            if isinstance(encoded, UnicodeType):\n                # Logging package emits both :(\n                encoded = encoded.encode('utf-8')\n            self._send(Message(data=encoded, handle=FORWARD_LOG))\n        finally:\n            self.local.in_emit = False\n\n\nclass Stream(object):\n    \"\"\"\n    A :class:`Stream` is one readable and optionally one writeable file\n    descriptor (represented by :class:`Side`) aggregated alongside an\n    associated :class:`Protocol` that knows how to respond to IO readiness\n    events for those descriptors.\n\n    Streams are registered with :class:`Broker`, and callbacks are invoked on\n    the broker thread in response to IO activity. When registered using\n    :meth:`Broker.start_receive` or :meth:`Broker._start_transmit`, the broker\n    may call any of\n\n is expected that the :class:`Protocol` associated with a stream will\n    change over its life. For example during connection setup, the initial\n    protocol may be :class:`mitogen.parent.BootstrapProtocol` that knows how to\n    enter SSH and sudo passwords and transmit the :mod:`mitogen.core` source to\n    the target, before handing off to :class:`MitogenProtocol` when the target\n    process is initialized.\n\n    Streams connecting to children are in turn aggregated by\n    :class:`mitogen.parent.Connection`, which contains additional logic for\n    managing any child process, and a reference to any separate ``stderr``\n    :class:`Stream` connected to that process.\n    \"\"\"\n    #: A :class:`Side` representing the stream's receive file descriptor.\n    receive_side = None\n\n    #: A :class:`Side` representing the stream's transmit file descriptor.\n    transmit_side = None\n\n    #: A :class:`Protocol` representing the protocol active on the stream.\n    protocol = None\n\n    #: In parents, the :class:`mitogen.parent.Connection` instance.\n\n\n      self.config.get('blacklist', ()),\n            )\n\n        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.im\n\nporter\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_fp(self):\n        \"\"\"\n        #481: when stderr is a TTY due to being started via tty_create_child()\n        or hybrid_tty_create_child(), and some privilege escalation tool like\n        prehistoric versions of sudo exec this process over the top of itself,\n        there is nothing left to keep the slave PTY open after we replace our\n        stdio. Therefore if stderr is a TTY, keep around a permanent dup() to\n        avoid receiving SIGHUP.\n        \"\"\"\n        try:\n            if os.isatty(2):\n                self.reserve_tty_fp = os.fdopen(os.dup(2), 'r+b', 0)\n                set_cloexec(self.reserve_tty_fp.fileno())\n        except OSError:\n            pass\n\n    def _setup_stdio(self):\n        self._preserve_tty_fp()\n        # When sys.stdout was opened by the runtime, overwriting it will not\n        # close FD 1. However when forking from a child that previously used\n        # fdopen(), overwriting it /will/ close FD 1. So we must swallow the\n        # close before IoLogger overwrites FD 1, otherwise its new FD 1 will be\n        # clobbered. Additionally, stdout must be replaced with /dev/null prior\n        # to stdout.close(), since if block buffering was active in the parent,\n        # any pre-fork buffered data will be flushed on close(), corrupting the\n        # connection to the parent.\n        self._nullify_stdio()\n        sys.stdout.close()\n        self._nullify_stdio()\n\n        self.loggers = []\n        for name, fd in (('stdout', 1), ('stderr', 2)):\n            log = IoLoggerProtocol.build_stream(name, fd)\n            self.broker.start_receive(log)\n            self.loggers.append(log)\n\n        # Reopen with line buffering.\n        sys.stdout = os.fdopen(1, 'w', 1)\n\n    def main(self):\n        self._setup_master()\n        try:\n            try:\n                self._setup_logging()\n       \n\n         self._setup_importer()\n                self._reap_first_stage()\n                if self.config.get('setup_package', True):\n                    self._setup_package()\n          ",
+  "preparation_seconds": 0.30129741798737086,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 3540,
+        "end_char": 4462
+      },
+      {
+        "start_char": 13437,
+        "end_char": 14357
+      },
+      {
+        "start_char": 54427,
+        "end_char": 55243
+      },
+      {
+        "start_char": 55342,
+        "end_char": 56386
+      },
+      {
+        "start_char": 140180,
+        "end_char": 140800
+      },
+      {
+        "start_char": 140800,
+        "end_char": 143470
+      },
+      {
+        "start_char": 143470,
+        "end_char": 143654
+      }
+    ],
+    "context_tokens": 2814,
+    "context_sha256": "a32deebdde4cdb765eadc1170a2164636b13316ac414dfe37b914777a6f04447"
+  }
+}

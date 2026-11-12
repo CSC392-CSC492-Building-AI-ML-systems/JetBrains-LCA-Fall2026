@@ -1,0 +1,34 @@
+{
+  "original_id": 22,
+  "repo": "westpa__westpa",
+  "docfile_name": "w_fluxanl.rst",
+  "source_sha256": "3730d4210ba939b30a83f2cc00258aaeb9dfc4226fa842e670084ab4aa15ffd4",
+  "context": "])[0] :]\n\n    return by_target\n\n\ndef extract_fluxes(iter_start=None, iter_stop=None, data_manager=None):\n    '''Extract flux values from the WEST HDF5 file for iterations >= iter_start\n    and < iter_stop, optionally using another data manager instance instead of the\n    global one returned by ``westpa.rc.get_data_manager()``.\n\n    Returns a dictionary mapping target names (if available, target index otherwise)\n    to a 1-D array of type ``fluxentry_dtype``, which contains columns for iteration\n    number, flux, and count.\n    '''\n\n    data_manager = data_manager or westpa.rc.get_data_manager()\n    iter_start = iter_start or 1\n    iter_stop = iter_stop or data_manager.current_iteration\n\n    if data_manager.we_h5file_version < 7:\n        return _extract_fluxes_fileversion_lt_7(iter_start, iter_stop, data_manager)\n    else:\n        return _extract_fluxes\n\n_fileversion_7(iter_start, iter_stop, data_manager)\n\n\nclass WFluxanlTool(WESTTool):\n    prog = 'w_fluxanl'\n    description = '''\\\nExtract fluxes into pre-defined target states from WEST data,\naverage, and construct confidence intervals. Monte Carlo bootstrapping\nis used to account for the correlated and possibly non-Gaussian statistical\nerror in flux measurements.\n\nAll non-graphical output (including that to the terminal and HDF5) assumes that\nthe propagation/resampling period ``tau`` is equal to unity; to obtain results\nin familiar units, divide all fluxes and multiply all correlation lengths by\nthe true value of ``tau``.\n'''\n\n    output_format_version = 2\n\n    def __init__(self):\n        super().__init__()\n        self.data_reader = WESTDataReader()\n        self.iter_range = IterRangeSelection()\n        self.output_h5file = None\n        self.output_group = None\n        self.target_groups = {}\n\n        self.fluxdata = {}\n\n        self.alpha = None\n        self.autocorrel_alpha = None\n        self.n_sets = None\n        self.do_evol = False\n        self.evol_step = 1\n\n    def add_args(self, parser):\n        self.data_reader.add_args(parser)\n        self.iter_range.add_args(parser)\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument(\n            '-o',\n            '--output',\n            default='fluxanl.h5',\n            help='Store intermediate data and analysis results to OUTPUT (default: %(default)s).',\n        )\n        cgroup = parser.add_argument_group('calculation options')\n        cgroup.add_argument(\n            '--disable-bootstrap',\n            '-db',\n            dest='bootstrap',\n            action='store_const',\n            const=False,\n            help='''Enable the use of Monte Carlo Block Bootstrapping.''',\n        )\n        cgroup.add_argument(\n            '--disable-correl',\n            '-dc',\n            dest='correl',\n            action='store_const',\n            const=False,\n            help='''Disable the correlation analysis.''',\n        )\n        cgroup.add_argument(\n            '-a',\n            '--alpha',\n            type=float,\n            default=0.05,\n            help='''Calculate a (1-ALPHA) confidence interval on the average flux'\n                             (default: %(default)s)''',\n        )\n        cgroup.add_argument(\n            '--autocorrel-alpha',\n            type=float,\n            dest='acalpha',\n            metavar='ACALPHA',\n            help='''Evaluate autocorrelation of flux to (1-ACALPHA) significance.\n                             Note that too small an ACALPHA will result in failure to\n\n detect autocorrelation\n                             in a noisy flux signal. (Default: same as ALPHA.)''',\n        )\n        cgroup.add_argument(\n            '-N', '--nsets', type=int, help='''Use NSETS samples for bootstrapping (default: chosen based on ALPHA)'''\n        )\n        cgroup.add_argument(\n            '--evol',\n            action='store_true',\n            dest='do_evol',\n            help='''Calculate time evolution of flux confidence intervals (expensive).''',\n        )\n        cgroup.add_argument(\n            '--evol-step',\n            type=int,\n            default=1,\n            metavar='ESTEP',\n            help='''Calculate time evolution of flux confidence intervals every ESTEP\n                            iterations (default: %(default)s)''',\n        )\n\n    def process_args(self, args):\n        self.data_reader.process_args(args)\n        self.data_reader.open()\n        self.iter_range.data_manager = self.data_reader\n        self.iter_range.process_args(args)\n\n        self.output_h5file = h5py.File(args.output, 'w')\n\n        self.alpha = args.alpha\n        # Disable the bootstrap or the correlation analysis.\n        self.mcbs_enable = args.bootstrap if args.bootstrap is not None else True\n        self.do_correl = args.correl if args.correl is not None else True\n        self.autocorrel_alpha = args.acalpha or self.alpha\n        self.n_sets = args.nsets or mclib.get_bssize(self.alpha)\n\n        self.do_evol = args.do_evol\n       \n\n sterr\n\n                del fluxes\n\n            cis_ds = target_group.create_dataset('flux_evolution', data=cis)\n            cis_ds.attrs['iter_step'] = self.evol_step\n            cis_ds.attrs['mcbs_alpha'] = self.alpha\n            cis_ds.attrs['mcbs_autocorrel_alpha'] = self.autocorrel_alpha\n            cis_ds.attrs['mcbs_n_sets'] = self.n_sets\n\n    def go(self):\n        self.calc_store_flux_data()\n        if self.do_evol:\n            self.calc_evol_flux()\n\n\ndef entry_point():\n    warn('w_fluxanl is being deprecated.  Please use w_assign and w_direct instead.')\n    WFluxanl\n\nTool().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+  "preparation_seconds": 0.13118183398910332,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 4191,
+        "end_char": 5055
+      },
+      {
+        "start_char": 5055,
+        "end_char": 7668
+      },
+      {
+        "start_char": 7668,
+        "end_char": 9134
+      },
+      {
+        "start_char": 14921,
+        "end_char": 15502
+      },
+      {
+        "start_char": 15502,
+        "end_char": 15562
+      }
+    ],
+    "context_tokens": 2530,
+    "context_sha256": "e903e8dde037e6d329c697cadd843ce70a642dfabe6f3692987533459fda686e"
+  }
+}

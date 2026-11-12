@@ -1,0 +1,148 @@
+Transforms Module
+=================
+
+This module provides a collection of image transformation functions primarily used for data augmentation and preprocessing in computer vision tasks. The transformations support both PIL Images and PyTorch Tensors, allowing flexible integration into various image processing pipelines.
+
+Functions
+---------
+
+crop_resize(img, top, left, height, width, size, interpolation=InterpolationMode.BILINEAR, antialias="warn") -> Tensor or PIL Image
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Crop the given image and resize it to the desired size.
+
+- **Parameters:**
+  - `img` (PIL Image or Tensor): Image to be cropped. The coordinate (0,0) denotes the top-left corner.
+  - `top` (int): Vertical coordinate of the top-left corner of the crop box.
+  - `left` (int): Horizontal coordinate of the top-left corner of the crop box.
+  - `height` (int): Height of the crop box.
+  - `width` (int): Width of the crop box.
+  - `size` (sequence or int): Desired output size. Same semantics as the resize function.
+  - `interpolation` (InterpolationMode, optional): Interpolation mode to use for resizing. Default is `InterpolationMode.BILINEAR`.
+  - `antialias` (bool or str or None, optional): Whether to apply antialiasing when resizing. Default is `"warn"`.
+    - `True`: Apply antialiasing for bilinear or bicubic modes.
+    - `False`: Do not apply antialiasing for tensors; PIL images always apply antialiasing on bilinear or bicubic modes.
+    - `None`: Legacy behavior; equivalent to `False` for tensors and `True` for PIL images.
+
+- **Returns:**
+  - Cropped and resized image as a PIL Image or Tensor.
+
+- **Notes:**
+  - This function is notably used in `torchvision.transforms.RandomResizedCrop`.
+  - Only certain interpolation modes are supported for tensor inputs.
+
+Example:
+
+```python
+from torchvision.transforms import InterpolationMode
+cropped_resized_img = crop_resize(img, top=10, left=20, height=100, width=100, size=(50, 50), interpolation=InterpolationMode.BILINEAR)
+```
+
+hflip(img) -> Tensor or PIL Image
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Horizontally flip the given image.
+
+- **Parameters:**
+  - `img` (PIL Image or Tensor): Image to be flipped. If a Tensor, expected shape is [..., H, W], where `...` represents any number of leading dimensions.
+
+- **Returns:**
+  - Horizontally flipped image as a PIL Image or Tensor.
+
+Example:
+
+```python
+flipped_img = hflip(img)
+```
+
+elastic_transform(img, displacement, interpolation=InterpolationMode.BILINEAR, fill=0)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Apply elastic transformation to the given image.
+
+- **Description:**
+  Applies elastic deformation to the image by generating displacement vectors based on random offsets controlled by parameters alpha (strength) and sigma (smoothness). The displacement field is applied to the image using grid sampling.
+
+- **Parameters:**
+  - `img` (PIL Image or Tensor): Input image. If Tensor, expected shape is [..., 1 or 3, H, W]. If PIL Image, expected modes are "P", "L", or "RGB".
+  - `displacement` (Tensor): Displacement field tensor of shape [1, H, W, 2].
+  - `interpolation` (InterpolationMode, optional): Interpolation mode for sampling. Default is `InterpolationMode.BILINEAR`.
+  - `fill` (number, str, or tuple, optional): Pixel fill value for constant padding. Default is 0.
+
+- **Returns:**
+  - Elastically transformed image as a PIL Image or Tensor.
+
+Example:
+
+```python
+transformed_img = elastic_transform(img, displacement_field, interpolation=InterpolationMode.BILINEAR, fill=0)
+```
+
+_get_perspective_coeffs(startpoints, endpoints) -> List[float]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Helper function to compute coefficients for perspective transformation.
+
+- **Description:**
+  Computes the coefficients `(a, b, c, d, e, f, g, h)` used in the perspective transform formula:
+
+  \[
+  (x, y) \to \left(\frac{ax + by + c}{gx + hy + 1}, \frac{dx + ey + f}{gx + hy + 1}\right)
+  \]
+
+- **Parameters:**
+  - `startpoints` (list of list of int): Four points representing the corners of the original image.
+  - `endpoints` (list of list of int): Four points representing the corners of the transformed image.
+
+- **Returns:**
+  - List of 8 float coefficients for the perspective transform.
+
+_check_antialias(img, antialias, interpolation) -> Optional[bool]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Internal helper function to check and handle the antialias parameter for resizing transforms.
+
+- **Parameters:**
+  - `img` (Tensor): Input image tensor.
+  - `antialias` (bool, str, or None): Antialias parameter value.
+  - `interpolation` (InterpolationMode): Interpolation mode.
+
+- **Returns:**
+  - Processed antialias value or None.
+
+- **Notes:**
+  - Warns users about upcoming changes in default antialias behavior in future versions.
+
+Usage Notes
+-----------
+
+- The transformations support both PIL Images and PyTorch Tensors, with expected input shapes and modes documented per function.
+- Interpolation modes are defined in `torchvision.transforms.InterpolationMode` and should be used to specify interpolation behavior.
+- Antialiasing behavior is evolving; users are encouraged to explicitly specify the `antialias` parameter to avoid warnings and ensure consistent behavior.
+- Some functions log API usage for telemetry unless running in TorchScript scripting or tracing modes.
+
+Examples
+--------
+
+Basic usage of cropping and resizing:
+
+```python
+from torchvision.transforms import InterpolationMode
+
+cropped_resized = crop_resize(img, top=5, left=5, height=50, width=50, size=100, interpolation=InterpolationMode.BICUBIC)
+```
+
+Horizontal flipping:
+
+```python
+flipped = hflip(img)
+```
+
+Applying elastic transformation:
+
+```python
+displacement = generate_displacement_field()  # User-defined function to create displacement tensor
+elastic_img = elastic_transform(img, displacement, interpolation=InterpolationMode.BILINEAR, fill=(128, 128, 128))
+```
+
+This module is essential for augmenting image datasets and preparing images for deep learning models, providing flexible and efficient implementations of common image transformations.

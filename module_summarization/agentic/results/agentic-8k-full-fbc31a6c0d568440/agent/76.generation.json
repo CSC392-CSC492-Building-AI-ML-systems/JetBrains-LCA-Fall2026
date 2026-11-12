@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Feature Extraction Module\n=========================\n\nOverview\n--------\n\nThe feature extraction module provides utilities to extract intermediate activations (features) from PyTorch models by rewriting their computation graphs using the FX toolkit. This allows users to obtain outputs from specified internal nodes of a model, which is useful for tasks such as feature visualization, transfer learning, or debugging.\n\nKey Components\n--------------\n\n- **get_graph_node_names(model, tracer_kwargs=None, suppress_diff_warning=False)**  \n  Traces the given model twice (in training and evaluation modes) and returns the list of node names from each trace. Node names follow a consistent naming convention that helps identify repeated operations and leaf modules.\n\n- **DualGraphModule**  \n  A subclass of `torch.fx.GraphModule` that maintains separate graphs for training and evaluation modes. It switches between these graphs when the module's `.train(mode)` method is called, enabling different behaviors or outputs depending on the mode.\n\n- **create_feature_extractor(model, return_nodes=None, train_return_nodes=None, eval_return_nodes=None, tracer_kwargs=None, suppress_diff_warning=False)**  \n  Creates a new graph module that returns intermediate nodes from the given model as a dictionary mapping user-specified keys to the requested outputs. This is done by rewriting the model's computation graph to output the desired nodes and removing unused nodes and parameters.\n\nNode Naming Conventions\n-----------------------\n\n- Nodes representing repeated applications of the same operation or leaf module receive a postfix `_{counter}` to distinguish them.\n- The model is traced separately in training and evaluation modes, and node names from both traces are returned.\n- For detailed information on node naming conventions, refer to the relevant subheading in the official documentation:  \n  https://pytorch.org/vision/stable/feature_extraction.html#about-node-names\n\nUsage\n-----\n\n### Getting Node Names\n\n```python\nimport torchvision\nfrom torchvision.models.feature_extraction import get_graph_node_names\n\nmodel = torchvision.models.resnet18()\ntrain_nodes, eval_nodes = get_graph_node_names(model)\nprint(\"Train mode nodes:\", train_nodes)\nprint(\"Eval mode nodes:\", eval_nodes)\n```\n\nThis function helps identify the names of nodes available for feature extraction.\n\n### Creating a Feature Extractor\n\n```python\nimport torch\nimport torchvision\nfrom torchvision.models.feature_extraction import create_feature_extractor\n\nmodel = torchvision.models.resnet18()\n\n# Extract features from 'layer1' and 'layer3', naming them 'feat1' and 'feat2'\nreturn_nodes = {'layer1': 'feat1', 'layer3': 'feat2'}\nfeature_extractor = create_feature_extractor(model, return_nodes=return_nodes)\n\ninput_tensor = torch.rand(1, 3, 224, 224)\noutputs = feature_extractor(input_tensor)\n\nfor name, feature in outputs.items():\n    print(f\"{name}: {feature.shape}\")\n```\n\nOutput:\n\n```\nfeat1: torch.Size([1, 64, 56, 56])\nfeat2: torch.Size([1, 256, 14, 14])\n```\n\n### Handling Non-Tracable Modules or Functions\n\nSome modules or functions may not be FX traceable by default (e.g., Python built-ins like `int`). To handle these cases, you can specify leaf modules or autowrap functions in the tracer arguments:\n\n```python\ndef leaf_function(x):\n    # This function would raise an error if traced through\n    return int(x)\n\nclass LeafModule(torch.nn.Module):\n    def forward(self, x):\n        int(x.shape[0])  # problematic operation\n        return torch.nn.functional.relu(x + 4)\n\nclass MyModule(torch.nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.conv = torch.nn.Conv2d(3, 1, 3)\n        self.leaf_module = LeafModule()\n\n    def forward(self, x):\n        leaf_function(x.shape[0])\n        x = self.conv(x)\n        return self.leaf_module(x)\n\nmodel = MyModule()\n\nfeature_extractor = create_feature_extractor(\n    model,\n    return_nodes=['leaf_module'],\n    tracer_kwargs={\n        'leaf_modules': [LeafModule],\n        'autowrap_functions': [leaf_function]\n    }\n)\n```\n\nThis approach prevents tracing through problematic parts by treating them as atomic leaf modules or functions.\n\nNotes\n-----\n\n- The module relies on PyTorch's FX toolkit for graph tracing and rewriting. Not all models are FX traceable out-of-the-box.\n- When specifying return nodes, you can provide either a list or a dictionary mapping node names to output keys.\n- You can specify different return nodes for training and evaluation modes by using `train_return_nodes` and `eval_return_nodes`.\n- The module automatically appends default tracer arguments to user-provided ones to ensure compatibility with torchvision operations.\n\nFor more detailed information, please refer to the official PyTorch Vision feature extraction documentation:  \nhttps://pytorch.org/vision/stable/feature_extraction.html",
+  "prediction_sha256": "13a4c92aba8e3e81d56831f9da886f00805e331af6971a0e54c8b411ffd30375",
+  "prompt_sha256": "ae0fcda8fecbd53cb8d19d30d6ba3c56950191075b8d5bda31fe31c1938476c2",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12849,
+    "completion_tokens": 1583,
+    "total_tokens": 14432
+  },
+  "cost_usd": 0.007672400000000001,
+  "generation_seconds": 13.779710166003497,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "feature_extraction"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8916,
+              "end_char": 9753,
+              "code": "           fall within this category.\n        2. Nodes representing the repeated application of the same operation\n           or leaf module get a ``_{counter}`` postfix.\n\n    The model is traced twice: once in train mode, and once in eval mode. Both\n    sets of node names are returned.\n\n    For more details on the node naming conventions used here, please see the\n    :ref:`relevant subheading <about-node-names>` in the\n    `documentation <https://pytorch.org/vision/stable/feature_extraction.html>`_.\n\n    Args:\n        model (nn.Module): model for which we'd like to print node names\n        tracer_kwargs (dict, optional): a dictionary of keyword arguments for\n            ``NodePathTracer`` (they are eventually passed onto\n            `torch.fx.Tracer <https://pytorch.org/docs/stable/fx.html#torch.fx.Tracer>`_).\n            By",
+              "code_tokens": 300,
+              "score": 5.04382046841
+            },
+            {
+              "chunk_id": 16,
+              "start_char": 14408,
+              "end_char": 15469,
+              "code": "str], Dict[str, str]]] = None,\n    tracer_kwargs: Optional[Dict[str, Any]] = None,\n    suppress_diff_warning: bool = False,\n) -> fx.GraphModule:\n    \"\"\"\n    Creates a new graph module that returns intermediate nodes from a given\n    model as dictionary with user specified keys as strings, and the requested\n    outputs as values. This is achieved by re-writing the computation graph of\n    the model via FX to return the desired nodes as outputs. All unused nodes\n    are removed, together with their corresponding parameters.\n\n    Desired output nodes must be specified as a ``.`` separated\n    path walking the module hierarchy from top level module down to leaf\n    operation or leaf module. For more details on the node naming conventions\n    used here, please see the :ref:`relevant subheading <about-node-names>`\n    in the `documentation <https://pytorch.org/vision/stable/feature_extraction.html>`_.\n\n    Not all models will be FX traceable, although with some massaging they can\n    be made to cooperate. Here's a (not exhaustive) list of tips:\n\n     ",
+              "code_tokens": 300,
+              "score": 4.689702485606
+            },
+            {
+              "chunk_id": 21,
+              "start_char": 18450,
+              "end_char": 19154,
+              "code": "         when there are discrepancies between the train and eval version of\n            the graph. Defaults to False.\n\n    Examples::\n\n        >>> # Feature extraction with resnet\n        >>> model = torchvision.models.resnet18()\n        >>> # extract layer1 and layer3, giving as names `feat1` and feat2`\n        >>> model = create_feature_extractor(\n        >>>     model, {'layer1': 'feat1', 'layer3': 'feat2'})\n        >>> out = model(torch.rand(1, 3, 224, 224))\n        >>> print([(k, v.shape) for k, v in out.items()])\n        >>>     [('feat1', torch.Size([1, 64, 56, 56])),\n        >>>      ('feat2', torch.Size([1, 256, 14, 14]))]\n\n        >>> # Specifying leaf modules and leaf functions\n      ",
+              "code_tokens": 300,
+              "score": 3.596956250045
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 16
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 16,
+              "start_char": 14408,
+              "end_char": 18757,
+              "code": "str], Dict[str, str]]] = None,\n    tracer_kwargs: Optional[Dict[str, Any]] = None,\n    suppress_diff_warning: bool = False,\n) -> fx.GraphModule:\n    \"\"\"\n    Creates a new graph module that returns intermediate nodes from a given\n    model as dictionary with user specified keys as strings, and the requested\n    outputs as values. This is achieved by re-writing the computation graph of\n    the model via FX to return the desired nodes as outputs. All unused nodes\n    are removed, together with their corresponding parameters.\n\n    Desired output nodes must be specified as a ``.`` separated\n    path walking the module hierarchy from top level module down to leaf\n    operation or leaf module. For more details on the node naming conventions\n    used here, please see the :ref:`relevant subheading <about-node-names>`\n    in the `documentation <https://pytorch.org/vision/stable/feature_extraction.html>`_.\n\n    Not all models will be FX traceable, although with some massaging they can\n    be made to cooperate. Here's a (not exhaustive) list of tips:\n\n        - If you don't need to trace through a particular, problematic\n          sub-module, turn it into a \"leaf module\" by passing a list of\n          ``leaf_modules`` as one of the ``tracer_kwargs`` (see example below).\n          It will not be traced through, but rather, the resulting graph will\n          hold a reference to that module's forward method.\n        - Likewise, you may turn functions into leaf functions by passing a\n          list of ``autowrap_functions`` as one of the ``tracer_kwargs`` (see\n          example below).\n        - Some inbuilt Python functions can be problematic. For instance,\n          ``int`` will raise an error during tracing. You may wrap them in your\n          own function and then pass that in ``autowrap_functions`` as one of\n          the ``tracer_kwargs``.\n\n    For further information on FX see the\n    `torch.fx documentation <https://pytorch.org/docs/stable/fx.html>`_.\n\n    Args:\n        model (nn.Module): model on which we will extract the features\n        return_nodes (list or dict, optional): either a ``List`` or a ``Dict``\n            containing the names (or partial names - see note above)\n            of the nodes for which the activations will be returned. If it is\n            a ``Dict``, the keys are the node names, and the values\n            are the user-specified keys for the graph module's returned\n            dictionary. If it is a ``List``, it is treated as a ``Dict`` mapping\n            node specification strings directly to output names. In the case\n            that ``train_return_nodes`` and ``eval_return_nodes`` are specified,\n            this should not be specified.\n        train_return_nodes (list or dict, optional): similar to\n            ``return_nodes``. This can be used if the return nodes\n            for train mode are different than those from eval mode.\n            If this is specified, ``eval_return_nodes`` must also be specified,\n            and ``return_nodes`` should not be specified.\n        eval_return_nodes (list or dict, optional): similar to\n            ``return_nodes``. This can be used if the return nodes\n            for train mode are different than those from eval mode.\n            If this is specified, ``train_return_nodes`` must also be specified,\n            and `return_nodes` should not be specified.\n        tracer_kwargs (dict, optional): a dictionary of keyword arguments for\n            ``NodePathTracer`` (which passes them onto it's parent class\n            `torch.fx.Tracer <https://pytorch.org/docs/stable/fx.html#torch.fx.Tracer>`_).\n            By default, it will be set to wrap and make leaf nodes all torchvision ops:\n            {\"autowrap_modules\": (math, torchvision.ops,),\"leaf_modules\": _get_leaf_modules_for_ops(),}\n            WARNING: In case the user provides tracer_kwargs, above default arguments will be appended to the user\n            provided dictionary.\n        suppress_diff_warning (bool, optional): whether to suppress a warning\n            when there are discrepancies between the train and eval version of\n            the graph. Defaults to False.\n\n    Examples::\n\n        >>> # Feature extraction with resnet\n        >>> model = torchvision.models.resnet18()\n        >>> # extract layer1 and layer3, giving as names `feat1` and feat2`\n ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 21
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 21,
+              "start_char": 18450,
+              "end_char": 21769,
+              "code": "         when there are discrepancies between the train and eval version of\n            the graph. Defaults to False.\n\n    Examples::\n\n        >>> # Feature extraction with resnet\n        >>> model = torchvision.models.resnet18()\n        >>> # extract layer1 and layer3, giving as names `feat1` and feat2`\n        >>> model = create_feature_extractor(\n        >>>     model, {'layer1': 'feat1', 'layer3': 'feat2'})\n        >>> out = model(torch.rand(1, 3, 224, 224))\n        >>> print([(k, v.shape) for k, v in out.items()])\n        >>>     [('feat1', torch.Size([1, 64, 56, 56])),\n        >>>      ('feat2', torch.Size([1, 256, 14, 14]))]\n\n        >>> # Specifying leaf modules and leaf functions\n        >>> def leaf_function(x):\n        >>>     # This would raise a TypeError if traced through\n        >>>     return int(x)\n        >>>\n        >>> class LeafModule(torch.nn.Module):\n        >>>     def forward(self, x):\n        >>>         # This would raise a TypeError if traced through\n        >>>         int(x.shape[0])\n        >>>         return torch.nn.functional.relu(x + 4)\n        >>>\n        >>> class MyModule(torch.nn.Module):\n        >>>     def __init__(self):\n        >>>         super().__init__()\n        >>>         self.conv = torch.nn.Conv2d(3, 1, 3)\n        >>>         self.leaf_module = LeafModule()\n        >>>\n        >>>     def forward(self, x):\n        >>>         leaf_function(x.shape[0])\n        >>>         x = self.conv(x)\n        >>>         return self.leaf_module(x)\n        >>>\n        >>> model = create_feature_extractor(\n        >>>     MyModule(), return_nodes=['leaf_module'],\n        >>>     tracer_kwargs={'leaf_modules': [LeafModule],\n        >>>                    'autowrap_functions': [leaf_function]})\n\n    \"\"\"\n    tracer_kwargs = _set_default_tracer_kwargs(tracer_kwargs)\n    is_training = model.training\n\n    if all(arg is None for arg in [return_nodes, train_return_nodes, eval_return_nodes]):\n\n        raise ValueError(\n            \"Either `return_nodes` or `train_return_nodes` and `eval_return_nodes` together, should be specified\"\n        )\n\n    if (train_return_nodes is None) ^ (eval_return_nodes is None):\n        raise ValueError(\n            \"If any of `train_return_nodes` and `eval_return_nodes` are specified, then both should be specified\"\n        )\n\n    if not ((return_nodes is None) ^ (train_return_nodes is None)):\n        raise ValueError(\"If `train_return_nodes` and `eval_return_nodes` are specified, then both should be specified\")\n\n    # Put *_return_nodes into Dict[str, str] format\n    def to_strdict(n) -> Dict[str, str]:\n        if isinstance(n, list):\n            return {str(i): str(i) for i in n}\n        return {str(k): str(v) for k, v in n.items()}\n\n    if train_return_nodes is None:\n        return_nodes = to_strdict(return_nodes)\n        train_return_nodes = deepcopy(return_nodes)\n        eval_return_nodes = deepcopy(return_nodes)\n    else:\n        train_return_nodes = to_strdict(train_return_nodes)\n        eval_return_nodes = to_strdict(eval_return_nodes)\n\n    # Repeat the tracing and graph rewriting for train and eval mode\n    tracers = {}\n    graphs = {}\n    mode_return_nodes: Dict[str, Dict[str, str]] = {\"train\": train_return_nodes, \"eval\": eval_return_nodes}\n    for mode in [\"train\", \"eval\"]:\n        if mode == \"",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 10
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8916,
+              "end_char": 12869,
+              "code": "           fall within this category.\n        2. Nodes representing the repeated application of the same operation\n           or leaf module get a ``_{counter}`` postfix.\n\n    The model is traced twice: once in train mode, and once in eval mode. Both\n    sets of node names are returned.\n\n    For more details on the node naming conventions used here, please see the\n    :ref:`relevant subheading <about-node-names>` in the\n    `documentation <https://pytorch.org/vision/stable/feature_extraction.html>`_.\n\n    Args:\n        model (nn.Module): model for which we'd like to print node names\n        tracer_kwargs (dict, optional): a dictionary of keyword arguments for\n            ``NodePathTracer`` (they are eventually passed onto\n            `torch.fx.Tracer <https://pytorch.org/docs/stable/fx.html#torch.fx.Tracer>`_).\n            By default, it will be set to wrap and make leaf nodes all torchvision ops:\n            {\"autowrap_modules\": (math, torchvision.ops,),\"leaf_modules\": _get_leaf_modules_for_ops(),}\n            WARNING: In case the user provides tracer_kwargs, above default arguments will be appended to the user\n            provided dictionary.\n\n        suppress_diff_warning (bool, optional): whether to suppress a warning\n            when there are discrepancies between the train and eval version of\n            the graph. Defaults to False.\n\n    Returns:\n        tuple(list, list): a list of node names from tracing the model in\n        train mode, and another from tracing the model in eval mode.\n\n    Examples::\n\n        >>> model = torchvision.models.resnet18()\n        >>> train_nodes, eval_nodes = get_graph_node_names(model)\n    \"\"\"\n    tracer_kwargs = _set_default_tracer_kwargs(tracer_kwargs)\n    is_training = model.training\n    train_tracer = NodePathTracer(**tracer_kwargs)\n    train_tracer.trace(model.train())\n    eval_tracer = NodePathTracer(**tracer_kwargs)\n    eval_tracer.trace(model.eval())\n    train_nodes = list(train_tracer.node_to_qualname.values())\n    eval_nodes = list(eval_tracer.node_to_qualname.values())\n    if not suppress_diff_warning:\n        _warn_graph_differences(train_tracer, eval_tracer)\n    # Restore training state\n    model.train(is_training)\n    return train_nodes, eval_nodes\n\n\nclass DualGraphModule(fx.GraphModule):\n    \"\"\"\n    A derivative of `fx.GraphModule`. Differs in the following ways:\n    - Requires a train and eval version of the underlying graph\n    - Copies submodules according to the nodes of both train and eval graphs.\n    - Calling train(mode) switches between train graph and eval graph.\n    \"\"\"\n\n    def __init__(\n        self, root: torch.nn.Module, train_graph: fx.Graph, eval_graph: fx.Graph, class_name: str = \"GraphModule\"\n    ):\n        \"\"\"\n        Args:\n            root (nn.Module): module from which the copied module hierarchy is\n                built\n            train_graph (fx.Graph): the graph that should be used in train mode\n            eval_graph (fx.Graph): the graph that should be used in eval mode\n        \"\"\"\n        super(fx.GraphModule, self).__init__()\n\n        self.__class__.__name__ = class_name\n\n        self.train_graph = train_graph\n        self.eval_graph = eval_graph\n\n        # Copy all get_attr and call_module ops (indicated by BOTH train and\n        # eval graphs)\n        for node in chain(iter(train_graph.nodes), iter(eval_graph.nodes)):\n            if node.op in [\"get_attr\", \"call_module\"]:\n                if not isinstance(node.target, str):\n                    raise TypeError(f\"node.target should be of type str instead of {type(node.target)}\")\n                _copy_attr(root, self, node.target)\n\n        # train mode by default\n        self.train()\n        self.graph = train_graph\n\n        # (borrowed from fx.GraphModule):\n        # Store the Tracer class responsible for creating a Graph separately as part of the\n        # GraphModule state, except when the Tracer is defined in a local namespace.\n        # Locally",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "9356918b30e4a6ac5f7909c8674d6b7a121f29b025d86485bf1d155737c841e9",
+        "request_id": "chatcmpl-Ej8anjSXbJ0qgVzWrf8CzCWQtabhp",
+        "usage": {
+          "prompt_tokens": 160,
+          "completion_tokens": 16,
+          "total_tokens": 176,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.96e-05,
+        "seconds": 0.7280060839984799,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "3769d4854e0d90495628e18676fc52739ca90fd0ffa0caba152805431061364c",
+        "request_id": "chatcmpl-Ej8aod5oOiBJ0Yk26EOY809aqARKw",
+        "usage": {
+          "prompt_tokens": 991,
+          "completion_tokens": 15,
+          "total_tokens": 1006,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00042040000000000003,
+        "seconds": 0.782348416003515,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "f6f20964b7a00e138c2b5bac2afb028ceb77c3877683a6b6f65d7de985f41435",
+        "request_id": "chatcmpl-Ej8apzAgo9WBSYrIwT9HajmO5M8RT",
+        "usage": {
+          "prompt_tokens": 2048,
+          "completion_tokens": 15,
+          "total_tokens": 2063,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008432,
+        "seconds": 0.698847541003488,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "b95509e05905890dfa485592c598f231dc08141f672a76c737f7f9c92f407f7c",
+        "request_id": "chatcmpl-Ej8aqM2JhmXRVGHOwgjPIOlMiuEgh",
+        "usage": {
+          "prompt_tokens": 3010,
+          "completion_tokens": 15,
+          "total_tokens": 3025,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001228,
+        "seconds": 0.7707680410021567,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "34690ab5a6052214f44ddb43e0a661d96dc1fa1d99dc253ba71034c8e64170d3",
+        "request_id": "chatcmpl-Ej8aqCKmKlk7MEBhu7hEFA5CSOJzT",
+        "usage": {
+          "prompt_tokens": 4032,
+          "completion_tokens": 512,
+          "total_tokens": 4544,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.002432,
+        "seconds": 3.668900416996621,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "25e63e88d89b298ce14d21d9e5ec3c4351ad1c01f19cd9fece126b3b8ec828b5",
+        "request_id": "chatcmpl-Ej8auruwdUwKrFbh8tE8gyZcX9pC0",
+        "usage": {
+          "prompt_tokens": 2608,
+          "completion_tokens": 1010,
+          "total_tokens": 3618,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0026592,
+        "seconds": 7.130839666999236,
+        "retry_count": 0
+      }
+    ]
+  }
+}

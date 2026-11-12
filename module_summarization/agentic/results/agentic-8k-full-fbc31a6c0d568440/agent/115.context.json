@@ -1,0 +1,30 @@
+{
+  "original_id": 115,
+  "repo": "asdf-format__asdf",
+  "docfile_name": "config.rst",
+  "source_sha256": "7718b388ee75b20e829191878cf5b2f8910c1de91f7489cb023d8c27db8a4a48",
+  "context": "\"\"\"\nMethods for getting and setting asdf global configuration\noptions.\n\"\"\"\nimport copy\nimport threading\nfrom contextlib import contextmanager\n\nfrom. import entry_points, util, versioning\nfrom._helpers import validate_version\nfrom.extension import ExtensionProxy\nfrom.resource import ResourceManager, ResourceMappingProxy\n\n__all__ = [\"AsdfConfig\", \"get_config\", \"config_context\"]\n\n\nDEFAULT_VALIDATE_ON_READ = True\nDEFAULT_DEFAULT_VERSION = str(versioning.default_version)\nDEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS = True\nDEFAULT_IO_BLOCK_SIZE = -1  # auto\nDEFAULT_ARRAY_INLINE_THRESHOLD = None\n\n\nclass AsdfConfig:\n    \"\"\"\n    Container for ASDF configuration options.  Users are not intended to\n    construct this object directly; instead, use the `asdf.get_config` and\n    `asdf.config_context` module methods.\n    \"\"\"\n\n    def __init__(self):\n        self._resource_mappings = None\n        self._resource_manager = None\n        self._\n\nextensions = None\n        self._validate_on_read = DEFAULT_VALIDATE_ON_READ\n        self._default_version = DEFAULT_DEFAULT_VERSION\n        self._legacy_fill_schema_defaults = DEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS\n        self._io_block_size = DEFAULT_IO_BLOCK_SIZE\n        self._array_inline_threshold = DEFAULT_ARRAY_INLINE_THRESHOLD\n\n        self._lock = threading.RLock()\n\n    @property\n    def resource_mappings(self):\n        \"\"\"\n        Get the list of registered resource mapping instances.  Unless\n        overridden by user configuration, this list contains every mapping\n        registered with an entry point.\n\n        Returns\n        -------\n        list of asdf.resource.ResourceMappingProxy\n        \"\"\"\n        if self._resource_mappings is None:\n            with self._lock:\n                if self._resource_mappings is None:\n                    self._resource_mappings = entry_points.get_resource_mappings()\n        return self._resource_mappings\n\n    def add_resource_mapping(self, mapping):\n        \"\"\"\n        Register a new resource mapping.  The new mapping will\n        take precedence over all previously registered mappings.\n\n        Parameters\n        ----------\n        mapping : collections.abc.Mapping\n            Map of `str` resource URI to `bytes` content\n        \"\"\"\n        with self._lock:\n            mapping = ResourceMappingProxy.maybe_wrap(mapping)\n\n            # Insert at the beginning of the list so that\n            # ResourceManager uses the new mapping first.\n            resource_mappings = [mapping] + [r for r in self.resource_mappings if r!= mapping]\n            self._resource_mappings = resource_mappings\n            self._resource_manager = None\n\n    def remove_resource_mapping(self, mapping=None, *, package=None):\n        \"\"\"\n        Remove a registered resource mapping.\n\n        Parameters\n        ----------\n        mapping : collections.abc.Mapping, optional\n            Mapping to remove.\n        package : str, optional\n            Remove only extensions provided by this package.  If the ``mapping``\n            argument is omitted, then all mappings from this package will\n            be removed.\n        \"\"\"\n        if mapping is None and package is None:\n            raise ValueError(\"Must specify at least one of mapping or package\")\n\n        if mapping is not None:\n            mapping = ResourceMappingProxy.maybe_wrap(mapping)\n\n        def _remove_condition(m):\n            result = True\n            if mapping is not None:\n                result = result and m == mapping\n            if package is not None:\n                result = result and m.package_name == package\n            return result\n\n        with self._lock:\n            self._resource_mappings = [m for m in self.resource_mappings if not _remove_condition(m)]\n            self._resource_manager = None\n\n    def reset_resources(self):\n        \"\"\"\n        Reset registered resource m\n\n  self.legacy_fill_schema_defaults,\n            self.validate_on_read,\n        )\n\n\nclass _ConfigLocal(threading.local):\n    def __init__(self):\n        self.config_stack = []\n\n\n_global_config = AsdfConfig()\n_local = _ConfigLocal()\n\n\ndef get_config():\n    \"\"\"\n    Get the current config, which may have been altered by\n    one or more surrounding calls to `asdf.config_context`.\n\n    Returns\n    -------\n    asdf.config.AsdfConfig\n    \"\"\"\n    if len(_local.config_stack) == 0:\n        return _global_config\n    else:\n        return _local.config_stack[-1]\n\n\n@contextmanager\ndef config_context():\n    \"\"\"\n    Context manager that temporarily overrides asdf configuration.\n    The context yields an `asdf.config.AsdfConfig` instance that can be modified\n    without affecting code outside of the context.\n    \"\"\"\n  \n\n  if len(_local.config_stack) == 0:\n        base_config = _global_config\n    else:\n        base_config = _local.config_stack[-1]\n\n    config = copy.copy(base_config)\n    _local.config_stack.append(config)\n\n    try:\n        yield config\n    finally:\n        _local.config_stack.pop()",
+  "preparation_seconds": 0.05789820801146561,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 0,
+        "end_char": 929
+      },
+      {
+        "start_char": 929,
+        "end_char": 3843
+      },
+      {
+        "start_char": 11012,
+        "end_char": 11824
+      },
+      {
+        "start_char": 11824,
+        "end_char": 12106
+      }
+    ],
+    "context_tokens": 1929,
+    "context_sha256": "25933e2989396c7f7b6a0bbfc975c97ae3909190f4400c46b238950d33bef53b"
+  }
+}

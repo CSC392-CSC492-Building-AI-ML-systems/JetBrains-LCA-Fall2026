@@ -1,0 +1,114 @@
+PyTables File Format
+====================
+
+Overview
+--------
+
+PyTables is a package for managing hierarchical datasets and designed to efficiently and easily cope with extremely large amounts of data. It is built on top of the HDF5 library and provides a high-level interface to organize and manipulate data.
+
+The PyTables file format is an extension of the HDF5 format, enriched with additional metadata and structures to support PyTables-specific features such as tables, arrays, groups, and transactions.
+
+Format Versions
+---------------
+
+The PyTables file format has evolved through several versions, each introducing new features and improvements. The current format version is **2.1**.
+
+Below is a summary of the main format versions and their key features:
+
+- **1.0**: Initial format.
+- **1.1**: Changes in ucl compression.
+- **1.2**: Support for enlargeable arrays and variable-length arrays (VLAs). Introduced in PyTables 0.8.
+- **1.3**: Support for indexes in Tables. Introduced in PyTables 0.9.
+- **1.4**: Support for multidimensional attributes. Introduced in PyTables 1.1.
+- **1.5**: Support for persistent defaults in tables. Introduced in PyTables 1.2.
+- **1.6**: Support for NumPy objects and new flavors for objects. Introduced in PyTables 1.3.
+- **2.0**: Pickles are no longer used in system attributes. Introduced in PyTables 2.0.
+- **2.1**: Numeric and numarray flavors are removed.
+
+Compatibility
+-------------
+
+PyTables maintains compatibility with older format versions. The list of compatible formats is currently empty, which means that all old formats are supported unless explicitly stated otherwise.
+
+File Structure
+--------------
+
+PyTables files are organized hierarchically, similar to a filesystem, with nodes representing groups, tables, arrays, and other objects.
+
+- **Root Group**: The top-level group in the file hierarchy.
+- **Groups**: Containers that can hold other groups or leaves (tables, arrays).
+- **Tables**: Structured datasets with rows and columns.
+- **Arrays**: Homogeneous multidimensional arrays.
+
+Each node in the hierarchy has associated metadata, including:
+
+- `_v__nodefile`: Reference to the file object.
+- `_v__nodepath`: The path of the node within the file.
+- `_v_attrnames`: List of attribute names associated with the node.
+- `_v_unimplemented`: List of unimplemented attribute names (reserved for future use).
+
+Transactions and Undo Mechanism
+-------------------------------
+
+PyTables supports transactional operations to ensure data integrity and provide undo capabilities. This is managed through a set of hidden nodes and logs within the file:
+
+- **Transaction Group**: Located at `/_p_transactions`, it contains all transaction-related data.
+- **Action Log**: A log of actions performed during transactions.
+- **Transaction Nodes**: Named as `t%d` where `%d` is the transaction number.
+- **Marks and Shadows**: Used internally to track changes and support undo operations.
+
+The transaction system uses opcodes to represent different actions:
+
+| Opcode Name | Code | Description          |
+|-------------|-------|---------------------|
+| MARK        | 0     | Mark a point in log  |
+| CREATE      | 1     | Create a node       |
+| REMOVE      | 2     | Remove a node       |
+| MOVE        | 3     | Move a node         |
+| ADDATTR     | 4     | Add an attribute    |
+| DELATTR     | 5     | Delete an attribute |
+
+File Handling and Registry
+--------------------------
+
+PyTables maintains a registry of open files to manage resources efficiently and avoid file descriptor leaks.
+
+- `_FileRegistry`: A class that tracks open file handlers and their filenames.
+- `_open_files`: A global instance of `_FileRegistry` that keeps track of all open files.
+- The registry supports adding, removing, and retrieving handlers by filename.
+- When files remain open unexpectedly, PyTables issues warnings and attempts to close them gracefully.
+
+Creating and Accessing Nodes
+----------------------------
+
+PyTables provides methods to create and access nodes within the file hierarchy:
+
+- **Creating Groups**: Use `create_group(where, name, title="", filters=None, createparents=False)` to create a new group under the specified parent.
+  - `where`: Parent group or path.
+  - `name`: Name of the new group.
+  - `title`: Optional description.
+  - `filters`: Optional filters for I/O operations.
+  - `createparents`: If `True`, creates intermediate groups if they do not exist.
+
+- **Creating Tables**: Use `create_table(where, name, description=None, title="", filters=None, expectedrows=10000, chunkshape=None, byteorder=None)` to create a new table.
+
+- **Path Management**: Internal methods `_get_or_create_path(path, create)` and `_create_path(path)` handle path resolution and creation of intermediate groups.
+
+Attributes and Metadata
+-----------------------
+
+PyTables stores metadata as attributes attached to nodes. The format version of a file is stored in the system attribute `PYTABLES_FORMAT_VERSION`. If this attribute is missing or unknown, the file is considered not to be a PyTables file.
+
+Attributes are expected to be strings; if not, they are decoded accordingly.
+
+Filters
+-------
+
+Filters can be applied to groups and leaves to control compression and other I/O behaviors. Filters specified on a group are inherited by its child leaves unless overridden.
+
+Summary
+-------
+
+The PyTables file format extends HDF5 with additional structures and metadata to support efficient hierarchical data storage, transactional operations, and advanced features such as tables with indexes and multidimensional attributes. The format evolves through versions to incorporate new capabilities while maintaining backward compatibility.
+
+For detailed information on the PyTables API and usage, please refer to the official PyTables documentation.

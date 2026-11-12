@@ -1,0 +1,30 @@
+{
+  "original_id": 93,
+  "repo": "numpy__numpy",
+  "docfile_name": "basics.indexing.rst",
+  "source_sha256": "6f8c9f10a7bfddb9aec630b749389f2f314ee6e744b301b3acde6f512e8448d7",
+  "context": "', '<i4')])])\n    >>> rfn.flatten_descr(ndtype)\n    (('a', dtype('int32')), ('ba', dtype('float64')), ('bb', dtype('int32')))\n\n    \"\"\"\n    names = ndtype.names\n    if names is None:\n        return (('', ndtype),)\n    else:\n        descr = []\n        for field in names:\n            (typ, _) = ndtype.fields[field]\n            if typ.names is not None:\n                descr.extend(flatten_descr(typ))\n            else:\n                descr.append((field, typ))\n        return tuple(descr)\n\n\ndef _zip_dtype(seqarrays, flatten=False):\n    newdtype = []\n    if flatten:\n  \n\n      for a in seqarrays:\n            newdtype.extend(flatten_descr(a.dtype))\n    else:\n        for a in seqarrays:\n            current = a.dtype\n            if current.names is not None and len(current.names) == 1:\n                # special case - dtypes of 1 field are flattened\n                newdtype.extend(_get_fieldspec(current))\n            else:\n                newdtype.append(('', current))\n    return np.dtype(newdtype)\n\n\ndef _zip_descr(seqarrays, flatten=False):\n    \"\"\"\n    Combine the dtype description of a series of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays\n    flatten : {boolean}, optional\n        Whether to collapse nested descriptions.\n    \"\"\"\n    return _zip_dtype(seqarrays, flatten=flatten).descr\n\n\ndef get_fieldstructure(adtype, lastname=None, parents=None,):\n    \"\"\"\n    Returns a dictionary with fields indexing lists of their parent fields.\n\n    This function is used to simplify access to fields nested in other fields.\n\n    Parameters\n    ----------\n    adtype : np.dtype\n        Input datatype\n    lastname : optional\n        Last processed field name (used internally during recursion).\n    parents : dictionary\n        Dictionary of parent fields (used interbally during recursion).\n\n    Examples\n    --------\n    >>> from numpy.lib import recfunctions as rfn\n    >>> ndtype =  np.dtype([('A', int),\n   ...                     ('B', [('BA', int),\n   ...                            ('BB', [('BBA', int), ('BBB', int)])])])\n    >>> rfn.get_fieldstructure(ndtype)\n   ... # XXX: possible regression, order of BBA and BBB is swapped\n    {'A': [], 'B': [], 'BA': ['B'], 'BB': ['B'], 'BBA': ['B', 'BB'], 'BBB': ['B', 'BB']}\n\n    \"\"\"\n    if parents is None:\n        parents = {}\n    names = adtype.names\n    for name in names:\n        current = adtype[name]\n        if current.names is not None:\n            if lastname:\n                parents[name] = [lastname, ]\n            else:\n                parents[name] = []\n            parents.update(get_fieldstructure(current, name, parents))\n        else:\n            lastparent = [_ for _ in (parents.get(lastname, []) or [])]\n            if lastparent:\n                lastparent.append(lastname)\n            elif lastname:\n                lastparent = [lastname, ]\n            parents[name] = lastparent or []\n    return parents\n\n\ndef _izip_fields_flat(iterable):\n    \"\"\"\n    Returns an iterator of concatenated fields from a sequence of arrays,\n    collapsing any nested structure.\n\n    \"\"\"\n    for element in iterable:\n        if isinstance(element, np.void):\n            yield from _izip_fields_flat(tuple(element))\n        else:\n            yield element\n\n\ndef _izip_fields(iterable):\n    \"\"\"\n    Returns an\n\n iterator of concatenated fields from a sequence of arrays.\n\n    \"\"\"\n    for element in iterable:\n        if (hasattr(element, '__iter__') and\n                not isinstance(element, str)):\n            yield from _izip_fields(element)\n        elif isinstance(element, np.void) and len(tuple(element)) == 1:\n            # this statement is the same from the previous expression\n            yield from _izip_fields(element)\n        else:\n            yield element\n\n\ndef _izip_records(seqarrays, fill_value=None, flatten=True):\n    \"\"\"\n    Returns an iterator of concatenated items from a sequence of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays.\n    fill_value : {None, integer}\n        Value used to pad shorter iterables.\n    flatten : {True, False},\n        Whether to\n    \"\"\"\n\n    # Should we flatten the items, or just use a nested approach\n\n\n            seqtype = MaskedRecords\n                else:\n                    seqtype = MaskedArray\n            elif asrecarray:\n                seqtype = recarray\n            else:\n                seqtype = ndarray\n            return seqarrays.view(dtype=seqdtype, type=seqtype)\n        else:\n            seqarrays = (seqarrays,)\n    else:\n        # Make sure we have arrays in the input sequence\n        seqarrays = [np.asanyarray(_m) for _m in seqarrays]\n    # Find the sizes of the inputs and their maximum\n    sizes = tuple(a.size for a in seqarrays)\n    maxlength = max(sizes)\n  ",
+  "preparation_seconds": 0,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 5174,
+        "end_char": 5744
+      },
+      {
+        "start_char": 5744,
+        "end_char": 8492
+      },
+      {
+        "start_char": 8492,
+        "end_char": 9392
+      },
+      {
+        "start_char": 13126,
+        "end_char": 13711
+      }
+    ],
+    "context_tokens": 2153,
+    "context_sha256": "00de7487a2580d4bd03166578fde3443cb7c31743c881dc9a4ba38897d6f1edb"
+  }
+}

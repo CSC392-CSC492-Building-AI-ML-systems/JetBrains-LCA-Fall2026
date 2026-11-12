@@ -1,0 +1,122 @@
+Unified Renderable Interface
+============================
+
+The unified renderable interface provides a consistent and extensible way to render components in Django applications. It is centered around the abstract base classes that define how rendering should be performed, how templates are selected, and how CSS classes are managed.
+
+AbstractRenderable
+------------------
+
+The `AbstractRenderable` class is the core interface for rendering. It defines the essential methods and properties needed to render a component using Django templates.
+
+### Key Features
+
+- **Template Selection**  
+  The `get_template_names()` method returns the template name(s) to be used for rendering. By default, it returns the value of the `template_name` attribute. If neither is set, it raises a `NotImplementedError`.
+
+- **Context Data**  
+  The `get_context_data(request=None)` method returns the context dictionary passed to the template. By default, it returns a dictionary with a single key `'me'` pointing to the renderable instance itself.
+
+- **Rendering**  
+  The `render(request=None, extra_context_data=None)` method renders the template with the context data. It accepts an optional `request` object and additional context data to merge with the default context.
+
+Example usage:
+
+```python
+class MyRenderable(AbstractRenderable):
+    template_name = 'my_template.html'
+
+    def get_context_data(self, request=None):
+        context = super().get_context_data(request=request)
+        context['extra'] = 'value'
+        return context
+```
+
+AbstractRenderableWithCss
+-------------------------
+
+`AbstractRenderableWithCss` extends `AbstractRenderable` by adding a unified API for managing CSS classes.
+
+### CSS Class Management
+
+- **CSS Classes List**  
+  Override `get_css_classes_list()` to return a list of CSS classes for the component.
+
+- **CSS Classes String**  
+  The `css_classes` property returns the CSS classes as a single string, joining the list returned by `get_css_classes_list()`. It also includes test CSS classes if enabled via settings.
+
+- **Deprecated Methods**  
+  The methods `get_base_css_classes_list()`, `get_extra_css_classes_list()`, and `get_css_classes_string()` are deprecated and should not be used. Instead, override `get_css_classes_list()` and use the `css_classes` property.
+
+Example usage:
+
+```python
+class MyCssRenderable(AbstractRenderableWithCss):
+    def get_css_classes_list(self):
+        return ['base-class', 'extra-class']
+```
+
+AbstractBemRenderable
+---------------------
+
+`AbstractBemRenderable` is a specialized base class for renderables that use the BEM (Block Element Modifier) methodology for CSS class naming. It provides a natural way to work with BEM conventions.
+
+### Initialization Parameters
+
+- `bem_block` (str): The BEM block name. Cannot be used together with `bem_element`.
+- `bem_element` (str): The BEM element name. Must contain `__` and cannot be used together with `bem_block`.
+- `bem_variant_list` (list): List of BEM variants (modifiers) without the block or element prefix.
+- `extra_css_classes_list` (list): Additional CSS classes to include.
+
+### Methods and Properties
+
+- `get_bem_block()`: Returns the BEM block string.
+- `get_bem_element()`: Returns the BEM element string.
+- `get_bem_variant_list()`: Returns the list of BEM variants.
+- `get_extra_css_classes_list()`: Returns extra CSS classes.
+- `bem_block_or_element`: Property that returns the block or element, preferring the block.
+- `get_test_css_class_suffixes_list()`: Returns suffixes for test CSS classes, which are appended when test CSS classes are enabled.
+- `css_classes`: Property that returns the full CSS class string constructed according to BEM conventions and including extra classes.
+
+### Usage Notes
+
+- You must not specify both `bem_block` and `bem_element` simultaneously.
+- The `bem_element` must contain the substring `__` to be valid.
+- The class automatically handles the construction of CSS classes following BEM rules and includes any extra CSS classes provided.
+
+Example usage:
+
+```python
+renderable = AbstractBemRenderable(
+    bem_block='button',
+    bem_variant_list=['primary', 'large'],
+    extra_css_classes_list=['custom-class']
+)
+css_classes = renderable.css_classes
+```
+
+Utility Functions
+-----------------
+
+### join_css_classes_list(css_classes_list)
+
+A helper function that joins a list of CSS classes into a single string separated by two spaces.
+
+```python
+def join_css_classes_list(css_classes_list):
+    """
+    Join the provided list of css classes into a string.
+    """
+    return '  '.join(css_classes_list)
+```
+
+Settings Integration
+--------------------
+
+The interface integrates with Django settings via `django_cradmin.crsettings`. For example, the inclusion of test CSS classes is controlled by the setting:
+
+- `DJANGO_CRADMIN_INCLUDE_TEST_CSS_CLASSES` (bool): When `True`, test CSS classes returned by `get_test_css_class_suffixes_list()` are included in the rendered CSS classes.
+
+Summary
+-------
+
+The unified renderable interface provides a flexible and consistent way to render components with Django templates, manage context data, and handle CSS classes, including support for BEM naming conventions. By extending the abstract base classes and overriding key methods, developers can create reusable and maintainable renderable components.

@@ -1,0 +1,322 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Connect to Remote Data\n======================\n\nThis document describes how to connect to and interact with remote data sources using file-like interfaces in Python. The examples and tests demonstrate reading, seeking, and handling errors when accessing files over HTTP and other remote protocols.\n\nOpening Remote Files\n--------------------\n\nRemote files can be opened using the `open_files` function, which supports URLs and remote paths. For example:\n\n.. code-block:: python\n\n    root = \"http://localhost:8999/\"\n    fn = \"example_file\"\n    f = open_files(root + fn)[0]\n    with f as file:\n        data = file.read()\n\nThis approach allows reading remote files similarly to local files, supporting context management and standard file operations.\n\nReading and Seeking\n-------------------\n\nRemote file objects support reading with optional length parameters and seeking to arbitrary positions within the file:\n\n- `read(length)` reads up to `length` bytes from the current position.\n- `seek(offset, whence)` moves the file pointer to a new position. `whence` can be:\n  - `0` (default): absolute file positioning.\n  - `1`: seek relative to the current position.\n  - `2`: seek relative to the file's end.\n\nExample usage:\n\n.. code-block:: python\n\n    with open_files(root + fn)[0] as f:\n        data = f.read(10)          # Read first 10 bytes\n        f.seek(0)                 # Seek back to start\n        data2 = f.read(10)         # Read first 10 bytes again\n        f.seek(-10, 2)            # Seek to 10 bytes before end\n        data3 = f.read()           # Read last 10 bytes\n\nThe file object maintains a `.loc` attribute indicating the current position in the file.\n\nHandling HTTP Headers\n---------------------\n\nWhen opening remote files, custom HTTP headers can be passed to the request:\n\n.. code-block:: python\n\n    headers = {\"Date\": \"Wed, 21 Oct 2015 07:28:00 GMT\"}\n    f = open_files(root + fn, headers=headers)[0]\n    with f as file:\n        data = file.read()\n\nThis is useful for scenarios requiring specific headers for authentication, caching, or other HTTP features.\n\nBlock Size and Performance\n--------------------------\n\nThe `open_files` function supports a `block_size` parameter to control the size of data chunks fetched from the remote source. Smaller block sizes can reduce memory usage but may increase the number of HTTP requests.\n\nExample:\n\n.. code-block:: python\n\n    f = open_files(root + fn, block_size=2)[0]\n    with f as file:\n        data = file.read()\n\nNote that behavior with block sizes may vary depending on the underlying library version.\n\nError Handling\n--------------\n\nWhen accessing remote files, various errors can occur:\n\n- `FileNotFoundError` if the file does not exist.\n- `ConnectionError` if the server is unreachable.\n- `NotImplementedError` if unsupported modes (e.g., write mode) are requested.\n- `ValueError` for invalid operations such as seeking to a negative position.\n\nExample:\n\n.. code-block:: python\n\n    f = open_files(\"http://localhost:8999/doesnotexist\")[0]\n    with pytest.raises(FileNotFoundError):\n        with f as file:\n            file.read()\n\nMultiple Files and Globbing\n---------------------------\n\nMultiple remote files can be opened simultaneously by passing a list of URLs or using glob patterns:\n\n.. code-block:: python\n\n    fs = open_files([root + f for f in files])\n    for f, filename in zip(fs, files):\n        with f as file:\n            data = file.read()\n\n    # Using glob pattern\n    fs = open_files(root + \"/*\")\n    assert fs[0].path == \"http://localhost:8999/a\"\n    assert fs[1].path == \"http://localhost:8999/b\"\n\nIntegration with Data Processing Libraries\n-----------------------------------------\n\nRemote data access integrates seamlessly with libraries such as Dask for parallel and distributed data processing.\n\nFor example, reading Parquet files from remote URLs:\n\n.. code-block:: python\n\n    import dask.dataframe as dd\n\n    df = dd.read_parquet(\n        [\n            \"https://github.com/Parquet/parquet-compatibility/raw/master/\"\n            \"parquet-testdata/impala/1.1.1-NONE/nation.impala.parquet\"\n        ],\n        engine=\"pyarrow\",\n    ).compute()\n\n    assert df.n_nationkey.tolist() == list(range(25))\n\nSimilarly, reading CSV files or text data from remote URLs is supported:\n\n.. code-block:: python\n\n    b = dd.read_csv(\"https://example.com/data.csv\")\n    b.compute()\n\n    b = db.read_text([\n        \"https://raw.githubusercontent.com/weierophinney/pastebin/master/public/js-src/dojox/data/tests/stores/patterns.csv\",\n        \"https://en.wikipedia.org\",\n    ])\n    b.compute()\n\nCompression Support\n-------------------\n\nRemote files compressed with common formats (gzip, bzip2, etc.) can be read transparently using the compression utilities integrated with the file interface.\n\nExample:\n\n.. code-block:: python\n\n    from io import BytesIO\n    from fsspec.compression import compr\n    from dask.bytes.utils import compress\n\n    data = b\"1234\" * 1000\n    compressed = compress[\"gzip\"](data)\n\n    b = BytesIO(compressed)\n    g = compr[\"gzip\"](b, mode=\"rb\")\n    data2 = g.read()\n    g.close()\n    assert data == data2\n\nSummary\n-------\n\nUsing the `open_files` function and related utilities, remote data can be accessed and manipulated with familiar file-like semantics. This enables seamless integration with data processing workflows, supports error handling, and allows customization through HTTP headers and block sizes.",
+  "prediction_sha256": "bca0f872bdd1b5d1201c5c004bda34ed584368ed7e985fe71a6e358c20593376",
+  "prompt_sha256": "18f314a8ce47bf18013b1d9e2c2a0630eedb138dd7ba7ccaff8624e7b9665461",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15217,
+    "completion_tokens": 1294,
+    "total_tokens": 16511
+  },
+  "cost_usd": 0.0081572,
+  "generation_seconds": 15.294522748998133,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "connect to remote data"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 12,
+              "start_char": 9298,
+              "end_char": 9876,
+              "code": " as f:\n            data = f.read(2)\n            assert data == expected[:2]\n            assert f.loc == 2\n            f.seek(0)\n            data = f.read(3)\n            assert data == expected[:3]\n            f.seek(1, 1)\n            assert f.loc == 4\n\n\ndef test_fetch_range_with_headers(dir_server):\n    # https://github.com/dask/dask/issues/4479\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    headers = {\"Date\": \"Wed, 21 Oct 2015 07:28:00 GMT\"}\n    f = open_files(root + fn, headers=headers)[0]\n    with f as f:\n        data = f.read(length=1) + f.read(length=-1)\n ",
+              "code_tokens": 300,
+              "score": 2.00275215201
+            },
+            {
+              "chunk_id": 34,
+              "start_char": 25422,
+              "end_char": 26188,
+              "code": "[0]\n\n    fs = LocalFileSystem()\n    os.chdir(here)\n    with fs.open(out[0], \"r\") as f:\n        res = f.read()\n    assert res == \"hi\"\n\n\nfrom __future__ import annotations\n\nfrom io import BytesIO\n\nimport pytest\nfrom fsspec.compression import compr\n\nfrom dask.bytes.utils import compress\n\n\n@pytest.mark.parametrize(\"fmt,File\", compr.items())\ndef test_files(fmt, File):\n    if fmt not in compress:\n        pytest.skip(\"compression function not provided\")\n    if fmt is None:\n        return\n    data = b\"1234\" * 1000\n    compressed = compress[fmt](data)\n\n    b = BytesIO(compressed)\n    g = File(b, mode=\"rb\")\n    data2 = g.read()\n    g.close()\n    assert data == data2\n\n\n\n\nfrom __future__ import annotations\n\nimport io\nimport os\nimport pathlib\n\nimport pytest\nfrom fsspec",
+              "code_tokens": 300,
+              "score": 1.971303842878
+            },
+            {
+              "chunk_id": 11,
+              "start_char": 8551,
+              "end_char": 9184,
+              "code": "      except requests.exceptions.ConnectionError as e:\n                time.sleep(0.1)\n                timeout -= 0.1\n                if timeout < 0:\n                    raise RuntimeError(\"Server did not appear\") from e\n        yield d\n        p.terminate()\n\n\ndef test_simple(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with f as f:\n        data = f.read()\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        assert data == expected.read()\n\n\ndef test_loc(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0",
+              "code_tokens": 300,
+              "score": 1.82191312076
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 11
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 11,
+              "start_char": 8551,
+              "end_char": 11697,
+              "code": "      except requests.exceptions.ConnectionError as e:\n                time.sleep(0.1)\n                timeout -= 0.1\n                if timeout < 0:\n                    raise RuntimeError(\"Server did not appear\") from e\n        yield d\n        p.terminate()\n\n\ndef test_simple(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with f as f:\n        data = f.read()\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        assert data == expected.read()\n\n\ndef test_loc(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        expected = expected.read()\n        with f as f:\n            data = f.read(2)\n            assert data == expected[:2]\n            assert f.loc == 2\n            f.seek(0)\n            data = f.read(3)\n            assert data == expected[:3]\n            f.seek(1, 1)\n            assert f.loc == 4\n\n\ndef test_fetch_range_with_headers(dir_server):\n    # https://github.com/dask/dask/issues/4479\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    headers = {\"Date\": \"Wed, 21 Oct 2015 07:28:00 GMT\"}\n    f = open_files(root + fn, headers=headers)[0]\n    with f as f:\n        data = f.read(length=1) + f.read(length=-1)\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        assert data == expected.read()\n\n\n@pytest.mark.parametrize(\"block_size\", [None, 99999])\ndef test_ops(dir_server, block_size):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        expected = expected.read()\n        with f as f:\n            # these pass because the default\n            assert f.read(10) == expected[:10]\n            f.seek(0)\n            assert f.read(10) == expected[:10]\n            assert f.read(10) == expected[10:20]\n            f.seek(-10, 2)\n            assert f.read() == expected[-10:]\n\n\ndef test_ops_blocksize(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn, block_size=2)[0]\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        expected = expected.read()\n        with f as f:\n            # it's OK to read the whole file\n            assert f.read() == expected\n            # and now the file magically has a size\n            assert f.size == len(expected)\n\n        # note that if we reuse f from above, because it is tokenized, we get\n        # the same open file - where is this cached?\n        fn = files[1]\n        f = open_files(root + fn, block_size=2)[0]\n        with f as f:\n            if parse_version(fsspec.__version__) < parse_version(\"2021.11.1\"):\n                # fails because we want only 12 bytes\n                with pytest.raises(ValueError):\n                    assert f.read(10) == expected[:10]\n            else:\n                # fixed in https://github.com/fsspec/filesystem_spec/pull/830\n                assert f.read(10) == expected[:10]\n\n\ndef test_errors(dir_server):\n    f = open_files(\"http://localhost:8999/doesnotexist\")[0]",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "open_files"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 15,
+              "start_char": 11478,
+              "end_char": 12091,
+              "code": "                # fixed in https://github.com/fsspec/filesystem_spec/pull/830\n                assert f.read(10) == expected[:10]\n\n\ndef test_errors(dir_server):\n    f = open_files(\"http://localhost:8999/doesnotexist\")[0]\n    with pytest.raises(errs):\n        with f as f:\n            f.read()\n    f = open_files(\"http://nohost/\")[0]\n\n    expected = FileNotFoundError\n\n    with pytest.raises(expected):\n        with f as f:\n            f.read()\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn, mode=\"wb\")[0]\n    with pytest.raises(NotImplementedError):\n        with f:\n           ",
+              "code_tokens": 300,
+              "score": 5.387494854682
+            },
+            {
+              "chunk_id": 11,
+              "start_char": 8551,
+              "end_char": 9184,
+              "code": "      except requests.exceptions.ConnectionError as e:\n                time.sleep(0.1)\n                timeout -= 0.1\n                if timeout < 0:\n                    raise RuntimeError(\"Server did not appear\") from e\n        yield d\n        p.terminate()\n\n\ndef test_simple(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with f as f:\n        data = f.read()\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        assert data == expected.read()\n\n\ndef test_loc(dir_server):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0",
+              "code_tokens": 300,
+              "score": 4.493953110327
+            },
+            {
+              "chunk_id": 13,
+              "start_char": 10003,
+              "end_char": 10633,
+              "code": "(\"block_size\", [None, 99999])\ndef test_ops(dir_server, block_size):\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn)[0]\n    with open(os.path.join(dir_server, fn), \"rb\") as expected:\n        expected = expected.read()\n        with f as f:\n            # these pass because the default\n            assert f.read(10) == expected[:10]\n            f.seek(0)\n            assert f.read(10) == expected[:10]\n            assert f.read(10) == expected[10:20]\n            f.seek(-10, 2)\n            assert f.read() == expected[-10:]\n\n\ndef test_ops_blocksize(dir_server):\n    root = \"http://localhost:8999/\"",
+              "code_tokens": 300,
+              "score": 4.481220055645
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 15
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 15,
+              "start_char": 11478,
+              "end_char": 14881,
+              "code": "                # fixed in https://github.com/fsspec/filesystem_spec/pull/830\n                assert f.read(10) == expected[:10]\n\n\ndef test_errors(dir_server):\n    f = open_files(\"http://localhost:8999/doesnotexist\")[0]\n    with pytest.raises(errs):\n        with f as f:\n            f.read()\n    f = open_files(\"http://nohost/\")[0]\n\n    expected = FileNotFoundError\n\n    with pytest.raises(expected):\n        with f as f:\n            f.read()\n    root = \"http://localhost:8999/\"\n    fn = files[0]\n    f = open_files(root + fn, mode=\"wb\")[0]\n    with pytest.raises(NotImplementedError):\n        with f:\n            pass\n    f = open_files(root + fn)[0]\n    with f as f:\n        with pytest.raises(ValueError):\n            f.seek(-1)\n\n\ndef test_files(dir_server):\n    root = \"http://localhost:8999/\"\n    fs = open_files([root + f for f in files])\n    for f, f2 in zip(fs, files):\n        with f as f:\n            with open(os.path.join(dir_server, f2), \"rb\") as expected:\n                assert f.read() == expected.read()\n\n\ndef test_open_glob(dir_server):\n    root = \"http://localhost:8999/\"\n    fs = open_files(root + \"/*\")\n    assert fs[0].path == \"http://localhost:8999/a\"\n    assert fs[1].path == \"http://localhost:8999/b\"\n\n\n@pytest.mark.network\n@pytest.mark.parametrize(\"engine\", [\"pyarrow\", \"fastparquet\"])\ndef test_parquet(engine):\n    pytest.importorskip(\"requests\", minversion=\"2.21.0\")\n    dd = pytest.importorskip(\"dask.dataframe\")\n    pytest.importorskip(engine)\n    df = dd.read_parquet(\n        [\n            \"https://github.com/Parquet/parquet-compatibility/raw/\"\n            \"master/parquet-testdata/impala/1.1.1-NONE/\"\n            \"nation.impala.parquet\"\n        ],\n        engine=engine,\n    ).compute()\n    assert df.n_nationkey.tolist() == list(range(25))\n    assert df.columns.tolist() == [\"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"]\n\n\n@pytest.mark.flaky(\n    reruns=10, reruns_delay=5, reason=\"https://github.com/dask/dask/issues/3696\"\n)\n@pytest.mark.network\ndef test_bag():\n    # This test pulls from different hosts\n    urls = [\n        \"https://raw.githubusercontent.com/weierophinney/pastebin/\"\n        \"master/public/js-src/dojox/data/tests/stores/patterns.csv\",\n        \"https://en.wikipedia.org\",\n    ]\n    b = db.read_text(urls)\n    assert b.npartitions == 2\n    b.compute()\n\n\n@pytest.mark.network\ndef test_read_csv():\n    dd = pytest.importorskip(\"dask.dataframe\")\n    url = (\n        \"https://raw.githubusercontent.com/weierophinney/pastebin/\"\n        \"master/public/js-src/dojox/data/tests/stores/patterns.csv\"\n    )\n    b = dd.read_csv(url)\n    b.compute()\n\n\nfrom __future__ import annotations\n\nimport gzip\nimport os\nimport pathlib\nimport sys\nfrom functools import partial\nfrom time import sleep\n\nimport cloudpickle\nimport pytest\nfrom fsspec.compression import compr\nfrom fsspec.core import open_files\nfrom fsspec.implementations.local import LocalFileSystem\nfrom tlz import concat, valmap\n\nfrom dask import compute\nfrom dask.bytes.core import read_bytes\nfrom dask.bytes.utils import compress\nfrom dask.utils import filetexts\n\ncompute = partial(compute, scheduler=\"sync\")\n\nfiles = {\n    \".test.accounts.1.json\": (\n        b'{\"amount\": 100, \"name\": \"Alice\"}\\n'\n        b'{\"amount\": 200, \"name\": \"Bob\"}\\n'\n        b'{\"amount\": 300, \"name\": \"Charlie\"}\\n'\n        b'{\"amount\": 400, \"name\": \"Dennis\"}\\n'\n    ),\n    \".test.accounts.2.json\": (\n        b'{\"amount\": 500",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "open_files"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "open_files"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 4800,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "ac9edb585146df11a618132ab032cf1542b021a11460a39c646b71244e2430f7",
+        "request_id": "chatcmpl-Ej8J4b3JrO9tzAmFeolWJ1K0LbixK",
+        "usage": {
+          "prompt_tokens": 159,
+          "completion_tokens": 17,
+          "total_tokens": 176,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9.080000000000001e-05,
+        "seconds": 0.7057894999998098,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "5af51f5dc6b74d125f31520b62d77570d3c6fb36a279ebd54c7a17e7b3cead87",
+        "request_id": "chatcmpl-Ej8J5npRiwXQm7Toi31BTpbovHQCR",
+        "usage": {
+          "prompt_tokens": 941,
+          "completion_tokens": 15,
+          "total_tokens": 956,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040040000000000003,
+        "seconds": 0.6955172079979093,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "611e339fa86fd64d61990cb439f6d158a4778075a5b00132c170db984d04c666",
+        "request_id": "chatcmpl-Ej8J6tdnDYUn2RFSK0wBFJ1fHDawf",
+        "usage": {
+          "prompt_tokens": 1921,
+          "completion_tokens": 15,
+          "total_tokens": 1936,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007924000000000001,
+        "seconds": 0.8680982910009334,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "c6b0e175ee8be0dcf69b0e663c28709df5f81c033fbf7f8bdc0a6eabffe744d6",
+        "request_id": "chatcmpl-Ej8J6rzyZ4uSeI2XdwD72whQn1hpC",
+        "usage": {
+          "prompt_tokens": 2653,
+          "completion_tokens": 15,
+          "total_tokens": 2668,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010852000000000001,
+        "seconds": 0.6919132910006738,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "e2c037e7247a34d037416a05bf6c580c5012a6612052f475214dcf231b9fe8ba",
+        "request_id": "chatcmpl-Ej8J7XLy6aQyK6g878xLJDA1RAKFd",
+        "usage": {
+          "prompt_tokens": 3774,
+          "completion_tokens": 15,
+          "total_tokens": 3789,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015336000000000002,
+        "seconds": 0.7143711669996264,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "a7b9f54234474f4ec6e48b907234bf59298d91a157527efd253fbab9200cc7fb",
+        "request_id": "chatcmpl-Ej8J8KyGpTVZbJahleNLIIZLMZye9",
+        "usage": {
+          "prompt_tokens": 3810,
+          "completion_tokens": 15,
+          "total_tokens": 3825,
+          "prompt_tokens_details": {
+            "cached_tokens": 3584,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001548,
+        "seconds": 0.7896472079992236,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "ec0a8860d254ab4274533468236011c2a520b819e22b503bed2081d2fa3ef5d4",
+        "request_id": "chatcmpl-Ej8J9DQxK6KPEE2DEZeweeREBfHrr",
+        "usage": {
+          "prompt_tokens": 1959,
+          "completion_tokens": 1202,
+          "total_tokens": 3161,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0027068,
+        "seconds": 10.829186083999957,
+        "retry_count": 0
+      }
+    ]
+  }
+}

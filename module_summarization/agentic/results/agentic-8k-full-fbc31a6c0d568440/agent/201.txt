@@ -1,0 +1,116 @@
+Partial Dependence and Individual Conditional Expectation Plots
+================================================================
+
+Overview
+--------
+
+Partial Dependence (PD) and Individual Conditional Expectation (ICE) plots are powerful tools for interpreting machine learning models. They help visualize the relationship between the target response and a set of input features, marginalizing over the values of all other features.
+
+- **Partial Dependence plots** show the average effect of one or two features on the predicted outcome.
+- **Individual Conditional Expectation plots** display the dependence of the prediction on a feature for individual instances, revealing heterogeneity in the feature effect.
+
+These plots are particularly useful for understanding complex models such as ensemble methods and gradient boosting machines.
+
+Functionality
+-------------
+
+The `sklearn.inspection` module provides the following key functionalities related to PD and ICE plots:
+
+- `partial_dependence`: Compute partial dependence values for features of interest.
+- `PartialDependenceDisplay`: Visualize partial dependence and ICE plots from an estimator and dataset.
+
+Key Features
+------------
+
+- Supports regression and classification models.
+- Handles one-way and two-way partial dependence plots.
+- Two-way plots are visualized as contour plots.
+- Displays deciles of feature values as tick marks on axes.
+- Supports categorical and continuous features.
+- Allows plotting of PD, ICE, or an overlay of both by setting the `kind` parameter.
+- Supports subsampling and random state control for ICE plots.
+- Provides customization options for plot appearance.
+
+Usage Example
+-------------
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_friedman1
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.inspection import partial_dependence, PartialDependenceDisplay
+
+# Generate synthetic data
+X, y = make_friedman1()
+
+# Fit a gradient boosting regressor
+clf = GradientBoostingRegressor(n_estimators=10).fit(X, y)
+
+# Define features to plot
+features = [(0,)]
+feature_names = [f"Feature #{i}" for i in range(X.shape[1])]
+
+# Compute partial dependence
+pd_results = partial_dependence(clf, X, features=0, kind="average", grid_resolution=5)
+
+# Create display object
+display = PartialDependenceDisplay(
+    [pd_results], features=features, feature_names=feature_names, target_idx=0, deciles={0: np.linspace(0, 1, num=5)}
+)
+
+# Plot partial dependence
+display.plot(pdp_lim={1: (-1.38, 0.66)})
+
+plt.show()
+```
+
+Parameters
+----------
+
+- **estimator**: A fitted regression or classification model.
+- **X**: Data on which to compute partial dependence.
+- **features**: Features for which to compute partial dependence. Can be a list of indices or names.
+- **kind**: Type of plot to generate. Options:
+  - `"average"`: Partial dependence plot (default).
+  - `"individual"`: ICE plot.
+  - `"both"`: Overlay of PD and ICE plots.
+- **grid_resolution**: Number of points to use for the grid on each feature.
+- **percentiles**: Tuple specifying the lower and upper percentiles to define the grid range.
+- **subsample**: Number of ICE curves to plot when `kind` is `"individual"` or `"both"`.
+- **random_state**: Seed for reproducibility.
+- **categorical_features**: List indicating which features are categorical.
+- **feature_names**: Names of features for labeling plots.
+- **target_idx**: Index of the target to plot in multi-output models.
+
+Notes
+-----
+
+- Two-way partial dependence plots are shown as contour plots.
+- Deciles of feature values are marked on axes to aid interpretation.
+- When using ICE plots, subsampling is recommended for large datasets to avoid clutter.
+- The `PartialDependenceDisplay.from_estimator` method facilitates easy plotting directly from an estimator and dataset.
+- Sample weights can be provided to compute weighted partial dependence averages.
+- The `method` parameter controls the computation approach; `"recursion"` is supported for some tree-based models but does not support sample weights.
+
+References
+----------
+
+- Friedman, J. H. (2001). Greedy function approximation: A gradient boosting machine. *Annals of Statistics*, 29(5), 1189–1232.
+- Goldstein, A., Kapelner, A., Bleich, J., & Pitkin, E. (2015). Peeking inside the black box: Visualizing statistical learning with plots of individual conditional expectation. *Journal of Computational and Graphical Statistics*, 24(1), 44–65.
+
+See Also
+--------
+
+- `partial_dependence` — Compute partial dependence values.
+- `PartialDependenceDisplay.from_estimator` — Plot partial dependence and ICE plots from an estimator.
+
+License
+-------
+
+BSD 3-Clause License
+
+Authors
+-------
+
+Peter Prettenhofer, Trevor Stephens, Nicolas Hug

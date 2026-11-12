@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "# Scale Schedule Module Documentation\n\nThis module provides functionality for defining and managing learning rate schedules that scale the optimizer's learning rate during training. The schedules are designed to be flexible and composable, allowing for complex learning rate behaviors such as warmup periods, cosine annealing, and multiplicative stacking of multiple schedulers.\n\n## Overview\n\nLearning rate schedulers in this module produce a multiplier, denoted as :math:`\\alpha`, which is applied to the optimizer's base learning rate :math:`\\eta_i`. The effective learning rate at time :math:`t` is given by:\n\n\\[\n\\eta(t) = \\eta_i \\times \\alpha(t)\n\\]\n\nMultiple schedulers can be combined, with their effects stacking multiplicatively.\n\n### Scale Schedule Ratio (SSR)\n\nThe module supports a concept called the **scale schedule ratio (SSR)**, denoted as :math:`\\sigma`. This ratio \"stretches\" or \"compresses\" the schedule in time. Formally, if :math:`\\alpha(t)` is the scheduler output at time :math:`t`, then the scaled scheduler output is:\n\n\\[\n\\alpha_{\\sigma}(t) = \\alpha\\left(\\frac{t}{\\sigma}\\right)\n\\]\n\nThis allows the schedule to be adjusted dynamically based on training duration or other factors.\n\n## Key Components\n\n### Time Conversion Utility\n\nThe function `_convert_time` converts various time representations (strings, `Time` objects) into a consistent `Time` object aligned with the current training state and SSR. It handles conversions between epochs, batches, and durations, ensuring compatibility with the trainer's maximum duration and dataloader length.\n\n### Scheduler Compilation\n\nThe function `compile_composer_scheduler` converts a stateless scheduler function into a PyTorch-compatible scheduler object. This compiled scheduler:\n\n- Provides a `.step()` interface similar to PyTorch schedulers.\n- Uses a bound reference to the current training `State` to compute learning rates dynamically.\n- Supports SSR scaling if the scheduler function accepts it.\n\nNote: Functional schedulers currently support only a single optimizer.\n\n## Provided Schedulers\n\n### LinearScheduler\n\nA scheduler that linearly interpolates the learning rate multiplier between an initial value and a final value over a specified duration.\n\n- **Parameters:**\n  - `t_warmup` (str | Time): Duration of the warmup period.\n  - `alpha_i` (float): Initial learning rate multiplier (default 1.0).\n  - `alpha_f` (float): Final learning rate multiplier (default 0.0).\n  - `t_max` (str | Time): Total duration of the scheduler (default \"1dur\").\n  - `scale_warmup` (bool): Whether to scale the warmup period with SSR (default False).\n\n- **Behavior:**\n  - During warmup, the learning rate multiplier increases linearly from 0 to `alpha_i`.\n  - After warmup, it decays linearly from `alpha_i` to `alpha_f` over the remaining duration.\n  - If `scale_warmup` is False, the warmup duration is not scaled by SSR, which may slightly distort the slope after warmup.\n  \n- **Warning:**\n  - By default, the warmup period is not scaled by SSR, which can cause unexpected slope changes unless `scale_warmup=True`.\n\n### CosineAnnealingWithWarmupScheduler\n\nA scheduler that applies a cosine annealing decay to the learning rate multiplier after an initial warmup period.\n\n- **Behavior:**\n  - During warmup, the learning rate multiplier increases linearly.\n  - After warmup, the multiplier follows the decreasing part of a cosine curve, decaying towards a final multiplier value.\n  \n- **Mathematical Form:**\n\n\\[\n\\alpha(t) = \\begin{cases}\n\\frac{t}{t_{warmup}}, & t < t_{warmup} \\\\\n\\alpha_f + (1 - \\alpha_f) \\times \\frac{1}{2} \\left(1 + \\cos(\\pi \\times \\tau_w)\\right), & t \\geq t_{warmup}\n\\end{cases}\n\\]\n\nwhere :math:`\\tau_w` is the fraction of post-warmup time elapsed, clipped to [0, 1].\n\n## Usage Notes\n\n- The module requires the training `State` to have `max_duration` set when schedulers are invoked.\n- When converting times, the module relies on the dataloader length to convert epochs to batches if necessary.\n- Multiple schedulers can be combined by multiplying their output multipliers.\n- The SSR parameter allows flexible scaling of schedules to accommodate different training durations or experimental setups.\n\n## Summary\n\nThis module enables precise control over learning rate schedules with support for warmup, linear decay, cosine annealing, and schedule scaling. It integrates tightly with the training state and PyTorch optimizers, providing a robust foundation for advanced learning rate scheduling strategies.",
+  "prediction_sha256": "3fe0b1411d0eb1b6acced0f3510852b27832308d4930529284cf57f05b1a931e",
+  "prompt_sha256": "3f690d8b03738a3496150e1f60f6e6260bd25b55ba9b1f5273a9536ddcf14794",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 8124,
+    "completion_tokens": 1572,
+    "total_tokens": 9696
+  },
+  "cost_usd": 0.0057648000000000005,
+  "generation_seconds": 13.9380238760059,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "scale_schedule"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 3936,
+              "end_char": 4726,
+              "code": "\n            learning rate directly. By convention, we use the symbol :math:`\\alpha` to refer to this multiplier. This\n            means that the learning rate :math:`\\eta` at time :math:`t` can be represented as\n            :math:`\\eta(t) = \\eta_i \\times \\alpha(t)`, where :math:`\\eta_i` represents the learning rate used to\n            initialize the optimizer.\n\n       .. note::\n            It is possible to use multiple schedulers, in which case their effects will stack multiplicatively.\n\n        The ``ssr`` param indicates that the schedule should be \"stretched\" accordingly. In symbolic terms, where\n        :math:`\\alpha_\\sigma(t)` represents the scheduler output at time :math:`t` using scale schedule ratio\n        :math:`\\sigma`:\n\n       .. math::\n            \\alpha_{\\sigma}(t",
+              "code_tokens": 300,
+              "score": 3.682299829406
+            },
+            {
+              "chunk_id": 8,
+              "start_char": 7702,
+              "end_char": 8334,
+              "code": "\n        del epoch  # unused. Provided by the pytorch LambdaLR\n\n        # if the ssr is 1.0, don't pass it to the scheduler. This allows users to pass in lambdas that only take\n        # one parameter -- the state\n        if len(scheduler_sig.parameters) == 1:\n            if ssr == 1.0:\n                return scheduler(state)\n            else:\n                raise ValueError(\n                    textwrap.dedent(f\"\"\"\\\n                    Scheduler {scheduler} does not support `scale_schedule_ratio`.\n                    To use `scale_schedule_ratio`, the scheduler must take two arguments (state, ssr)\"\"\"))\n        return sched",
+              "code_tokens": 300,
+              "score": 3.370507837495
+            },
+            {
+              "chunk_id": 32,
+              "start_char": 28072,
+              "end_char": 28960,
+              "code": " & \\text{otherwise}\n        \\end{cases}\n\n    Given :math:`\\tau_w`, the fraction of post-warmup time elapsed (clipped to the interval :math:`[0, 1]`), as:\n\n   .. math::\n        \\tau_w = (t - t_{warmup}) / t_{max}\n\n    Where :math:`t_{warmup}` represents the warmup time, :math:`\\alpha_i` represents the initial learning rate multiplier,\n    and :math:`\\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration\n    of this scheduler.\n\n\n   .. warning::\n        By default, the initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of\n        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's \"slope\" will be\n        slightly distorted from what would otherwise be expected. To scale the entire schedule, set ``scale_warmup=True``.\n\n    Args:\n      ",
+              "code_tokens": 300,
+              "score": 3.299315689393
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 3936,
+              "end_char": 7962,
+              "code": "\n            learning rate directly. By convention, we use the symbol :math:`\\alpha` to refer to this multiplier. This\n            means that the learning rate :math:`\\eta` at time :math:`t` can be represented as\n            :math:`\\eta(t) = \\eta_i \\times \\alpha(t)`, where :math:`\\eta_i` represents the learning rate used to\n            initialize the optimizer.\n\n       .. note::\n            It is possible to use multiple schedulers, in which case their effects will stack multiplicatively.\n\n        The ``ssr`` param indicates that the schedule should be \"stretched\" accordingly. In symbolic terms, where\n        :math:`\\alpha_\\sigma(t)` represents the scheduler output at time :math:`t` using scale schedule ratio\n        :math:`\\sigma`:\n\n       .. math::\n            \\alpha_{\\sigma}(t) = \\alpha(t / \\sigma)\n\n        Args:\n            state (State): The current Composer Trainer state.\n            ssr (float): The scale schedule ratio. In general, the learning rate computed by this\n                scheduler at time :math:`t` with an SSR of 1.0 should be the same as that computed by\n                this scheduler at time :math:`t \\times s` with an SSR of :math:`s`. Default = ``1.0``.\n\n        Returns:\n            alpha (float): A multiplier to apply to the optimizer's provided learning rate.\n        \"\"\"\n        raise NotImplementedError\n\n\ndef _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: float = 1.0) -> Time[int]:\n    if isinstance(time, str):\n        time = Time.from_timestring(time)\n\n    assert state.max_duration is not None,'max_duration should be set whenever schedulers are invoked'\n\n    if time.unit == TimeUnit.DURATION:\n        if state.max_duration.unit == TimeUnit.EPOCH:\n            if state.dataloader_len is None:\n                raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')\n            return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)\n        return Time(int(time.value * state.max_duration.value), state.max_duration.unit)\n    elif time.unit == TimeUnit.EPOCH:\n        # Epochs do not provide sufficient granularity for SSR scaling\n        # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.\n        # so, convert the time into batches\n        if state.dataloader_len is None:\n            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')\n        time = Time(value=time.value * int(state.dataloader_len), unit=TimeUnit.BATCH)\n\n    return Time(value=int(time.value * ssr), unit=time.unit)\n\n\ndef compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> PyTorchScheduler:\n    \"\"\"Converts a stateless scheduler into a PyTorch scheduler object.\n\n    While the resulting scheduler provides a ``.step()`` interface similar to other PyTorch schedulers, the scheduler is\n    also given a bound reference to the current :class:`~composer.core.State`. This means that any internal state updated\n    by ``.step()`` can be ignored, and the scheduler can instead simply use the bound state to recalculate the current\n    learning rate.\n\n    Args:\n        scheduler (ComposerScheduler): A stateless scheduler, provided as a :class:`~.ComposerScheduler` object.\n        state (State): The Composer Trainer's state.\n\n    Returns:\n        compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.\n    \"\"\"\n    optimizers = state.optimizers\n    if len(optimizers)!= 1:\n        raise NotImplementedError('Providing functional schedulers is unsupported with multiple optimizers.')\n    optimizer = optimizers[0]\n\n    scheduler_sig = inspect.signature(scheduler)\n\n    def scheduler_fn(epoch: int) -> float:\n        del epoch  # unused. Provided by the pytorch LambdaLR\n\n        # if the ssr is 1.0, don't pass it to the scheduler. This allows users to pass in lambdas that only take\n        # one parameter -- the state\n        if len(scheduler_sig.parameters) == 1:",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 32
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 32,
+              "start_char": 28072,
+              "end_char": 31626,
+              "code": " & \\text{otherwise}\n        \\end{cases}\n\n    Given :math:`\\tau_w`, the fraction of post-warmup time elapsed (clipped to the interval :math:`[0, 1]`), as:\n\n   .. math::\n        \\tau_w = (t - t_{warmup}) / t_{max}\n\n    Where :math:`t_{warmup}` represents the warmup time, :math:`\\alpha_i` represents the initial learning rate multiplier,\n    and :math:`\\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration\n    of this scheduler.\n\n\n   .. warning::\n        By default, the initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of\n        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's \"slope\" will be\n        slightly distorted from what would otherwise be expected. To scale the entire schedule, set ``scale_warmup=True``.\n\n    Args:\n        t_warmup (str | Time): Warmup time.\n        alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.\n        alpha_f (float): Final learning rate multiplier. Default = ``0.0``.\n        t_max (str | Time): The duration of this scheduler. Default = ``\"1dur\"``.\n        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.\n    \"\"\"\n\n    def __init__(self,\n                 t_warmup: Union[str, Time],\n                 alpha_i: float = 1.0,\n                 alpha_f: float = 0.0,\n                 t_max: Union[str, Time] = '1dur',\n                 scale_warmup: bool = False):\n        self.t_warmup = t_warmup\n        self.alpha_i = alpha_i\n        self.alpha_f = alpha_f\n        self.t_max = t_max\n        self.scale_warmup = scale_warmup\n        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)\n\n    def __call__(self, state: State, ssr: float = 1.0):\n        assert state.max_duration is not None,'max_duration should be set whenever schedulers are invoked'\n        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)\n        t_warmup = _convert_time(self.t_warmup, state)\n        if t_warmup.value == 0:\n            warnings.warn(\n                textwrap.dedent(\"\"\"\\\n                The warmup duration is 0. If you specified warmup as a fraction of total\n                training duration, take note that the warmup duration is calculated in the\n                same unit as the trainer's max_duration parameter.\"\"\"))\n\n        if state.timestamp < t_warmup:\n            if self.scale_warmup:\n                return self.warmup_scheduler(state, ssr)\n            return self.warmup_scheduler(state)\n\n        t_max = _convert_time(self.t_max, state, ssr=ssr)\n        current_time = state.timestamp.get(t_warmup.unit)\n        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0\n        frac_of_total = min(1.0, frac_of_total)\n\n        current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)\n\n        return current_factor\n\n\nclass CosineAnnealingWithWarmupScheduler(ComposerScheduler):\n    r\"\"\"Decays the learning rate according to the decreasing part of a cosine curve, with an initial warmup.\n\n   .. seealso::\n        This scheduler is based on :class:`~.CosineAnnealingScheduler`, with an added warmup.\n\n    Specifically, the learning rate multiplier :math:`\\alpha` can be expressed as:\n\n   .. math::\n        \\alpha(t) = \\begin{cases}\n            t / t_{warmup}, & \\text{if } t < t_{warmup} \\\\\n            \\alpha_f + (1 - \\alpha_f) \\times \\frac{1}{2} (1 + \\cos(\\pi \\times \\tau_w)) & \\text",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "ea5b90b94170472b84fb6d143523709c0cc70641c1300ae5578561228da30fe2",
+        "request_id": "chatcmpl-Ej9fg4KmSNRWZ7aHywF7MfujLrvgS",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.8280435839988058,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "54b506731343d2a0c744941a3e18e7fa01ef5e58d4753f06ace2a03e678112c2",
+        "request_id": "chatcmpl-Ej9fhj0Gix0g57zfguvFiSxnQU5mP",
+        "usage": {
+          "prompt_tokens": 923,
+          "completion_tokens": 15,
+          "total_tokens": 938,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00039320000000000007,
+        "seconds": 0.7361623750039143,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "51fb7d0dbd04028c4d0aa1e59d1899cf6040f39c9198090b24696fd9e8263aec",
+        "request_id": "chatcmpl-Ej9fiWRkLYxFD0ASZe9aRSsKPrDM5",
+        "usage": {
+          "prompt_tokens": 1986,
+          "completion_tokens": 15,
+          "total_tokens": 2001,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008184,
+        "seconds": 0.6352909170018393,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "27df12de9747bd277f987459695ca7add7ee015d9190fa79a8ed154cd7a7a4b4",
+        "request_id": "chatcmpl-Ej9fifRJ5mbgXHab1LK1noZvqoDe8",
+        "usage": {
+          "prompt_tokens": 3070,
+          "completion_tokens": 512,
+          "total_tokens": 3582,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020472,
+        "seconds": 4.066287749999901,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "52e83b958fab2ea533d0c0236900efb8a5b32d5aa0d1accd2ac5c8fac208601c",
+        "request_id": "chatcmpl-Ej9fm2y1lLBhxFj9s4mzEh81gCZd7",
+        "usage": {
+          "prompt_tokens": 1989,
+          "completion_tokens": 1015,
+          "total_tokens": 3004,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0024196,
+        "seconds": 7.672239250001439,
+        "retry_count": 0
+      }
+    ]
+  }
+}

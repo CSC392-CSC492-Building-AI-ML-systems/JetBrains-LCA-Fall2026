@@ -1,0 +1,339 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Tensor Attributes\n=================\n\nThis document provides an overview of the tensor attributes used within the OneFlow MLIR integration and framework. These attributes describe the properties and metadata associated with tensors, facilitating their manipulation, conversion, and interoperability between OneFlow and MLIR.\n\nData Type Attributes\n--------------------\n\nTensor data types are represented using OneFlow's internal `DataType` enumeration. Conversion utilities exist to map between MLIR types and OneFlow data types:\n\n- `FromMLIRTypeToOFDataType(Type mlir_type)`: Converts an MLIR type to a OneFlow `DataType`.\n- `FromMLIRDataTypeToOFDataType(::mlir::oneflow::DataType data_type)`: Converts an MLIR OneFlow dialect data type to OneFlow `DataType`.\n- `FromMLIRAttrToOFDataType(Attribute attr)`: Converts an MLIR attribute representing a data type to OneFlow `DataType`.\n\nShape Attributes\n----------------\n\nTensor shapes are represented using OneFlow's `ShapeProto` and related protobuf messages. Attributes related to shapes include:\n\n- `getAttrAsShape(mlir::Attribute& attr)`: Extracts a `ShapeProto` from an MLIR attribute.\n- `getAttrAsStride(mlir::Attribute& attr)`: Extracts stride information as an `Int64ListProto` from an MLIR attribute.\n\nThese utilities allow the conversion of MLIR attributes into OneFlow's shape and stride representations.\n\nTensor Conversion Utilities\n---------------------------\n\nTo facilitate interoperability between MLIR and OneFlow tensors, the following conversion functions are provided:\n\n- `TensorToDenseElementsAttr(const std::shared_ptr<::oneflow::one::Tensor>& tensor, MLIRContext* ctx)`: Converts a OneFlow tensor to an MLIR `DenseElementsAttr`.\n- `DenseElementsAttrToTensor(const mlir::Attribute& attr, const mlir::Attribute& device_tag, const mlir::Attribute& device_name)`: Converts an MLIR `DenseElementsAttr` back to a OneFlow tensor, considering device attributes.\n- Overloaded version: `DenseElementsAttrToTensor(const mlir::Attribute& attr, const mlir::Attribute& device_tag, const mlir::Attribute& device_name, std::shared_ptr<::oneflow::one::Tensor>& tensor)`: Converts and stores the result in the provided tensor pointer.\n\nParallel and Device Attributes\n------------------------------\n\nTensor attributes also include device and parallelism information:\n\n- `getParallelConfFromAttrDictionary(DictionaryAttr attributes)`: Extracts a `ParallelConf` protobuf message from a dictionary of MLIR attributes.\n- `getParallelConfFromAttrs(Attribute device_name_attr, Attribute device_tag_attr)`: Constructs a `ParallelConf` from device name and tag attributes.\n- `getDeviceTypeFromAttrDictionary(DictionaryAttr attributes)`: Retrieves the device type from MLIR attribute dictionaries.\n\nUser Operation Attributes\n-------------------------\n\nUser operations in OneFlow use attributes to describe inputs, outputs, and other configuration parameters:\n\n- `queryAttrType(const std::string& op_type_name, const std::string& attr_name)`: Queries the attribute type for a given operation and attribute name.\n- `saveAttrDictionaryToOpConf(DictionaryAttr attributes, ::oneflow::OperatorConf* op_conf)`: Saves MLIR attribute dictionaries into OneFlow operator configuration protobufs.\n- `ConvertUserOpAttributes(...)`: Multiple overloads exist to convert MLIR user operation attributes into OneFlow operator configurations, supporting various input forms such as `ValueRange` and `Operation*`.\n\nTensor Type Construction\n------------------------\n\nTensor types in MLIR are constructed using the shape and data type information extracted from OneFlow's `BlobDesc`:\n\n```cpp\nif (auto type = getTypeFromOneFlowDataType(context, blob_desc->data_type())) {\n  return RankedTensorType::get(\n      llvm::SmallVector<int64_t, 4>(\n          {blob_desc->shape().dim_vec().begin(), blob_desc->shape().dim_vec().end()}),\n      type);\n} else {\n  return Type{};\n}\n```\n\nThis snippet demonstrates how to create an MLIR ranked tensor type from OneFlow's blob descriptor, capturing both shape and element type.\n\nSummary\n-------\n\nTensor attributes in OneFlow's MLIR integration encapsulate essential metadata such as data types, shapes, strides, device placement, and parallelism configurations. The provided utilities enable seamless conversion between MLIR representations and OneFlow's internal protobuf-based formats, ensuring consistent and efficient tensor handling across the compilation and runtime stack.",
+  "prediction_sha256": "f9b12fd0984e8d1f89d4ac4277be087040cebbbfb527116c094e69757e73711e",
+  "prompt_sha256": "5d51f69d5e11db9a287ca41e9a23c4869b82b35d1dc1f43ece3fa3d392d6b341",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12504,
+    "completion_tokens": 1011,
+    "total_tokens": 13515
+  },
+  "cost_usd": 0.0066192,
+  "generation_seconds": 10.586230705997878,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tensor attributes"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 573,
+              "start_char": 478399,
+              "end_char": 479192,
+              "code": "Flow/OneFlowUtils.h\"\n\n#include \"mlir/Support/LLVM.h\"\n#include \"mlir/Support/LogicalResult.h\"\n\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored \"-Wcast-qual\"\n#include \"schemas/executable_generated.h\"\n#include \"schemas/attributes/bool_generated.h\"\n#include \"schemas/attributes/f32_generated.h\"\n#include \"schemas/attributes/f32s_generated.h\"\n#include \"schemas/attributes/f64_generated.h\"\n#include \"schemas/attributes/i32_generated.h\"\n#include \"schemas/attributes/i32s_generated.h\"\n#include \"schemas/attributes/i64_generated.h\"\n#include \"schemas/attributes/i64s_generated.h\"\n#include \"schemas/attributes/shape_generated.h\"\n#include \"schemas/attributes/shapes_generated.h\"\n#include \"schemas/attributes/str_generated.h\"\n#include \"schemas/attributes/strs_generated.h\"\n#pragma GCC diagnostic",
+              "code_tokens": 300,
+              "score": 10.45316639196
+            },
+            {
+              "chunk_id": 222,
+              "start_char": 178344,
+              "end_char": 179082,
+              "code": ", const ::oneflow::BlobDesc* blob_desc) {\n  if (auto type = getTypeFromOneFlowDataType(context, blob_desc->data_type())) {\n    return RankedTensorType::get(\n        llvm::SmallVector<int64_t, 4>(\n            {blob_desc->shape().dim_vec().begin(), blob_desc->shape().dim_vec().end()}),\n        type);\n  } else {\n    return Type{};\n  }\n}\n\nstatic auto MagicalOpName = \"INFER_MAGICAL\";\nLogicalResult ConvertUserOp(llvm::StringRef op_type_name, ::oneflow::OperatorConf& op_conf,\n                            ValueRange operands, DictionaryAttr attributes) {\n  oneflow::ConfOpAdaptor conf_op_adaptor(operands, attributes);\n  op_conf.set_name(MagicalOpName);\n  CHECK(\n      user_op::ConvertUserOpInputs(op_type_name, operands, attributes, op_conf",
+              "code_tokens": 300,
+              "score": 10.08273592685
+            },
+            {
+              "chunk_id": 1212,
+              "start_char": 970312,
+              "end_char": 971275,
+              "code": " = \"Convert ops to their inference version and rewrite them with a more performant equivalent in inference workflow.\";\n  let constructor = \"mlir::oneflow::createConvertInferenceOpPass()\";\n  let dependentDialects = [\"pdl_interp::PDLInterpDialect\", \"pdl::PDLDialect\"];\n}\n\ndef PostConvertInferenceOpPass : Pass<\"post-convert-inference-op\", \"ModuleOp\"> {\n  let summary = \"Convert variable ir op to variable op after contant folding.\";\n  let constructor = \"mlir::oneflow::createPostConvertInferenceOpPass()\";\n}\n\n\ndef ConvertToSignlessForTosaPass : Pass<\"convert-to-signless-for-tosa\", \"ModuleOp\"> {\n  let summary = \"convert func type to unsigned before lowering to tosa\";\n  let description = [{\n    In oneflow, int typed tensor is explicit signed. Convert them before lowering to TOSA.\n  }];\n  let constructor = \"mlir::oneflow::createConvertToSignlessForTosaPass()\";\n  let dependentDialects = [\"func::FuncDialect\"];\n}\n\ndef CSEWithAttributesIgnored : Pass<\"cse-with-att",
+              "code_tokens": 300,
+              "score": 10.070204148547
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tensor attributes"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tensor attribute"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10279,
+              "start_char": 8299448,
+              "end_char": 8299600,
+              "code": " tensor_tuple_.size(); ++i) {\n      // Cast all the inputs to it's attribute `lowest_dtype` if the input tensor dtype is lower\n      // than attribute `",
+              "code_tokens": 53,
+              "score": 10.229282990793
+            },
+            {
+              "chunk_id": 1201,
+              "start_char": 960570,
+              "end_char": 961438,
+              "code": "#include \"oneflow/core/framework/tensor.h\"\n// This include is not necessary now, but it is here for testing the namespace collision\n#include \"oneflow/core/framework/user_op_registry_manager.h\"\n\nnamespace mlir {\n\nnamespace oneflow {\n\nnamespace support {\n\nconst ::oneflow::UserOpDef& getUserOpDef(const std::string& op_type_name);\nstatic const std::vector<std::string>* inputKeys() {\n  static std::vector<std::string> val({\"in\"});\n  return &val;\n}\n\nstd::vector<std::string> GetInputKeys(const std::string& op_type_name);\n\nstd::vector<std::string> GetOutputKeys(const std::string& op_type_name);\n\nmlir::DenseElementsAttr TensorToDenseElementsAttr(\n    const std::shared_ptr<::oneflow::one::Tensor>& tensor, MLIRContext* ctx);\n\nstd::shared_ptr<::oneflow::one::Tensor> DenseElementsAttrToTensor(\n    const mlir::Attribute& attr, const mlir::Attribute& device_tag,\n    const",
+              "code_tokens": 300,
+              "score": 10.060241934429
+            },
+            {
+              "chunk_id": 12545,
+              "start_char": 10032716,
+              "end_char": 10033436,
+              "code": "\n        const std::shared_ptr<one::LocalTensor> local_var = JUST(tensor->cur_rank_phy_tensor());\n        var_blob = JUST(local_var->eager_blob_object()).get();\n      } else {\n        var_blob = JUST(tensor->eager_blob_object()).get();\n      }\n    } else if (/*is_null=*/!tensor) {\n      // Deal with tensors which are not in the nn.Module.\n      // We can call these tensors as additional variables.\n      const auto& op_attribute =\n          plan_.job_id2op_attribute_ref_table().at(job_id_).op_name2op_attribute().at(var_name);\n      // NOTE(chengcheng): handle constant variable created by job pass\n      Symbol<ParallelDesc> placement(op_attribute.parallel_conf_signature().op_parallel_conf());\n      NdSbp nd_sbp(N",
+              "code_tokens": 300,
+              "score": 10.030780443482
+            }
+          ],
+          "code_tokens": 653
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1201
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1201,
+              "start_char": 960570,
+              "end_char": 964625,
+              "code": "#include \"oneflow/core/framework/tensor.h\"\n// This include is not necessary now, but it is here for testing the namespace collision\n#include \"oneflow/core/framework/user_op_registry_manager.h\"\n\nnamespace mlir {\n\nnamespace oneflow {\n\nnamespace support {\n\nconst ::oneflow::UserOpDef& getUserOpDef(const std::string& op_type_name);\nstatic const std::vector<std::string>* inputKeys() {\n  static std::vector<std::string> val({\"in\"});\n  return &val;\n}\n\nstd::vector<std::string> GetInputKeys(const std::string& op_type_name);\n\nstd::vector<std::string> GetOutputKeys(const std::string& op_type_name);\n\nmlir::DenseElementsAttr TensorToDenseElementsAttr(\n    const std::shared_ptr<::oneflow::one::Tensor>& tensor, MLIRContext* ctx);\n\nstd::shared_ptr<::oneflow::one::Tensor> DenseElementsAttrToTensor(\n    const mlir::Attribute& attr, const mlir::Attribute& device_tag,\n    const mlir::Attribute& device_name);\nvoid DenseElementsAttrToTensor(const mlir::Attribute& attr, const mlir::Attribute& device_tag,\n                               const mlir::Attribute& device_name,\n                               std::shared_ptr<::oneflow::one::Tensor>& tensor);\n\nFailureOr<::oneflow::DataType> FromMLIRTypeToOFDataType(Type mlir_type);\nFailureOr<::oneflow::DataType> FromMLIRDataTypeToOFDataType(::mlir::oneflow::DataType data_type);\nFailureOr<::oneflow::DataType> FromMLIRAttrToOFDataType(Attribute attr);\n\n}  // namespace support\n\n}  // namespace oneflow\n\n}  // namespace mlir\n\n#endif  // ONEFLOW_IR_INCLUDE_ONEFLOW_ONEFLOWSUPPORT_H_\n\n\n/*\nCopyright 2020 The OneFlow Authors. All rights reserved.\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n*/\n#ifndef ONEFLOW_IR_INCLUDE_ONEFLOW_USEROPCONVERSION_H_\n#define ONEFLOW_IR_INCLUDE_ONEFLOW_USEROPCONVERSION_H_\n#include \"OneFlow/OneFlowOps.h\"\n\nnamespace mlir {\n\nnamespace oneflow {\n\nnamespace user_op {\n\n::oneflow::ShapeProto getAttrAsShape(mlir::Attribute& attr);\n::oneflow::Int64ListProto getAttrAsStride(mlir::Attribute& attr);\n::oneflow::AttrType queryAttrType(const std::string& op_type_name, const std::string& attr_name);\nLogicalResult saveAttrDictionaryToOpConf(DictionaryAttr attributes,\n                                         ::oneflow::OperatorConf* op_conf);\nLogicalResult ConvertUserOpAttributes(llvm::StringRef op_type_name, ValueRange operands,\n                                      DictionaryAttr attributes, ::oneflow::OperatorConf& op_conf);\nLogicalResult ConvertUserOpAttributes(Operation* op, ::oneflow::OperatorConf& op_conf);\nLogicalResult ConvertUserOpAttributes(\n    Operation* op, ::oneflow::OperatorConf& op_conf,\n    bool is_mapping_size /* the input and output size should be mapped after building kernel and\n                            provide information for the next query*/\n    = false);\nLogicalResult ConvertUserOpInputs(llvm::StringRef op_type_name, ValueRange operands,\n                                  DictionaryAttr attributes, ::oneflow::UserOpConf* user_conf);\n::oneflow::ParallelConf getParallelConfFromAttrDictionary(DictionaryAttr attributes);\n::oneflow::ParallelConf getParallelConfFromAttrs(Attribute device_name_attr,\n                                                 Attribute device_tag_attr);\n::oneflow::DeviceType getDeviceTypeFromAttrDictionary(DictionaryAttr attributes);\n\n}  // namespace user_op\n\n}  // namespace oneflow\n\n}  // namespace mlir\n\n#endif  // ONEFLOW_IR_INCLUDE_ONEFLOW_USEROPCONVERSION_H_\n\n\n#ifndef ONEFLOW_PASSES\n#define ONEFLOW_PASSES\n\ninclude \"OneFlow/OneFlowOps.td\"\n\n#ifdef WITH_MLIR_CUDA_CODEGEN\ndef NVVMToCubinPass : InterfacePass<\"nvvm-to-cubin\", \"SymbolOpInterface\"> {\n  let",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tensor attributes mlir"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 573,
+              "start_char": 478399,
+              "end_char": 479192,
+              "code": "Flow/OneFlowUtils.h\"\n\n#include \"mlir/Support/LLVM.h\"\n#include \"mlir/Support/LogicalResult.h\"\n\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored \"-Wcast-qual\"\n#include \"schemas/executable_generated.h\"\n#include \"schemas/attributes/bool_generated.h\"\n#include \"schemas/attributes/f32_generated.h\"\n#include \"schemas/attributes/f32s_generated.h\"\n#include \"schemas/attributes/f64_generated.h\"\n#include \"schemas/attributes/i32_generated.h\"\n#include \"schemas/attributes/i32s_generated.h\"\n#include \"schemas/attributes/i64_generated.h\"\n#include \"schemas/attributes/i64s_generated.h\"\n#include \"schemas/attributes/shape_generated.h\"\n#include \"schemas/attributes/shapes_generated.h\"\n#include \"schemas/attributes/str_generated.h\"\n#include \"schemas/attributes/strs_generated.h\"\n#pragma GCC diagnostic",
+              "code_tokens": 300,
+              "score": 16.118000877779
+            },
+            {
+              "chunk_id": 1212,
+              "start_char": 970312,
+              "end_char": 971275,
+              "code": " = \"Convert ops to their inference version and rewrite them with a more performant equivalent in inference workflow.\";\n  let constructor = \"mlir::oneflow::createConvertInferenceOpPass()\";\n  let dependentDialects = [\"pdl_interp::PDLInterpDialect\", \"pdl::PDLDialect\"];\n}\n\ndef PostConvertInferenceOpPass : Pass<\"post-convert-inference-op\", \"ModuleOp\"> {\n  let summary = \"Convert variable ir op to variable op after contant folding.\";\n  let constructor = \"mlir::oneflow::createPostConvertInferenceOpPass()\";\n}\n\n\ndef ConvertToSignlessForTosaPass : Pass<\"convert-to-signless-for-tosa\", \"ModuleOp\"> {\n  let summary = \"convert func type to unsigned before lowering to tosa\";\n  let description = [{\n    In oneflow, int typed tensor is explicit signed. Convert them before lowering to TOSA.\n  }];\n  let constructor = \"mlir::oneflow::createConvertToSignlessForTosaPass()\";\n  let dependentDialects = [\"func::FuncDialect\"];\n}\n\ndef CSEWithAttributesIgnored : Pass<\"cse-with-att",
+              "code_tokens": 300,
+              "score": 16.080102665177
+            },
+            {
+              "chunk_id": 467,
+              "start_char": 384796,
+              "end_char": 385696,
+              "code": "#include \"OneFlow/Passes.h\"\n#include \"mlir/Transforms/GreedyPatternRewriteDriver.h\"\n#include \"mlir/Dialect/Tensor/IR/Tensor.h\"\n#include \"mlir/InitAllDialects.h\"\n#include \"mlir/Parser/Parser.h\"\n#include \"mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h\"\n#include \"mlir/Bytecode/BytecodeWriter.h\"\n\nnamespace mlir {\n\nnamespace oneflow {\n\nnamespace {\n\n// general lowering path:\n// 1. outline linalg ops to a func.func and an oneflow.jit op\n// 2. bufferize the func.func and update oneflow.jit op's tmp buffer size\n\n// 1. collect ops to outline\n// 2. create func.func jit ops to call\n// 3. replace the usages with jit ops' results\n\n// entries: non-oneflow ops which have operands are from oneflow ops\n// exits: result consumed by oneflow ops\n\n// NOTE: we assume all arg values are produced by an oneflow op and won't be an argument\n\nNamedAttrList GetJitOpAttributes(Builder& rewriter, StringRef",
+              "code_tokens": 300,
+              "score": 16.071513027306
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tensor attributes mlir"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3953,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "1fe0d092e11dd76c3b69157f4d37d22cf0c214cf34f58e4c303758a39b0ff149",
+        "request_id": "chatcmpl-Ej8RtXk2eRqF8uSIyUvXCBOqwVDh8",
+        "usage": {
+          "prompt_tokens": 154,
+          "completion_tokens": 15,
+          "total_tokens": 169,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.56e-05,
+        "seconds": 0.8333557500009192,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "e656a49d35708f0a4276da65ad33559ceb7cb3715eb0d934f6257fa17d771eac",
+        "request_id": "chatcmpl-Ej8RuAVXxDcAPHu6nwcZ7bHpLceOx",
+        "usage": {
+          "prompt_tokens": 1011,
+          "completion_tokens": 15,
+          "total_tokens": 1026,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00042840000000000006,
+        "seconds": 0.7474669580005866,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "502ee170688e73b532873b594bede666c0eec5023bd803e95aa564e6c7e588b8",
+        "request_id": "chatcmpl-Ej8RvC6RQRXwdF15rSlOQbL3PAqc7",
+        "usage": {
+          "prompt_tokens": 1047,
+          "completion_tokens": 15,
+          "total_tokens": 1062,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00044280000000000003,
+        "seconds": 0.7011127080004371,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "55cdfd5355e500ca0dd8b6b627749a3e780e41811ae03426bc73d5eb223a7656",
+        "request_id": "chatcmpl-Ej8Rw2ZM3rE170QXdmyGbSYRgGdRK",
+        "usage": {
+          "prompt_tokens": 1697,
+          "completion_tokens": 16,
+          "total_tokens": 1713,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007044000000000001,
+        "seconds": 0.7952367910002067,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "0403c3d330a309fd95eff675e368ac4d3f78708743878375bc628b6f997e6842",
+        "request_id": "chatcmpl-Ej8RwmE1iOUDfXGKnIT3ck7WhY69f",
+        "usage": {
+          "prompt_tokens": 2803,
+          "completion_tokens": 17,
+          "total_tokens": 2820,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0011484000000000002,
+        "seconds": 0.6537243749990012,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "3e5e00c610f0db7aed787f95489d394e15ce235a563a6505a2dd2a328ac8f75c",
+        "request_id": "chatcmpl-Ej8RxKFK23i8kM5RByWeyYKwicCX5",
+        "usage": {
+          "prompt_tokens": 3720,
+          "completion_tokens": 17,
+          "total_tokens": 3737,
+          "prompt_tokens_details": {
+            "cached_tokens": 2688,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015152,
+        "seconds": 0.8803068329980306,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "1efd75fe8989ebad513df286b275bcb60bb91e2f46371464a1a331699d648ded",
+        "request_id": "chatcmpl-Ej8Ryxc3UMKgp2ogeeQD0l4rcR6Pw",
+        "usage": {
+          "prompt_tokens": 2072,
+          "completion_tokens": 916,
+          "total_tokens": 2988,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0022944000000000003,
+        "seconds": 5.975027290998696,
+        "retry_count": 0
+      }
+    ]
+  }
+}

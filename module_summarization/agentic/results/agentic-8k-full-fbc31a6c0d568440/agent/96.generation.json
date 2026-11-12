@@ -1,0 +1,366 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Getting Started with Mitogen\n=============================\n\nMitogen is a Python library designed to simplify and accelerate the process of managing remote connections and executing code across multiple hosts. It provides a powerful and efficient framework for creating and managing communication contexts, handling asynchronous calls, and pipelining multiple remote procedure calls (RPCs) with ease.\n\nThis tutorial will guide you through the basics of using Mitogen, focusing on creating connections, executing remote calls, and using the CallChain feature for efficient pipelined RPCs.\n\nCreating a Connection\n---------------------\n\nMitogen establishes connections to remote contexts, allowing you to execute code remotely. Connections are created asynchronously and managed internally by Mitogen’s router and broker components.\n\nExample of establishing a connection:\n\n```python\n# This is handled internally by Mitogen's connection management.\n# The connection setup involves creating child processes and setting up stdio streams.\n```\n\nMitogen manages connection timeouts and shutdown events gracefully, ensuring robust communication channels.\n\nExecuting Remote Calls\n----------------------\n\nOnce a connection (context) is established, you can execute functions remotely. Mitogen supports synchronous and asynchronous calls, allowing you to choose the best approach for your use case.\n\nUsing `call()` to execute a function remotely and wait for the result:\n\n```python\nresult = context.call(some_function, arg1, arg2)\n```\n\nUsing `call_async()` to execute a function asynchronously and retrieve the result later:\n\n```python\nrecv = context.call_async(some_function, arg1, arg2)\nresult = recv.get().unpickle()\n```\n\nPipelining Calls with CallChain\n-------------------------------\n\nMitogen provides the `CallChain` class to pipeline multiple calls into a single round-trip, reducing latency and improving performance. This is especially useful when you need to execute several dependent or independent calls on the remote context.\n\nExample usage of `CallChain`:\n\n```python\nfrom mitogen.parent import CallChain\n\nwith CallChain(context, pipelined=True) as chain:\n    chain.call_no_reply(os.mkdir, '/tmp/foo')\n    chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n    recv = chain.call_async(subprocess.check_output, ['/bin/ls', '/tmp/foo'])\n    chain.call(do_something)\n\n    # Retrieve and process the result of the asynchronous call\n    if recv.get().unpickle() == 'baz':\n        pass\n```\n\nKey points about `CallChain`:\n\n- `call_no_reply()` schedules a call without waiting for a response.\n- `call_async()` schedules a call and returns a receiver object to get the result later.\n- `call()` schedules a call and waits for the result immediately.\n- If any call in the chain fails, subsequent calls are skipped, and exceptions are propagated asynchronously.\n- When pipelining is enabled, it is important to invoke `reset()` to discard any related exceptions and avoid unbounded memory usage. Using the context manager (`with` statement) ensures `reset()` is called automatically.\n\nHandling Exceptions and Limitations\n-----------------------------------\n\nMitogen cannot invoke certain types of functions due to serialization limitations:\n\n- Closures: Functions that capture arbitrary program state cannot be serialized.\n- Anonymous functions (lambdas): No universal method exists to recover a reference.\n- Instance methods: Serializing arbitrary program state is required, which is unsupported.\n\nAttempting to call such functions will raise a `TypeError` with an explanatory message.\n\nAdvanced Features\n-----------------\n\n- Mitogen manages stdio streams and replaces them with `/dev/null` when necessary to handle odd startup conditions.\n- It tracks context IDs and parent IDs internally to manage hierarchical relationships between contexts.\n- Protocols define the behavior associated with activity on streams, allowing flexible handling of connection initialization and message routing.\n\nSummary\n-------\n\nMitogen offers a robust and efficient framework for remote execution in Python, with features like asynchronous calls, pipelining via `CallChain`, and automatic connection management. By leveraging these capabilities, you can build scalable and high-performance distributed applications with minimal overhead.\n\nFor more detailed information and advanced usage, refer to the full Mitogen documentation and API reference.",
+  "prediction_sha256": "0f8de3a7eeeac02cf4ecd577e5bfd97547b7f333aca1e91a3db1d5c14701e7f3",
+  "prompt_sha256": "f46f55699d4e7455bf92db23ea859e35708e2712d550ee25e4604f4103b8f170",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 10506,
+    "completion_tokens": 915,
+    "total_tokens": 11421
+  },
+  "cost_usd": 0.0056664,
+  "generation_seconds": 11.0117522080036,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting started"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 73,
+              "start_char": 58449,
+              "end_char": 59017,
+              "code": "\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker,'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.start_child()\n   ",
+              "code_tokens": 300,
+              "score": 4.324839376162
+            },
+            {
+              "chunk_id": 74,
+              "start_char": 59125,
+              "end_char": 59685,
+              "code": "connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n           ",
+              "code_tokens": 300,
+              "score": 4.150394901735
+            },
+            {
+              "chunk_id": 305,
+              "start_char": 238841,
+              "end_char": 239427,
+              "code": "        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd!= stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_",
+              "code_tokens": 300,
+              "score": 3.888956674716
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tutorial"
+        },
+        "response": {
+          "status": "no_results",
+          "excerpts": [],
+          "code_tokens": 0
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "example"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 220,
+              "start_char": 172927,
+              "end_char": 173657,
+              "code": "len -= total_len\n        self._router._async_route(msg, self.stream)\n        return True\n\n    def pending_bytes(self):\n        \"\"\"\n        Return the number of bytes queued for transmission on this stream. This\n        can be used to limit the amount of data buffered in RAM by an otherwise\n        unlimited consumer.\n\n        For an accurate result, this method should be called from the Broker\n        thread, for example by using :meth:`Broker.defer_sync`.\n        \"\"\"\n        return self._writer._len\n\n    def on_transmit(self, broker):\n        \"\"\"\n        Transmit buffered messages.\n        \"\"\"\n        _vv and IOLOG.debug('%r.on_transmit()', self)\n        self._writer.on_transmit(broker)\n\n    def _send(self, msg):\n      ",
+              "code_tokens": 300,
+              "score": 3.529011846266
+            },
+            {
+              "chunk_id": 201,
+              "start_char": 157743,
+              "end_char": 158644,
+              "code": "      and usually invoked by any subclass :meth:`on_receive` implementation\n        in response to a 0-byte read.\n\n        The base implementation fires a ``disconnect`` event, then closes\n        :attr:`receive_side` and :attr:`transmit_side` after unregistering the\n        stream from the broker.\n        \"\"\"\n        fire(self, 'disconnect')\n        self.protocol.on_disconnect(broker)\n\n\nclass Protocol(object):\n    \"\"\"\n    Implement the program behaviour associated with activity on a\n    :class:`Stream`. The protocol in use may vary over a stream's life, for\n    example to allow :class:`mitogen.parent.BootstrapProtocol` to initialize\n    the connected child before handing it off to :class:`MitogenProtocol`. A\n    stream's active protocol is tracked in the :attr:`Stream.protocol`\n    attribute, and modified via :meth:`Stream.set_protocol`.\n\n    Protocols do not handle IO, they are entirely",
+              "code_tokens": 300,
+              "score": 3.303271224759
+            },
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 63171,
+              "code": "In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled, :meth:`reset`",
+              "code_tokens": 300,
+              "score": 3.238533853097
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 79
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 65787,
+              "code": "In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled, :meth:`reset` must be invoked to ensure any\n    exception is discarded, otherwise unbounded memory usage is possible in\n    long-running programs. The context manager protocol is supported to ensure\n    :meth:`reset` is always invoked::\n\n        with mitogen.parent.CallChain(context, pipelined=True) as chain:\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call(...)\n\n        # chain.reset() automatically invoked.\n    \"\"\"\n    def __init__(self, context, pipelined=False):\n        self.context = context\n        if pipelined:\n            self.chain_id = self.make_chain_id()\n        else:\n            self.chain_id = None\n\n    @classmethod\n    def make_chain_id(cls):\n        return '%s-%s-%x-%x' % (\n            socket.gethostname(),\n            os.getpid(),\n            thread.get_ident(),\n            int(1e6 * mitogen.core.now()),\n        )\n\n    def __repr__(self):\n        return '%s(%s)' % (self.__class__.__name__, self.context)\n\n    def __enter__(self):\n        return self\n\n    def __exit__(self, _1, _2, _3):\n        self.reset()\n\n    def reset(self):\n        \"\"\"\n        Instruct the target to forget any related exception.\n        \"\"\"\n        if not self.chain_id:\n            return\n\n        saved, self.chain_id = self.chain_id, None\n        try:\n            self.call_no_reply(mitogen.core.Dispatcher.forget_chain, saved)\n        finally:\n            self.chain_id = saved\n\n    closures_msg = (\n        'Mitogen cannot invoke closures, as doing so would require '\n       'serializing arbitrary program state, and no universal '\n       'method exists to recover a reference to them.'\n    )\n\n    lambda_msg = (\n        'Mitogen cannot invoke anonymous functions, as no universal method '\n        'exists to recover a reference to an anonymous function.'\n    )\n\n    method_msg = (\n        'Mitogen cannot invoke instance methods, as doing so would require '\n       'serializing arbitrary program state.'\n    )\n\n    def make_msg(self, fn, *args, **kwargs):\n        if getattr(fn, closure_attr, None) is not None:\n            raise TypeError(self.closures_msg)\n        if fn.__name__ == '<lambda>':\n            raise TypeError(self.lambda_msg)\n\n        if inspect.ismethod(fn):\n            im_self = getattr(fn, IM_SELF_ATTR)\n            if not inspect.isclass(im_self):\n                raise TypeError(self.method_msg)\n            klass = mitogen.core.to_text(im_self.__name__)\n        else:\n            klass = None\n\n        tup = (\n            self.chain_id,\n            mitogen.core.to_text(fn.__module__),\n            klass,\n      ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting started tutorial"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 73,
+              "start_char": 58449,
+              "end_char": 59017,
+              "code": "\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker,'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.start_child()\n   ",
+              "code_tokens": 300,
+              "score": 4.324839376162
+            },
+            {
+              "chunk_id": 74,
+              "start_char": 59125,
+              "end_char": 59685,
+              "code": "connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n           ",
+              "code_tokens": 300,
+              "score": 4.150394901735
+            },
+            {
+              "chunk_id": 305,
+              "start_char": 238841,
+              "end_char": 239427,
+              "code": "        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd!= stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_",
+              "code_tokens": 300,
+              "score": 3.888956674716
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "tutorial example"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 220,
+              "start_char": 172927,
+              "end_char": 173657,
+              "code": "len -= total_len\n        self._router._async_route(msg, self.stream)\n        return True\n\n    def pending_bytes(self):\n        \"\"\"\n        Return the number of bytes queued for transmission on this stream. This\n        can be used to limit the amount of data buffered in RAM by an otherwise\n        unlimited consumer.\n\n        For an accurate result, this method should be called from the Broker\n        thread, for example by using :meth:`Broker.defer_sync`.\n        \"\"\"\n        return self._writer._len\n\n    def on_transmit(self, broker):\n        \"\"\"\n        Transmit buffered messages.\n        \"\"\"\n        _vv and IOLOG.debug('%r.on_transmit()', self)\n        self._writer.on_transmit(broker)\n\n    def _send(self, msg):\n      ",
+              "code_tokens": 300,
+              "score": 3.529011846266
+            },
+            {
+              "chunk_id": 201,
+              "start_char": 157743,
+              "end_char": 158644,
+              "code": "      and usually invoked by any subclass :meth:`on_receive` implementation\n        in response to a 0-byte read.\n\n        The base implementation fires a ``disconnect`` event, then closes\n        :attr:`receive_side` and :attr:`transmit_side` after unregistering the\n        stream from the broker.\n        \"\"\"\n        fire(self, 'disconnect')\n        self.protocol.on_disconnect(broker)\n\n\nclass Protocol(object):\n    \"\"\"\n    Implement the program behaviour associated with activity on a\n    :class:`Stream`. The protocol in use may vary over a stream's life, for\n    example to allow :class:`mitogen.parent.BootstrapProtocol` to initialize\n    the connected child before handing it off to :class:`MitogenProtocol`. A\n    stream's active protocol is tracked in the :attr:`Stream.protocol`\n    attribute, and modified via :meth:`Stream.set_protocol`.\n\n    Protocols do not handle IO, they are entirely",
+              "code_tokens": 300,
+              "score": 3.303271224759
+            },
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 63171,
+              "code": "In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled, :meth:`reset`",
+              "code_tokens": 300,
+              "score": 3.238533853097
+            }
+          ],
+          "code_tokens": 900
+        }
+      }
+    ],
+    "code_tokens_returned": 5100,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "b8a98687156ba4716904a665d6543be39d4c50740bf96e43bb06671da7216530",
+        "request_id": "chatcmpl-Ej8YnGIJvIzeJIU6BqAJc64nd4sp3",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.6788424580008723,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "f1062f2f367607fa3e6dac4c76e6fda996bd22aacfbd4457cca9ec8981f9f5bd",
+        "request_id": "chatcmpl-Ej8Ynr7FRs9KL0d7z35KQDvyGtMc9",
+        "usage": {
+          "prompt_tokens": 765,
+          "completion_tokens": 14,
+          "total_tokens": 779,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00032839999999999996,
+        "seconds": 0.6978645000053803,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "9e1a7424e2e67f9fc5853db3ad128a2dbd4c6cce6d035fc2cb8adcd532c2752a",
+        "request_id": "chatcmpl-Ej8YoLUGxPLPJ65U8LTnW7Unad2ei",
+        "usage": {
+          "prompt_tokens": 806,
+          "completion_tokens": 14,
+          "total_tokens": 820,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00034480000000000003,
+        "seconds": 1.0568179589972715,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "6fed62f1be27f463a4397a376690da61a05ad1288e8fec11745053bc85847e79",
+        "request_id": "chatcmpl-Ej8YptezyygwtXDVHmdgEvc61kOgt",
+        "usage": {
+          "prompt_tokens": 1577,
+          "completion_tokens": 15,
+          "total_tokens": 1592,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006548000000000001,
+        "seconds": 0.8103754579933593,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "3b93d964699e96e96a21a6f3ff353423756ba159e219251ef3b7a77b936ce230",
+        "request_id": "chatcmpl-Ej8YqhDDPngHAIvpOE8v5BLHhKala",
+        "usage": {
+          "prompt_tokens": 2522,
+          "completion_tokens": 16,
+          "total_tokens": 2538,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010344,
+        "seconds": 0.9964977500058012,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "1c36aba13665f33cf58585d17e6c8bbd8441a208723cc80af912b67e78b5f247",
+        "request_id": "chatcmpl-Ej8Yrgg7afMnOrjlfYf58PQOvLWWm",
+        "usage": {
+          "prompt_tokens": 3132,
+          "completion_tokens": 15,
+          "total_tokens": 3147,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012768000000000002,
+        "seconds": 0.6750778749992605,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "0f5f36521c8dc6b701925196918ecca85ecb1fe8e88061672477579ecfc4e03a",
+        "request_id": "chatcmpl-Ej8YsEixPG8yuhv1SYiwtxLQuuqoX",
+        "usage": {
+          "prompt_tokens": 1548,
+          "completion_tokens": 826,
+          "total_tokens": 2374,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0019408000000000001,
+        "seconds": 6.096276208001655,
+        "retry_count": 0
+      }
+    ]
+  }
+}

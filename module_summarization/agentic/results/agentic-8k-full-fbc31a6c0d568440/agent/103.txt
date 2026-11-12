@@ -1,0 +1,112 @@
+Generate Documentation for Code Generation Module
+==================================================
+
+Overview
+--------
+
+This module provides functionality to generate source code from symbolic expressions in multiple programming languages, including C, Fortran 95, and Octave/Matlab. It defines classes and functions to represent routines, arguments, and results, and to translate these into code in the target language.
+
+Key Components
+--------------
+
+### Routine Class
+
+The `Routine` class represents a generic evaluation routine for a set of expressions. It encapsulates all necessary information about a function or subroutine, including its name, arguments, results, local variables, and global variables.
+
+- **Initialization Parameters:**
+
+  - `name` (string): The name of the routine.
+  - `arguments` (list of Arguments): Inputs to the routine, which may be input-only, output-only, or input-output arguments depending on the language semantics.
+  - `results` (list of Results): Return values of the routine.
+  - `local_vars` (list of Results or symbols): Variables defined locally within the routine.
+  - `global_vars` (list of Symbols): Variables that are global and not passed as arguments.
+
+- **Functionality:**
+
+  - Validates that all symbols used in expressions are accounted for in the inputs, local variables, or globals.
+  - Provides a property `variables` that returns all variables possibly used in the routine.
+
+### CodeGen Base Class and Language-Specific Generators
+
+The module includes a base `CodeGen` class and several subclasses for specific languages:
+
+- **CCodeGen:** Generates C source and header files.
+- **FCodeGen:** Generates Fortran 95 source and interface files.
+- **OctaveCodeGen:** Generates Octave/Matlab compatible code.
+
+Each generator class implements methods to:
+
+- Produce language-specific code for routines.
+- Handle language-specific features such as argument passing conventions, data types, and code formatting.
+- Write code to files or return code as strings.
+
+### get_code_generator Function
+
+This function returns an instance of the appropriate code generator class based on the specified language string. Supported languages include `'C'`, `'F95'`, and `'Octave'`.
+
+Usage:  
+```python
+codegen_instance = get_code_generator(language='C', project='my_project')
+```
+
+### Friendly Function: `codegen`
+
+The `codegen` function is a high-level interface to generate source code for one or more expressions in a specified language.
+
+- **Parameters:**
+
+  - `name_expr` (tuple or list of tuples): Each tuple contains a routine name and an expression or list of expressions. Expressions can be symbolic expressions or equalities defining outputs.
+  - `language` (string): Target programming language (`'C'`, `'F95'`, `'Octave'`).
+  - `prefix` (string, optional): Prefix for output file names. Defaults to the first routine name.
+  - `project` (string, optional): Project name used for unique preprocessor directives. Default is `"project"`.
+  - `to_files` (bool, optional): If `True`, writes code to files; otherwise returns code as strings. Default is `False`.
+  - `header` (bool, optional): If `True`, includes a header comment in generated files. Default is `True`.
+  - `empty` (bool, optional): If `True`, includes empty lines for readability. Default is `True`.
+  - `argument_sequence` (iterable, optional): Preferred order of routine arguments.
+  - `global_vars` (iterable, optional): Variables treated as global and excluded from function arguments.
+
+- **Returns:**
+
+  - If `to_files` is `False`, returns a list of `(filename, code_string)` tuples for each generated file.
+  - If `to_files` is `True`, writes files to disk and returns `None`.
+
+- **Examples:**
+
+  Generate C code for a single expression:
+  ```python
+  [(c_name, c_code), (h_name, c_header)] = codegen(
+      ('f', x + y*z), 'C', 'test', header=False, empty=False)
+  print(c_name)  # Outputs: test.c
+  print(c_code)  # Outputs the C source code
+  print(h_name)  # Outputs: test.h
+  print(c_header)  # Outputs the C header code
+  ```
+
+  Generate code using symbolic equalities for named outputs:
+  ```python
+  from diofant.abc import f, g
+  [(c_name, c_code), (h_name, c_header)] = codegen(
+      [('myfcn', x + y), ('myotherfcn', f + g)], 'C')
+  ```
+
+Features and Limitations
+------------------------
+
+- Supports multiple return values in languages that allow them (e.g., Python), but raises exceptions for languages that do not (e.g., Fortran).
+- Handles complex numbers where supported.
+- Validates that all symbols used in expressions are properly declared as inputs, outputs, or globals.
+- Generates appropriate function signatures, declarations, and code bodies according to language conventions.
+- Supports intent declarations for Fortran arguments (`in`, `out`, `inout`).
+- Provides extensibility for additional languages by subclassing `CodeGen`.
+
+Error Handling
+--------------
+
+- Raises `ValueError` if unknown argument or result types are encountered.
+- Raises `CodeGenError` if language-specific constraints are violated (e.g., multiple return values in Fortran).
+- Validates symbol coverage to ensure all symbols used in expressions are declared.
+
+Conclusion
+----------
+
+This module offers a flexible and extensible framework for generating source code from symbolic expressions in multiple programming languages. It abstracts routine definitions and language-specific code generation details, enabling automated and consistent code production for mathematical and scientific computing applications.

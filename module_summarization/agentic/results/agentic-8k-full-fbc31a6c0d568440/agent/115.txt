@@ -1,0 +1,94 @@
+config module
+=============
+
+This module provides methods for getting and setting global configuration options for ASDF (Advanced Scientific Data Format). It defines the `AsdfConfig` class, which acts as a container for ASDF configuration options, and provides functions to access and temporarily override these configurations.
+
+Classes
+-------
+
+AsdfConfig
+~~~~~~~~~~
+
+Container for ASDF configuration options. Users are not intended to construct this object directly; instead, use the `get_config` and `config_context` module methods.
+
+**Attributes and Properties:**
+
+- `resource_mappings`  
+  Returns the list of registered resource mapping instances. Unless overridden by user configuration, this list contains every mapping registered with an entry point.
+
+**Methods:**
+
+- `add_resource_mapping(mapping)`  
+  Register a new resource mapping. The new mapping will take precedence over all previously registered mappings.
+
+  Parameters:  
+  `mapping` : collections.abc.Mapping  
+  A map of resource URI strings to bytes content.
+
+- `remove_resource_mapping(mapping=None, *, package=None)`  
+  Remove a registered resource mapping.
+
+  Parameters:  
+  `mapping` : collections.abc.Mapping, optional  
+  The mapping to remove.  
+  `package` : str, optional  
+  Remove only extensions provided by this package. If `mapping` is omitted, all mappings from this package will be removed.
+
+- `reset_resources()`  
+  Reset registered resource mappings to the default state.
+
+Functions
+---------
+
+get_config()
+~~~~~~~~~~~~
+
+Get the current ASDF configuration, which may have been altered by one or more surrounding calls to `config_context`.
+
+Returns:  
+`AsdfConfig` instance representing the current configuration.
+
+config_context()
+~~~~~~~~~~~~~~~
+
+Context manager that temporarily overrides ASDF configuration. The context yields an `AsdfConfig` instance that can be modified without affecting code outside of the context.
+
+Usage example:
+
+```python
+with config_context() as config:
+    config.add_resource_mapping(my_mapping)
+    # configuration changes here are temporary
+```
+
+Constants
+---------
+
+- `DEFAULT_VALIDATE_ON_READ` : bool  
+  Default setting for whether validation occurs on reading ASDF files (default: True).
+
+- `DEFAULT_DEFAULT_VERSION` : str  
+  Default ASDF version string.
+
+- `DEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS` : bool  
+  Default setting for legacy schema default filling (default: True).
+
+- `DEFAULT_IO_BLOCK_SIZE` : int  
+  Default block size for I/O operations (-1 means automatic).
+
+- `DEFAULT_ARRAY_INLINE_THRESHOLD` : Optional[int]  
+  Default threshold for inlining arrays (None means no threshold).
+
+Thread Safety
+-------------
+
+The `AsdfConfig` class uses a reentrant lock (`threading.RLock`) to ensure thread-safe access and modification of configuration options.
+
+Usage Notes
+-----------
+
+- Users should obtain the current configuration using `get_config()` rather than instantiating `AsdfConfig` directly.
+- Temporary configuration changes should be made within the `config_context()` context manager to avoid affecting global state.
+- Resource mappings can be added or removed dynamically to customize how ASDF resolves resource URIs.
+
+This module is essential for managing global and context-specific configuration settings in ASDF workflows.

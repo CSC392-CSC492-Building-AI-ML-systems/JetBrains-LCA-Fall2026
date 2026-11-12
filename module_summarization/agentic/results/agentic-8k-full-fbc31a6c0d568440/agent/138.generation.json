@@ -1,0 +1,294 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Array Best Practices\n====================\n\nWhen working with arrays, especially large or chunked arrays, following best practices can help improve performance, maintainability, and correctness of your code. This document outlines key recommendations and considerations for working effectively with arrays.\n\n1. Choosing the Right Operations\n--------------------------------\n\n- Use specialized reduction functions such as `cumreduction` for cumulative operations like cumulative product (`cumprod`). These functions are optimized for performance and can handle chunked arrays efficiently.\n- For extracting top elements, use functions like `topk` and `argtopk`:\n  - `topk(a, k, axis=-1, split_every=None)` extracts the k largest elements along the specified axis, returning them sorted from largest to smallest. If `k` is negative, it extracts the -k smallest elements sorted from smallest to largest.\n  - `argtopk(a, k, axis=-1, split_every=None)` extracts the indices of the k largest elements along the specified axis, sorted similarly.\n- These functions perform best when `k` is much smaller than the chunk size, as all results are returned in a single chunk along the given axis.\n\n2. Managing Chunk Sizes\n-----------------------\n\n- Chunk size balancing is important for performance and memory usage. When working with chunked arrays, try to balance chunk sizes to avoid large discrepancies.\n- If chunk size balancing is not possible with the given chunks, consider increasing the chunk size.\n- Use helper functions to calculate new chunk sizes that minimize the difference between the largest and smallest chunks.\n- Avoid having too many small chunks or very uneven chunk sizes, as this can degrade performance.\n\n3. Performance Considerations\n-----------------------------\n\n- Benchmark your code with your specific workload, scheduler, and hardware to find the optimal chunk sizes and methods.\n- Use `split_every` parameter in reductions to control the tree reduction depth, which can affect parallelism and memory usage.\n- Keep in mind that some operations may require all results to be gathered into a single chunk along a particular axis, which can be a bottleneck if the chunk size is large.\n\n4. Data Types and Output\n------------------------\n\n- Specify the `dtype` parameter explicitly when possible to avoid unexpected type promotions or conversions.\n- Use the `out` parameter to provide an output array if you want to reuse memory or control output allocation.\n- When performing reductions, use `keepdims=True` if you want to retain reduced dimensions with size one, which can simplify broadcasting in subsequent operations.\n\n5. Code Readability and Maintenance\n-----------------------------------\n\n- Use descriptive parameter names and document all parameters clearly.\n- Prefer using partial functions or helper functions to encapsulate common patterns, such as aggregation steps in reductions.\n- Import necessary modules explicitly and organize imports at the top of your files.\n- Use warnings to inform users when certain operations may not perform optimally or when input parameters may cause issues.\n\nSummary\n-------\n\nBy following these best practices, you can write efficient, readable, and maintainable code when working with arrays. Proper chunk size management, choosing the right operations, and understanding the performance implications of your choices are key to leveraging the full power of array computations.",
+  "prediction_sha256": "255a82d27b137f73fdad41b269d462cf6b5b622edc3be13a7f7f6553e74396bc",
+  "prompt_sha256": "baaf2ecb98e6fdf77dbbc7fea9a789d07a4b36800c8a981ee062ed5d988e0c02",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 7372,
+    "completion_tokens": 820,
+    "total_tokens": 8192
+  },
+  "cost_usd": 0.0042608,
+  "generation_seconds": 12.35183433299244,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 5,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array best practices"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1033,
+              "start_char": 782109,
+              "end_char": 782825,
+              "code": "5 * max(chunks):\n        n_chunks -= 1\n\n    new_chunks = [\n        _get_chunks(sum(chunks), chunk_len)\n        for chunk_len in range(median_len - eps, median_len + eps + 1)\n    ]\n    possible_chunks = [c for c in new_chunks if len(c) == n_chunks]\n    if not len(possible_chunks):\n        warn(\n            \"chunk size balancing not possible with given chunks. \"\n            \"Try increasing the chunk size.\"\n        )\n        return chunks\n\n    diffs = [max(c) - min(c) for c in possible_chunks]\n    best_chunk_size = np.argmin(diffs)\n    return possible_chunks[best_chunk_size]\n\n\nfrom __future__ import annotations\n\nfrom collections.abc import Callable\nfrom itertools import zip_longest\nfrom numbers import Integral",
+              "code_tokens": 300,
+              "score": 8.053465751034
+            },
+            {
+              "chunk_id": 149,
+              "start_char": 116641,
+              "end_char": 117397,
+              "code": " workload,\n          scheduler, and hardware.  More benchmarking is necessary.\n    \"\"\"\n    return cumreduction(\n        np.cumprod,\n        _cumprod_merge,\n        1,\n        x,\n        axis,\n        dtype,\n        out=out,\n        method=method,\n        preop=np.prod,\n    )\n\n\ndef topk(a, k, axis=-1, split_every=None):\n    \"\"\"Extract the k largest elements from a on the given axis,\n    and return them sorted from largest to smallest.\n    If k is negative, extract the -k smallest elements instead,\n    and return them sorted from smallest to largest.\n\n    This performs best when ``k`` is much smaller than the chunk size. All\n    results will be returned in a single chunk along the given axis.\n\n    Parameters\n    ----------\n    x: Array\n        Data",
+              "code_tokens": 300,
+              "score": 6.567615802041
+            },
+            {
+              "chunk_id": 151,
+              "start_char": 118548,
+              "end_char": 119344,
+              "code": "    aggregate = partial(chunk.topk_aggregate, k=k)\n\n    return reduction(\n        a,\n        chunk=chunk_combine,\n        combine=chunk_combine,\n        aggregate=aggregate,\n        axis=axis,\n        keepdims=True,\n        dtype=a.dtype,\n        split_every=split_every,\n        output_size=abs(k),\n    )\n\n\ndef argtopk(a, k, axis=-1, split_every=None):\n    \"\"\"Extract the indices of the k largest elements from a on the given axis,\n    and return them sorted from largest to smallest. If k is negative, extract\n    the indices of the -k smallest elements instead, and return them sorted\n    from smallest to largest.\n\n    This performs best when ``k`` is much smaller than the chunk size. All\n    results will be returned in a single chunk along the given axis.\n\n    Parameters\n    ----------\n  ",
+              "code_tokens": 300,
+              "score": 6.187617345304
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array best practices"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array best practices"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "best practices array"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1033,
+              "start_char": 782109,
+              "end_char": 782825,
+              "code": "5 * max(chunks):\n        n_chunks -= 1\n\n    new_chunks = [\n        _get_chunks(sum(chunks), chunk_len)\n        for chunk_len in range(median_len - eps, median_len + eps + 1)\n    ]\n    possible_chunks = [c for c in new_chunks if len(c) == n_chunks]\n    if not len(possible_chunks):\n        warn(\n            \"chunk size balancing not possible with given chunks. \"\n            \"Try increasing the chunk size.\"\n        )\n        return chunks\n\n    diffs = [max(c) - min(c) for c in possible_chunks]\n    best_chunk_size = np.argmin(diffs)\n    return possible_chunks[best_chunk_size]\n\n\nfrom __future__ import annotations\n\nfrom collections.abc import Callable\nfrom itertools import zip_longest\nfrom numbers import Integral",
+              "code_tokens": 300,
+              "score": 8.053465751034
+            },
+            {
+              "chunk_id": 149,
+              "start_char": 116641,
+              "end_char": 117397,
+              "code": " workload,\n          scheduler, and hardware.  More benchmarking is necessary.\n    \"\"\"\n    return cumreduction(\n        np.cumprod,\n        _cumprod_merge,\n        1,\n        x,\n        axis,\n        dtype,\n        out=out,\n        method=method,\n        preop=np.prod,\n    )\n\n\ndef topk(a, k, axis=-1, split_every=None):\n    \"\"\"Extract the k largest elements from a on the given axis,\n    and return them sorted from largest to smallest.\n    If k is negative, extract the -k smallest elements instead,\n    and return them sorted from smallest to largest.\n\n    This performs best when ``k`` is much smaller than the chunk size. All\n    results will be returned in a single chunk along the given axis.\n\n    Parameters\n    ----------\n    x: Array\n        Data",
+              "code_tokens": 300,
+              "score": 6.567615802041
+            },
+            {
+              "chunk_id": 151,
+              "start_char": 118548,
+              "end_char": 119344,
+              "code": "    aggregate = partial(chunk.topk_aggregate, k=k)\n\n    return reduction(\n        a,\n        chunk=chunk_combine,\n        combine=chunk_combine,\n        aggregate=aggregate,\n        axis=axis,\n        keepdims=True,\n        dtype=a.dtype,\n        split_every=split_every,\n        output_size=abs(k),\n    )\n\n\ndef argtopk(a, k, axis=-1, split_every=None):\n    \"\"\"Extract the indices of the k largest elements from a on the given axis,\n    and return them sorted from largest to smallest. If k is negative, extract\n    the indices of the -k smallest elements instead, and return them sorted\n    from smallest to largest.\n\n    This performs best when ``k`` is much smaller than the chunk size. All\n    results will be returned in a single chunk along the given axis.\n\n    Parameters\n    ----------\n  ",
+              "code_tokens": 300,
+              "score": 6.187617345304
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array best practices"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 1800,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "35dc74432202e566060a75b24f707501cefdc3b51004f537ac92d69020553170",
+        "request_id": "chatcmpl-Ej9enzVFJ2hpUjHiSda8Em0lEh9ly",
+        "usage": {
+          "prompt_tokens": 158,
+          "completion_tokens": 16,
+          "total_tokens": 174,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.880000000000002e-05,
+        "seconds": 0.9208417920017382,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "de5d21fa852d11e09e4fbdcb6c0611ced8570cc3f3eb6b81055e60856f01251b",
+        "request_id": "chatcmpl-Ej9eoCvy6Ws5oM7N2bLEuBz0REvAH",
+        "usage": {
+          "prompt_tokens": 946,
+          "completion_tokens": 16,
+          "total_tokens": 962,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040400000000000006,
+        "seconds": 0.7100329579989193,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "0bff6d4fd82478a6218bed0c7e75b1a57c69c614f4fe948b82088c393ff6130b",
+        "request_id": "chatcmpl-Ej9eoN4j6j7gUm9fBegZKvUWglPcu",
+        "usage": {
+          "prompt_tokens": 983,
+          "completion_tokens": 16,
+          "total_tokens": 999,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00041880000000000004,
+        "seconds": 0.7054721249951399,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "120c48cb5db0be98a19edbda20a6d5ad1ea9bc14c32f90edfc210ee4867c771e",
+        "request_id": "chatcmpl-Ej9ep3R8ijsZL8HOziGBlHpTCDkq0",
+        "usage": {
+          "prompt_tokens": 1020,
+          "completion_tokens": 16,
+          "total_tokens": 1036,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004336,
+        "seconds": 0.720379791004234,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "e5087b3b2968caec536479eb0339e082359bee6f636df8d4c7d7c9a80760fb28",
+        "request_id": "chatcmpl-Ej9eq40N6jlG25YiPhhhAcaDoH2M9",
+        "usage": {
+          "prompt_tokens": 1808,
+          "completion_tokens": 16,
+          "total_tokens": 1824,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007488000000000001,
+        "seconds": 0.7310639579955023,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "17dc3f3705301c1696c14aa5414fd231a4dec4946d01bd77b7bdbf801c186c36",
+        "request_id": "chatcmpl-Ej9er0SzhYAIV0Bh6L021Mx6zX210",
+        "usage": {
+          "prompt_tokens": 1845,
+          "completion_tokens": 106,
+          "total_tokens": 1951,
+          "prompt_tokens_details": {
+            "cached_tokens": 1664,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009076,
+        "seconds": 1.5108602920008707,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "c8fb65d9341c3fda4feeea1be20735e7823a635651be971a6645d0880d83f7ab",
+        "request_id": "chatcmpl-Ej9esaOtgmMS22vWwAbP8Kj0AIVCQ",
+        "usage": {
+          "prompt_tokens": 612,
+          "completion_tokens": 634,
+          "total_tokens": 1246,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012592,
+        "seconds": 7.053183416996035,
+        "retry_count": 0
+      }
+    ]
+  }
+}

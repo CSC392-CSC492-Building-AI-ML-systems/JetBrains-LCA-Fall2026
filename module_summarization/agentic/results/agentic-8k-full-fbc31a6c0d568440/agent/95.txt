@@ -1,0 +1,143 @@
+Schedulers
+==========
+
+Stateless learning rate schedulers
+----------------------------------
+
+This module provides stateless learning rate schedulers designed to address some limitations of PyTorch's built-in schedulers found in :mod:`torch.optim.lr_scheduler`. The primary goal of these schedulers is to integrate seamlessly with Composer's :mod:`~composer.core.time` abstraction, allowing schedulers to be configured using explicit and arbitrary time units.
+
+Unlike traditional schedulers that maintain internal state, these schedulers are pure functions or callable classes that compute a learning rate multiplier based solely on the current training state and optionally a scale schedule ratio.
+
+Key Concepts
+------------
+
+- **Stateless Scheduler**: A function or callable class that takes the current training state and returns a multiplier for the learning rate.
+- **Time Abstraction**: Schedulers operate with Composer's time units (e.g., epochs, batches, duration), enabling flexible and precise scheduling.
+- **Scale Schedule Ratio (SSR)**: A parameter that allows stretching or compressing the schedule in time.
+
+ComposerScheduler Protocol
+--------------------------
+
+The core interface for all stateless schedulers is the `ComposerScheduler` protocol. Any scheduler must implement the following method:
+
+```python
+def __call__(self, state: State, ssr: float = 1.0) -> float:
+```
+
+- **state**: The current training state, including timestamp and other relevant information.
+- **ssr**: Scale schedule ratio, defaulting to 1.0, which scales the schedule timing.
+
+The method returns a float multiplier :math:`\alpha` to be applied to the optimizer's base learning rate. The effective learning rate at time :math:`t` is:
+
+.. math::
+
+    \eta(t) = \eta_i \times \alpha(t)
+
+where :math:`\eta_i` is the initial learning rate.
+
+Schedulers can be implemented as simple functions or callable classes. For example:
+
+```python
+def ten_epoch_decay_scheduler(state: State) -> float:
+    if state.timestamp.epoch < 10:
+        return 1.0
+    return 0.5
+```
+
+or
+
+```python
+class VariableEpochDecayScheduler(ComposerScheduler):
+    def __init__(self, num_epochs: int):
+        self.num_epochs = num_epochs
+
+    def __call__(self, state: State) -> float:
+        if state.timestamp.epoch < self.num_epochs:
+            return 1.0
+        return 0.5
+```
+
+Converting to PyTorch Scheduler
+-------------------------------
+
+The function `compile_composer_scheduler` converts a stateless `ComposerScheduler` into a PyTorch-compatible scheduler object (`PyTorchScheduler`). This allows the scheduler to be used with PyTorch optimizers and training loops while internally relying on the Composer state for learning rate computation.
+
+Usage:
+
+- Only supports a single optimizer.
+- The resulting scheduler provides a `.step()` method.
+- Supports schedulers that accept either one or two parameters (`state` and optionally `ssr`).
+
+Available Schedulers
+--------------------
+
+### StepScheduler
+
+Decays the learning rate by a factor of `gamma` every fixed interval (`step_size`).
+
+Mathematically:
+
+.. math::
+
+    \alpha(t) = \gamma^{\lfloor t / \rho \rfloor}
+
+where :math:`\rho` is the step size.
+
+**Arguments:**
+
+- `step_size` (`str` or `Time`): Interval between learning rate decays.
+- `gamma` (`float`, default=0.1): Multiplicative decay factor.
+
+### MultiStepScheduler
+
+Decays the learning rate by a factor of `gamma` at specified milestones.
+
+Mathematically:
+
+.. math::
+
+    \alpha(t) = \gamma^{x}
+
+where :math:`x` is the number of milestones reached by time :math:`t`.
+
+**Arguments:**
+
+- `milestones` (List[`str` or `Time`]): Times at which to decay the learning rate.
+- `gamma` (`float`, default=0.1): Multiplicative decay factor.
+
+Additional Schedulers
+---------------------
+
+The module also includes other schedulers such as:
+
+- `ConstantScheduler`
+- `LinearScheduler`
+- `ExponentialScheduler`
+- `CosineAnnealingScheduler`
+- `CosineAnnealingWarmRestartsScheduler`
+- `PolynomialScheduler`
+- `MultiStepWithWarmupScheduler`
+- `ConstantWithWarmupScheduler`
+- `LinearWithWarmupScheduler`
+- `CosineAnnealingWithWarmupScheduler`
+- `PolynomialWithWarmupScheduler`
+
+These provide various learning rate schedules including warmup phases, polynomial decay, cosine annealing, and more, all compatible with Composer's time abstractions.
+
+Usage Notes
+-----------
+
+- All schedulers return a multiplier to be applied to the optimizer's initial learning rate.
+- Multiple schedulers can be combined multiplicatively.
+- The `ssr` parameter allows dynamic scaling of the schedule duration.
+- Time inputs can be specified as strings (e.g., `"10ep"`, `"5ba"`) or as `Time` objects.
+- The module ensures compatibility with Composer's training loop and state management.
+
+See Also
+--------
+
+- :class:`~composer.core.State`
+- :mod:`torch.optim.lr_scheduler`
+- :class:`~composer.core.time.Time`
+
+This design enables flexible, precise, and composable learning rate scheduling for training deep learning models with Composer.

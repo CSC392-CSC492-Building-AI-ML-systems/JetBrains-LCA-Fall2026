@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Work with Images and Data Cubes Related to Cherenkov Cameras\n=============================================================\n\nThis section provides an overview of how to work with images and data cubes associated with Cherenkov Cameras using the `CameraGeometry` class and related utilities.\n\nCreating and Manipulating Camera Images\n---------------------------------------\n\nThe `CameraGeometry` class allows you to create, transform, and analyze images corresponding to the pixel layout of Cherenkov cameras.\n\n### Creating Mock Images\n\nYou can generate mock images for testing or simulation purposes:\n\n```python\nimage = create_mock_image(camera_geometry)\n```\n\n### Transforming Images Between Representations\n\nImages can be transformed between their native pixel representation and a 2D Cartesian representation. This is useful for visualization or further image processing.\n\n```python\nimage_2d = camera_geometry.image_to_cartesian_representation(image)\nimage_1d = camera_geometry.image_from_cartesian_representation(image_2d)\n```\n\nNote that converting to a 2D Cartesian representation may introduce extra pixels set to `NaN` to fill the rectangular grid. However, the total sum of pixel values remains consistent:\n\n```python\nassert np.nansum(image) == np.nansum(image_2d)\nassert_allclose(image, image_1d)\n```\n\n### Handling Multiple Images\n\nThe transformations also support batches of images, allowing efficient processing of multiple frames simultaneously:\n\n```python\nimages = np.array([create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)])\nimages_2d = camera_geometry.image_to_cartesian_representation(images)\nimages_1d = camera_geometry.image_from_cartesian_representation(images_2d)\n\nassert np.nansum(images) == np.nansum(images_2d)\nassert_allclose(images, images_1d)\n```\n\nPixel Coordinate Transformations\n--------------------------------\n\nThe `CameraGeometry` class provides methods to convert between pixel indices and Cartesian coordinates within the camera frame:\n\n- `image_index_to_cartesian_index(pixel_id)` converts a pixel ID to its corresponding row and column in the Cartesian grid.\n- `cartesian_index_to_image_index(row, col)` converts Cartesian grid coordinates back to the pixel ID.\n\nThese transformations are consistent and reversible:\n\n```python\nrow, col = camera_geometry.image_index_to_cartesian_index(pixel_id)\nassert camera_geometry.cartesian_index_to_image_index(row, col) == pixel_id\n```\n\nCamera Geometry Construction and Properties\n-------------------------------------------\n\nYou can construct a `CameraGeometry` instance from scratch by specifying pixel positions, areas, types, and rotations:\n\n```python\ngeom = CameraGeometry(\n    name=\"Unknown\",\n    pix_id=np.arange(100),\n    pix_x=x * u.m,\n    pix_y=y * u.m,\n    pix_area=x * u.m**2,\n    pix_type=PixelShape.SQUARE,\n    pix_rotation=\"10d\",\n    cam_rotation=\"12d\",\n)\n```\n\nAlternatively, rectangular dummy cameras can be created easily:\n\n```python\ngeom = CameraGeometry.make_rectangular()\n```\n\nThe geometry includes attributes such as pixel positions (`pix_x`, `pix_y`), pixel areas (`pix_area`), pixel types (e.g., hexagonal, rectangular), and rotation angles.\n\nCoordinate Frame Transformations\n--------------------------------\n\n`CameraGeometry` supports transformations between different coordinate frames relevant to Cherenkov telescopes:\n\n- `CameraFrame`\n- `EngineeringCameraFrame`\n- `TelescopeFrame`\n- `NominalFrame`\n\nFor example, you can transform pixel coordinates from the camera frame to the engineering frame:\n\n```python\ntrans_geom = geom.transform_to(EngineeringCameraFrame())\n```\n\nOr transform to a telescope frame defined by a pointing position:\n\n```python\npointing_position = SkyCoord(alt=70 * u.deg, az=0 * u.deg, frame=AltAz())\ntelescope_frame = TelescopeFrame(telescope_pointing=pointing_position)\ngeom_tel_frame = geom.transform_to(telescope_frame)\n```\n\nThese transformations preserve pixel properties such as area and relative positions, enabling accurate mapping between different reference frames.\n\nPixel Size and Radius Estimation\n--------------------------------\n\nThe pixel width and camera radius can be estimated from pixel positions and areas:\n\n```python\npixel_width = CameraGeometry.guess_pixel_width(pix_x, pix_y)\ncamera_radius = camera_geometry.guess_radius()\n```\n\nThese estimates are useful for understanding the camera's spatial resolution and field of view.\n\nNeighbor Pixel Relationships\n----------------------------\n\nThe geometry includes neighbor matrices that describe adjacency relationships between pixels. This is essential for image cleaning and analysis algorithms that rely on pixel neighborhoods.\n\nHandling Special Cases\n----------------------\n\n- Single-pixel geometries and empty geometries are supported, with appropriate neighbor matrices.\n- The class raises errors for invalid pixel types or inconsistent inputs, ensuring robustness.\n\nSummary\n-------\n\nThe `CameraGeometry` class and its associated methods provide a comprehensive toolkit for working with Cherenkov camera images and data cubes. They enable:\n\n- Creation and manipulation of camera images.\n- Conversion between pixel and Cartesian representations.\n- Coordinate transformations between various telescope and camera frames.\n- Estimation of pixel sizes and camera dimensions.\n- Analysis of pixel neighborhoods.\n\nThese capabilities facilitate the processing and analysis of Cherenkov telescope data in a consistent and physically meaningful manner.",
+  "prediction_sha256": "eb167cb0bb4c075199d795cb5ea41bc22b36417ef49e3dca4ab87e479d113e9b",
+  "prompt_sha256": "c1c68ffde607b18430c6bd5bcb7ae27ec47a3f93deb8a1301dd950e60465f80f",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 8249,
+    "completion_tokens": 1624,
+    "total_tokens": 9873
+  },
+  "cost_usd": 0.0058980000000000005,
+  "generation_seconds": 13.10443650099478,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "camera_geometry"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 149,
+              "start_char": 108899,
+              "end_char": 109600,
+              "code": "  \"\"\"\n    image = create_mock_image(camera_geometry)\n    image_2d = camera_geometry.image_to_cartesian_representation(image)\n    image_1d = camera_geometry.image_from_cartesian_representation(image_2d)\n    # in general this introduces extra pixels in the 2d array, which are set to nan\n    assert np.nansum(image) == np.nansum(image_2d)\n    assert_allclose(image, image_1d)\n\n\ndef test_multiple_images(camera_geometry):\n    \"\"\"\n    Test if we can transform multiple toy images at once\n    and get the same images after transforming back\n    \"\"\"\n    images = np.array(\n        [create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)]\n    )\n    images_2d = camera_geometry.image_to_cart",
+              "code_tokens": 260,
+              "score": 10.287566272964
+            },
+            {
+              "chunk_id": 150,
+              "start_char": 109200,
+              "end_char": 110001,
+              "code": "ansum(image) == np.nansum(image_2d)\n    assert_allclose(image, image_1d)\n\n\ndef test_multiple_images(camera_geometry):\n    \"\"\"\n    Test if we can transform multiple toy images at once\n    and get the same images after transforming back\n    \"\"\"\n    images = np.array(\n        [create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)]\n    )\n    images_2d = camera_geometry.image_to_cartesian_representation(images)\n    images_1d = camera_geometry.image_from_cartesian_representation(images_2d)\n    # in general this introduces extra pixels in the 2d array, which are set to nan\n    assert np.nansum(images) == np.nansum(images_2d)\n    assert_allclose(images, images_1d)\n\n\n@pytest.mark.parametrize(\"pixel_id\", [0, 1, 100])\ndef test_pixel_coordinates_roundtrip(pixel_id, camera_geometry):\n",
+              "code_tokens": 300,
+              "score": 9.915680437724
+            },
+            {
+              "chunk_id": 163,
+              "start_char": 119024,
+              "end_char": 119817,
+              "code": " cam2 = deepcopy(prod5_lst.camera.geometry)\n    cam3 = prod5_mst_nectarcam.camera.geometry\n\n    assert len(set([cam1, cam2, cam3])) == 2\n\n\ndef test_camera_from_name(camera_geometry):\n    \"\"\"check we can construct all cameras from name\"\"\"\n    camera = CameraGeometry.from_name(camera_geometry.name)\n    assert str(camera) == camera_geometry.name\n\n\ndef test_camera_coordinate_transform(camera_geometry):\n    \"\"\"test conversion of the coordinates stored in a camera frame\"\"\"\n    from ctapipe.coordinates import (\n        CameraFrame,\n        EngineeringCameraFrame,\n        NominalFrame,\n        TelescopeFrame,\n    )\n\n    geom = camera_geometry\n    trans_geom = geom.transform_to(EngineeringCameraFrame())\n\n    unit = geom.pix_x.unit\n    assert np.allclose(geom.pix_x.to_value(unit), -trans_geom",
+              "code_tokens": 300,
+              "score": 9.470981852856
+            }
+          ],
+          "code_tokens": 860
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 149
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 149,
+              "start_char": 108899,
+              "end_char": 112333,
+              "code": "  \"\"\"\n    image = create_mock_image(camera_geometry)\n    image_2d = camera_geometry.image_to_cartesian_representation(image)\n    image_1d = camera_geometry.image_from_cartesian_representation(image_2d)\n    # in general this introduces extra pixels in the 2d array, which are set to nan\n    assert np.nansum(image) == np.nansum(image_2d)\n    assert_allclose(image, image_1d)\n\n\ndef test_multiple_images(camera_geometry):\n    \"\"\"\n    Test if we can transform multiple toy images at once\n    and get the same images after transforming back\n    \"\"\"\n    images = np.array(\n        [create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)]\n    )\n    images_2d = camera_geometry.image_to_cartesian_representation(images)\n    images_1d = camera_geometry.image_from_cartesian_representation(images_2d)\n    # in general this introduces extra pixels in the 2d array, which are set to nan\n    assert np.nansum(images) == np.nansum(images_2d)\n    assert_allclose(images, images_1d)\n\n\n@pytest.mark.parametrize(\"pixel_id\", [0, 1, 100])\ndef test_pixel_coordinates_roundtrip(pixel_id, camera_geometry):\n    row, col = camera_geometry.image_index_to_cartesian_index(pixel_id)\n    assert camera_geometry.cartesian_index_to_image_index(row, col) == pixel_id\n\n\n\"\"\" Tests for CameraGeometry \"\"\"\nfrom copy import deepcopy\n\nimport numpy as np\nimport pytest\nfrom astropy import units as u\nfrom astropy.coordinates import AltAz, SkyCoord\n\nfrom ctapipe.instrument import CameraGeometry, PixelShape\n\n\ndef test_construct():\n    \"\"\"Check we can make a CameraGeometry from scratch\"\"\"\n    x = np.linspace(-10, 10, 100)\n    y = np.linspace(-10, 10, 100)\n    geom = CameraGeometry(\n        name=\"Unknown\",\n        pix_id=np.arange(100),\n        pix_x=x * u.m,\n        pix_y=y * u.m,\n        pix_area=x * u.m**2,\n        pix_type=PixelShape.SQUARE,\n        pix_rotation=\"10d\",\n        cam_rotation=\"12d\",\n    )\n\n    assert geom.name == \"Unknown\"\n    assert geom.pix_area is not None\n    assert (geom.pix_rotation.deg - 10) < 1e-5\n    assert (geom.cam_rotation.deg - 10) < 1e-5\n\n    with pytest.raises(TypeError):\n        geom = CameraGeometry(\n            name=\"Unknown\",\n            pix_id=np.arange(100),\n            pix_x=x * u.m,\n            pix_y=y * u.m,\n            pix_area=x * u.m**2,\n            pix_type=\"foo\",\n            pix_rotation=\"10d\",\n            cam_rotation=\"12d\",\n        )\n\n    # test from string:\n    geom = CameraGeometry(\n        name=\"Unknown\",\n        pix_id=np.arange(100),\n        pix_x=x * u.m,\n        pix_y=y * u.m,\n        pix_area=x * u.m**2,\n        pix_type=\"rectangular\",\n        pix_rotation=\"10d\",\n        cam_rotation=\"12d\",\n    )\n\n\ndef test_make_rectangular_camera_geometry():\n    \"\"\"Check that we can construct a dummy camera with square geometry\"\"\"\n    geom = CameraGeometry.make_rectangular()\n    assert geom.pix_x.shape == geom.pix_y.shape\n\n\ndef test_load_lst_camera(prod5_lst):\n    \"\"\"test that a specific camera has the expected attributes\"\"\"\n    assert len(prod5_lst.camera.geometry.pix_x) == 1855\n    assert prod5_lst.camera.geometry.pix_type == PixelShape.HEXAGON\n\n\ndef test_position_to_pix_index(prod5_lst):\n    \"\"\"test that we can lookup a pixel from a coordinate\"\"\"\n    x, y = (0.80 * u.m, 0.79 * u.m)\n    pix_id = prod5_lst.camera.geometry.position_to_pix_index(x, y)\n    assert pix_id == 1575\n\n\ndef test_find_neighbor_pixels():\n    \"\"\"test basic neighbor functionality\"\"\"\n    n_pixels = 5\n    x, y",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 163
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 163,
+              "start_char": 119024,
+              "end_char": 122441,
+              "code": " cam2 = deepcopy(prod5_lst.camera.geometry)\n    cam3 = prod5_mst_nectarcam.camera.geometry\n\n    assert len(set([cam1, cam2, cam3])) == 2\n\n\ndef test_camera_from_name(camera_geometry):\n    \"\"\"check we can construct all cameras from name\"\"\"\n    camera = CameraGeometry.from_name(camera_geometry.name)\n    assert str(camera) == camera_geometry.name\n\n\ndef test_camera_coordinate_transform(camera_geometry):\n    \"\"\"test conversion of the coordinates stored in a camera frame\"\"\"\n    from ctapipe.coordinates import (\n        CameraFrame,\n        EngineeringCameraFrame,\n        NominalFrame,\n        TelescopeFrame,\n    )\n\n    geom = camera_geometry\n    trans_geom = geom.transform_to(EngineeringCameraFrame())\n\n    unit = geom.pix_x.unit\n    assert np.allclose(geom.pix_x.to_value(unit), -trans_geom.pix_y.to_value(unit))\n    assert np.allclose(geom.pix_y.to_value(unit), -trans_geom.pix_x.to_value(unit))\n\n    # also test converting into a spherical frame:\n    focal_length = 1.2 * u.m\n    geom.frame = CameraFrame(focal_length=focal_length)\n\n    pointing_position = SkyCoord(alt=70 * u.deg, az=0 * u.deg, frame=AltAz())\n    telescope_frame = TelescopeFrame(telescope_pointing=pointing_position)\n    geom_tel_frame = geom.transform_to(telescope_frame)\n\n    x = geom_tel_frame.pix_x.to_value(u.deg)\n    assert len(x) == len(geom.pix_x)\n\n    # nominal frame with large offset, regression test for #2028\n    origin = pointing_position.directional_offset_by(0 * u.deg, 5 * u.deg)\n    nominal_frame = NominalFrame(origin=origin)\n\n    geom_nominal = geom_tel_frame.transform_to(nominal_frame)\n    # test that pixel sizes are still the same, i.e. calculation is taking translation into account\n    assert u.allclose(geom_nominal.pix_area, geom_tel_frame.pix_area, rtol=0.01)\n\n    # and test going backward from spherical to cartesian:\n\n    geom_cam = geom_tel_frame.transform_to(CameraFrame(focal_length=focal_length))\n    assert np.allclose(geom_cam.pix_x.to_value(unit), geom.pix_x.to_value(unit))\n\n\ndef test_guess_width():\n    x = u.Quantity([0, 1, 2], u.cm)\n    y = u.Quantity([0, 0, 0], u.cm)\n\n    assert u.isclose(CameraGeometry.guess_pixel_width(x, y), 1 * u.cm)\n\n\ndef test_pixel_width():\n    geom = CameraGeometry(\n        \"test\",\n        pix_id=[1],\n        pix_area=[2] * u.cm**2,\n        pix_x=[0] * u.m,\n        pix_y=[0] * u.m,\n        pix_type=\"hex\",\n    )\n\n    assert np.isclose(geom.pixel_width.to_value(u.cm), [2 * np.sqrt(1 / np.sqrt(3))])\n\n    geom = CameraGeometry(\n        \"test\",\n        pix_id=[1],\n        pix_area=[2] * u.cm**2,\n        pix_x=[0] * u.m,\n        pix_y=[0] * u.m,\n        pix_type=\"rect\",\n    )\n\n    assert np.isclose(geom.pixel_width.to_value(u.cm), [np.sqrt(2)])\n\n\ndef test_guess_radius(prod5_lst, prod5_sst):\n    prod5_lst_cam = prod5_lst.camera.geometry\n    assert u.isclose(prod5_lst_cam.guess_radius(), 1.1 * u.m, rtol=0.05)\n\n    prod5_chec = prod5_sst.camera.geometry\n    assert u.isclose(prod5_chec.guess_radius(), 0.16 * u.m, rtol=0.05)\n\n\ndef test_single_pixel(prod5_lst):\n    \"\"\"Regression test for #2316\"\"\"\n    single_pixel = prod5_lst.camera.geometry[[0]]\n\n    assert single_pixel.neighbor_matrix.shape == (1, 1)\n    assert single_pixel.neighbor_matrix[0, 0]\n\n\ndef test_empty(prod5_lst):\n    geometry = prod5_lst.camera.geometry\n    mask = np.zeros(len(geometry), dtype=bool)\n    empty = geometry[mask]\n\n    assert empty.neighbor_matrix.shape == (0, 0)\n\n\n\"\"\" Tests for CameraGe",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 3860,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "a571cf77b728fe302ecbf39c53fe9dfdb81d5e50585770e0162964c95b44365c",
+        "request_id": "chatcmpl-Ej9l8fJmGzwPXKyuU5RRC7iWkfHeU",
+        "usage": {
+          "prompt_tokens": 166,
+          "completion_tokens": 15,
+          "total_tokens": 181,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9.04e-05,
+        "seconds": 0.8201033750010538,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "27b0402d862333953d15fef6b6ac61355ac3ee13cf9a081840913529eeba87b3",
+        "request_id": "chatcmpl-Ej9l8FWvUuxSl12RrklHzBKAy1TRo",
+        "usage": {
+          "prompt_tokens": 975,
+          "completion_tokens": 15,
+          "total_tokens": 990,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000414,
+        "seconds": 0.8008741250014282,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "c1579b5025343c0104dbb2dfdc9ccb3ab223b759c17863cd6d8c2c092e5610c6",
+        "request_id": "chatcmpl-Ej9l9OU0sFm2hUfNZAqwSS0gw3l3P",
+        "usage": {
+          "prompt_tokens": 2053,
+          "completion_tokens": 15,
+          "total_tokens": 2068,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008452,
+        "seconds": 0.9009637089984608,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "01d241aa7466757cc2cd65819dae7c9557dbc0f1e474d9a51d469a74f372069e",
+        "request_id": "chatcmpl-Ej9lAnPUq6wFt8vYfGKNuBTEScZDs",
+        "usage": {
+          "prompt_tokens": 3171,
+          "completion_tokens": 512,
+          "total_tokens": 3683,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020876000000000002,
+        "seconds": 3.8963143339933595,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "7b927933bc6e320fc470dcd65f3d64a7485374ecfcc5fbb0dc35c90deaf8a5bb",
+        "request_id": "chatcmpl-Ej9lE4ge6hngAq8znu9yU8fibY75t",
+        "usage": {
+          "prompt_tokens": 1884,
+          "completion_tokens": 1067,
+          "total_tokens": 2951,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0024608,
+        "seconds": 6.686180958000477,
+        "retry_count": 0
+      }
+    ]
+  }
+}

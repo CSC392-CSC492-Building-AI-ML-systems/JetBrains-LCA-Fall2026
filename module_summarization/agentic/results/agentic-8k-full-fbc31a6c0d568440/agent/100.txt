@@ -1,0 +1,70 @@
+Managers
+========
+
+This module provides a set of classes designed to manage Ethereum transactions and requests, including synchronous and asynchronous request handling, transaction nonce management, and transaction signing using different strategies.
+
+ManagerWrapper
+--------------
+
+`ManagerWrapper` is a wrapper class that delegates calls to an underlying manager instance. It exposes properties and methods to interact with the wrapped manager, including:
+
+- `provider`: Property to get the current provider from the wrapped manager.
+- `pending_requests`: Property to get the pending requests from the wrapped manager.
+- `setProvider(provider)`: Method to set the provider on the wrapped manager.
+- `request_blocking(*args, **kwargs)`: Delegates a blocking request to the wrapped manager.
+- `request_async(*args, **kwargs)`: Delegates an asynchronous request to the wrapped manager.
+- `receive_blocking(*args, **kwargs)`: Delegates receiving a blocking response.
+- `receive_async(*args, **kwargs)`: Delegates receiving an asynchronous response.
+
+BaseSendRawTransactionMixin
+----------------------------
+
+`BaseSendRawTransactionMixin` extends `ManagerWrapper` and adds functionality for managing raw Ethereum transactions, including tracking known transactions and nonces per address.
+
+Key attributes:
+- `_known_transactions`: A dictionary mapping addresses to sets of known transaction hashes.
+- `_known_nonces`: A dictionary mapping addresses to sets of known nonces.
+
+Key methods:
+- `_get_nonces_and_cleanup(addr, chain_nonce)`: Retrieves and cleans up known nonces and transactions for an address based on the current chain nonce.
+- `get_chain_nonce(addr)`: Retrieves the current nonce for an address from the blockchain (pending state).
+- `get_nonce(addr)`: Returns the next nonce to use for a transaction from the address, considering both chain nonce and tracked nonces.
+- `get_transaction_signature(serialized_txn)`: Abstract method to be implemented by subclasses to provide transaction signatures.
+- `sign_and_serialize_transaction(transaction)`: Serializes and signs a transaction, adding the signature to the serialized transaction.
+
+DelegatedSigningManager
+-----------------------
+
+`DelegatedSigningManager` inherits from `BaseSendRawTransactionMixin` and delegates signing operations to another signing manager.
+
+Initialization:
+- Requires a `signing_manager` keyword argument which handles the actual signing.
+
+Key methods:
+- `get_chain_nonce(addr)`: Returns the maximum nonce between the signing manager and the wrapped manager for the given address.
+- `get_transaction_signature(transaction)`: Serializes the transaction, obtains a hash to sign via `web3_sha3`, and requests the signature from the signing manager using `eth_sign`.
+
+PrivateKeySigningManager
+------------------------
+
+`PrivateKeySigningManager` inherits from `BaseSendRawTransactionMixin` and provides transaction signing using local private keys.
+
+Initialization:
+- Requires the `bitcoin` and `secp256k1` packages to be installed.
+- Accepts a dictionary of private keys via the `keys` keyword argument.
+
+Key methods:
+- `register_private_key(key)`: Registers a private key and associates it with the corresponding Ethereum address.
+- `sign_and_serialize_transaction(transaction)`: Signs the transaction locally using the registered private key for the transaction's `from` address. It constructs a `Transaction` object, signs it, and returns the RLP-encoded signed transaction.
+
+Exceptions
+----------
+
+- `NotImplementedError` is raised in `receive_async` method of the base manager class and in `get_transaction_signature` method of `BaseSendRawTransactionMixin` to indicate that subclasses must implement these methods.
+- `ImportError` is raised by `PrivateKeySigningManager` if required dependencies are missing.
+- `KeyError` is raised by `PrivateKeySigningManager` if no private key is registered for the transaction sender address.
+
+Usage Summary
+-------------
+
+These classes provide a flexible framework for managing Ethereum transactions, including sending raw transactions, managing nonces to avoid transaction conflicts, and signing transactions either by delegating to another manager or using local private keys. The `ManagerWrapper` class allows easy extension or modification of manager behavior by wrapping existing manager instances.

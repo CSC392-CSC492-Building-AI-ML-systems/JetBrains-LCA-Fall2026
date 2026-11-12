@@ -1,0 +1,112 @@
+Augmentations Module
+====================
+
+Overview
+--------
+
+This module provides a standard suite of image augmentations commonly used in AutoAugment policies for ImageNet, RandAugment, and TrivialAugmentWide. The augmentations are implemented using NVIDIA DALI operators, enabling efficient and flexible image transformations.
+
+The augmentations are decorated with the `@augmentation` decorator, which manages the computation of transformation parameters based on a magnitude bin system. Instead of directly specifying parameters, augmentations receive a `magnitude_bin` and `num_magnitude_bins`, which are used to compute the actual transformation parameter. This design facilitates easy integration with automated augmentation policies.
+
+Key Concepts
+------------
+
+- **@augmentation decorator**:  
+  Handles parameter computation for each augmentation. When an augmentation is called, it expects:  
+  - A batch of samples as the first positional argument.  
+  - `magnitude_bin` and `num_magnitude_bins` to compute the transformation parameter.  
+  The parameter is derived by mapping the magnitude bin to a value within a specified range, optionally negated randomly.
+
+- **Magnitude Range and Parameter Mapping**:  
+  Each augmentation defines a magnitude range (`mag_range`) and a function to convert magnitude values to transformation parameters (`mag_to_param`). This allows flexible control over the strength and behavior of each augmentation.
+
+Available Augmentations
+-----------------------
+
+### Shear Transformations
+
+- **shear_x(data, shear, fill_value=128, interp_type=None)**  
+  Applies a shear transformation along the X-axis.  
+  - Magnitude range: 0 to 0.3  
+  - Parameters are randomly negated to allow shearing in both directions.  
+  - Uses affine warp with shear matrix.
+
+- **shear_y(data, shear, fill_value=128, interp_type=None)**  
+  Applies a shear transformation along the Y-axis.  
+  - Magnitude range: 0 to 0.3  
+  - Parameters are randomly negated.  
+  - Uses affine warp with shear matrix.
+
+### Translation Transformations
+
+- **translate_x(data, rel_offset, shape, fill_value=128, interp_type=None)**  
+  Translates the image along the X-axis by a relative offset multiplied by the image width.  
+  - Magnitude range: 0 to 1  
+  - Parameters are randomly negated.  
+  - Uses affine warp with translation matrix.
+
+- **translate_x_no_shape(data, offset, fill_value=128, interp_type=None)**  
+  Translates the image along the X-axis by an absolute offset value.  
+  - Magnitude range: 0 to 250  
+  - Parameters are randomly negated.  
+  - Uses affine warp with translation matrix.
+
+- **translate_y(data, rel_offset, shape, fill_value=128, interp_type=None)**  
+  Translates the image along the Y-axis by a relative offset multiplied by the image height.  
+  - Magnitude range: 0 to 1  
+  - Parameters are randomly negated.  
+  - Uses affine warp with translation matrix.
+
+- **translate_y_no_shape(data, offset, fill_value=128, interp_type=None)**  
+  Translates the image along the Y-axis by an absolute offset value.  
+  - Magnitude range: 0 to 250  
+  - Parameters are randomly negated.  
+  - Uses affine warp with translation matrix.
+
+### Rotation
+
+- **rotate(data, angle, fill_value=128, interp_type=None, rotate_keep_size=True)**  
+  Rotates the image by a specified angle.  
+  - Magnitude range: 0 to 30 degrees  
+  - Parameters are randomly negated to allow rotation in both directions.  
+  - Optionally keeps the image size after rotation.
+
+### Brightness Enhancement
+
+- **brightness(data, parameter)**  
+  Adjusts the brightness of the image.  
+  - Magnitude range: 0 to 0.9 (mapped internally to [1 - magnitude, 1 + magnitude])  
+  - Parameters are randomly negated and shifted to center around 1 (neutral brightness).  
+  - Note: Implementation placeholder in this module.
+
+Parameter Mapping Functions
+---------------------------
+
+- **warp_x_param(magnitude)**  
+  Converts a magnitude to a 2D vector for X-axis transformations: `[magnitude, 0]`.
+
+- **warp_y_param(magnitude)**  
+  Converts a magnitude to a 2D vector for Y-axis transformations: `[0, magnitude]`.
+
+- **shift_enhance_range(magnitude)**  
+  Maps a magnitude in [0, 1] to [1, 2] or [0, 1] depending on random negation, centering the enhancement operations around 1 (neutral). Used for brightness, contrast, color, and sharpness enhancements.
+
+Usage Notes
+-----------
+
+- The augmentations expect input data batches compatible with NVIDIA DALI pipelines.
+- Parameters such as `fill_value` and `interp_type` control the behavior of the transformations at image borders and interpolation methods.
+- The magnitude bin system allows easy tuning of augmentation strength and integration with automated augmentation search algorithms.
+- Users can customize magnitude ranges and other parameters by creating new augmentation instances from the provided ones, e.g., increasing shear magnitude range.
+
+Example
+-------
+
+```python
+from nvidia.dali.auto_aug import augmentations as aug
+
+# Apply shear_x augmentation with default settings
+augmented_batch = aug.shear_x(data=batch, magnitude_bin=5, num_magnitude_bins=10)
+```
+
+This module is a foundational component for building robust image augmentation pipelines leveraging NVIDIA DALI's performance and flexibility.

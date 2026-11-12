@@ -1,0 +1,151 @@
+A Quick Dive into Using the API
+===============================
+
+This tutorial provides a brief overview of some common operations you can perform using the API session. It covers creating, querying, updating, and deleting entities, as well as managing session behaviors such as auto-populating and operation recording.
+
+Session Context Management
+--------------------------
+
+### Auto Populating
+
+You can temporarily control whether the session auto-populates entities by using the `auto_populating` context manager. This is useful when you want to disable or enable auto-population temporarily.
+
+Example::
+
+    with session.auto_populating(False):
+        print(entity['name'])
+
+The original auto-populating setting will be restored automatically after the block.
+
+### Operation Recording
+
+Similarly, you can temporarily enable or disable operation recording using the `operation_recording` context manager.
+
+Example::
+
+    with session.operation_recording(False):
+        entity['name'] = 'change_not_recorded'
+
+The original operation recording setting will be restored automatically after the block.
+
+Inspecting Entity States
+------------------------
+
+The session provides convenient properties to inspect the state of entities in the local cache:
+
+- `session.created`  
+  Returns a list of newly created entities.
+
+- `session.modified`  
+  Returns a list of locally modified entities.
+
+- `session.deleted`  
+  Returns a list of deleted entities.
+
+These properties help you track changes before committing them to the server.
+
+Creating Entities
+-----------------
+
+To create a new entity, use the `create` method:
+
+```python
+entity = session.create('EntityType', data={'attribute': 'value'})
+```
+
+- `entity_type` (str): The type of entity to create.
+- `data` (dict, optional): Initial attribute values for the entity.
+- `reconstructing` (bool, optional): If `True`, reconstructs an existing entity instead of creating a new one.
+
+The created entity is automatically merged into the session.
+
+Ensuring Entities Exist
+-----------------------
+
+The `ensure` method retrieves an existing entity matching specified identifying data or creates it if it does not exist. It can also update the entity to match provided data.
+
+Example::
+
+    # First time, a new entity with username 'martin' is created.
+    entity = session.ensure('User', {'username': 'martin'})
+
+    # Subsequent calls retrieve the existing entity.
+    entity = session.ensure('User', {'username': 'martin'})
+
+    # Update existing entity with additional data.
+    entity = session.ensure(
+        'User', {'username': 'martin', 'email': 'martin@example.com'}
+    )
+
+If the entity is created or updated, a commit is issued automatically.
+
+Deleting Entities
+-----------------
+
+To mark an entity for deletion, use the `delete` method:
+
+```python
+session.delete(entity)
+```
+
+The entity will be marked for deletion and removed upon committing the session.
+
+Resetting Remote Entities
+-------------------------
+
+You can perform server-side resets using the `reset_remote` method:
+
+```python
+result = session.reset_remote(reset_type, entity=None)
+```
+
+- `reset_type` (str): The type of reset to perform (refer to server documentation for supported types).
+- `entity` (optional): The entity to apply the reset on.
+
+This method sends a reset request to the server and returns the result.
+
+Creating Components
+-------------------
+
+To create a new component from a file path or sequence of files, use the `create_component` helper method:
+
+```python
+component = session.create_component(path, data=None, location='auto')
+```
+
+- `path` (str or sequence): Filesystem path or sequence of paths for the component data.
+- `data` (dict, optional): Additional data to associate with the component.
+- `location` (str, optional): Storage location; defaults to automatic selection.
+
+This method simplifies component creation by handling sequences and location selection automatically.
+
+Publishing Events
+-----------------
+
+The session can publish events to notify other parts of the system about changes. For example, after configuring locations, an event is published to signal a session reset:
+
+```python
+self.event_hub.publish(
+    ftrack_api.event.base.Event(
+        topic='ftrack.api.session.reset',
+        data=dict(session=self)
+    ),
+    synchronous=True
+)
+```
+
+This allows clients to react to session changes in real time.
+
+Summary
+-------
+
+This quick dive covered essential session operations:
+
+- Managing session behaviors with context managers.
+- Creating, ensuring, and deleting entities.
+- Inspecting entity states.
+- Performing server-side resets.
+- Creating components from files.
+- Publishing events to notify changes.
+
+With these tools, you can effectively interact with the API to manage your data and workflows. For more detailed information, refer to the full API documentation.

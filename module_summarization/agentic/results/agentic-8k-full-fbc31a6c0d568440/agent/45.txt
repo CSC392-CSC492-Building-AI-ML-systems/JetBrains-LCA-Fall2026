@@ -1,0 +1,142 @@
+==========================
+Logging Module Documentation
+==========================
+
+Overview
+--------
+
+This module provides advanced logging capabilities tailored for asynchronous Python applications. It extends the standard Python logging framework by adding support for structured data logging, asynchronous syslog handling, and customizable log formatting including colorized console output and RFC5424-compliant syslog messages.
+
+Key Features
+------------
+
+- **Structured Data Logging**: Enables attaching structured data to log messages for enhanced context.
+- **AsyncIO Syslog Handler**: An asyncio-compatible logging handler that sends log messages over network sockets asynchronously.
+- **Custom Formatters**: Includes formatters for structured data and RFC5424 microformatted syslog messages.
+- **Enhanced Logger Class**: Extends the default logger to accept structured data parameters.
+- **Asyncio Exception Handling**: Provides a custom exception handler for asyncio event loops to log unhandled exceptions gracefully.
+
+Classes
+--------
+
+.. autoclass:: _StructuredDataLogger
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+**_StructuredDataLogger**
+
+An extension of the standard Python `logging.Logger` class that supports an additional `struct_data` parameter in logging methods. This allows attaching structured key-value data to log entries.
+
+Example usage:
+
+```python
+logger.info("User logged in", struct_data={"user_id": 1234, "ip": "192.168.1.1"})
+```
+
+.. autoclass:: StructuredDataFormatter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+**StructuredDataFormatter**
+
+A logging formatter that renders log messages including structured data. It supports optional colorized output for console logs and calculates syslog priority levels based on log severity and facility.
+
+Constructor parameters:
+
+- `facility` (int): Syslog facility code (default 16).
+- `fmt` (str): Log message format string.
+- `datefmt` (str): Date/time format string.
+- `style` (str): Format style (default '%').
+- `sd_id` (str): Structured data identifier.
+- `use_color` (bool): Enable colored output (default False).
+
+.. autoclass:: SyslogRFC5424microFormatter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+**SyslogRFC5424microFormatter**
+
+Implements syslog message formatting compliant with RFC5424 micro format. It extends `StructuredDataFormatter` and overrides formatting to produce syslog-compatible messages with structured data.
+
+.. autoclass:: AsyncIOHandler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+**AsyncIOHandler**
+
+An asynchronous logging handler designed for use with `asyncio`. It sends log messages over network sockets (TCP or UNIX domain sockets) without blocking the event loop. It maintains an internal queue to buffer messages when the socket is not ready.
+
+Constructor parameters:
+
+- `loop`: The asyncio event loop.
+- `family`: Socket family (e.g., `socket.AF_UNIX`, `socket.AF_INET`).
+- `sock_type`: Socket type (e.g., `socket.SOCK_DGRAM`).
+- `address`: Address of the syslog server (path or host:port).
+- `facility`: Syslog facility code (default `LOG_LOCAL1`).
+
+Methods:
+
+- `emit(record)`: Formats and sends a log record asynchronously.
+- `_connect(loop)`: Establishes the socket connection.
+- `_on_write()`: Handles socket write readiness.
+- `_on_read()`: Handles socket read events.
+- `_enqueue(msg)`: Queues messages when socket is not ready.
+
+Functions
+----------
+
+.. function:: _loop_exception_handler(loop, context)
+
+An exception handler for asyncio event loops that logs unhandled exceptions in asyncio tasks. It formats the exception traceback and additional context information for clear logging.
+
+Usage
+------
+
+To use structured data logging, set the logger class to `_StructuredDataLogger` (already done in this module) and use the `struct_data` parameter in logging calls.
+
+Example:
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info("Processing started", struct_data={"task_id": 42})
+```
+
+To configure asynchronous syslog logging, create an instance of `AsyncIOHandler` with the appropriate event loop and socket parameters, then add it to your logger.
+
+Example:
+
+```python
+import asyncio
+import socket
+import logging
+
+loop = asyncio.get_event_loop()
+handler = AsyncIOHandler(loop, socket.AF_UNIX, socket.SOCK_DGRAM, "/dev/log")
+logger = logging.getLogger()
+logger.addHandler(handler)
+```
+
+Colorized console output and structured data formatting can be enabled by configuring `StructuredDataFormatter` with `use_color=True` and setting it on console handlers.
+
+Constants
+----------
+
+- `_RESET_SEQ`: ANSI escape sequence to reset terminal formatting.
+- `_COLOR_SEQ`: ANSI escape sequence template for colored text.
+- `_BOLD_SEQ`: ANSI escape sequence for bold text.
+
+Notes
+------
+
+- The module converts log timestamps to GMT for consistency.
+- The syslog priority is calculated based on facility and severity levels.
+- The async syslog handler handles socket errors gracefully and falls back to stderr output if necessary.
+- Structured data is rendered in the format `[sd_id key="value" ...]` appended to log messages.
+
+This module is designed to integrate seamlessly with asyncio-based applications requiring robust and extensible logging capabilities.

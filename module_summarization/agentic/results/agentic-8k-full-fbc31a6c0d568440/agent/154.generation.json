@@ -1,0 +1,175 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Connecting Steps Together\n=========================\n\nIn a workflow graph, connecting steps together is essential to define the flow of data between processing units. This section describes how steps are connected, how connections are managed, and how parameters and metadata propagate through the graph.\n\nConnecting Inputs and Outputs\n-----------------------------\n\nConnections between steps are established by linking outputs of one step to inputs of another. The core function responsible for this is `connect`, which takes two handles representing the endpoints of the connection.\n\nEach handle is a tuple consisting of:\n\n- The step name\n- The direction (`'inputs'` or `'outputs'`)\n- The handle name (input or output name)\n\nThe `connect` function ensures that connections are only made from an output to an input, enforcing the directionality of data flow. It identifies the source (output) and destination (input) handles, then creates an `Edge` object representing the connection. This edge is stored internally in dictionaries tracking incoming (`_edges_i`) and outgoing (`_edges_o`) edges for each step.\n\nConnecting by Name\n------------------\n\nTo simplify connecting steps, the `connect_by_name` function allows connecting two steps by automatically matching outputs of the source step to inputs of the destination step that share the same name.\n\nThis function accepts either step objects or step names. It retrieves the corresponding step objects, verifies their presence in the graph, and then finds the intersection of output names from the source step and input names from the destination step. For each matching name, it calls `connect` to establish the connection.\n\nParameter Management\n--------------------\n\nParameters can be updated and expanded across all steps in the graph using the following functions:\n\n- `update_params(params)`: Updates parameters for every step by calling each step's `update_params` method with the provided parameter dictionary.\n- `expand_params()`: Calls each step's `expand_params` method to process or expand parameters as needed.\n\nThese functions ensure consistent parameter propagation and management throughout the workflow.\n\nMetadata Handling\n-----------------\n\nMetadata about connections and build information is maintained and can be dumped to steps using the `dump_metadata_to_steps` function. This function collects incoming and outgoing edges for each step, organizing them by input and output handles.\n\nFor each edge, metadata includes:\n\n- The connected handle name (`f`)\n- The build directory of the connected step (`step`)\n\nAdditionally, build directories and build IDs for each step are included in the metadata. This information is useful for tracking dependencies, build environments, and for debugging purposes.\n\nSummary\n-------\n\n- Connections are made from outputs to inputs using `connect`.\n- `connect_by_name` automates connections by matching handle names.\n- Parameters are updated and expanded across all steps.\n- Metadata about connections and builds is collected and associated with each step.\n\nThis system ensures a robust and clear definition of data flow and dependencies within the workflow graph.",
+  "prediction_sha256": "327b0595955a66c9d839b4410275d74875c83c50e62ffb4f8e6e4ee85010fb55",
+  "prompt_sha256": "59ec9c29fb40bee88239a4cff7ede20c4e60b0af9ac0c513f001b1f692af9365",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 4346,
+    "completion_tokens": 1045,
+    "total_tokens": 5391
+  },
+  "cost_usd": 0.0034104,
+  "generation_seconds": 8.793310041004588,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 2,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "connect"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 23,
+              "start_char": 20173,
+              "end_char": 21034,
+              "code": "            dangling.append( ( step_name, x ) )\n\n    if dangling:\n      for step_name, f_name in dangling:\n        msg = 'Dangling input in step \"{}\": {}'\n        msg = msg.format( step_name, f_name )\n        print( msg )\n    else:\n      print( 'No dangling inputs in graph' )\n\n  #-----------------------------------------------------------------------\n  # Connect\n  #-----------------------------------------------------------------------\n\n  def connect( s, l_handle, r_handle ):\n\n    # Twizzle and figure out which side is the src and which is the dst\n\n    l_step_name, l_direction, l_handle_name = l_handle\n    r_step_name, r_direction, r_handle_name = r_handle\n\n    if l_direction == 'inputs':\n      assert r_direction == 'outputs', \\\n        'connect -- Must connect an input to an output'\n      src_handle = r_handle\n      dst_handle = l_handle\n    elif r",
+              "code_tokens": 300,
+              "score": 3.214574112975
+            },
+            {
+              "chunk_id": 25,
+              "start_char": 21995,
+              "end_char": 22712,
+              "code": "step( src )\n    else:\n      src_step = src\n    src_step_name = src_step.get_name()\n    assert src_step_name in s.all_steps(), \\\n      'connect_by_name -- ' \\\n      'Step \"{}\" not found in graph'.format( src_step_name )\n\n    if type( dst ) != Step:\n      dst_step = s.get_step( dst )\n    else:\n      dst_step = dst\n    dst_step_name = dst_step.get_name()\n    assert dst_step_name in s.all_steps(), \\\n      'connect_by_name -- ' \\\n      'Step \"{}\" not found in graph'.format( dst_step_name )\n\n    # Find same-name matches between the src output and dst input\n\n    src_outputs = src_step.all_outputs()\n    dst_inputs  = dst_step.all_inputs()\n\n    overlap = set( src_outputs ).intersection( set( dst_inputs ) )\n\n    # For",
+              "code_tokens": 300,
+              "score": 2.583522621793
+            },
+            {
+              "chunk_id": 24,
+              "start_char": 21165,
+              "end_char": 21860,
+              "code": "handle = l_handle\n      dst_handle = r_handle\n    else:\n      assert False, \\\n        'connect -- Must connect an input to an output'\n\n    # Create an edge from src to dst\n\n    src_step_name, src_direction, src_f = src_handle\n    dst_step_name, dst_direction, dst_f = dst_handle\n\n    if dst_step_name not in s._edges_i.keys():\n      s._edges_i[ dst_step_name ] = []\n    if src_step_name not in s._edges_o.keys():\n      s._edges_o[ src_step_name ] = []\n\n    src = ( src_step_name, src_f )\n    dst = ( dst_step_name, dst_f )\n    e   = Edge( src, dst )\n\n    # Add this edge to tracking\n\n    s._edges_i[ dst_step_name ].append( e )\n    s._edges_o[ src_step_name ].append( e )\n\n  def connect_by_name(",
+              "code_tokens": 300,
+              "score": 2.31191651787
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 24
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 24,
+              "start_char": 21165,
+              "end_char": 24674,
+              "code": "handle = l_handle\n      dst_handle = r_handle\n    else:\n      assert False, \\\n        'connect -- Must connect an input to an output'\n\n    # Create an edge from src to dst\n\n    src_step_name, src_direction, src_f = src_handle\n    dst_step_name, dst_direction, dst_f = dst_handle\n\n    if dst_step_name not in s._edges_i.keys():\n      s._edges_i[ dst_step_name ] = []\n    if src_step_name not in s._edges_o.keys():\n      s._edges_o[ src_step_name ] = []\n\n    src = ( src_step_name, src_f )\n    dst = ( dst_step_name, dst_f )\n    e   = Edge( src, dst )\n\n    # Add this edge to tracking\n\n    s._edges_i[ dst_step_name ].append( e )\n    s._edges_o[ src_step_name ].append( e )\n\n  def connect_by_name( s, src, dst ):\n\n    # Get the step (in case the user provided step names instead)\n\n    if type( src ) != Step:\n      src_step = s.get_step( src )\n    else:\n      src_step = src\n    src_step_name = src_step.get_name()\n    assert src_step_name in s.all_steps(), \\\n      'connect_by_name -- ' \\\n      'Step \"{}\" not found in graph'.format( src_step_name )\n\n    if type( dst ) != Step:\n      dst_step = s.get_step( dst )\n    else:\n      dst_step = dst\n    dst_step_name = dst_step.get_name()\n    assert dst_step_name in s.all_steps(), \\\n      'connect_by_name -- ' \\\n      'Step \"{}\" not found in graph'.format( dst_step_name )\n\n    # Find same-name matches between the src output and dst input\n\n    src_outputs = src_step.all_outputs()\n    dst_inputs  = dst_step.all_inputs()\n\n    overlap = set( src_outputs ).intersection( set( dst_inputs ) )\n\n    # For all overlaps, connect src to dst\n\n    for name in overlap:\n      l_handle = src_step.o( name )\n      r_handle = dst_step.i( name )\n      s.connect( l_handle, r_handle )\n\n  #-----------------------------------------------------------------------\n  # Parameter system\n  #-----------------------------------------------------------------------\n\n  def update_params( s, params ):\n    \"\"\"Updates parameters for all steps in the graph.\n\n    Calls :py:meth:`Step.update_params` for each step in the graph with the\n    given parameter dictionary.\n\n    Args:\n      params: A dict of parameter names (strings) and values\n    \"\"\"\n\n    for step_name in s.all_steps():\n      s.get_step( step_name ).update_params( params )\n\n  def expand_params( s ):\n    for step_name in s.all_steps():\n      s.get_step( step_name ).expand_params()\n\n  #-----------------------------------------------------------------------\n  # Metadata\n  #-----------------------------------------------------------------------\n\n  def dump_metadata_to_steps( s, build_dirs, build_ids ):\n\n    for step_name in s.all_steps():\n\n      edges_i = {}\n      edges_o = {}\n\n      try:\n        for e in s._edges_i[ step_name ]:\n          f = e.get_dst()[1]\n          edge = { 'f'    : e.get_src()[1],\n                   'step' : build_dirs[ e.get_src()[0] ] }\n          try:\n            edges_i[f].append( edge )\n          except KeyError:\n            edges_i[f] = [ edge ]\n      except KeyError:\n        pass\n\n      try:\n        for e in s._edges_o[ step_name ]:\n          f = e.get_src()[1]\n          edge = { 'f'    : e.get_dst()[1],\n                   'step' : build_dirs[ e.get_dst()[0] ] }\n          try:\n            edges_o[f].append( edge )\n          except KeyError:\n            edges_o[f] = [ edge ]\n      except KeyError:\n        pass\n\n      data = {\n        'build_dir' : build_dirs [ step_name ],\n        'build_id'  : build_ids  [ step_name ],\n        'edges_i'   : edges_i,\n        'edges_o'   : edges_",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 2400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "88a83acf4d83b67e10930aee48b031c966ea2704d6b8a90eea7f7b8f5213cb2c",
+        "request_id": "chatcmpl-Ej8QzW4QSRGjMpvkKO8tXLzAxUAim",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 14,
+          "total_tokens": 169,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.44e-05,
+        "seconds": 0.6939267909983755,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "79b622d976720f49992f5abf22f46d5a6abda2797f9c3cd2b2602a8471a81c6d",
+        "request_id": "chatcmpl-Ej8R0cKCc5yy4bvkZ6PpzwG6gl3sx",
+        "usage": {
+          "prompt_tokens": 986,
+          "completion_tokens": 15,
+          "total_tokens": 1001,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00041840000000000003,
+        "seconds": 0.7609465000023192,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "2d31a8e905688e328926b9dc73dd7a28325236e0271a76c6a12800d418c780b6",
+        "request_id": "chatcmpl-Ej8R1Trbh2xYy5bnDs4ZPZybZ5r7m",
+        "usage": {
+          "prompt_tokens": 2073,
+          "completion_tokens": 444,
+          "total_tokens": 2517,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015396000000000001,
+        "seconds": 3.4927319170019473,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "final",
+        "request_sha256": "70769e81ae987ca69c68a73e5e197f05dcf448c455fe4359478ef93e760ded54",
+        "request_id": "chatcmpl-Ej8R5G0Zgj7kOKcurI6WkWdAeYkzK",
+        "usage": {
+          "prompt_tokens": 1132,
+          "completion_tokens": 572,
+          "total_tokens": 1704,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001368,
+        "seconds": 3.845704833001946,
+        "retry_count": 0
+      }
+    ]
+  }
+}

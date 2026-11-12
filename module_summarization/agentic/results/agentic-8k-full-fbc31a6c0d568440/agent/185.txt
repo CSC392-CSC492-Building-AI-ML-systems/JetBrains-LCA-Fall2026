@@ -1,0 +1,151 @@
+Tuning the hyper-parameters of an estimator
+============================================
+
+`GridSearchCV` — Exhaustive search over specified parameter values
+------------------------------------------------------------------
+
+`GridSearchCV` implements an exhaustive search over a specified parameter grid for an estimator. It performs cross-validated evaluation of all parameter combinations and selects the best set of parameters according to a specified scoring metric.
+
+This class implements the standard `fit` and `score` methods, as well as `score_samples`, `predict`, `predict_proba`, `decision_function`, `transform`, and `inverse_transform` if these methods are implemented by the underlying estimator.
+
+The parameters of the estimator used to apply these methods are optimized by cross-validated grid-search over a parameter grid.
+
+More details and examples can be found in the :ref:`User Guide <grid_search>`.
+
+Parameters
+----------
+
+- **estimator** : estimator object  
+  The object to use to fit the data. This estimator must implement the scikit-learn estimator interface. It must provide a `score` method or a `scoring` parameter must be passed.
+
+- **param_grid** : dict or list of dicts  
+  Dictionary with parameter names (`str`) as keys and lists of parameter settings to try as values, or a list of such dictionaries. This allows searching over any sequence of parameter settings.
+
+- **scoring** : str, callable, list, tuple or dict, default=None  
+  Strategy to evaluate the performance of the cross-validated model on the test set.  
+  - If a single score is used, it can be a string (see :ref:`scoring_parameter`) or a callable returning a single value.  
+  - For multiple scores, it can be a list or tuple of unique strings, a callable returning a dictionary of metric names and scores, or a dictionary mapping metric names to callables.  
+  See :ref:`multimetric_grid_search` for examples.
+
+- **n_jobs** : int, default=None  
+  Number of jobs to run in parallel. `None` means 1 unless in a `joblib.parallel_backend` context. `-1` means using all processors.
+
+- **refit** : bool, str, or callable, default=True  
+  Refit an estimator using the best found parameters on the whole dataset.  
+  - If multiple metrics are evaluated, `refit` should be a string denoting the scorer used to find the best parameters for refitting.  
+  - Alternatively, `refit` can be a callable that returns the selected best index given `cv_results_`. In this case, `best_estimator_` and `best_params_` are set accordingly, but `best_score_` is not available.  
+  The refitted estimator is available at the `best_estimator_` attribute, allowing direct use of `predict` on the `GridSearchCV` instance.
+
+Attributes
+----------
+
+- **best_estimator_** : estimator object  
+  Estimator that was chosen by the search, i.e., estimator which gave highest score (or smallest loss if specified) on the left out data.
+
+- **best_score_** : float  
+  Mean cross-validated score of the best_estimator.
+
+- **best_params_** : dict  
+  Parameter setting that gave the best results on the hold out data.
+
+- **best_index_** : int  
+  The index (of the parameter setting) that corresponds to the best score.
+
+- **cv_results_** : dict of numpy (masked) ndarrays  
+  A dict with keys as column headers and values as columns, that can be imported into a pandas DataFrame.
+
+- **multimetric_** : bool  
+  Whether or not the scorers compute several metrics.
+
+- **classes_** : ndarray of shape (n_classes,)  
+  The class labels. Present only if `refit` is specified and the underlying estimator is a classifier.
+
+- **n_features_in_** : int  
+  Number of features seen during fit. Present only if `best_estimator_` is defined and exposes `n_features_in_`.
+
+- **feature_names_in_** : ndarray of shape (`n_features_in_`,)  
+  Names of features seen during fit. Present only if `best_estimator_` is defined and exposes `feature_names_in_`.
+
+Usage Notes
+-----------
+
+- The `fit` method performs the exhaustive search over the parameter grid using cross-validation.
+
+- The `score` method evaluates the performance of the best estimator on given data.
+
+- If the estimator does not implement a `score` method and no `scoring` parameter is provided, a `TypeError` will be raised.
+
+- The `groups` parameter can be passed to `fit` to specify group labels for the samples used while splitting the dataset into train/test set.
+
+- `GridSearchCV` supports multi-metric evaluation and can handle multiple scoring metrics simultaneously.
+
+- When using `refit=False`, the best estimator is not refit on the whole dataset, and attributes like `best_estimator_` and `best_score_` will not be available.
+
+Examples
+--------
+
+Basic example of tuning hyper-parameters of a classifier:
+
+```python
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import LinearSVC
+from sklearn.datasets import make_classification
+
+X, y = make_classification(n_samples=100, n_features=20, random_state=42)
+param_grid = {'C': [0.01, 0.1, 1, 10]}
+clf = LinearSVC(random_state=42)
+
+grid_search = GridSearchCV(clf, param_grid, scoring='accuracy', n_jobs=-1, cv=5)
+grid_search.fit(X, y)
+
+print("Best parameters:", grid_search.best_params_)
+print("Best cross-validation accuracy:", grid_search.best_score_)
+```
+
+Example with multiple scoring metrics and custom refit:
+
+```python
+def custom_refit(cv_results):
+    # Custom logic to select best index
+    return cv_results['rank_test_accuracy'].argmin()
+
+grid_search = GridSearchCV(
+    clf,
+    param_grid,
+    scoring=['accuracy', 'f1'],
+    refit=custom_refit,
+    cv=5
+)
+grid_search.fit(X, y)
+```
+
+Advanced Usage
+--------------
+
+- `GridSearchCV` can handle estimators without a `predict` method, as long as a suitable scoring function is provided.
+
+- It supports parameter grids with complex structures, including lists of dictionaries.
+
+- The `cv_results_` attribute provides detailed information about each parameter combination evaluated, including mean and standard deviation of scores, fit times, and parameter settings.
+
+- Parallel execution is supported via the `n_jobs` parameter.
+
+- The `ParameterSampler` utility can be used for randomized parameter search, which is useful when the parameter space is large.
+
+See Also
+--------
+
+- `RandomizedSearchCV` — Randomized parameter search.
+
+- `ParameterSampler` — Utility to sample parameters from distributions.
+
+- :ref:`User Guide <grid_search>` — Detailed explanation and examples.
+
+References
+----------
+
+- Pedregosa et al., Scikit-learn: Machine Learning in Python, JMLR 12, pp. 2825-2830, 2011.
+
+---
+
+This documentation provides an overview of `GridSearchCV` for tuning hyper-parameters of estimators in scikit-learn, including its parameters, attributes, usage, and examples.

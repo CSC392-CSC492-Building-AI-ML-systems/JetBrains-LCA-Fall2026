@@ -1,0 +1,86 @@
+Computational Performance
+=========================
+
+This section provides an overview of the computational performance considerations and implementation details relevant to the algorithms and models described.
+
+Hessian Computation and Optimization
+------------------------------------
+
+A significant computational bottleneck in the optimization routines arises from the calculation of the Hessian matrix, specifically the "sandwich product" \( X^\top \, \text{diag}(W) \, X \). This operation is critical for solvers but can be expensive, especially for large datasets.
+
+- For sparse input matrices \( X \), the Hessian is computed using sparse matrix operations to leverage sparsity and reduce memory usage:
+
+  ```python
+  hess[:n_features, :n_features] = (
+      X.T
+      @ sparse.dia_matrix(
+          (hess_pointwise, 0), shape=(n_samples, n_samples)
+      )
+      @ X
+  ).toarray()
+  ```
+
+- For dense matrices, BLAS-accelerated matrix multiplication (`np.dot`) is used for speed, which is faster than alternatives like `np.einsum` despite potentially higher memory usage:
+
+  ```python
+  WX = hess_pointwise[:, None] * X
+  hess[:n_features, :n_features] = np.dot(X.T, WX)
+  ```
+
+Regularization and Intercept Handling
+-------------------------------------
+
+- L2 regularization is incorporated by adding the regularization strength to the diagonal elements of the Hessian matrix, ensuring proper penalization of model coefficients.
+
+- When fitting an intercept term, the Hessian matrix is augmented accordingly to include the intercept's contribution. This involves computing additional terms for the last row and column of the Hessian matrix:
+
+  ```python
+  Xh = X.T @ hess_pointwise
+  hess[:-1, -1] = Xh
+  hess[-1, :-1] = Xh
+  hess[-1, -1] = hess_pointwise.sum()
+  ```
+
+Gradient and Hessian Product Computation
+----------------------------------------
+
+The `gradient_hessian_product` function efficiently computes both the gradient and a Hessian product function with respect to model coefficients. This function supports:
+
+- Dense and sparse input data.
+- Sample weights.
+- L2 regularization.
+- Multi-threading via the `n_threads` parameter.
+
+This design allows scalable and efficient optimization for linear models, including multi-class settings where coefficients are arranged contiguously per class.
+
+Early Exit and Error Handling
+-----------------------------
+
+To optimize performance, the implementation includes early exit strategies that avoid unnecessary Hessian computations when possible. For example, if certain conditions are met, the function returns the gradient and a warning without computing the full Hessian.
+
+Unsupported loss functions, such as categorical cross-entropy in some contexts, raise a `NotImplementedError` to signal that the current implementation does not support these cases.
+
+Performance Considerations in Tree-Based Models
+-----------------------------------------------
+
+For tree-based models, parameters such as `max_features` influence computational cost and model variance:
+
+- Setting `max_features` to a value less than the total number of features reduces variance but increases bias.
+- The search for splits continues until a valid partition is found, potentially inspecting more features than `max_features`.
+- Verbosity levels control the frequency and detail of progress output, which can impact runtime performance due to logging overhead.
+
+Additional Notes
+----------------
+
+- The implementation leverages BLAS libraries for matrix operations to maximize computational efficiency.
+- Sparse matrix operations are carefully utilized to handle large-scale and high-dimensional data efficiently.
+- Regularization and intercept handling are integrated seamlessly into gradient and Hessian computations to maintain model accuracy without sacrificing performance.
+
+References
+----------
+
+- David Yarowsky. 1995. Unsupervised word sense disambiguation.
+- J. Cohen (1960). "A coefficient of agreement for nominal scales". Educational and Psychological Measurement 20(1):37-46.
+- R. Artstein and M. Poesio (2008). "Inter-coder agreement for computational linguistics". Computational Linguistics 34(4):555-596.
+
+This documentation reflects the computational strategies and performance considerations implemented to ensure efficient and scalable model fitting and evaluation.

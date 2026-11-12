@@ -1,0 +1,118 @@
+Verification of FITS Data
+=========================
+
+This document describes the scheme and tools used to verify the integrity and compliance of FITS (Flexible Image Transport System) files, focusing on checksum validation and FITS standard compliance checks.
+
+Overview
+--------
+
+The verification process involves checking the `CHECKSUM` and `DATASUM` keywords in the FITS file headers to ensure data integrity, as well as validating the file against the FITS standard to detect any compliance issues.
+
+The verification scheme supports the following operations:
+
+- **Checksum Verification:** Confirm that the checksums stored in the FITS headers match the actual data.
+- **Datasum Verification:** Confirm that the datasums stored in the FITS headers match the actual data.
+- **Compliance Verification:** Check that the FITS file adheres to the FITS standard.
+- **Checksum and Datasum Update:** Calculate and update the `CHECKSUM` and `DATASUM` keywords in the FITS headers.
+- **Automatic Fixes:** Optionally fix standard compliance violations during update.
+
+Command Line Interface
+----------------------
+
+The verification tools are typically invoked via a command line interface with options to control verbosity, checksum handling, compliance checking, and file writing behavior.
+
+Key command line options include:
+
+- `-v`, `--verbose`: Generate extra output for detailed logging.
+- `--checksum-kind`: Specify the kind of checksum verification to perform (`none`, `standard`, or `remove`).
+- `--ignore-missing`: Ignore missing checksum or datasum keywords.
+- `--compliance`: Enable FITS standard compliance verification.
+- `--write-file`: Write updates to the FITS files.
+- `--force`: Force updates even if checksum errors are detected.
+
+Verification Functions
+----------------------
+
+### Checksum and Datasum Verification
+
+The function `verify_checksums(filename)` opens the FITS file and iterates over each Header Data Unit (HDU) to verify the presence and correctness of the `CHECKSUM` and `DATASUM` keywords.
+
+- If any HDU is missing these keywords and the `ignore_missing` option is not set, a warning is logged.
+- If any checksum or datasum verification fails, a warning is logged indicating a bad checksum or datasum.
+- If all checks pass, an informational message confirms the file is OK.
+
+### Compliance Verification
+
+The function `verify_compliance(filename)` opens the FITS file and runs a verification check against the FITS standard.
+
+- If any compliance errors are detected, a warning is logged with details of the violation.
+- Returns a status indicating success or failure of compliance.
+
+### Updating Checksums and Compliance Fixes
+
+The function `update(filename)` updates the `CHECKSUM` and `DATASUM` keywords for each HDU in the FITS file.
+
+- It can also apply automatic fixes for standard compliance violations if the compliance option is enabled.
+- The update is performed in-place with the file opened in update mode.
+- Warning filters are temporarily reset during update to avoid interference from checksum verification warnings.
+
+Processing Workflow
+-------------------
+
+The main processing function `process_file(filename)` orchestrates the verification and update steps:
+
+1. Verify checksums and datasums.
+2. Optionally verify FITS standard compliance.
+3. If requested, update the file with new checksum and datasum values, and fix compliance issues.
+4. Log any exceptions encountered during processing.
+
+Logging and Output
+------------------
+
+Logging is configured based on the verbosity option:
+
+- Verbose mode enables informational messages.
+- Otherwise, only warnings and errors are logged.
+
+Messages include:
+
+- `MISSING`: Indicates missing checksum or datasum keywords.
+- `BAD`: Indicates failed checksum or datasum verification.
+- `NONCOMPLIANT`: Indicates FITS standard compliance violations.
+- `OK`: Indicates successful verification.
+- `EXCEPTION`: Indicates an error occurred during processing.
+
+Usage Example
+-------------
+
+To verify checksums and compliance for a set of FITS files with verbose output:
+
+```bash
+fitsverify -v --compliance file1.fits file2.fits
+```
+
+To update checksums and fix compliance issues in place:
+
+```bash
+fitsverify --write-file --compliance file1.fits
+```
+
+Notes
+-----
+
+- The verification scheme relies on the Astropy FITS module for file handling and verification.
+- The checksum verification supports different modes controlled by the `checksum_kind` option.
+- The compliance verification raises warnings that are caught and logged as warnings.
+- The update operation flushes changes to the file and can silently fix compliance issues if enabled.
+
+License
+-------
+
+This verification scheme and associated tools are licensed under a 3-clause BSD style license.
+
+Further Information
+-------------------
+
+For more details on FITS file verification and usage of the verification tools, please refer to the Astropy documentation:
+
+https://docs.astropy.org/en/latest/io/fits/usage/scripts.html#fitsdiff

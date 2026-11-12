@@ -1,0 +1,194 @@
+Empirical Likelihood
+====================
+
+Overview
+--------
+The empirical likelihood (EL) method provides a nonparametric approach to statistical inference, allowing hypothesis testing and confidence interval construction without specifying a full parametric model. This module implements empirical likelihood inference on descriptive statistics and linear regression models, including regression forced through the origin.
+
+Key Features
+------------
+- Hypothesis tests and confidence intervals for descriptive statistics such as mean, variance, skewness, kurtosis, and correlation.
+- Multivariate confidence region plots and mean-variance contour plots (if matplotlib is installed).
+- Empirical likelihood regression forced through the origin, providing more precise parameter estimates and narrower confidence intervals compared to standard regression methods.
+- Optimization-based inference using likelihood ratio statistics.
+
+References
+----------
+Owen, A. B. (2001). *Empirical Likelihood*. Chapman and Hall.
+
+---
+
+Empirical Likelihood on Descriptive Statistics
+----------------------------------------------
+This module enables empirical likelihood inference on univariate and multivariate descriptive statistics.
+
+### DescStat Class
+
+The `DescStat` function returns an instance for conducting inference on descriptive statistics via empirical likelihood.
+
+**Parameters:**
+
+- `endog` : ndarray  
+  Array of data.
+
+**Returns:**
+
+- `DescStat` instance  
+  - If the data is univariate (k=1), returns a `DescStatUV` instance.  
+  - If multivariate (k>1), returns a `DescStatMV` instance.
+
+These classes provide methods to perform hypothesis tests and construct confidence intervals for:
+
+- Mean  
+- Variance  
+- Skewness  
+- Kurtosis  
+- Correlation  
+
+Additionally, if matplotlib is installed, the module can generate:
+
+- Multivariate confidence region plots  
+- Mean-variance contour plots  
+
+For technical details and optimization variable definitions, see the `_OptFuncts` documentation.
+
+---
+
+Empirical Likelihood Regression Through the Origin
+-------------------------------------------------
+
+This module implements empirical likelihood regression models constrained to pass through the origin (i.e., intercept fixed at zero). This differs from standard regression models by restricting the intercept parameter, resulting in more precise estimates and narrower confidence intervals.
+
+### ELOriginRegress Class
+
+Provides empirical likelihood inference and estimation for linear regression models forced through the origin.
+
+**Parameters:**
+
+- `endog` : nx1 array  
+  Response variable observations.
+
+- `exog` : nxk array  
+  Exogenous variables (without a column of ones).
+
+**Attributes:**
+
+- `endog` : nx1 array  
+  Response variables.
+
+- `exog` : nxk array  
+  Exogenous variables.
+
+- `nobs` : float  
+  Number of observations.
+
+- `nvar` : float  
+  Number of regressors.
+
+**Methods:**
+
+- `fit()`  
+  Fits the empirical likelihood regression model through the origin and returns an `OriginResults` instance containing parameter estimates and inference results.
+
+- `predict(params, exog=None)`  
+  Predicts response values given parameters and optional exogenous variables.
+
+### OriginResults Class
+
+Holds results from empirical likelihood regression through the origin.
+
+**Parameters:**
+
+- `model` : OLS model instance with intercept.  
+- `params` : 1d array  
+  Estimated parameters (intercept fixed at zero).  
+- `est_llr` : float  
+  Log likelihood ratio statistic for the fitted model.  
+- `llf_el` : float  
+  Log likelihood of the fitted model with intercept restricted to zero.
+
+**Attributes:**
+
+- `model` : OLS model instance.  
+- `params` : 1d array of fitted parameters (first element is intercept, fixed at zero).  
+- `llr` : float  
+  Log likelihood ratio statistic.  
+- `llf_el` : float  
+  Log likelihood of the fitted model.
+
+**Notes:**
+
+- The intercept parameter is fixed at zero but included in the parameter vector for consistency.
+- Inference is conducted via empirical likelihood methods; covariance matrix-based inference is not applicable.
+- Use `el_test` and `conf_int_el` methods for hypothesis testing and confidence intervals.
+
+**Methods:**
+
+- `el_test(b0_vals, param_nums, method='nm', stochastic_exog=1, return_weights=0)`  
+  Performs hypothesis testing for specified parameter values using empirical likelihood ratio tests.
+
+  **Parameters:**
+
+  - `b0_vals` : 1d array  
+    Hypothesized parameter values to test.
+
+  - `param_nums` : 1d array  
+    Indices of parameters to test (Python indexing; 0 corresponds to intercept fixed at zero).
+
+  - `method` : str  
+    Optimization method for nuisance parameters ('nm' for Nelder-Mead, 'powell' for Powell). Default is 'nm'.
+
+  - `stochastic_exog` : bool  
+    Indicates if exogenous variables are stochastic (default True). Non-stochastic regressors impose additional moment conditions.
+
+  - `return_weights` : bool  
+    If True, returns the optimized weights for the likelihood ratio at `b0_vals`.
+
+  **Returns:**
+
+  - Tuple containing likelihood ratio statistic and p-value (and optionally weights).
+
+- `conf_int_el(param_num, alpha=0.05)`  
+  Constructs empirical likelihood confidence intervals for specified parameters.
+
+---
+
+Usage Example
+-------------
+
+```python
+import numpy as np
+import statsmodels.api as sm
+
+# Load data
+data = sm.datasets.bc.load(as_pandas=False)
+
+# Empirical likelihood regression through the origin
+model = sm.emplike.ELOriginRegress(data.endog, data.exog)
+results = model.fit()
+
+# Parameter estimates (intercept fixed at zero)
+print(results.params)
+
+# Hypothesis test for parameter value
+llr, pvalue = results.el_test(np.array([0.0034]), np.array([1]))
+print(f"Likelihood ratio: {llr}, p-value: {pvalue}")
+
+# Confidence interval for parameter 1
+conf_int = results.conf_int_el(1)
+print(f"Confidence interval: {conf_int}")
+```
+
+---
+
+Notes
+-----
+
+- Empirical likelihood methods provide a flexible, nonparametric alternative to classical inference, relying on likelihood ratio statistics without assuming specific distributional forms.
+- The regression through the origin model implemented here differs from standard OLS by restricting the intercept to zero and optimizing the empirical likelihood accordingly.
+- Covariance matrix-based inference methods are not applicable; use empirical likelihood-based tests and confidence intervals instead.
+- For multivariate descriptive statistics, empirical likelihood can be used to construct joint confidence regions and perform simultaneous inference.
+
+---
+
+For further technical details and optimization specifics, refer to the internal documentation of `_OptFuncts` and related classes within the module.

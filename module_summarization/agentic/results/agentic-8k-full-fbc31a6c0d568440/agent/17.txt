@@ -1,0 +1,96 @@
+w_assign — Assign Walkers to Bins and Define Macrostates
+=========================================================
+
+Overview
+--------
+
+The `w_assign` command assigns simulation walkers to bins and produces an assignment file (by default named `assign.h5`) that can be used in subsequent analysis steps. This assignment ensures consistency across analyses by providing the originating bin for each trajectory, which is essential for tracing trajectories and performing kinetic analyses.
+
+Source Data
+-----------
+
+Source data for assignment can be provided in one of three ways:
+
+1. **Custom Dataset Construction Function** (`--construct-dataset`):
+
+   Specify a Python function in `MODULE.FUNCTION` syntax that will be called as `function(n_iter, iter_group)`, where `n_iter` is the iteration number and `iter_group` is the corresponding group in the main WESTPA HDF5 file (`west.h5`). The function must return data indexable as `[segment][timepoint][dimension]`.
+
+2. **Data Set Specifications** (`--dsspecs`):
+
+   Provide a list of dataset specifications formatted as `NAME[,file=FILENAME,slice=SLICE]`. This selects the dataset `NAME` from the HDF5 file `FILENAME` (defaulting to `west.h5`) and optionally slices it using Python slice notation. This is useful for selecting specific columns or subsets of multidimensional progress coordinate datasets.
+
+3. **Default Progress Coordinate Dataset**:
+
+   If neither a custom function nor dataset specifications are provided, the default progress coordinate dataset `pcoord` is used.
+
+Specifying Macrostates
+----------------------
+
+Kinetic macrostates can be defined to label trajectories with the macrostate they most recently occupied at each timepoint. This labeling is required for kinetic analyses such as `w_kintrace` and `w_kinmat`.
+
+There are three methods to specify macrostates:
+
+1. **Single-Bin States via Command Line** (`--states`):
+
+   Specify multiple states as coordinate tuples, optionally with labels, e.g., `bound:1.0` or `unbound:(2.5,2.5)`. Unlabeled states are named `stateN` where `N` is the zero-based index.
+
+2. **Multiple-Bin States via YAML File** (`--states-from-file`):
+
+   Provide a YAML file defining a list of states, each with a `label` and a list of coordinate tuples under `coords`. Bins containing these coordinates are mapped to the corresponding state.
+
+   Example YAML file:
+
+   ```yaml
+   ---
+   states:
+     - label: unbound
+       coords:
+         - [9.0, 1.0]
+         - [9.0, 2.0]
+     - label: bound
+       coords:
+         - [0.1, 0.0]
+   ```
+
+3. **Arbitrary State Definitions via Function** (`--states-from-function`):
+
+   Specify a Python function in `MODULE.FUNCTION` syntax that takes the bin mapper as an argument (`function(mapper)`) and returns a list of dictionaries, each representing a state with keys `"coords"` (a list of coordinate tuples) and optionally `"label"` (the state name).
+
+Output Format
+-------------
+
+The output is an HDF5 file (default `assign.h5`) containing:
+
+- **Bin Labels** (`bin_labels`): The labels of bins as strings.
+- **State Map** (`state_map`): An array mapping each bin to a macrostate index.
+- **State Labels** (`state_labels`): Names of the macrostates.
+- **Attributes**:
+  - `nbins`: Number of bins.
+  - `nstates`: Number of macrostates.
+- **Assignment Data**: For each iteration and segment, the assigned bin and macrostate labels.
+
+Usage Notes
+-----------
+
+- The entire dataset must be assigned to ensure that trajectory origins are known for all segments.
+- Recursive bin mappers are supported.
+- The assignment process is parallelized for efficiency.
+- The assignment file is essential for downstream analysis tools that require knowledge of bin and macrostate assignments.
+
+Example Command
+---------------
+
+```bash
+w_assign --dsspecs pcoord --states-from-file macrostates.yaml -o assign.h5
+```
+
+This command assigns walkers based on the `pcoord` dataset, defines macrostates from the YAML file `macrostates.yaml`, and writes the assignments to `assign.h5`.
+
+Logging and Progress
+--------------------
+
+`w_assign` provides logging output under the logger name `w_assign` and displays progress indicators during execution.
+
+---
+
+For detailed options and advanced usage, consult the `w_assign` help (`w_assign --help`).

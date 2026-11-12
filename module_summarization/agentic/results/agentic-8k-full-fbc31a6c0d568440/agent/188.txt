@@ -1,0 +1,140 @@
+Kernel Approximation Functions
+==============================
+
+This module provides functions that approximate the feature mappings corresponding to certain kernels. These approximations enable scalable kernel methods by transforming the input data into a randomized feature space where linear methods can be applied efficiently.
+
+Available Feature Map Approximations
+------------------------------------
+
+- **AdditiveChi2Sampler**  
+  Approximate feature map for the additive chi-squared kernel. Useful for histogram-based features.
+
+- **Nystroem**  
+  Approximate a kernel map using a subset of the training data. This method samples a subset of data points and uses them to construct an approximate feature map for the kernel.  
+  References:  
+  - Williams, C.K.I. and Seeger, M. "Using the Nystroem method to speed up kernel machines", Advances in Neural Information Processing Systems, 2001.  
+  - T. Yang, Y. Li, M. Mahdavi, R. Jin and Z. Zhou, "Nystroem Method vs Random Fourier Features: A Theoretical and Empirical Comparison", Advances in Neural Information Processing Systems, 2012.
+
+- **PolynomialCountSketch**  
+  Polynomial kernel approximation via Tensor Sketch. Efficiently approximates polynomial kernels by sketching the polynomial feature space.
+
+- **RBFSampler**  
+  Approximate a Radial Basis Function (RBF) kernel feature map using random Fourier features. This method samples random Fourier components to approximate the RBF kernel.  
+  Reference:  
+  - Rahimi, A. and Recht, B. "Random Features for Large-Scale Kernel Machines".  
+  - Rahimi, A. and Recht, B. "Weighted Sums of Random Kitchen Sinks: Replacing minimization with randomization in learning".  
+  Example usage:  
+  ```python
+  from sklearn.kernel_approximation import RBFSampler
+  from sklearn.linear_model import SGDClassifier
+
+  X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+  y = [0, 0, 1, 1]
+
+  rbf_feature = RBFSampler(gamma=1, random_state=1)
+  X_features = rbf_feature.fit_transform(X)
+
+  clf = SGDClassifier(max_iter=5, tol=1e-3)
+  clf.fit(X_features, y)
+  print(clf.score(X_features, y))  # Output: 1.0
+  ```
+
+- **SkewedChi2Sampler**  
+  Approximate feature map for the "skewed chi-squared" kernel. This method uses random Fourier approximations tailored for skewed multiplicative histogram kernels.  
+  Reference:  
+  - Li, F., Ionescu, C., and Sminchisescu, C. "Random Fourier Approximations for Skewed Multiplicative Histogram Kernels".  
+  Example usage:  
+  ```python
+  from sklearn.kernel_approximation import SkewedChi2Sampler
+  from sklearn.linear_model import SGDClassifier
+
+  X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+  y = [0, 0, 1, 1]
+
+  chi2_feature = SkewedChi2Sampler(skewedness=0.01, n_components=10, random_state=0)
+  X_features = chi2_feature.fit_transform(X, y)
+
+  clf = SGDClassifier(max_iter=10, tol=1e-3)
+  clf.fit(X_features, y)
+  print(clf.score(X_features, y))  # Output: 1.0
+  ```
+
+Usage Notes
+-----------
+
+- These feature map approximations transform the input data into a new feature space where linear models can be applied to approximate kernel methods efficiently.
+- Parameters such as `n_components` control the dimensionality of the transformed feature space.
+- Randomness in the feature maps can be controlled via the `random_state` parameter for reproducibility.
+- Some approximations require input data to satisfy certain conditions (e.g., values strictly greater than `-skewedness` for `SkewedChi2Sampler`).
+
+See Also
+--------
+
+- `sklearn.metrics.pairwise.kernel_metrics` — List of built-in kernels.
+- `sklearn.metrics.pairwise.chi2_kernel` — Exact chi-squared kernel.
+- `sklearn.linear_model.SGDClassifier` — Example linear classifier used with approximate feature maps.
+
+References
+----------
+
+- Rahimi, A. and Recht, B. "Random Features for Large-Scale Kernel Machines".  
+- Rahimi, A. and Recht, B. "Weighted Sums of Random Kitchen Sinks: Replacing minimization with randomization in learning".  
+- Williams, C.K.I. and Seeger, M. "Using the Nystroem method to speed up kernel machines".  
+- T. Yang, Y. Li, M. Mahdavi, R. Jin and Z. Zhou, "Nystroem Method vs Random Fourier Features: A Theoretical and Empirical Comparison".  
+- Li, F., Ionescu, C., and Sminchisescu, C. "Random Fourier Approximations for Skewed Multiplicative Histogram Kernels".
+
+Examples
+--------
+
+Using `RBFSampler` to approximate an RBF kernel feature map:
+
+```python
+from sklearn.kernel_approximation import RBFSampler
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+rbf_feature = RBFSampler(gamma=1, random_state=1)
+X_features = rbf_feature.fit_transform(X)
+
+clf = SGDClassifier(max_iter=5, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+Using `SkewedChi2Sampler` for skewed chi-squared kernel approximation:
+
+```python
+from sklearn.kernel_approximation import SkewedChi2Sampler
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+chi2_feature = SkewedChi2Sampler(skewedness=0.01, n_components=10, random_state=0)
+X_features = chi2_feature.fit_transform(X, y)
+
+clf = SGDClassifier(max_iter=10, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+Using `Nystroem` method for kernel approximation:
+
+```python
+from sklearn import datasets, svm
+from sklearn.kernel_approximation import Nystroem
+
+X, y = datasets.load_digits(n_class=9, return_X_y=True)
+data = X / 16.
+
+clf = svm.LinearSVC(dual="auto")
+feature_map_nystroem = Nystroem(gamma=0.2, random_state=1, n_components=300)
+data_transformed = feature_map_nystroem.fit_transform(data)
+
+clf.fit(data_transformed, y)
+print(clf.score(data_transformed, y))  # Output: close to 1.0
+```
+
+These approximations provide scalable alternatives to exact kernel methods, enabling their application to large datasets.

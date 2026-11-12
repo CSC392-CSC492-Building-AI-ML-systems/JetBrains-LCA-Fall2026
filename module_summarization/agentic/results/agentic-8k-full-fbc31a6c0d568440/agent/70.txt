@@ -1,0 +1,161 @@
+Kernel Approximation Module
+===========================
+
+The `kernel_approximation` module provides tools for approximating kernel feature maps, enabling scalable kernel methods by transforming data into a feature space where linear methods can be applied efficiently. This module includes several classes that implement different kernel approximation techniques.
+
+Classes
+-------
+
+Nystroem
+~~~~~~~~
+
+Approximate a kernel map using a subset of the training data.
+
+This class constructs an approximate feature map for an arbitrary kernel by selecting a subset of the data as basis points. It is useful for scaling kernel methods to large datasets by reducing the computational complexity.
+
+**Parameters**
+
+- `kernel` : str or callable, default='rbf'  
+  Kernel map to be approximated. Can be a string specifying a known kernel or a callable function.
+
+- `gamma` : float, default=None  
+  Kernel coefficient for kernels like RBF, Laplacian, polynomial, exponential chi2, and sigmoid.
+
+- `coef0` : float, default=None  
+  Zero coefficient for polynomial and sigmoid kernels.
+
+- `degree` : float, default=None  
+  Degree of the polynomial kernel.
+
+- `kernel_params` : dict, default=None  
+  Additional parameters for the kernel function if callable.
+
+- `n_components` : int, default=100  
+  Number of features to construct; number of data points used to construct the mapping.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the random sampling of basis points.
+
+- `n_jobs` : int, default=None  
+  Number of parallel jobs to run for kernel computation.
+
+**Attributes**
+
+- `components_` : ndarray of shape (n_components, n_features)  
+  Subset of training points used to construct the feature map.
+
+- `component_indices_` : ndarray of shape (n_components,)  
+  Indices of the components in the training set.
+
+- `normalization_` : ndarray of shape (n_components, n_components)  
+  Normalization matrix needed for embedding.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fit (if available).
+
+**See Also**
+
+- `AdditiveChi2Sampler` : Approximate feature map for additive chi2 kernel.
+- `PolynomialCountSketch` : Polynomial kernel approximation via Tensor Sketch.
+- `RBFSampler` : Approximate RBF kernel feature map using random Fourier features.
+- `SkewedChi2Sampler` : Approximate feature map for skewed chi-squared kernel.
+- `sklearn.metrics.pairwise.kernel_metrics` : List of built-in kernels.
+
+**References**
+
+- Williams, C.K.I. and Seeger, M.  
+  "Using the Nystroem method to speed up kernel machines", Advances in Neural Information Processing Systems, 2001.
+
+- Yang, T., Li, Y., Mahdavi, M., Jin, R., and Zhou, Z.  
+  "Nystroem Method vs Random Fourier Features: A Theoretical and Empirical Comparison", Advances in Neural Information Processing Systems, 2012.
+
+**Example**
+
+```python
+from sklearn import datasets, svm
+from sklearn.kernel_approximation import Nystroem
+
+X, y = datasets.load_digits(n_class=9, return_X_y=True)
+data = X / 16.
+clf = svm.LinearSVC(dual="auto")
+feature_map_nystroem = Nystroem(gamma=.2, random_state=1, n_components=300)
+data_transformed = feature_map_nystroem.fit_transform(data)
+clf.fit(data_transformed, y)
+print(clf.score(data_transformed, y))
+```
+
+SkewedChi2Sampler
+~~~~~~~~~~~~~~~~~
+
+Approximate feature map for the "skewed chi-squared" kernel.
+
+This transformer approximates the skewed chi-squared kernel using random Fourier features, enabling efficient kernel computations for histogram data.
+
+**See Also**
+
+- `AdditiveChi2Sampler` : Approximate feature map for additive chi2 kernel.
+- `sklearn.metrics.pairwise.chi2_kernel` : Exact chi-squared kernel.
+- `sklearn.metrics.pairwise.kernel_metrics` : List of built-in kernels.
+
+**References**
+
+- Li, F., Ionescu, C., and Sminchisescu, C.  
+  "Random Fourier Approximations for Skewed Multiplicative Histogram Kernels".
+
+**Example**
+
+```python
+from sklearn.kernel_approximation import SkewedChi2Sampler
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+chi2_feature = SkewedChi2Sampler(skewedness=.01)
+X_transformed = chi2_feature.fit_transform(X)
+clf = SGDClassifier()
+clf.fit(X_transformed, y)
+```
+
+AdditiveChi2Sampler
+~~~~~~~~~~~~~~~~~~~
+
+Approximate feature map for the additive chi-squared kernel.
+
+This transformer provides an efficient approximation of the additive chi-squared kernel, commonly used for histogram data.
+
+PolynomialCountSketch
+~~~~~~~~~~~~~~~~~~~~~
+
+Polynomial kernel approximation via Tensor Sketch.
+
+This transformer approximates polynomial kernels using the Tensor Sketch technique, enabling scalable polynomial kernel computations.
+
+RBFSampler
+~~~~~~~~~~
+
+Approximate a RBF kernel feature map using random Fourier features.
+
+This transformer approximates the Radial Basis Function (RBF) kernel by mapping data into a randomized feature space.
+
+Notes
+-----
+
+The kernel approximation methods implemented in this module are based on the concept of random features, which approximate kernel functions by explicit feature mappings. This approach allows kernel methods to scale to large datasets by enabling the use of linear algorithms in the transformed feature space.
+
+For more details, see:
+
+- "Random Features for Large-Scale Kernel Machines" by A. Rahimi and B. Recht.
+- "Weighted Sums of Random Kitchen Sinks: Replacing minimization with randomization in learning" by A. Rahimi.
+
+See Also
+--------
+
+- `sklearn.metrics.pairwise.kernel_metrics` : List of built-in kernels.
+- `sklearn.kernel_approximation` submodules and classes for various kernel approximations.
+
+---
+
+This documentation provides an overview of the kernel approximation techniques available in the module, their usage, parameters, and references for further reading.

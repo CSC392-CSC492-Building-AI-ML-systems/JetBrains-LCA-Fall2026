@@ -1,0 +1,141 @@
+Storage Driver
+==============
+
+The Storage Driver module provides an interface and implementation for reading and writing data to storage backends, such as NetCDF files. It is designed to handle hierarchical data storage with directories and variables, supporting operations like reading, writing, appending, and metadata management.
+
+Overview
+--------
+
+The core component is the `StorageInterface` class, which acts as a high-level interface to a storage backend defined by a `StorageIODriver` instance. The storage driver handles the actual input/output operations, while `StorageInterface` provides a convenient and dynamic way to access and manipulate stored data.
+
+Key Features
+------------
+
+- **Dynamic Path and Variable Access**: Using Python's attribute access, directories and variables can be created and accessed dynamically.
+- **Support for Multiple Storage Backends**: The design allows for different storage drivers to be implemented and plugged in, such as NetCDF.
+- **Metadata Management**: Additional metadata can be attached to the storage file.
+- **Hierarchical Storage Structure**: Supports nested directories and variables.
+- **Data Operations**: Supports reading, writing, and appending data to variables.
+
+Usage Examples
+--------------
+
+### Creating and Writing Variables
+
+Create a folder called `"vardir"` with two variables `"var1"` and `"var2"` holding `DATA1` and `DATA2` respectively:
+
+```python
+from your_module import NetCDFIODriver, StorageInterface
+
+my_driver = NetCDFIODriver('my_store.nc')
+DATA1 = "some string"
+DATA2 = (4.5, 7.0, -23.1)
+my_storage = StorageInterface(my_driver)
+
+my_storage.vardir.var1.write(DATA1)
+my_storage.vardir.var2.write(DATA2)
+```
+
+### Reading Variables
+
+Fetch data from the same folders and variables as above:
+
+```python
+var1 = my_storage.vardir.var1.read()
+var2 = my_storage.vardir.var2.read()
+```
+
+### Appending Data Dynamically
+
+Run a loop to generate data and store each value in a dynamically sized variable called `"looper"`:
+
+```python
+my_driver = NetCDFIODriver('my_store.nc')
+my_storage = StorageInterface(my_driver)
+
+for i in range(10):
+    mydata = i**2
+    my_storage.looper.append(mydata)
+```
+
+Class: StorageInterface
+-----------------------
+
+The `StorageInterface` class provides the main interface to interact with the storage backend.
+
+### Initialization
+
+```python
+StorageInterface(storage_driver)
+```
+
+- **Parameters**:
+  - `storage_driver` (`StorageIODriver`): An instance of a storage driver class that handles the actual I/O operations.
+
+### Methods
+
+#### add_metadata(name, data)
+
+Attach additional metadata to the storage file.
+
+- **Parameters**:
+  - `name` (`str`): Name of the metadata attribute.
+  - `data` (`any`): Data to store as metadata (preferably a string).
+
+- **Example**:
+
+  ```python
+  my_storage.add_metadata('my_index', 4)
+  ```
+
+### Properties
+
+#### file_name
+
+Returns the name of the storage file on disk.
+
+- **Returns**: `str`
+
+#### storage_driver
+
+Returns the instance of the storage driver handling the I/O operations.
+
+- **Returns**: `StorageIODriver` instance
+
+Dynamic Attribute Access
+------------------------
+
+The `StorageInterface` class uses the `__getattr__` method to dynamically create and return `StorageInterfaceDirVar` objects representing directories or variables in the storage hierarchy. This allows for intuitive dot notation access to nested storage elements.
+
+Example:
+
+```python
+my_storage.some_directory.some_variable.write(data)
+```
+
+Additional Utilities
+--------------------
+
+The module also includes utility functions such as:
+
+- `decompose_path(path)`: Breaks a path string into its components.
+- `normalize_path(path)`: Cleans and normalizes a path string by removing leading/trailing slashes.
+
+These utilities assist in managing hierarchical paths within the storage system.
+
+Dependencies
+------------
+
+- `netCDF4` for NetCDF file handling.
+- `numpy` for numerical data operations.
+- `yaml` for metadata serialization.
+- `simtk.unit` for handling physical units (optional).
+
+Notes
+-----
+
+- The storage driver must be a fully implemented subclass of `StorageIODriver` that supports the required read/write/append operations.
+- The `StorageInterface` class is designed to be extensible to support various storage backends beyond NetCDF.
+- Metadata is stored as attributes attached to the storage file itself.
+
+This modular design allows for flexible and scalable data storage solutions suitable for scientific computing and other applications requiring structured data persistence.

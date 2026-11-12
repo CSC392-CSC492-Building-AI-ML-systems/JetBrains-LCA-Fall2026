@@ -1,0 +1,210 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "w_crawl — Crawl a weighted ensemble dataset by iteration\n=========================================================\n\nDescription\n-----------\n\nThe `w_crawl` command allows you to crawl through a weighted ensemble dataset, executing a specified function for each iteration. This tool is useful for postprocessing trajectories, cleaning up datasets, or performing any operation that can be expressed as \"do X for iteration N, then do something with the result.\"\n\nTasks are parallelized by iteration, enabling efficient processing of large datasets. Note that no guarantees are made about the order in which iterations are evaluated.\n\nUsage\n-----\n\n```\nw_crawl [OPTIONS] TASK_CALLABLE\n```\n\nCommand-line Options\n--------------------\n\nThe command supports several options to control its behavior:\n\n**Data Reader and Iteration Range Options**\n\nThese options control which dataset is read and which iterations are processed. They are provided by the underlying WESTDataReader and IterRangeSelection components.\n\n**Task Options**\n\n- `-c`, `--crawler-instance`  \n  Specify a crawler instance to coordinate the calculation. This should be given as `module.instance` referring to an instance of the `WESTPACrawler` class.  \n  This option is required only if you need to perform initialization, finalization, or processing of task results beyond the default behavior.\n\n- `TASK_CALLABLE` (positional argument)  \n  Specify the task function to run on each iteration. This should be given as `module.function`. This callable will be executed for each iteration and must accept two arguments: the iteration number and the iteration group data. This argument is required.\n\n**Progress Indicator Options**\n\nOptions to control the display of progress information during execution.\n\nFunctionality\n-------------\n\n- **Initialization**  \n  If a crawler instance is provided, its `initialize(iter_start, iter_stop)` method is called before processing begins.\n\n- **Task Execution**  \n  For each iteration in the specified range, the task callable is executed remotely with the iteration number and iteration group data as arguments. Tasks are dispatched in parallel.\n\n- **Result Processing**  \n  After each task completes, if a crawler instance is provided, its `process_iter_result(n_iter, result)` method is called with the iteration number and the task result.\n\n- **Finalization**  \n  After all iterations have been processed, if a crawler instance is provided, its `finalize()` method is called.\n\nExample\n-------\n\nTo run a task function `my_module.my_task` on iterations 0 through 99 of a dataset:\n\n```\nw_crawl -i west.h5 -r 0:100 my_module.my_task\n```\n\nTo use a custom crawler instance `my_module.my_crawler` for initialization and result processing:\n\n```\nw_crawl -i west.h5 -r 0:100 -c my_module.my_crawler my_module.my_task\n```\n\nNotes\n-----\n\n- The task callable must be a function that accepts two arguments: the iteration number and the iteration group data object.\n- The crawler instance must be an instance of the `WESTPACrawler` class or a subclass thereof, implementing any needed initialization, finalization, or result processing logic.\n- The order of iteration processing is not guaranteed due to parallel execution.\n\nSee Also\n--------\n\n- `WESTPACrawler` — Base class for implementing custom crawling behavior.\n- `WESTDataReader` — For dataset reading options.\n- `IterRangeSelection` — For selecting iteration ranges.\n- `ProgressIndicatorComponent` — For progress display options.",
+  "prediction_sha256": "29390723ca95b3fa9c620ba55ccfd3e3579e862a180dea6017474be2d4a89ff1",
+  "prompt_sha256": "b800c9a1e829f7515d1b923d888d0d7c5fdd26a4e65d5b5be405312773478689",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 4989,
+    "completion_tokens": 1256,
+    "total_tokens": 6245
+  },
+  "cost_usd": 0.0040052,
+  "generation_seconds": 9.728024876007112,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "w_crawl"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 829,
+              "code": "import logging\n\nfrom westpa.tools import WESTParallelTool, WESTDataReader, IterRangeSelection, ProgressIndicatorComponent\nimport westpa\nfrom westpa.core.extloader import get_object\n\nlog = logging.getLogger('w_crawl')\n\n\nclass WESTPACrawler:\n    '''Base class for general crawling execution. This class\n    only exists on the master.'''\n\n    def initialize(self, iter_start, iter_stop):\n        '''Initialize this crawling process.'''\n        pass\n\n    def finalize(self):\n        '''Finalize this crawling process.'''\n        pass\n\n    def process_iter_result(self, n_iter, result):\n        '''Process the result of a per-iteration task.'''\n        pass\n\n\ndef _remote_task(n_iter, taskfn):\n    data_manager = westpa.rc.get_data_manager()  # gaahhh...globals\n    data_manager.open_backing(mode='r')\n    return n_iter, taskfn(n_iter",
+              "code_tokens": 300,
+              "score": 3.254107757919
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 3552,
+              "end_char": 4108,
+              "code": " in range(iter_start, iter_stop))\n                for future in self.work_manager.submit_as_completed(task_gen, self.max_queue_len):\n                    n_iter, result = future.get_result(discard=True)\n                    if self.crawler is not None:\n                        self.crawler.process_iter_result(n_iter, result)\n                    pi.progress += 1\n            finally:\n                pi.new_operation('Finalizing')\n                self.crawler.finalize()\n\n\ndef entry_point():\n    WCrawl().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+              "code_tokens": 286,
+              "score": 1.05504505969
+            }
+          ],
+          "code_tokens": 586
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3761,
+              "code": "import logging\n\nfrom westpa.tools import WESTParallelTool, WESTDataReader, IterRangeSelection, ProgressIndicatorComponent\nimport westpa\nfrom westpa.core.extloader import get_object\n\nlog = logging.getLogger('w_crawl')\n\n\nclass WESTPACrawler:\n    '''Base class for general crawling execution. This class\n    only exists on the master.'''\n\n    def initialize(self, iter_start, iter_stop):\n        '''Initialize this crawling process.'''\n        pass\n\n    def finalize(self):\n        '''Finalize this crawling process.'''\n        pass\n\n    def process_iter_result(self, n_iter, result):\n        '''Process the result of a per-iteration task.'''\n        pass\n\n\ndef _remote_task(n_iter, taskfn):\n    data_manager = westpa.rc.get_data_manager()  # gaahhh...globals\n    data_manager.open_backing(mode='r')\n    return n_iter, taskfn(n_iter, data_manager.get_iter_group(n_iter))\n\n\nclass WCrawl(WESTParallelTool):\n    prog = 'w_crawl'\n    description = '''\\\nCrawl a weighted ensemble dataset, executing a function for each iteration.\nThis can be used for postprocessing of trajectories, cleanup of datasets,\nor anything else that can be expressed as \"do X for iteration N, then do\nsomething with the result\". Tasks are parallelized by iteration, and\nno guarantees are made about evaluation order.\n\n\n-----------------------------------------------------------------------------\nCommand-line options\n-----------------------------------------------------------------------------\n\n'''\n\n    def __init__(self):\n        super().__init__()\n\n        # These are used throughout\n        self.progress = ProgressIndicatorComponent()\n        self.data_reader = WESTDataReader()\n        self.iter_range = IterRangeSelection(self.data_reader)\n\n        self.crawler = None\n        self.task_callable = None\n\n    def add_args(self, parser):\n        self.data_reader.add_args(parser)\n        self.iter_range.add_args(parser)\n\n        tgroup = parser.add_argument_group('task options')\n        tgroup.add_argument(\n            '-c',\n            '--crawler-instance',\n            help='''Use CRAWLER_INSTANCE (specified as module.instance) as an instance of\n                            WESTPACrawler to coordinate the calculation. Required only if initialization,\n                            finalization, or task result processing is required.''',\n        )\n        tgroup.add_argument(\n            'task_callable',\n            help='''Run TASK_CALLABLE (specified as module.function) on each iteration.\n                            Required.''',\n        )\n        self.progress.add_args(parser)\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.data_reader.process_args(args)\n        with self.data_reader:\n            self.iter_range.process_args(args)\n\n        self.task_callable = get_object(args.task_callable, path=['.'])\n        if args.crawler_instance is not None:\n            self.crawler = get_object(args.crawler_instance, path=['.'])\n        else:\n            self.crawler = WESTPACrawler()\n\n    def go(self):\n        iter_start = self.iter_range.iter_start\n        iter_stop = self.iter_range.iter_stop\n        iter_count = iter_stop - iter_start\n        self.data_reader.open('r')\n        pi = self.progress.indicator\n        with pi:\n            pi.operation = 'Initializing'\n            self.crawler.initialize(iter_start, iter_stop)\n\n            try:\n                pi.new_operation('Dispatching tasks & processing results', iter_count)\n                task_gen = ((_remote_task, (n_iter, self.task_callable), {}) for n_iter in range(iter_start, iter_stop))\n                for future in self.work_manager.submit_as_completed(task_gen, self.max_queue_len):\n                    n_iter, result = future.get_result(discard=True)\n       ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 3552,
+              "end_char": 4108,
+              "code": " in range(iter_start, iter_stop))\n                for future in self.work_manager.submit_as_completed(task_gen, self.max_queue_len):\n                    n_iter, result = future.get_result(discard=True)\n                    if self.crawler is not None:\n                        self.crawler.process_iter_result(n_iter, result)\n                    pi.progress += 1\n            finally:\n                pi.new_operation('Finalizing')\n                self.crawler.finalize()\n\n\ndef entry_point():\n    WCrawl().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+              "code_tokens": 286
+            }
+          ],
+          "code_tokens": 286
+        }
+      }
+    ],
+    "code_tokens_returned": 2372,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "4dedd4c28844d9a8c74050ba13004e82f57eb240768a40ced39f39b6bfdb0451",
+        "request_id": "chatcmpl-Ej8eveOUC8mUosTGPAWsU8xstiBer",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 16,
+          "total_tokens": 173,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.840000000000001e-05,
+        "seconds": 0.699964874998841,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "a51f9ca17d5465e8870130ad5e8b150a344bff3a52af6a6728d1d027c47a0ed2",
+        "request_id": "chatcmpl-Ej8ewQ1PQ367IfZELClJ21UkFXVSL",
+        "usage": {
+          "prompt_tokens": 628,
+          "completion_tokens": 15,
+          "total_tokens": 643,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0002752,
+        "seconds": 0.6396945420055999,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "267907108e67215f59a95ae96e92c48cca6b6b942da5c99c9e388c3ea5ab0125",
+        "request_id": "chatcmpl-Ej8ew0oMTL0e4zSmcBqYeiRKykTg6",
+        "usage": {
+          "prompt_tokens": 1555,
+          "completion_tokens": 15,
+          "total_tokens": 1570,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000646,
+        "seconds": 0.5900414589996217,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "bbd6c4f84d44a650fcaba93dbf0684e2fb502f0ffb4302e280da8a68a822672e",
+        "request_id": "chatcmpl-Ej8exLZRTtpPh4wq0B5vlPy6FZTjy",
+        "usage": {
+          "prompt_tokens": 1757,
+          "completion_tokens": 512,
+          "total_tokens": 2269,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001522,
+        "seconds": 3.2404626670031575,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "6c36bbe382c4ac6e3e94e6baad66b2c38e2265626f0101b3f420144432fd3a72",
+        "request_id": "chatcmpl-Ej8f0KiIT9sCqFvxYQRTyqZkqRJmp",
+        "usage": {
+          "prompt_tokens": 892,
+          "completion_tokens": 698,
+          "total_tokens": 1590,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014735999999999998,
+        "seconds": 4.557861332999892,
+        "retry_count": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,104 @@
+# General HDF5 File Reader
+
+This document provides an overview of the general `HDF5` file reader functionality implemented in the `HDF5Reader` class, along with a collection of predefined transformation functions designed to facilitate flexible and robust data extraction from HDF5 files.
+
+---
+
+## Overview
+
+The `HDF5Reader` class is a versatile tool for reading and processing data stored in HDF5 files. It supports handling datasets in multiple forms, including:
+
+1. **h5py.Dataset objects**: Direct datasets from the HDF5 file.
+2. **NumPy arrays**: Datasets that have already been loaded into memory as arrays.
+3. **Dictionaries of datasets**: Used to represent groups or collections of datasets where keys correspond to dataset names.
+
+This flexibility allows the reader to work seamlessly with complex HDF5 file structures, including nested groups and heterogeneous datasets.
+
+---
+
+## Transformations
+
+To enhance data processing capabilities, the reader supports a set of **transformation functions**. These transformations can be applied to datasets to extract or manipulate data in a standardized way. Each transformation function is registered with the `HDF5Reader` class and can be applied during the reading process.
+
+### Transformation Requirements
+
+All transformation functions must be capable of handling the three dataset cases mentioned above (h5py.Dataset, NumPy array, and dictionary of datasets). They should either successfully process the input or fail gracefully by raising a clear and informative error.
+
+### Registering Transformations
+
+Transformation functions are registered using the `@hdf5_transformation` decorator. This decorator ensures that:
+
+- The function is added to the internal transformation registry of the `HDF5Reader`.
+- Errors during transformation are caught and re-raised as `HDF5TransformationError` with detailed messages.
+- Functions that require previously processed attribute values are marked accordingly.
+
+---
+
+## Predefined Transformations
+
+Below is a summary of the predefined transformation functions available:
+
+### `get_first_element(dataset)`
+
+- **Description**: Retrieves the first element of the dataset.
+- **Parameters**:
+  - `dataset`: The dataset to transform.
+- **Returns**: The first element of the dataset or a dictionary of first elements if the input is a dictionary.
+
+### `index_dataset(dataset, index)`
+
+- **Description**: Retrieves the element at the specified index from the dataset.
+- **Parameters**:
+  - `dataset`: The dataset to transform.
+  - `index`: The index of the element to retrieve.
+- **Returns**: The element at the given index or a dictionary of elements if the input is a dictionary.
+
+### `slice_dataset(dataset, slice_arg)`
+
+- **Description**: Applies a slice operation to the dataset.
+- **Parameters**:
+  - `dataset`: The dataset to transform.
+  - `slice_arg`: The slice object or slice parameters to apply.
+- **Returns**: The sliced dataset or a dictionary of sliced datasets.
+
+### `get_shape(dataset)`
+
+- **Description**: Retrieves the shape of the dataset.
+- **Parameters**:
+  - `dataset`: The dataset to query.
+- **Returns**: The shape of the dataset or a dictionary of shapes if the input is a dictionary.
+
+### `get_name(dataset, full_path=False)`
+
+- **Description**: Retrieves the name of the dataset.
+- **Parameters**:
+  - `dataset`: The dataset to query (must be an `h5py.Dataset` or dictionary of such).
+  - `full_path`: If `True`, returns the full path of the dataset within the HDF5 file; otherwise, returns only the dataset name.
+- **Returns**: The dataset name or a dictionary of names.
+- **Notes**: Raises a `ValueError` if the dataset is a list or NumPy array, as these do not have names.
+
+### `tile_array(dataset, n_repeats)`
+
+- **Description**: Repeats the dataset array `n_repeats` times using `numpy.tile`.
+- **Parameters**:
+  - `dataset`: The dataset to transform.
+  - `n_repeats`: Number of times to repeat the array.
+- **Returns**: The tiled dataset array.
+
+---
+
+## Error Handling
+
+All transformation functions are wrapped to catch exceptions and raise a specialized `HDF5TransformationError`. This ensures that errors during data transformation are clearly communicated and can be handled appropriately by users of the `HDF5Reader`.
+
+---
+
+## Usage Notes
+
+- Transformations that require access to previously processed attribute values are marked with `attribute_needed=True` in their decorator.
+- The reader and its transformations are designed to be extensible; users can define and register additional transformations following the established pattern.
+- When working with dictionaries of datasets, transformations are applied to each dataset individually, and results are returned in a corresponding dictionary structure.
+
+---
+
+For more detailed information and advanced usage, please refer to the source code and the API documentation of the `HDF5Reader` class and its transformation functions.

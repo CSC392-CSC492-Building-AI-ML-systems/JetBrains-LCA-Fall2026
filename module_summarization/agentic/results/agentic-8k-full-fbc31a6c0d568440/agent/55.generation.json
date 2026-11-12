@@ -1,0 +1,306 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Miscellaneous Models\n====================\n\nThis module provides implementations of statistical models that extend or generalize classical approaches by incorporating alternative error distributions or specialized likelihood functions. The focus is on robust modeling techniques and flexible time series models that can better accommodate real-world data characteristics such as heavy tails, outliers, and overdispersion.\n\nLinear Model with Student-t Distributed Errors\n----------------------------------------------\n\nThe linear model with Student-t distributed errors is designed to handle data exhibiting heavier tails or outliers more effectively than the traditional Gaussian error assumption. Because the Student-t distribution has fatter tails than the normal distribution, it provides robustness against outliers and yields more reliable parameter estimates in such contexts.\n\nKey features:\n- Uses the Student-t distribution for modeling errors, allowing for heavier tails.\n- Provides more robust estimators for mean parameters compared to ordinary least squares.\n- Includes methods for parameter estimation via maximum likelihood.\n- References:\n  - Lange, K. L., Little, R. J. A., & Taylor, J. M. G. (1989). Robust Statistical Modeling Using the t Distribution. *Journal of the American Statistical Association*, 84(408), 881-896. [Stable URL](http://www.jstor.org/stable/2290063)\n\nUnivariate ARMA Model with t-Distributed Errors (TArma)\n--------------------------------------------------------\n\nThe `TArma` class extends the classical ARMA time series model by assuming that the innovations (errors) follow a Student-t distribution rather than a normal distribution. This allows the model to better capture heavy-tailed behavior and potential outliers in time series data.\n\nImportant notes:\n- Inherits most methods from the standard ARMA implementation except for the log-likelihood function, which is adapted for the t-distribution.\n- The variance of the error term is given by \\( \\text{error_variance} = \\frac{df}{df-2} \\times \\text{scale}^2 \\), reflecting the properties of the t-distribution.\n- The model currently uses the standard t-distribution; future versions may implement a standardized t-distribution where the scale parameter corresponds directly to the variance.\n\nGeneric Likelihood-Based Modeling Utilities\n-------------------------------------------\n\nThe module also includes utilities for generic maximum likelihood estimation (MLE) and numerical differentiation, facilitating the development and fitting of custom models. These tools support:\n\n- Calculation of gradients and Hessians for likelihood functions.\n- Handling of parameter covariance matrices.\n- Numerical stability improvements and diagnostics for optimization routines.\n\nKnown Issues and Development Notes\n----------------------------------\n\n- Starting values for parameters can be improved by incorporating ordinary least squares (OLS) estimates.\n- Some internal debugging variables and functions (e.g., `store_params`) are currently disabled or under revision.\n- Numerical Hessian calculations can be unstable or singular in certain models, such as zero-inflated Poisson (ZIP) models.\n- Optimization algorithms like BFGS may be fragile; alternatives like Nelder-Mead are slower but more reliable.\n- Further work is needed to implement parameter restrictions and improve scaling in numerical derivatives.\n\nReferences and Further Reading\n------------------------------\n\n- Lange, K. L., Little, R. J. A., & Taylor, J. M. G. (1989). Robust Statistical Modeling Using the t Distribution. *Journal of the American Statistical Association*, 84(408), 881-896.\n- Greene, W. H. (Econometric Analysis). For theoretical background on equations and parameter estimation.\n\nThis module is intended for users who require robust statistical modeling techniques beyond classical assumptions, particularly in the presence of heavy-tailed data or outliers. It serves as a foundation for further development and experimentation with alternative error distributions and likelihood-based inference methods.\n\nLicense\n-------\n\nBSD License\n\nAuthor\n------\n\nJosef Perktold\n\nCreated on 2010-09-24",
+  "prediction_sha256": "879fae2e0c7c111eefdc6a259383c25c75cdbe1bf74808b593a59555ee90c11a",
+  "prompt_sha256": "33bb392ebe11f09281956984c59b9a8ab53dd0549355f1ddbe8ecf77fc6c721c",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 5393,
+    "completion_tokens": 858,
+    "total_tokens": 6251
+  },
+  "cost_usd": 0.00353,
+  "generation_seconds": 11.188830625000264,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "miscmodels"
+        },
+        "response": {
+          "status": "no_results",
+          "excerpts": [],
+          "code_tokens": 0
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "def "
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8462,
+              "end_char": 9193,
+              "code": " array, with rows equal to\n    the number of equations and columns equal to the number\n    of parameters. 1d params work by chance?\n\n    fun: R^{m*k) -> R^{m}  where m is number of equations and k is\n    the number of parameters.\n\n    equations follow Greene\n\n    '''\n    def __init__(self, fun, params, cov_params):\n        self.fun = fun\n        self.params = params\n        self.cov_params = cov_params\n\n    def grad(self, params=None, **kwds):\n        if params is None:\n            params = self.params\n        kwds.setdefault('epsilon', 1e-4)\n        from statsmodels.tools.numdiff import approx_fprime\n        return approx_fprime(params, self.fun, **kwds)\n\n    def cov(self):\n        g = self.grad()\n        covar = np.dot(",
+              "code_tokens": 300,
+              "score": 0.487690895914
+            },
+            {
+              "chunk_id": 6,
+              "start_char": 5029,
+              "end_char": 5813,
+              "code": " correction for scale\n        return -lPx\n\n    def predict(self, params, exog=None):\n        if exog is None:\n            exog = self.exog\n        return np.dot(exog, params[:self.exog.shape[1]])\n\n\nclass TArma(Arma):\n    '''Univariate Arma Model with t-distributed errors\n\n    This inherit all methods except loglike from tsa.arma_mle.Arma\n\n    This uses the standard t-distribution, the implied variance of\n    the error is not equal to scale, but ::\n\n        error_variance = df/(df-2)*scale**2\n\n    Notes\n    -----\n    This might be replaced by a standardized t-distribution with scale**2\n    equal to variance\n\n    '''\n\n    def loglike(self, params):\n        return -self.nloglikeobs(params).sum(0)\n\n\n    #add for Jacobian calculation  bsejac in GenericMLE, copied from loglike\n  ",
+              "code_tokens": 300,
+              "score": 0.423817166574
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2879,
+              "end_char": 3354,
+              "code": "fit()\n            start_params = 0.1*np.ones(self.k_params)\n            start_params[:self.k_vars] = res_ols.params\n\n            if self.fix_df is False:\n\n                if use_kurtosis:\n                    kurt = stats.kurtosis(res_ols.resid)\n                    df = 6./kurt + 4\n                else:\n                    df = 5\n\n                start_params[-2] = df\n                #TODO adjust scale for df\n                start_params[-1] = np.sqrt(res_ols.scale)\n\n    ",
+              "code_tokens": 300,
+              "score": 0.38787285695
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "miscmodels"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "miscmodels"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "miscmodels module"
+        },
+        "response": {
+          "status": "no_results",
+          "excerpts": [],
+          "code_tokens": 0
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "miscmodels import"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 9,
+              "start_char": 7307,
+              "end_char": 8326,
+              "code": " check hessian calculations\n - found error in ZIP loglike\n - all tests pass with\n\nIssues\n------\n* If true model is not zero-inflated then numerical Hessian for ZIP has zeros\n  for the inflation probability and is not invertible.\n  -> hessian inverts and bse look ok if row and column are dropped, pinv also works\n* GenericMLE: still get somewhere (where?)\n   \"CacheWriteWarning: The attribute 'bse' cannot be overwritten\"\n* bfgs is too fragile, doesn't come back\n* `nm` is slow but seems to work\n* need good start_params and their use in genericmle needs to be checked for\n  consistency, set as attribute or method (called as attribute)\n* numerical hessian needs better scaling\n\n* check taking parts out of the loop, e.g. factorial(endog) could be precalculated\n\n\n\"\"\"\nimport numpy as np\nfrom scipy import stats\nfrom scipy.special import factorial\nfrom statsmodels.base.model import GenericLikelihoodModel\n\n\ndef maxabs(arr1, arr2):\n    return np.max(np.abs(arr1 - arr2))\n\ndef maxabsrel(arr1, arr2):\n    return np.max(np.",
+              "code_tokens": 300,
+              "score": 2.394204471349
+            },
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1151,
+              "code": "\"\"\"Linear Model with Student-t distributed errors\n\nBecause the t distribution has fatter tails than the normal distribution, it\ncan be used to model observations with heavier tails and observations that have\nsome outliers. For the latter case, the t-distribution provides more robust\nestimators for mean or mean parameters (what about var?).\n\n\n\nReferences\n----------\nKenneth L. Lange, Roderick J. A. Little, Jeremy M. G. Taylor (1989)\nRobust Statistical Modeling Using the t Distribution\nJournal of the American Statistical Association\nVol. 84, No. 408 (Dec., 1989), pp. 881-896\nPublished by: American Statistical Association\nStable URL: http://www.jstor.org/stable/2290063\n\nnot read yet\n\n\nCreated on 2010-09-24\nAuthor: josef-pktd\nLicense: BSD\n\nTODO\n----\n* add starting values based on OLS\n* bugs: store_params doesn't seem to be defined, I think this was a module\n        global for debugging - commented out\n* parameter restriction: check whether version with some fixed parameters works\n\n\n\"\"\"\n#mostly copied from the examples directory written for trying out generic mle.\n\nimport numpy as np\nfrom scipy import special, stats\n\nfrom statsmodels.base.",
+              "code_tokens": 300,
+              "score": 2.381311460487
+            },
+            {
+              "chunk_id": 10,
+              "start_char": 8462,
+              "end_char": 9193,
+              "code": " array, with rows equal to\n    the number of equations and columns equal to the number\n    of parameters. 1d params work by chance?\n\n    fun: R^{m*k) -> R^{m}  where m is number of equations and k is\n    the number of parameters.\n\n    equations follow Greene\n\n    '''\n    def __init__(self, fun, params, cov_params):\n        self.fun = fun\n        self.params = params\n        self.cov_params = cov_params\n\n    def grad(self, params=None, **kwds):\n        if params is None:\n            params = self.params\n        kwds.setdefault('epsilon', 1e-4)\n        from statsmodels.tools.numdiff import approx_fprime\n        return approx_fprime(params, self.fun, **kwds)\n\n    def cov(self):\n        g = self.grad()\n        covar = np.dot(",
+              "code_tokens": 300,
+              "score": 1.472139923556
+            }
+          ],
+          "code_tokens": 900
+        }
+      }
+    ],
+    "code_tokens_returned": 1800,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "b5d308e695723da021927817ed6ed39a66508eda56a735d8290da4edb44949e0",
+        "request_id": "chatcmpl-Ej8IAcGMNGkb9GexZO7lH1kGSM4s7",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 15,
+          "total_tokens": 172,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 1.1053877909980656,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "77aaca5dca702378b2bbef8386ecd7e306c87180639e0656607b95eee3633213",
+        "request_id": "chatcmpl-Ej8IBtSINsPutYE5kYcVAAuotpeCw",
+        "usage": {
+          "prompt_tokens": 199,
+          "completion_tokens": 14,
+          "total_tokens": 213,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00010200000000000001,
+        "seconds": 0.8526468749987544,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "0531c6e7be668bd5f13aedd75793f0b53da5aaaa232a3ba54bdbf7766d5bb3c2",
+        "request_id": "chatcmpl-Ej8ICrK2DbqMXk7g3Nv7gQZ8a3P9J",
+        "usage": {
+          "prompt_tokens": 928,
+          "completion_tokens": 15,
+          "total_tokens": 943,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00039520000000000007,
+        "seconds": 0.8278232090015081,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "372a8d23926ef1a27015915333413fc7282d09ed124a84c1c0dcdf074df71956",
+        "request_id": "chatcmpl-Ej8ICqRwBwpeZ0fW3TCmpTSS6RFYu",
+        "usage": {
+          "prompt_tokens": 964,
+          "completion_tokens": 15,
+          "total_tokens": 979,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040960000000000004,
+        "seconds": 0.8084637079991808,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "46cb41ec65f5f47e39f921451a5ea4e1deec86269cb4c1bceb2d32edcb2a344b",
+        "request_id": "chatcmpl-Ej8IDcKJstbVBJiaV5lb08YHUErmQ",
+        "usage": {
+          "prompt_tokens": 1000,
+          "completion_tokens": 16,
+          "total_tokens": 1016,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00042560000000000005,
+        "seconds": 0.7831302500017046,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "d10379e27c7dfc6beaf25bdf22e965960367c895dca9da1304cd14c686df0109",
+        "request_id": "chatcmpl-Ej8IE7OLB1B7yiJjZTEj2wAEXy7h0",
+        "usage": {
+          "prompt_tokens": 1043,
+          "completion_tokens": 16,
+          "total_tokens": 1059,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004428000000000001,
+        "seconds": 0.7531045420000737,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "bd5aa4020517077da677677982880c63ef106088d7973be9f8db827e09318dc6",
+        "request_id": "chatcmpl-Ej8IFr8FcbDaU8PhCuAc4Kignj6C9",
+        "usage": {
+          "prompt_tokens": 1102,
+          "completion_tokens": 767,
+          "total_tokens": 1869,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001668,
+        "seconds": 6.058274250000977,
+        "retry_count": 0
+      }
+    ]
+  }
+}

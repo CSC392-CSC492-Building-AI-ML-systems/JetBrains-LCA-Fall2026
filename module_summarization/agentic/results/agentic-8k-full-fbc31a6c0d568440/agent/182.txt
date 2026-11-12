@@ -1,0 +1,73 @@
+Developing scikit-learn Estimators
+==================================
+
+This document provides guidance and important considerations for developers who want to create new estimators compatible with scikit-learn. Following these guidelines ensures that your estimator integrates seamlessly with the scikit-learn ecosystem, supports common functionality, and benefits from the extensive tooling and utilities available.
+
+Estimator Attributes
+--------------------
+
+When implementing an estimator, it is important to adhere to the scikit-learn conventions regarding attributes and methods.
+
+- **n_features_in_** : int  
+  Number of features seen during `fit`. This attribute is only defined if the estimator has been fitted and exposes `n_features_in_`. It helps ensure consistency between training and prediction data.  
+  .. versionadded:: 0.24
+
+- **feature_names_in_** : ndarray of shape (`n_features_in_`,)  
+  Names of features seen during `fit`. This attribute is only defined if the estimator exposes `feature_names_in_` after fitting. It is useful for feature name tracking and validation.  
+  .. versionadded:: 1.0
+
+Refitting and Best Estimator
+----------------------------
+
+Some meta-estimators, such as those performing model selection or ensembling, may expose a `best_estimator_` attribute after fitting. This attribute holds the underlying estimator selected or trained during the process. When `refit` is specified, the `best_estimator_` is used for prediction and other downstream tasks.
+
+It is important that the underlying estimator supports the attributes and methods expected by scikit-learn, such as `predict`, `predict_proba` (for classifiers), and exposes `n_features_in_` and `feature_names_in_` if applicable.
+
+Loading and Handling Data
+-------------------------
+
+scikit-learn provides utilities to load datasets efficiently, often compressed and stored as resources within the package. For example, gzip-compressed CSV files can be loaded using `importlib.resources` combined with `gzip` and `numpy.loadtxt`. This approach ensures that datasets are loaded in a memory-efficient and reproducible manner.
+
+Example workflow for loading a gzip-compressed CSV dataset:
+
+1. Open the resource file with `importlib.resources.open_binary`.
+2. Decompress the file object with `gzip.open`.
+3. Load the decompressed data using `numpy.loadtxt`.
+
+Additionally, dataset descriptions can be loaded from accompanying `.rst` files to provide detailed metadata and documentation.
+
+Dataset Subsets and Usage
+-------------------------
+
+Many datasets in scikit-learn are subdivided into subsets such as training, testing, and evaluation splits. For example, the Labeled Faces in the Wild (LFW) pairs dataset is divided into:
+
+- `train`: Development training set.
+- `test`: Development testing set.
+- `10_folds`: Evaluation set for 10-fold cross-validation.
+
+When developing estimators or benchmarking, it is important to respect these splits to ensure fair and reproducible evaluation.
+
+Testing and Validation
+----------------------
+
+Robust testing is crucial for estimator development. scikit-learn uses `pytest` extensively to validate estimator behavior, including:
+
+- Checking that minimum dependencies are consistent across documentation and configuration files.
+- Verifying that estimators correctly implement probabilistic methods such as `predict_log_proba` and `predict_joint_log_proba`.
+- Ensuring that warnings and errors are raised appropriately for invalid inputs or parameters.
+
+Developers should write comprehensive tests covering all estimator functionality and edge cases.
+
+References and Further Reading
+------------------------------
+
+- Pedagogical examples and user guides are available in the scikit-learn documentation to help understand estimator development and usage.
+- The official scikit-learn API documentation provides detailed descriptions of estimator interfaces and expected behaviors.
+- For datasets, consult the original publications and dataset-specific documentation for context and usage guidelines.
+
+Example References:
+
+- Huang, G. B., Ramesh, M., Berg, T., & Learned-Miller, E. (2007). Labeled Faces in the Wild: A Database for Studying Face Recognition in Unconstrained Environments. University of Massachusetts, Amherst, Technical Report 07-49.  
+  http://vis-www.cs.umass.edu/lfw/lfw.pdf
+
+By following these guidelines and leveraging scikit-learn’s utilities, developers can create high-quality, interoperable estimators that integrate smoothly into the broader machine learning ecosystem.

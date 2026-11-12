@@ -1,0 +1,95 @@
+CockroachEngine
+===============
+
+The `CockroachEngine` class is an extension of the `PostgresEngine` tailored specifically for use with CockroachDB.
+
+Overview
+--------
+
+`CockroachEngine` inherits from `piccolo.engine.postgres.PostgresEngine` and provides additional functionality and configuration suited to CockroachDB's unique behavior and requirements.
+
+Attributes
+----------
+
+- **engine_type** (`str`):  
+  A string identifier for the engine type. For this class, it is set to `"cockroach"`.
+
+- **min_version_number** (`int`):  
+  The minimum supported version number for the engine. This is set to `0` because CockroachDB's versioning scheme does not align with the standard version checks used in the base class.
+
+Constructor
+-----------
+
+```python
+def __init__(
+    self,
+    config: Dict[str, Any],
+    extensions: Sequence[str] = (),
+    log_queries: bool = False,
+    log_responses: bool = False,
+    extra_nodes: Dict[str, CockroachEngine] = None,
+) -> None
+```
+
+Initializes a new instance of `CockroachEngine`.
+
+Parameters:
+
+- **config** (`Dict[str, Any]`):  
+  Configuration dictionary for the database connection.
+
+- **extensions** (`Sequence[str]`, optional):  
+  A sequence of extension names to load. Defaults to an empty tuple.
+
+- **log_queries** (`bool`, optional):  
+  Whether to log SQL queries executed by the engine. Defaults to `False`.
+
+- **log_responses** (`bool`, optional):  
+  Whether to log responses from the database. Defaults to `False`.
+
+- **extra_nodes** (`Dict[str, CockroachEngine]`, optional):  
+  A dictionary of additional CockroachEngine instances representing extra nodes in a cluster. Defaults to `None`.
+
+Methods
+-------
+
+### prep_database
+
+```python
+async def prep_database(self) -> None
+```
+
+Prepares the CockroachDB database for use by enabling experimental features required by the engine.
+
+This method attempts to execute the following SQL command in a new connection:
+
+```sql
+SET CLUSTER SETTING sql.defaults.experimental_alter_column_type.enabled = true;
+```
+
+This setting enables experimental support for altering column types, which is necessary for some operations.
+
+If the database user does not have sufficient privileges to set cluster options, a warning is issued indicating that some functionality may not behave as expected.
+
+Warnings
+--------
+
+If the `prep_database` method encounters an `InsufficientPrivilegeError` when attempting to set the cluster setting, it will emit a colored warning message:
+
+```
+=> Unable to set up Cockroach DB functionality may not behave as expected. Make sure your database user has permission to set cluster options.
+```
+
+This warning highlights the need for appropriate permissions to fully utilize the engine's capabilities.
+
+Dependencies
+------------
+
+- Relies on the `asyncpg` library for asynchronous PostgreSQL database interactions, loaded lazily.
+- Inherits from `piccolo.engine.postgres.PostgresEngine`.
+- Uses utilities from `piccolo.utils.lazy_loader` and `piccolo.utils.warnings` for lazy loading and warning management.
+
+Summary
+-------
+
+The `CockroachEngine` class provides a CockroachDB-compatible extension of the Piccolo ORM's PostgreSQL engine, handling CockroachDB-specific configuration and setup. It ensures that experimental features required by CockroachDB are enabled and provides informative warnings if the database user lacks necessary permissions.

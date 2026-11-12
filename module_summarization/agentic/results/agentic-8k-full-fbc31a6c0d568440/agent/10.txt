@@ -1,0 +1,61 @@
+Using Metadata
+==============
+
+When executing queries using the API, it is possible to retrieve not only the records matching the query but also accompanying metadata that provides additional information about the result set.
+
+Querying with Metadata
+----------------------
+
+The method `_query(expression)` executes a query and returns a tuple `(records, metadata)`:
+
+- **records**: A list of entities retrieved via the query.
+- **metadata**: A dictionary containing supplementary information about the result set.
+
+This metadata can include details such as pagination information, total counts, or other relevant data that describes the query results beyond the raw records.
+
+Example usage:
+
+```python
+records, metadata = api._query('select id, name from Task where status is "in progress"')
+print("Number of records:", len(records))
+print("Metadata:", metadata)
+```
+
+Uploading Data with Metadata
+----------------------------
+
+The method `get_upload_metadata(component_id, file_name, file_size, checksum=None)` provides the necessary URL and HTTP headers to upload data for a specific component.
+
+- `component_id`: The identifier of the component to which data will be uploaded.
+- `file_name`: The name of the file to be uploaded.
+- `file_size`: The size of the file in bytes.
+- `checksum` (optional): A base64-encoded 128-bit MD5 digest of the file content, used as a Content-MD5 header for message integrity verification according to RFC 1864.
+
+The returned metadata includes:
+
+- The upload URL to which the file should be sent using an HTTP PUT request.
+- The required HTTP headers to accompany the upload request.
+
+This metadata ensures that uploads are performed correctly and securely.
+
+Example usage:
+
+```python
+upload_info = api.get_upload_metadata(component_id, 'example.mov', 1048576, checksum='abc123...')
+upload_url = upload_info['url']
+upload_headers = upload_info['headers']
+
+# Use upload_url and upload_headers to perform the HTTP PUT upload
+```
+
+Error Handling and Compatibility
+--------------------------------
+
+If the server does not support the requested action (e.g., `get_upload_metadata`), a `ServerCompatibilityError` will be raised with a message indicating that the server version does not support the action and suggesting an update.
+
+This ensures that clients are aware of compatibility issues related to metadata-related actions.
+
+Summary
+-------
+
+Metadata returned alongside query results or upload operations provides valuable context and control over data interactions. Utilizing this metadata allows for more robust and informed handling of API responses, including pagination, data integrity verification, and compatibility checks.

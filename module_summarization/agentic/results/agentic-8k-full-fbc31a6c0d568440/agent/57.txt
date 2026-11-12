@@ -1,0 +1,109 @@
+Mixed Linear Models
+====================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data, allowing estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.
+
+The primary class in this module, `MixedLM`, fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups, with the probability model for group *i* given by:
+
+.. math::
+
+   Y = X \\beta + Z \\gamma + \\epsilon
+
+where:
+
+- *n_i* is the number of observations in group *i*.
+- *Y* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).
+- *X* is an *n_i* × *k_{fe}* design matrix for the fixed effects (called `exog` in `MixedLM`).
+- *β* is a *k_{fe}*-dimensional vector of fixed effects parameters (called `fe_params` in `MixedLM`).
+- *Z* is a design matrix for the random effects with *n_i* rows (called `exog_re` in `MixedLM`). The number of columns in *Z* can vary by group.
+- *γ* is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of *γ* (called `cov_re` in `MixedLM`) is common to all groups. The remaining elements of *γ* are variance components. Each group receives its own independent realization of *γ*.
+- *ε* is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance σ². The errors are independent both within and between groups.
+
+All of *Y*, *X*, and *Z* must be fully observed. The parameters *β*, *Ψ* (covariance matrix of random effects), and σ² are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors *γ* and *ε* are random and define the probability model.
+
+Mean and Covariance Structure
+-----------------------------
+
+The marginal mean structure is:
+
+.. math::
+
+   E[Y | X, Z] = X \\beta
+
+If only the mean structure is of interest, generalized estimating equations (GEE) may be an alternative to linear mixed models.
+
+Two types of random effects are supported:
+
+1. **Standard random effects:** These are correlated with each other arbitrarily. Every group has the same number (*k_{re}*) of standard random effects with the same joint distribution but independent realizations across groups.
+
+2. **Variance components:** These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Notation
+--------
+
+- `cov_re` refers to the random effects covariance matrix (Ψ).
+- `scale` is the scalar error variance σ².
+- For a single group, the marginal covariance matrix of the response vector given the covariates is:
+
+  .. math::
+
+     \\text{cov}(Y) = \\text{scale} \\times I + Z \\times \\text{cov_re} \\times Z'
+
+- `vcomp` is a vector of variance parameters. Its length depends on the number of variance components specified via the `exog_vc` argument or the `vc_formula` when using formulas.
+
+Parameterizations
+-----------------
+
+Three parameterizations are used in different contexts:
+
+1. **User parameterization:** The covariance of the response is expressed as:
+
+   .. math::
+
+      \\text{cov}(Y) = \\text{scale} \\times I + Z \\times \\text{cov_re} \\times Z'
+
+   This is the main parameterization visible to users.
+
+2. **Profile parameterization:** The covariance is expressed as:
+
+   .. math::
+
+      \\text{cov}(Y) = I + Z \\times \\text{cov_re1} \\times Z'
+
+   This parameterization is used in the profile likelihood maximization. The user covariance matrix `cov_re` equals `cov_re1` multiplied by `scale`.
+
+3. **Square root parameterization:** The Cholesky factor of `cov_re1` is used instead of `cov_re` directly. This is hidden from the user.
+
+All three parameterizations can be packed into a vector by concatenating the fixed effects parameters (`fe_params`), the lower triangle or Cholesky square root of the dependence structure, and the variance component parameters. When unpacking, it is important to square or reflect the dependence structure depending on the parameterization.
+
+Estimation and Optimization
+---------------------------
+
+The likelihood, gradient, and Hessian calculations closely follow Lindstrom and Bates (1988), adapted to support variance components. Numerical optimization uses generalized least squares (GLS) to avoid explicitly optimizing over the fixed effects parameters. The likelihood optimized is profiled over both the scale parameter and the fixed effects.
+
+Two score methods are implemented:
+
+- One computes the score with respect to the elements of the random effects covariance matrix (used for inference after maximum likelihood estimation).
+- The other computes the score with respect to the parameters of the Cholesky square root of the random effects covariance matrix (used during optimization).
+
+References
+----------
+
+- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed-effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014–1022.
+
+- http://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf
+
+Additional User-Oriented Resources
+----------------------------------
+
+- http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf
+
+- http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf

@@ -1,0 +1,107 @@
+Library Module Documentation
+============================
+
+Overview
+--------
+This module provides implementations of library providers that interface with different storage backends to manage and access library items. It includes asynchronous methods for reading, listing, and subscribing to changes in the library contents. The module currently supports integration with Zookeeper and the local filesystem.
+
+Classes
+-------
+
+FileSystemLibraryProvider
+-------------------------
+A library provider that interfaces with the local filesystem.
+
+### Initialization
+```python
+FileSystemLibraryProvider(library, path, layer, *, set_ready=True)
+```
+- `library`: The parent library instance.
+- `path`: The base filesystem path to the library root.
+- `layer`: The layer identifier for this provider.
+- `set_ready`: Optional boolean to defer or disable the readiness signal.
+
+### Methods
+
+- `async read(path: str) -> typing.IO`  
+  Reads a file asynchronously from the filesystem at the given relative path. Returns a file-like object or `None` if the file does not exist or is a directory.
+
+- `async list(path: str) -> list`  
+  Lists the contents of a directory asynchronously. Returns a list of `LibraryItem` instances representing files and directories.
+
+- `_list(path: str)`  
+  Synchronous helper method for listing directory contents.
+
+- Internal methods handle filesystem event monitoring using inotify (if available) to detect changes and aggregate events.
+
+ZookeeperLibraryProvider (implied from code snippets)
+-----------------------------------------------------
+A library provider that interfaces with a Zookeeper backend.
+
+### Attributes
+
+- `Subscriptions`: A dictionary tracking subscribed paths and their directory hashes.
+
+### Methods
+
+- `async finalize(app)`  
+  Called during application shutdown to stop the Zookeeper client cleanly.
+
+- `async _on_zk_connected(event_name, zkcontainer)`  
+  Handles Zookeeper connection events, sets up watchers on version nodes, and marks the provider as ready.
+
+- `async _on_zk_lost(event_name, zkcontainer)`  
+  Handles Zookeeper disconnection events and marks the provider as not ready.
+
+- `async _get_version_counter(event_name=None)`  
+  Retrieves the current version counter from Zookeeper and triggers version checks.
+
+- `_check_version_counter(version)`  
+  Checks if the version has changed and triggers library change handling if necessary.
+
+- `async read(path: str) -> typing.IO`  
+  Reads data from a Zookeeper node asynchronously. Returns a BytesIO stream or `None` if the node does not exist.
+
+- `async list(path: str) -> list`  
+  Lists child nodes under a given Zookeeper path asynchronously. Returns a list of `LibraryItem` instances.
+
+- `build_path(path)`  
+  Converts a library-relative path into a Zookeeper node path with validation.
+
+- `async subscribe(path)`  
+  Subscribes to changes on a given path by computing and storing its directory hash.
+
+- `async _get_directory_hash(path)`  
+  Recursively computes a hash digest representing the state of a directory and its children in Zookeeper.
+
+- `async _on_library_changed(event_name=None)`  
+  Checks subscribed paths for changes and publishes change events if differences are detected.
+
+Exceptions and Logging
+----------------------
+The module uses Python's `logging` library to report warnings, errors, and informational messages related to connection status, readiness, and error conditions.
+
+Error handling includes raising `RuntimeError` when the Zookeeper client is not ready and returning `None` for missing files or nodes.
+
+Dependencies
+------------
+- `asyncio` for asynchronous operations.
+- `kazoo` for Zookeeper client interactions.
+- `io` for stream handling.
+- `os` and `os.path` for filesystem path manipulations.
+- `hashlib` for computing directory hashes.
+- `functools` for functional utilities.
+- `logging` for logging events.
+- Optional inotify support for filesystem event monitoring.
+
+Usage Notes
+-----------
+- Paths passed to methods must start with a forward slash (`/`).
+- Files in Zookeeper are identified by the presence of a dot (`.`) in their names.
+- The module assumes that the Zookeeper client and filesystem paths are properly configured and accessible.
+- The `FileSystemLibraryProvider` uses inotify for change detection if available; otherwise, change detection may be limited.
+- The module is designed to be integrated into an asynchronous application framework with event loops and task scheduling.
+
+Summary
+-------
+This module provides robust asynchronous library providers for both Zookeeper and filesystem backends, enabling efficient reading, listing, and monitoring of library contents with change detection and event publishing capabilities.

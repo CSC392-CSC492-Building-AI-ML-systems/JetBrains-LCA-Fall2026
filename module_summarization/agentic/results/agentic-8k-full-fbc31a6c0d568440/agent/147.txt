@@ -1,0 +1,122 @@
+# Fleur Input/Output Parsers
+
+This module provides functions to extract and interpret distinct parts of Fleur XML files, facilitating easy versioning, reuse, and analysis of input and output data. The parsers are designed to work with different versions of Fleur XML schemas and provide structured access to key calculation parameters and modes.
+
+---
+
+## Overview
+
+Fleur XML files contain detailed information about the setup and results of electronic structure calculations performed with the Fleur code. Parsing these files allows users and tools to programmatically access calculation settings, modes, and results without manual inspection.
+
+The parsers leverage schema dictionaries corresponding to specific Fleur XML versions to ensure compatibility and correctness when extracting data.
+
+---
+
+## Key Functions
+
+### `get_fleur_modes(xmltree, schema_dict, logger=None)`
+
+Determines the calculation modes of a Fleur run based on the provided XML tree and schema dictionary. Calculation modes represent settings that influence the produced files or output content.
+
+#### Parameters
+
+- `xmltree` (`XMLLike`): An XML tree representing the Fleur input or output file.
+- `schema_dict` (`InputSchemaDict` or `OutputSchemaDict`): Schema dictionary corresponding to the XML file version.
+- `logger` (`Logger`, optional): Logger object for logging warnings or errors.
+
+#### Returns
+
+- `dict[str, Any]`: A dictionary containing extracted calculation modes.
+
+#### Extracted Modes
+
+- `jspin`: Number of spins considered in the calculation.
+- `noco`: Whether the calculation is non-collinear.
+- `soc`: Whether spin-orbit coupling is included.
+- `relax`: Whether the calculation is a structure relaxation.
+- `spex`: Special mode indicator for GW/Spex calculations.
+- `force_theorem`: Whether a Force theorem calculation is performed.
+- `film`: Whether the structure is a film system.
+- `ldau`: Whether LDA+U corrections are included.
+- `dos`: Whether it is a density of states calculation.
+- `band`: Whether it is a bandstructure calculation.
+- `bz_integration`: Method of integration over the Brillouin zone.
+- `cf_coeff`: Indicates presence of crystal field coefficients.
+- `plot`: Whether plotting is enabled.
+- `greensf`: Indicates if a Greens function calculation is performed.
+- `ldahia`: Indicates if LDA+HIA calculations are included.
+
+---
+
+### `get_nkpts(xmltree, schema_dict, logger=None)`
+
+Retrieves the number of k-points used in the calculation specified by the given Fleur XML file.
+
+#### Parameters
+
+- `xmltree` (`XMLLike`): XML tree representing the Fleur input or output file.
+- `schema_dict` (`InputSchemaDict` or `OutputSchemaDict`): Schema dictionary corresponding to the XML file version.
+- `logger` (`Logger`, optional): Logger object for logging warnings or errors.
+
+#### Returns
+
+- `int`: Number of k-points used in the calculation.
+
+#### Notes
+
+- For Fleur file versions before Max5, only `kPointList` or `kPointCount` tags are supported.
+- When using `kPointCount`, there is no guarantee that the count corresponds exactly to the number of k-points, so a warning may be issued.
+- The function verifies that the selected k-point list exists in the XML and raises an error if not found.
+
+---
+
+### Version-Specific Handling
+
+The parsers include version-specific dispatching to handle differences in XML schema versions gracefully.
+
+- For example, `get_nkpts` has a specialized implementation for versions up to `0.31` (Max4 and older), ensuring compatibility with older XML formats.
+
+---
+
+## Implementation Details
+
+- The parsers use `FleurXMLContext` to manage XML tree traversal and attribute extraction safely.
+- Attributes and tags are accessed with version-aware logic to accommodate schema changes.
+- The parsers rely on the `fleur_schema` module for schema dictionaries that define the structure and versioning of Fleur XML files.
+- Logging support is integrated to provide warnings and errors during parsing.
+
+---
+
+## Usage Example
+
+```python
+from lxml import etree
+from masci_tools.io.parsers import fleur_parser
+from masci_tools.io.parsers.fleur_schema import get_schema_dict
+
+# Load XML file
+xmltree = etree.parse('path_to_fleur_input.xml')
+
+# Get schema dictionary for the XML version
+schema_dict = get_schema_dict(xmltree)
+
+# Extract calculation modes
+modes = fleur_parser.get_fleur_modes(xmltree, schema_dict)
+
+# Get number of k-points
+nkpts = fleur_parser.get_nkpts(xmltree, schema_dict)
+
+print("Calculation modes:", modes)
+print("Number of k-points:", nkpts)
+```
+
+---
+
+## References
+
+- Fleur code and documentation: [http://judft.de/](http://judft.de/)
+- `masci_tools` Fleur parsers and schema modules for detailed schema definitions and parsing utilities.
+
+---
+
+This documentation provides an overview of the Fleur input/output parsers designed to facilitate automated extraction of calculation parameters and modes from Fleur XML files, supporting multiple schema versions and ensuring robust data access for analysis and workflow automation.

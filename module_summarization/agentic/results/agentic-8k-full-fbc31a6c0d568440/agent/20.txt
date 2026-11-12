@@ -1,0 +1,129 @@
+w_direct Command
+================
+
+Overview
+--------
+
+The `w_direct` command is a versatile tool for analyzing weighted ensemble simulation data, specifically focusing on kinetics and flux calculations. It operates on data files generated during simulations, such as bin assignments (usually `assign.h5`) and kinetics data (usually `direct.h5`), to compute average rates, fluxes, populations, and associated confidence intervals.
+
+The command includes several subcommands that perform different types of analyses:
+
+- `init` (`w_direct init`): Initializes and prepares kinetics data files.
+- `kinetics` (`w_direct kinetics`): Calculates average rates and fluxes from weighted ensemble data.
+- `average` (`w_direct average`): A convenience subcommand that averages and returns fluxes, rates, and state/color populations.
+- Additional subcommands for state probabilities and combined analyses.
+
+These subcommands allow users to convert raw flux data into meaningful kinetic quantities, taking into account statistical fluctuations and correlations.
+
+Initialization (`w_direct init`)
+--------------------------------
+
+This subcommand prepares the kinetics data file (default `direct.h5`) from bin assignment data (usually `assign.h5`). The assignments file must span the requested iteration range.
+
+The output file contains the following datasets:
+
+- **`/conditional_fluxes`** `[iteration][state][state]`  
+  Floating-point macrostate-to-macrostate fluxes. These fluxes are **not** normalized by the population of the initial macrostate.
+
+- **`/conditional_arrivals`** `[iteration][stateA][stateB]`  
+  Integer counts of trajectories arriving at state *stateB* in a given iteration, given departure from *stateA*.
+
+- **`/total_fluxes`** `[iteration][state]`  
+  Floating-point total flux into a given macrostate.
+
+- **`/arrivals`** `[iteration][state]`  
+  Integer counts of trajectories arriving at a given state in a given iteration, regardless of origin.
+
+- **`/duration_count`** `[iteration]`  
+  Integer number of event durations recorded in each iteration.
+
+- **`/durations`** `[iteration][event duration]`  
+  Structured array of event durations for transition events ending during a given iteration, with fields:  
+  - `istate` (Integer): Initial state of transition event.  
+  - `fstate` (Integer): Final state of transition event.  
+  - `duration` (Floating-point): Duration of transition, in units of tau.  
+  - `weight` (Floating-point): Weight of trajectory at end of transition, **not** normalized by initial state population.
+
+Note: Because state-to-state fluxes stored in this file are not normalized by initial macrostate population, they cannot be used directly as rates without further processing.
+
+Kinetics Analysis (`w_direct kinetics`)
+----------------------------------------
+
+This subcommand processes the kinetics data to calculate average rates, fluxes, and associated errors from weighted ensemble simulations. It requires previously generated bin assignments and kinetics data files.
+
+Output datasets (default output file `direct.h5`) include:
+
+- **`/avg_rates`** `[state,state]`  
+  Structured array of state-to-state rates based on the entire selected iteration window.
+
+- **`/avg_total_fluxes`** `[state]`  
+  Structured array of total fluxes into each state based on the entire selected iteration window.
+
+- **`/avg_conditional_fluxes`** `[state,state]`  
+  Structured array of state-to-state fluxes based on the entire selected iteration window.
+
+If the `--evolution-mode` option is specified, additional datasets are generated to show the evolution of rates and fluxes over iteration windows:
+
+- **`/rate_evolution`** `[window][state][state]`  
+  State-to-state rates over windows of iterations. Windows can be cumulative or blocked, depending on the mode.
+
+- **`/target_flux_evolution`** `[window,state]`  
+  Total flux into each macrostate over iteration windows.
+
+- **`/conditional_flux_evolution`** `[window,state,state]`  
+  State-to-state fluxes over iteration windows.
+
+Average Analysis (`w_direct average`)
+------------------------------------
+
+A convenience subcommand that runs kinetics and state probability analyses to average and return fluxes, rates, and color/state populations. It requires bin assignments including macrostate definitions.
+
+For detailed information on the individual subcommands it replaces, run:
+
+```bash
+w_direct kinetics --help
+w_direct probs --help
+```
+
+Command-Line Options
+--------------------
+
+Each subcommand supports its own set of command-line options. Common options include specifying input/output files, iteration ranges, confidence interval parameters, and evolution modes for time-dependent analyses.
+
+For detailed usage, run:
+
+```bash
+w_direct <subcommand> --help
+```
+
+Examples
+--------
+
+Initialize kinetics data:
+
+```bash
+w_direct init -a assign.h5 -o direct.h5 --start-iter 0 --stop-iter 100
+```
+
+Calculate average rates and fluxes:
+
+```bash
+w_direct kinetics -a assign.h5 -k direct.h5 -o direct.h5 --start-iter 0 --stop-iter 100
+```
+
+Run average analysis (fluxes, rates, and populations):
+
+```bash
+w_direct average -a assign.h5 -k direct.h5 -o direct.h5 --start-iter 0 --stop-iter 100
+```
+
+See Also
+--------
+
+- `w_assign` — for generating bin assignment files required by `w_direct`.
+- `w_direct kinetics` — for detailed kinetics calculations.
+- `w_direct probs` — for state probability analyses.
+
+---
+
+The `w_direct` command is an essential tool for extracting kinetic information from weighted ensemble simulations, enabling rigorous statistical analysis of state-to-state transitions and fluxes.

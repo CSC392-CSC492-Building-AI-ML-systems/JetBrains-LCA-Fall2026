@@ -1,0 +1,142 @@
+Isotonic Regression
+===================
+
+The `isotonic` module provides tools for performing isotonic regression, a non-parametric regression technique that fits a monotonic function to data. This module includes functions and a class to fit isotonic regression models, check monotonic relationships, and handle predictions with monotonicity constraints.
+
+Authors
+-------
+- Fabian Pedregosa <fabian@fseoane.net>
+- Alexandre Gramfort <alexandre.gramfort@inria.fr>
+- Nelle Varoquaux <nelle.varoquaux@gmail.com>
+
+License
+-------
+BSD 3-Clause License
+
+Overview
+--------
+Isotonic regression fits a non-decreasing (or non-increasing) function to data, which is useful when the underlying relationship is known to be monotonic. This module provides:
+
+- `check_increasing`: A utility function to determine if a target variable `y` is monotonically correlated with input `x`.
+- `isotonic_regression`: A function to solve the isotonic regression problem given data and optional constraints.
+- `IsotonicRegression`: A scikit-learn compatible estimator implementing isotonic regression with additional features such as automatic monotonicity detection and handling of out-of-bound predictions.
+
+Functions
+---------
+
+check_increasing(x, y)
+~~~~~~~~~~~~~~~~~~~~~~
+
+Determine whether `y` is monotonically correlated with `x` using a Spearman correlation test.
+
+Parameters
+----------
+- `x` : array-like of shape (n_samples,)
+  Input data.
+- `y` : array-like of shape (n_samples,)
+  Target data.
+
+Returns
+-------
+- `increasing_bool` : bool
+  True if the relationship is increasing, False if decreasing.
+
+Notes
+-----
+The function computes the Spearman correlation coefficient and uses its sign to determine monotonicity. If the 95% confidence interval of the correlation spans zero, a warning is issued indicating uncertainty in the monotonicity determination.
+
+References
+----------
+- Fisher transformation. Wikipedia. https://en.wikipedia.org/wiki/Fisher_transformation
+
+isotonic_regression(y, *, sample_weight=None, y_min=None, y_max=None, increasing=True)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Solve the isotonic regression model.
+
+Parameters
+----------
+- `y` : array-like of shape (n_samples,)
+  The data to fit.
+- `sample_weight` : array-like of shape (n_samples,), default=None
+  Weights for each data point. If None, equal weights are assumed.
+- `y_min` : float, default=None
+  Lower bound on the minimum predicted value.
+- `y_max` : float, default=None
+  Upper bound on the maximum predicted value.
+- `increasing` : bool, default=True
+  Whether the fitted values should be increasing (True) or decreasing (False).
+
+Returns
+-------
+- `y_` : ndarray of shape (n_samples,)
+  The fitted isotonic regression values.
+
+Class: IsotonicRegression
+-------------------------
+
+A scikit-learn compatible estimator for isotonic regression.
+
+.. versionadded:: 0.13
+
+This class fits a monotonic function to data, optionally automatically determining the monotonicity direction based on the data.
+
+Parameters
+----------
+- `y_min` : float, default=None
+  Lower bound on the minimum predicted value.
+- `y_max` : float, default=None
+  Upper bound on the maximum predicted value.
+- `increasing` : bool or {'auto'}, default=True
+  Whether the predictions should be increasing or decreasing. If set to `'auto'`, the direction is inferred from the data.
+- `out_of_bounds` : {'nan', 'clip', 'raise'}, default='nan'
+  How to handle input values outside the training domain during prediction:
+  - `'nan'`: return NaN for out-of-bound inputs.
+  - `'clip'`: clip predictions to the nearest boundary value.
+  - `'raise'`: raise a `ValueError`.
+
+Attributes
+----------
+- `X_min_` : float
+  Minimum value of the training input.
+- `X_max_` : float
+  Maximum value of the training input.
+- `X_thresholds_` : ndarray of shape (n_thresholds,)
+  Unique sorted input values used for interpolation.
+- `y_thresholds_` : ndarray of shape (n_thresholds,)
+  Corresponding fitted values for `X_thresholds_`.
+- `f_` : callable
+  Interpolating function for predictions.
+- `increasing_` : bool
+  Inferred or specified monotonicity direction.
+
+See Also
+--------
+- `sklearn.linear_model.LinearRegression` : Ordinary least squares linear regression.
+- `sklearn.ensemble.HistGradientBoostingRegressor` : Gradient boosting with monotonicity constraints.
+- `isotonic_regression` : Function to solve isotonic regression.
+
+Notes
+-----
+- Ties in data are handled using the method described by de Leeuw (1977).
+- The estimator supports both increasing and decreasing fits.
+- The `out_of_bounds` parameter controls prediction behavior outside the training range.
+
+References
+----------
+- Chakravarti, Nilotpal. "Isotonic Median Regression: A Linear Programming Approach." Mathematics of Operations Research, Vol. 14, No. 2 (May 1989), pp. 303-308.
+- de Leeuw, Jan. "Correctness of Kruskal's algorithms for monotone regression with ties." Psychometrika, 1977.
+- de Leeuw, Hornik, Mair. "Isotone Optimization in R: Pool-Adjacent-Violators Algorithm (PAVA) and Active Set Methods." Journal of Statistical Software, 2009.
+
+Examples
+--------
+>>> from sklearn.datasets import make_regression
+>>> from sklearn.isotonic import IsotonicRegression
+>>> X, y = make_regression(n_samples=10, n_features=1, random_state=41)
+>>> iso_reg = IsotonicRegression().fit(X, y)
+>>> iso_reg.predict([0.1, 0.2])
+array([1.8628..., 3.7256...])
+
+---
+
+This module is part of the scikit-learn library and integrates seamlessly with its API, enabling easy use of isotonic regression in machine learning pipelines.

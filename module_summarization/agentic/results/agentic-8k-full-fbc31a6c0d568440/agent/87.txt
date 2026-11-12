@@ -1,0 +1,94 @@
+Running Migrations
+==================
+
+This module provides functionality to run database migrations for Piccolo ORM applications. It allows you to apply migrations either for a specific app or for all apps, with options to preview, fake, or selectively run migrations.
+
+Classes
+-------
+
+ForwardsMigrationManager(app_name: str, migration_id: str = 'all', fake: bool = False, preview: bool = False)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A migration manager responsible for running forwards migrations for a given app.
+
+### Parameters
+
+- **app_name** (`str`): The name of the app to run migrations for.
+- **migration_id** (`str`, optional): Specifies which migrations to run. Defaults to `'all'`.
+- **fake** (`bool`, optional): If `True`, marks migrations as run without actually executing them. Defaults to `False`.
+- **preview** (`bool`, optional): If `True`, prints the SQL queries without running the migrations. Defaults to `False`.
+
+### Methods
+
+- **run_migrations(app_config: AppConfig) -> MigrationResult**  
+  Runs the migrations for the given app configuration. It determines which migrations have already been run, identifies the migrations that still need to be applied, and executes them accordingly. Supports faking and previewing migrations.
+
+- **run() -> MigrationResult**  
+  Creates the migration table if it does not exist, retrieves the app configuration, and runs the migrations.
+
+Functions
+---------
+
+run_forwards(app_name: str, migration_id: str = 'all', fake: bool = False, preview: bool = False) -> MigrationResult
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Runs migrations programmatically for the specified app or for all apps.
+
+### Parameters
+
+- **app_name** (`str`): The name of the app to migrate. Use `'all'` to run migrations for all apps.
+- **migration_id** (`str`, optional): Run migrations up to and including this migration ID. Use `'all'` to run all migrations, or `'1'` to run only the next migration. Defaults to `'all'`.
+- **fake** (`bool`, optional): If `True`, records migrations as run without executing them. Defaults to `False`.
+- **preview** (`bool`, optional): If `True`, prints SQL queries without running migrations. Defaults to `False`.
+
+### Returns
+
+- `MigrationResult`: The result of the migration run, indicating success or failure.
+
+forwards(app_name: str, migration_id: str = 'all', fake: bool = False, preview: bool = False)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Runs any migrations which have not yet been applied.
+
+### Parameters
+
+- **app_name** (`str`): The name of the app to migrate. Use `'all'` to run migrations for all apps.
+- **migration_id** (`str`, optional): Run migrations up to and including this migration ID. Use `'all'` to run all migrations, or `'1'` to run only the next migration. Defaults to `'all'`.
+- **fake** (`bool`, optional): If `True`, marks migrations as run without executing them. Defaults to `False`.
+- **preview** (`bool`, optional): If `True`, prints SQL queries without running migrations. Defaults to `False`.
+
+### Behavior
+
+- Runs the migrations asynchronously.
+- Exits the process with status code 1 if the migration run fails.
+
+Usage
+-----
+
+To run all migrations for a specific app:
+
+```python
+await forwards(app_name='my_app')
+```
+
+To run only the next migration for all apps, faking the execution:
+
+```python
+await forwards(app_name='all', migration_id='1', fake=True)
+```
+
+To preview the SQL queries for all migrations of an app without executing them:
+
+```python
+await forwards(app_name='my_app', preview=True)
+```
+
+Notes
+-----
+
+- The module ensures that migrations are only run once by checking the migration history stored in the database.
+- The `fake` option is useful for marking migrations as applied without actually running them, which can be helpful in certain deployment scenarios.
+- The `preview` option allows you to see the SQL statements that would be executed, useful for debugging or review purposes.
+- When running migrations for all apps, the apps are processed in a sorted order to respect dependencies.
+
+This module is designed to be used asynchronously and integrates with Piccolo's migration framework.

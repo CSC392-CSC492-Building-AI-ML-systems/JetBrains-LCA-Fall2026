@@ -1,0 +1,85 @@
+Encoding Media
+==============
+
+The `encode_media` method provides a way to create a new encoding job for media files, making them playable in web browsers. This method supports encoding media from either a file path or an existing FileComponent within the ftrack server location.
+
+Usage
+-----
+
+```python
+job = session.encode_media(media, version_id=None, keep_original='auto')
+```
+
+Parameters
+----------
+
+- **media**  
+  The media to encode. This can be either:  
+  - A string representing the path to a media file.  
+  - A `FileComponent` instance from the ftrack server location.
+
+- **version_id** (optional)  
+  The ID of an AssetVersion to associate the newly created components with. If specified, the new components will be linked to this version. This requires a server version 3.3.32 or higher. If not specified, the components will not be associated with any version, even if the media belongs to one.
+
+- **keep_original** (optional, default `'auto'`)  
+  Controls whether the original media is kept after encoding:  
+  - `'auto'`: Keeps the original if it is a `FileComponent`, deletes it if it is a file path.  
+  - `True`: Always keep the original media.  
+  - `False`: Always delete the original media if it is a file path.
+
+Return Value
+------------
+
+Returns a new `Job` instance representing the encoding job.
+
+Details
+-------
+
+- When *media* is a file path, a new source component is created and added to the ftrack server location. The session will automatically commit to ensure the component exists on the server before encoding begins.
+
+- When *media* is a `FileComponent`, it is assumed to already exist in the ftrack server location.
+
+- The encoding job data contains information about the encoding process in the following format:
+
+  ```python
+  {
+      'output': [{
+          'format': 'video/mp4',
+          'component_id': 'e2dc0524-b576-11d3-9612-080027331d74'
+      }, {
+          'format': 'image/jpeg',
+          'component_id': '07b82a97-8cf9-11e3-9383-20c9d081909b'
+      }],
+      'source_component_id': 'e3791a09-7e11-4792-a398-3d9d4eefc294',
+      'keep_original': True
+  }
+  ```
+
+- The output components are linked to the job via the `job_components` relation.
+
+- If possible, an image component (thumbnail) will always be generated.
+
+Error Handling
+--------------
+
+- If the server does not support the `encode_media` action, a `ServerCompatibilityError` will be raised with a message indicating that the server version needs to be updated.
+
+Example
+-------
+
+```python
+# Encode media from a file path and keep the original
+job = session.encode_media('/path/to/media.mov', keep_original=True)
+
+# Encode media from an existing FileComponent and associate with a version
+job = session.encode_media(file_component, version_id='1234-5678-90ab-cdef')
+```
+
+Notes
+-----
+
+- The method requires the server to support the `encode_media` action, which is available in server versions 3.3.32 and above.
+
+- The `keep_original` parameter helps manage storage by deciding whether to retain or delete the original media after encoding.
+
+This method simplifies the process of preparing media files for browser playback by automating encoding and thumbnail generation within the ftrack environment.

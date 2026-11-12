@@ -1,0 +1,102 @@
+Cross-validation: Evaluating Estimator Performance
+===================================================
+
+Cross-validation is a robust statistical method used to estimate the skill of machine learning models. It is primarily used to assess how the results of a predictive model will generalize to an independent dataset. This technique is essential for evaluating estimator performance and selecting the best model parameters.
+
+Cross-validation splitting strategy
+----------------------------------
+
+The cross-validation splitting strategy is controlled by the `cv` parameter, which can take several forms:
+
+- **None**: Uses the default 5-fold cross-validation.
+- **Integer**: Specifies the number of folds in a `(Stratified)KFold`.
+- **CV splitter**: An object that generates train/test indices to split data.
+- **Iterable**: Yields (train, test) splits as arrays of indices.
+
+For integer or None inputs, if the estimator is a classifier and the target `y` is binary or multiclass, `StratifiedKFold` is used to preserve class distribution across folds. Otherwise, `KFold` is used. These splitters are instantiated with `shuffle=False` to ensure reproducibility of splits across calls.
+
+Refer to the :ref:`User Guide <cross_validation>` for detailed explanations of various cross-validation strategies.
+
+Parameters
+----------
+
+- **cv** : int, cross-validation generator or iterable, default=None  
+  Determines the cross-validation splitting strategy as described above.
+
+- **scoring** : str, callable, or None, default=None  
+  A single string or callable to evaluate the predictions on the test set. If None, the estimator’s default score method is used.
+
+- **n_jobs** : int or None, default=None  
+  Number of jobs to run in parallel. `None` means 1 unless in a `joblib.parallel_backend` context. `-1` means using all processors.
+
+- **verbose** : int, default=0  
+  Controls the verbosity level. Higher values produce more messages:
+  - >1: computation time for each fold and parameter candidate is displayed.
+  - >2: the score is also displayed.
+  - >3: fold and candidate parameter indexes along with computation start time are displayed.
+
+- **pre_dispatch** : int or str, default='2*n_jobs'  
+  Controls the number of jobs dispatched during parallel execution to avoid memory overuse.
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the pseudo random number generator state for reproducibility.
+
+- **error_score** : 'raise' or numeric, default=np.nan  
+  Value assigned to the score if an error occurs during estimator fitting. If 'raise', the error is propagated.
+
+- **return_train_score** : bool, default=False  
+  If False, training scores are not included in the results. Computing training scores can provide insights into overfitting or underfitting but is computationally expensive.
+
+Attributes
+----------
+
+- **cv_results_** : dict of numpy (masked) ndarrays  
+  Contains detailed results of the cross-validation process, including scores for each fold and parameter setting. This dictionary can be converted into a pandas DataFrame for easier analysis.
+
+- **best_estimator_** : estimator object  
+  The estimator that was chosen by the search, i.e., the one that gave the best score on the left-out data.
+
+Usage Examples
+--------------
+
+Basic usage of cross-validation to evaluate an estimator’s performance:
+
+```python
+from sklearn import datasets, linear_model
+from sklearn.model_selection import cross_val_score
+
+diabetes = datasets.load_diabetes()
+X = diabetes.data[:150]
+y = diabetes.target[:150]
+lasso = linear_model.Lasso()
+
+scores = cross_val_score(lasso, X, y, cv=3)
+print(scores)
+```
+
+This will output the array of scores for each fold, providing an estimate of the model’s generalization performance.
+
+Notes
+-----
+
+- The folds produced by `cv` must be consistent across multiple calls to `cv.split()`. For built-in scikit-learn iterators, this is ensured by setting `shuffle=False` or fixing the `random_state`.
+
+- When using multiple metrics, consider using `cross_validate` instead, which supports multiple scoring metrics and returns additional information such as training scores and timing.
+
+- The `error_score` parameter allows graceful handling of errors during fitting, which is useful when some parameter combinations may cause failures.
+
+See Also
+--------
+
+- `cross_validate` : Run cross-validation on multiple metrics and return train scores, fit times, and score times.
+- `cross_val_predict` : Generate cross-validated estimates for each input data point.
+- `sklearn.metrics.make_scorer` : Create a scorer from a performance metric or loss function.
+
+References
+----------
+
+For more detailed information on cross-validation strategies and their implementation, refer to the :ref:`User Guide <cross_validation>`.
+
+---
+
+This documentation provides an overview of cross-validation as implemented in scikit-learn, focusing on evaluating estimator performance through various configurable parameters and strategies.

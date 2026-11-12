@@ -1,0 +1,57 @@
+Managing Memory
+===============
+
+This section provides an overview of how memory management is handled within the system, focusing on the mechanisms for tracking and responding to memory-related events.
+
+Memory Event Handlers
+---------------------
+
+The system uses a set of stream handlers to manage various memory-related events. These handlers are mapped to specific event keys and are responsible for processing corresponding messages:
+
+- **key-in-memory**: Handled by `_handle_key_in_memory`. This event indicates that a particular key is currently stored in memory.
+- **lost-data**: Handled by `_handle_lost_data`. This event signals that some data has been lost, possibly due to memory eviction or other failures.
+- **cancelled-keys**: Handled by `_handle_cancelled_keys`. This event occurs when certain keys have been cancelled and should no longer be tracked.
+- **task-retried**: Handled by `_handle_retried_key`. This event is triggered when a task associated with a key is retried.
+- **task-erred**: Handled by `_handle_task_erred`. This event indicates that a task has encountered an error.
+- **restart**: Handled by `_handle_restart`. This event is used to reset or restart memory tracking or related processes.
+- **error**: Handled by `_handle_error`. This event captures generic errors related to memory management.
+- **event**: Handled by `_handle_event`. This is a general event handler for miscellaneous memory-related notifications.
+
+State Handlers
+--------------
+
+In addition to stream handlers, the system maintains state handlers that correspond to different memory states:
+
+- **memory**: Corresponds to keys currently in memory, handled by `_handle_key_in_memory`.
+- **lost**: Corresponds to lost data, handled by `_handle_lost_data`.
+- **erred**: Corresponds to tasks that have errored, handled by `_handle_task_erred`.
+
+These state handlers help maintain an up-to-date view of the memory state across the system.
+
+Memory Limits and Reporting
+---------------------------
+
+The system gathers memory limit information from workers to monitor overall memory usage. For example, it collects the `memory_limit` attribute from each worker and sums these values to provide a total memory capacity. This information is used to generate informative representations of the system state, including the number of processes, threads, and total memory available.
+
+The `__repr__` method of the client or scheduler interface includes memory information when available, formatted in a human-readable way using utilities such as `format_bytes`. This aids in debugging and monitoring by providing quick insights into memory resources.
+
+Communication and Memory State Updates
+--------------------------------------
+
+Memory management is tightly integrated with the communication system between clients and the scheduler. Messages related to memory events are sent asynchronously to the scheduler using safe communication methods that handle connection states and potential errors gracefully.
+
+- Messages are buffered if the client is not yet fully connected.
+- Sending messages is deferred and scheduled on the event loop to avoid blocking operations.
+- The system ensures that messages are not sent after the client has begun closing, preventing inconsistent states.
+
+Starting and Maintaining Memory Management
+-------------------------------------------
+
+Memory management components are started as part of the scheduler or client lifecycle. The scheduler runs in a separate thread or asynchronous task, ensuring that memory events are processed concurrently with other system operations.
+
+The system supports both synchronous and asynchronous startup modes, allowing flexibility depending on the runtime environment.
+
+Summary
+-------
+
+Memory management in this system is event-driven and integrated with the scheduler-client communication framework. It uses dedicated handlers to track keys in memory, lost data, and task errors, while also monitoring memory limits across workers. This design enables robust and responsive memory tracking, essential for efficient distributed computation and resource management.

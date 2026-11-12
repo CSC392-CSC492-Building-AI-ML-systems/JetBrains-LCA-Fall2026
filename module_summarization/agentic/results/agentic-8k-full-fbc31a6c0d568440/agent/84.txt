@@ -1,0 +1,85 @@
+piccolo_apps Module
+===================
+
+Overview
+--------
+The `piccolo_apps` module provides core classes and utilities for managing Piccolo applications within a project. It facilitates the registration and configuration of Piccolo apps, their database tables, migrations, and CLI commands. This module is essential for organizing and interacting with multiple Piccolo apps in a structured and efficient manner.
+
+Classes
+-------
+
+Command
+-------
+A simple data class representing a CLI command associated with a Piccolo app.
+
+- **Attributes:**
+  - `callable` (`Callable`): The function or coroutine to be executed.
+  - `aliases` (`List[str]`): Optional list of alternative names for the command.
+
+AppConfig
+---------
+Represents the configuration for a single Piccolo app. Each app requires an `AppConfig` instance, typically defined in the app's `piccolo_app.py` file.
+
+- **Attributes:**
+  - `app_name` (`str`): The name of the app (e.g., `'article'`).
+  - `migrations_folder_path` (`str`): Path to the folder containing the app's migration files.
+  - `table_classes` (`List[Type[Table]]`): Registered table classes for the app, used for auto migrations.
+  - `migration_dependencies` (`List[str]`): List of other Piccolo apps whose migrations must run before this app's migrations.
+  - `commands` (`List[Union[Callable, Command]]`): Functions or coroutines registered as CLI commands for the app.
+
+- **Methods:**
+  - `register_table(table_class: Type[Table]) -> Type[Table]`: Registers a table class with the app.
+  - `migration_dependency_app_configs` (property): Returns `AppConfig` instances for all migration dependencies.
+  - `get_table_with_name(table_class_name: str) -> Type[Table]`: Retrieves a registered table class by its class name; raises `ValueError` if not found.
+
+AppRegistry
+-----------
+Maintains a registry of all Piccolo apps in the project, typically configured in `piccolo_conf.py`.
+
+- **Initialization:**
+  - Accepts a list of app module paths (e.g., `['blog.piccolo_app']`).
+  - Imports each app's configuration module and extracts its `APP_CONFIG`.
+
+- **Attributes:**
+  - `apps` (`List[str]`): List of app module paths.
+  - `app_configs` (`Dict[str, AppConfig]`): Mapping of app names to their `AppConfig` instances.
+
+- **Methods:**
+  - `_validate_app_names(app_names: List[str])`: Ensures all app names are unique; raises `ValueError` if duplicates exist.
+  - `get_app_config(app_name: str) -> Optional[AppConfig]`: Retrieves the `AppConfig` for a given app name.
+  - `get_table_classes(app_name: str) -> List[Type[Table]]`: Returns all table classes registered with the specified app; raises `ValueError` if app not found.
+  - `get_table_with_name(app_name: str, table_class_name: str) -> Optional[Type[Table]]`: Retrieves a specific table class by name from the specified app; raises `ValueError` if not found.
+
+PiccoloConfModule
+-----------------
+A specialized module type representing the Piccolo configuration module.
+
+- **Attributes:**
+  - `DB` (`Engine`): The database engine instance.
+  - `APP_REGISTRY` (`AppRegistry`): The app registry instance.
+
+Constants
+---------
+- `DEFAULT_MODULE_NAME`: Default module name for Piccolo configuration (`"piccolo_conf"`).
+- `ENVIRONMENT_VARIABLE`: Environment variable name to specify the Piccolo config module (`"PICCOLO_CONF"`).
+- `ENGINE_VAR`: Variable name for the database engine (`"DB"`).
+
+Finder
+------
+Utility class for locating and loading Piccolo apps and their tables within a project.
+
+- **Initialization:**
+  - `diagnose` (`bool`): If `True`, detailed tracebacks are printed when import errors occur during configuration loading.
+
+- **Purpose:**
+  - Provides methods (not fully shown) to assist in discovering apps and tables, improving developer experience when working with Piccolo projects.
+
+Usage Summary
+-------------
+- Define each Piccolo app with an `AppConfig` instance specifying its tables, migrations, and commands.
+- Use `AppRegistry` to register and manage multiple apps within a project.
+- Access tables and commands through the app configurations.
+- Utilize `Finder` to programmatically locate apps and tables.
+- The module supports dependency management between apps via migration dependencies.
+
+This module is fundamental for structuring Piccolo applications, enabling modular development, migration management, and CLI integration.
