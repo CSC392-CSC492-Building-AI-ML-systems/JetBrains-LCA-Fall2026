@@ -111,6 +111,7 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
             info = {
                 "paths": [chunk.path for chunk in used],
                 "lines": [[chunk.start_line, chunk.end_line] for chunk in used],
+                "kinds": [chunk.kind for chunk in used],  # "range" = explicit lines (no continuation); else an index chunk
                 "fallback": fallback, "changed": changed, "planner_status": planned.status, "steps": planned.steps,
                 "tool_calls": planned.tool_calls, "planner_input_tokens": planned.input_tokens,
                 "planner_output_tokens": planned.output_tokens, "planner_ms": round(planned.planner_ms, 1),

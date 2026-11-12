@@ -403,6 +403,12 @@ class AppendModeTests(unittest.TestCase):
         self.assertNotIn('"drop"', system)
         self.assertIn("cannot remove", system)
 
+    def test_the_kind_of_every_final_chunk_is_recorded_so_the_prompt_can_be_rebuilt(self):
+        _, _, info = self.provider([submit([self.C])])(make_datapoint(), 2)
+        self.assertEqual(len(info["kinds"]), len(info["paths"]))
+        self.assertEqual(info["kinds"][-1], "range")  # the added code
+        self.assertNotIn("range", info["kinds"][:-1])  # RAG's own chunks come from the index
+
     def test_the_planner_actions_are_recorded(self):
         _, _, info = self.provider([search(), submit()])(make_datapoint(), 2)
         self.assertEqual([a["action"] for a in info["actions"]], ["search_code", "submit_context"])
