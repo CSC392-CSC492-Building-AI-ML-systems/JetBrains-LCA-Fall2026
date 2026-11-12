@@ -5,10 +5,12 @@ resamples for both arms), changed / fallback shares, changed-lines-only paired c
 the headline over the 216 datapoints not used for design, results by line class, wrong lines, tokens, time and cost.
 
 Usage (run from project_level_code_completion, with the repository's python):
-    python rag_results/scripts/analyze_e5_full.py --base DIR [--out report.md]
-DIR holds the arm folders e4_zero, e4_pd_N1753, e4_F_N1753 and e5_agent_full (each with generation_results.jsonl).
+    python rag_results/scripts/analyze_e5_full.py [--base DIR] [--out report.md]
+DIR holds the arm folders e4_zero, e4_pd_N1753, e4_F_N1753 and e5_agent_full (each with generation_results.jsonl, plain or
+.gz); the default is rag_results/agent/E5_full/arms, which is in the repository, so the analysis runs from a clean clone.
 """
 import argparse
+import gzip
 import json
 import os
 import sys
@@ -24,9 +26,17 @@ DESIGN_DATAPOINTS = [i * 224 // 8 for i in range(8)]  # the 8 development datapo
 ARMS = {"zero-context": "e4_zero", "path_distance": "e4_pd_N1753", "RAG F": "e4_F_N1753", "agent (v2)": "e5_agent_full"}
 
 
+def open_results(folder):
+    """The arm's per-line file, plain or gzipped (the copies kept in rag_results/agent/E5_full/arms are gzipped)."""
+    plain = os.path.join(folder, "generation_results.jsonl")
+    if os.path.exists(plain):
+        return open(plain, encoding="utf8")
+    return gzip.open(plain + ".gz", "rt", encoding="utf8")
+
+
 def load(base, arm):
     rows = {}
-    with open(os.path.join(base, arm, "generation_results.jsonl"), encoding="utf8") as f:
+    with open_results(os.path.join(base, arm)) as f:
         for raw in f:
             row = json.loads(raw)
             rows[(row["datapoint_idx"], row["line_num"])] = row
@@ -66,8 +76,9 @@ def seconds(row):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", required=True)
-    parser.add_argument("--out")
+    here = os.path.dirname(os.path.abspath(__file__))
+    parser.add_argument("--base", default=os.path.join(here, "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--out", default=os.path.join(here, "..", "reports", "E5", "e5_full_analysis.md"))
     args = parser.parse_args()
     base = os.path.expanduser(args.base)
     data = {name: load(base, folder) for name, folder in ARMS.items()}
@@ -158,6 +169,7 @@ def main():
     text = "\n".join(out)
     print(text)
     if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
         with open(args.out, "w", encoding="utf8") as f:
             f.write(text + "\n")
 
