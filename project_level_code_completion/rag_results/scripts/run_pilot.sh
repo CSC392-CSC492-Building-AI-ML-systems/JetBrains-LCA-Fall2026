@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pilot: 20 evenly spaced datapoints of small_context on starcoderbase-1b, one arm per invocation.
-export PROJECT=/mnt/c/Users/Adriana/Documents/School/CSC398/JetBrains-LCA-Fall2026/project_level_code_completion
+export PROJECT="${PROJECT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PY=~/.cache/pypoetry/virtualenvs/lca-L6V1CIw0-py3.11/bin/python
 ART=$HOME/lca_artifacts
 LOG=$HOME/lca_pilot.log

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 export CUDA_VISIBLE_DEVICES=""
-export PROJECT=/mnt/c/Users/Adriana/Documents/School/CSC398/JetBrains-LCA-Fall2026/project_level_code_completion
+export PROJECT="${PROJECT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PY=~/.cache/pypoetry/virtualenvs/lca-L6V1CIw0-py3.11/bin/python
 export PYTHONPATH=$PROJECT PYTHONDONTWRITEBYTECODE=1 TOKENIZERS_PARALLELISM=false
 cd ~/ts_test   # the grammar must be in the working directory so the chunker is the one used in the experiments

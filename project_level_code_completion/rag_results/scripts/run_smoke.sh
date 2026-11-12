@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-P=/mnt/c/Users/Adriana/Documents/School/CSC398/JetBrains-LCA-Fall2026/project_level_code_completion
+P="${PROJECT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S=$(dirname "$0")
 PY=~/.cache/pypoetry/virtualenvs/lca-L6V1CIw0-py3.11/bin/python
 cd ~/ts_test
