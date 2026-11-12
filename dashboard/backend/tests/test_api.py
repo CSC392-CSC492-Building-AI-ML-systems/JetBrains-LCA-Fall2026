@@ -127,6 +127,44 @@ def test_reads_paired_module_summarization_scores(repo):
         assert detail["metrics"]["rouge_l_f1_diagnostic"] == pytest.approx(rouge[strategy])
         assert detail["stages"][1]["status"] == "completed"
 
+    snapshot = "gpt-4.1-mini-2025-04-14"
+    analysis_path = root / "analysis.json"
+    analysis = json.loads(analysis_path.read_text())
+    analysis["records"] = [
+        {"strategy": strategy, "original_id": i, "returned_model": snapshot}
+        for strategy in scores for i in ids
+    ]
+    analysis_path.write_text(json.dumps(analysis))
+    long_root = repo / "module_summarization" / "long_context" / "results" / "full"
+    long_root.mkdir(parents=True)
+    long_summary = json.loads((root / "summary.json").read_text())
+    long_summary["manifest"].update(model=snapshot, context_tokens=8000, strategies=["prefix"])
+    long_summary["records"] = [r for r in long_summary["records"] if r["strategy"] == "prefix"]
+    (long_root / "summary.json").write_text(json.dumps(long_summary))
+    (long_root / "compscore_results.json").write_text(json.dumps({
+        "status": "complete",
+        "plan": {"original_ids": ids},
+        "means": {"prefix": 0.71},
+        "results": {"prefix": [{"original_id": i, "score": 0.71} for i in ids]},
+    }))
+    agent_root = repo / "module_summarization" / "agentic" / "results" / "full"
+    agent_root.mkdir(parents=True)
+    agent_summary = json.loads((long_root / "summary.json").read_text())
+    agent_summary["manifest"]["strategies"] = ["agent"]
+    for record in agent_summary["records"]:
+        record["strategy"] = "agent"
+    (agent_root / "summary.json").write_text(json.dumps(agent_summary))
+    (agent_root / "compscore_results.json").write_text(json.dumps({
+        "status": "complete", "plan": {"original_ids": ids},
+        "means": {"agent": 0.72},
+        "results": {"agent": [{"original_id": i, "score": 0.72} for i in ids]},
+    }))
+    comparison = client.get("/api/compare", params={"task": "module_summarization"}).json()
+    assert comparison["model"] == snapshot
+    assert {r["approach"]: r["score"] for r in comparison["rows"]} == {
+        "baseline": 0.6983, "rag": 0.6909, "long_context": 0.71, "agent": 0.72,
+    }
+
     comp["results"]["bm25"].pop()
     result_path.write_text(json.dumps(comp))
     detail = client.get(f'/api/runs/{rows["rag"]["run_id"]}').json()
