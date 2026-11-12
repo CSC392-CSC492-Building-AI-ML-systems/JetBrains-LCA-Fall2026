@@ -1,9 +1,9 @@
 # Local CI repair RAG benchmark
 
-This experiment follows Talha's `rag-bug-localization` pipeline structure:
+This experiment adapts the bug-localization retrieval pipeline:
 failed-revision snapshots → deterministic overlapping chunks → BM25 retrieval
 → token-budgeted model context → saved predictions → separate evaluation.
-See [the branch review](TALHA_REVIEW.md) for the adaptations and verification.
+See [the pipeline review](PIPELINE_REVIEW.md) for the adaptations and verification.
 
 The completed 68-record, three-seed experiment is documented in the
 [results report](results/REPORT.md) and [interpretation](results/ANALYSIS.md).
@@ -100,5 +100,5 @@ Small completed metrics and a human-readable report are copied into `results/`.
 The current cached split has 68 records; its identity is recorded, rather than
 assuming it matches a historical version. The original publication does not
 specify CI repair seeds or decoding settings; the settings above define this
-experiment. Retrieval hyperparameters are fixed from Talha's approach and are
+experiment. Retrieval hyperparameters are fixed before generation and are
 not selected using reference repairs.

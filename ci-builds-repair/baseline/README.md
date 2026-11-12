@@ -6,6 +6,19 @@ audit the baseline and the subsequent pilots. The
 [published metrics](results/published_metrics.json) can be read without
 downloading models or accessing the ignored run cache.
 
+The historical manifests retain exact source checksums from before the
+documentation cleanup. To audit all published Mistral and Qwen runs from
+their original source in a temporary directory, use the local environment:
+
+```bash
+ci-builds-repair/ci-builds-repair-benchmark/.venv/bin/python ci-builds-repair/baseline/audit_historical_runs.py
+```
+
+The wrapper needs the recorded Git revision and ignored data caches. It does
+not load the model, regenerate predictions, or change the saved run outputs.
+The direct commands below refer to the original source version when used
+against those historical artifacts.
+
 ## Verified non-RAG Mistral baseline
 
 The completed non-RAG Mistral run contains **204 evaluation cases: 68 records

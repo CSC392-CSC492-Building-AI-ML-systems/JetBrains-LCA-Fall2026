@@ -1,7 +1,7 @@
 # CI builds repair
 
 Start with the [results summary](RESULTS.md) for the completed Mistral and
-Qwen experiments, the comparison with Talha and the paper, and the local
+Qwen experiments, the comparison with the paper, and the local
 validation checks. [Baseline and pilot instructions](baseline/README.md)
 explain how to reproduce or audit the offline runs.
 

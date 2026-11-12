@@ -1,6 +1,6 @@
-# Review of Talha's RAG branch
+# Bug-localization retrieval pipeline review
 
-Reviewed `origin/rag-bug-localization` at `23129da` (Talha), including commits
+Reviewed `origin/rag-bug-localization` at `23129da`, including commits
 `c9a8bc0`, `fb0c6ea`, `dc74cba`, `8f8a724`, and `23129da`.
 
 ## Verified behavior

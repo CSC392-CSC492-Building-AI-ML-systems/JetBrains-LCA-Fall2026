@@ -50,17 +50,11 @@ not the paper's CI Pass@1. No GitHub Actions evaluator was run.
 These are targeted checks; repeated seeds on one file do not count as
 independent fixes, and no full workflow was evaluated.
 
-## Comparison with Talha and Long Code Arena
-
-[Talha's long-context run](https://github.com/CSC392-CSC492-Building-AI-ML-systems/JetBrains-LCA-Fall2026/blob/c0593f9f4be4db5f28026fd59abf2a6a95f8560e/bug_localization/long_context/RESULTS.md)
-ranked files on 50 Python issues. At the larger matched source budget, GPT-4.1
-with RAG improved MAP from 0.6136 to 0.6510 and Hit@1 from 76% to 80%, with a
-shared BM25 completion tail. Ranking files is not generating a valid patch.
+## Comparison with Long Code Arena
 
 [Long Code Arena](https://arxiv.org/abs/2406.11612v1) reports GPT-4 bug
 localization MAP of 0.39 (Table 20) and Mistral-7B CI Pass@1 of 6.5% (Table 7).
-Talha's Python-only ranking setup and newer model are not a controlled
-comparison to Table 20. Our quantized Mistral, reconstructed prompt, current
+File ranking is distinct from patch generation. Our quantized Mistral, reconstructed prompt, current
 68-case dataset, and offline metrics do not replicate the paper's 77-case
 workflow evaluation. Edit F1 is not numerically comparable to CI Pass@1.
 

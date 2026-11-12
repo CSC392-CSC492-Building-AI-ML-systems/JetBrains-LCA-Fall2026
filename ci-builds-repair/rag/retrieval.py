@@ -1,6 +1,6 @@
 """Deterministic snapshot chunking and label-free BM25 retrieval.
 
-Adapted from Talha's rag-bug-localization branch (23129da). CI repair retains
+Adapted from the bug-localization retrieval pipeline (23129da). CI repair retains
 tests and text configuration files because they can be repair targets.
 """
 
