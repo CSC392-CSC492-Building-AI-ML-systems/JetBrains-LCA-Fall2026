@@ -1,0 +1,136 @@
+Publishing for Web Review
+=========================
+
+The ftrack API provides a robust session management system that facilitates interaction with the ftrack server, including capabilities for publishing events and managing operations. This documentation outlines how to utilize the session and event hub for publishing content suitable for web review workflows.
+
+Session Overview
+----------------
+
+A `Session` represents an isolated connection to an ftrack server. It manages authentication, caching, event handling, and entity lifecycle. When creating a session, you specify the server URL, API key, and user credentials. The session automatically handles server compatibility checks, schema caching, and plugin discovery.
+
+Key features relevant to publishing for web review include:
+
+- **Event Hub Integration**: The session includes an embedded event hub that can be connected to the event server to publish and subscribe to events.
+- **Operation Recording**: Changes made during the session can be recorded as operations, which can be persisted or discarded.
+- **Entity Management**: Entities can be created, modified, and deleted within the session, with automatic state tracking.
+
+Event Hub and Publishing
+------------------------
+
+The `Session` class exposes an `event_hub` property, which is an instance of `ftrack_api.event.hub.EventHub`. This event hub is responsible for managing event communication with the ftrack server.
+
+### Connecting the Event Hub
+
+By default, the event hub connection can be automatically established in a background thread by setting the `auto_connect_event_hub` parameter to `True` when creating the session. This allows publishing and subscribing to **non-local** events without blocking session startup.
+
+If `auto_connect_event_hub` is `False`, the event hub remains disconnected initially, and only **local** event publishing and subscribing are possible. You can manually connect the event hub later using:
+
+```python
+session.event_hub.connect()
+```
+
+### Publishing Events
+
+To publish an event, create an instance of `ftrack_api.event.base.Event` with the appropriate topic and data, then use the event hub's `publish` method:
+
+```python
+from ftrack_api.event.base import Event
+
+event = Event(
+    topic='ftrack.api.web_review.publish',
+    data={
+        'session': session,
+        'entity': entity,
+        'review_url': 'https://webreview.example.com/review/12345'
+    }
+)
+
+session.event_hub.publish(event, synchronous=True)
+```
+
+- The `topic` should be descriptive of the event purpose, e.g., `'ftrack.api.web_review.publish'`.
+- The `data` dictionary can include relevant information such as the session, the entity being published, and the URL for the web review.
+
+Setting `synchronous=True` ensures the event is published immediately and the call waits for completion, which can be important for workflows requiring confirmation of event delivery.
+
+Entity Creation and Modification
+--------------------------------
+
+Entities represent objects within ftrack, such as tasks, assets, or reviews. You can create new entities or modify existing ones within the session:
+
+```python
+entity = session.create('Review', data={
+    'name': 'Web Review for Shot 001',
+    'status': 'pending'
+})
+```
+
+Changes to entities are tracked automatically. You can access lists of created, modified, or deleted entities via the session properties:
+
+- `session.created`
+- `session.modified`
+- `session.deleted`
+
+These can be used to determine which entities need to be published or updated in the web review system.
+
+Operation Recording Context
+---------------------------
+
+To control whether changes are recorded as operations (which can be persisted to the server), use the `operation_recording` context manager:
+
+```python
+with session.operation_recording(True):
+    entity['status'] = 'approved'
+```
+
+Disabling operation recording temporarily can be useful when making changes that should not trigger server updates or event publishing.
+
+Auto-Populating Attributes
+--------------------------
+
+The session supports automatic population of entity attributes from the server when accessed. This behavior can be temporarily disabled using the `auto_populating` context manager:
+
+```python
+with session.auto_populating(False):
+    print(entity['name'])
+```
+
+This can improve performance during batch operations or when working with entities that do not require full attribute resolution.
+
+Session Lifecycle Management
+----------------------------
+
+Proper management of the session lifecycle ensures resources are released and connections are closed:
+
+- Use the session as a context manager to automatically close it:
+
+  ```python
+  with ftrack_api.Session(...) as session:
+      # Perform publishing and other operations
+  ```
+
+- Explicitly close the session when done:
+
+  ```python
+  session.close()
+  ```
+
+- Reset the session to clear local state and caches without closing:
+
+  ```python
+  session.reset()
+  ```
+
+Summary
+-------
+
+Publishing for web review using the ftrack API involves:
+
+- Establishing a session with the ftrack server.
+- Connecting the event hub to enable event publishing.
+- Creating or modifying entities representing review items.
+- Publishing events with relevant data to notify web review systems.
+- Managing operation recording and attribute population as needed.
+- Properly closing or resetting the session after operations.
+
+This approach ensures seamless integration with ftrack's event-driven architecture and supports efficient workflows for web-based review publishing.

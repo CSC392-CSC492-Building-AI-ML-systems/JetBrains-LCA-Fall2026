@@ -1,0 +1,94 @@
+Controlling Chunking in Dask Arrays
+===================================
+
+Dask arrays are composed of many smaller NumPy arrays, called *chunks*, which are combined to form a larger, distributed array. Controlling how these chunks are created and managed is crucial for optimizing performance and memory usage when working with large datasets.
+
+Chunking Basics
+---------------
+
+- **Chunks** are the building blocks of a Dask array. Each chunk is a NumPy array that can be processed independently.
+- The shape of a Dask array is the combined shape of all its chunks.
+- The chunk size and shape can significantly affect computation speed and memory consumption.
+
+Creating Arrays with Controlled Chunking
+----------------------------------------
+
+When creating Dask arrays, you can specify the chunk size explicitly. For example, when reading image stacks using `dask.array.image.imread`, each image file is treated as an individual chunk:
+
+```python
+from dask.array.image import imread
+
+# Read a stack of images, each image is one chunk along the first dimension
+images = imread('2015-*-*.png')
+print(images.chunks)
+```
+
+This results in a Dask array where the first dimension corresponds to the number of images, and each chunk along this dimension contains one image.
+
+Chunking with Blockwise Operations
+----------------------------------
+
+Dask uses blockwise operations to apply functions across chunks efficiently. Functions like `blockwise` allow you to specify how inputs and outputs are chunked and aligned.
+
+For example, masked array operations in `dask.array.ma` use `blockwise` to apply NumPy masked array functions chunk-wise:
+
+```python
+from dask.array.core import blockwise
+
+result = blockwise(np.ma.masked_equal, output_indices, input_array, input_indices, value, (), dtype=input_array.dtype)
+```
+
+This approach ensures that operations respect chunk boundaries and maintain chunking consistency.
+
+Chunked Reductions
+------------------
+
+Reductions over Dask arrays, such as `count` or `average`, are implemented using a two-stage process:
+
+1. **Chunk stage:** Compute partial results on each chunk.
+2. **Aggregation stage:** Combine partial results to produce the final output.
+
+For example, the masked array `count` function uses `reduction` to sum counts across chunks:
+
+```python
+from dask.array.reductions import reduction
+
+count_result = reduction(
+    a,
+    np.ma.count,
+    chunk.sum,
+    axis=axis,
+    keepdims=keepdims,
+    dtype=np.intp,
+    split_every=split_every,
+)
+```
+
+This pattern allows efficient parallel computation while controlling memory usage.
+
+Chunking and Percentile Computations
+------------------------------------
+
+Percentile computations on Dask arrays are performed approximately by computing percentiles on each chunk and then merging these results. The `percentile` function supports different internal methods (`default`, `dask`, `tdigest`) to control how chunked percentiles are combined.
+
+```python
+import dask.array as da
+
+result = da.percentile(a, q=[25, 50, 75], method='linear', internal_method='dask')
+```
+
+This method computes percentiles on each chunk and merges them using interpolation methods, balancing accuracy and performance.
+
+Best Practices for Controlling Chunking
+---------------------------------------
+
+- **Choose chunk sizes that fit in memory:** Smaller chunks reduce memory pressure but increase overhead; larger chunks reduce overhead but increase memory usage.
+- **Align chunk boundaries with computation:** When possible, chunk arrays to match the natural boundaries of your computation (e.g., one chunk per image in image stacks).
+- **Use `map_blocks` and `blockwise` for custom chunked operations:** These functions allow you to apply arbitrary functions while respecting chunking.
+- **Leverage built-in reductions:** Use Dask’s reduction functions that handle chunked computations efficiently.
+- **Be mindful of chunk shapes:** Operations like broadcasting or masked array computations require compatible chunk shapes.
+
+Summary
+-------
+
+Controlling chunking in Dask arrays is essential for efficient parallel computation. By understanding how chunks are created, manipulated, and combined, you can optimize your workflows for performance and scalability. Use Dask’s high-level APIs like `imread`, `blockwise`, `map_blocks`, and `reduction` to manage chunking effectively in your applications.

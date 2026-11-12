@@ -1,0 +1,135 @@
+config module
+=============
+
+This module provides methods and classes for managing global configuration options for ASDF (Advanced Scientific Data Format). It allows users to get and set configuration parameters that control the behavior of ASDF file reading, writing, resource management, and extension handling.
+
+Classes
+-------
+
+AsdfConfig
+~~~~~~~~~~
+
+Container for ASDF configuration options. Users typically do not instantiate this class directly; instead, use the `get_config` function or the `config_context` context manager to access and modify configuration.
+
+**Attributes and Properties:**
+
+- **resource_mappings**  
+  List of registered resource mapping instances. By default, this includes all mappings registered via entry points.  
+  *Type:* list of `asdf.resource.ResourceMappingProxy`
+
+- **resource_manager**  
+  The `asdf.resource.ResourceManager` instance that manages resources from registered mappings and runtime additions.  
+  *Type:* `asdf.resource.ResourceManager`
+
+- **extensions**  
+  List of registered ASDF extensions. By default, includes extensions registered via entry points.  
+  *Type:* list of `asdf.extension.ExtensionProxy`
+
+- **default_version**  
+  The default ASDF Standard version used for new files.  
+  *Type:* str
+
+- **io_block_size**  
+  Block size used when reading and writing files. A value of -1 indicates using the filesystem's preferred block size.  
+  *Type:* int
+
+- **legacy_fill_schema_defaults**  
+  Controls whether missing default values are filled from schemas for ASDF Standard versions <= 1.5.0. Later versions do not support this behavior.  
+  *Type:* bool
+
+- **array_inline_threshold**  
+  Threshold below which arrays are automatically written as inline YAML literals instead of binary blocks. Compared to the number of elements in the array.  
+  *Type:* int or None
+
+- **validate_on_read**  
+  Controls schema validation of ASDF files upon reading. If `True`, files are validated when opened.  
+  *Type:* bool
+
+**Methods:**
+
+- **add_resource_mapping(mapping)**  
+  Register a new resource mapping that takes precedence over existing mappings.  
+  *Parameters:*  
+  `mapping` : collections.abc.Mapping  
+  A mapping from resource URI strings to bytes content.
+
+- **remove_resource_mapping(mapping=None, *, package=None)**  
+  Remove a registered resource mapping by instance or by package name.  
+  *Parameters:*  
+  `mapping` : collections.abc.Mapping, optional  
+  `package` : str, optional
+
+- **reset_resources()**  
+  Reset resource mappings to the default list provided via entry points.
+
+- **add_extension(extension)**  
+  Register a new ASDF extension that takes precedence over existing extensions.  
+  *Parameters:*  
+  `extension` : `asdf.extension.AsdfExtension` or `asdf.extension.Extension`
+
+- **remove_extension(extension=None, *, package=None)**  
+  Remove a registered extension by instance, URI pattern, or package name.  
+  *Parameters:*  
+  `extension` : `asdf.extension.AsdfExtension`, `asdf.extension.Extension`, or str, optional  
+  `package` : str, optional
+
+- **reset_extensions()**  
+  Reset extensions to the default list registered via entry points.
+
+- **__repr__()**  
+  Returns a string representation of the current configuration settings.
+
+Functions
+---------
+
+get_config()
+~~~~~~~~~~~~
+
+Return the current ASDF configuration instance. This may be the global configuration or a configuration overridden by one or more nested `config_context` calls.
+
+Returns
+-------
+`asdf.config.AsdfConfig`  
+The current configuration object.
+
+config_context()
+~~~~~~~~~~~~~~~
+
+Context manager that temporarily overrides ASDF configuration. Within the context, a copy of the current configuration is yielded and can be modified without affecting the global or outer configurations.
+
+Usage example::
+
+    with asdf.config_context() as config:
+        config.validate_on_read = False
+        # Perform operations with modified config
+
+Upon exiting the context, the previous configuration is restored.
+
+Notes
+-----
+
+- Configuration changes made via `AsdfConfig` properties affect how ASDF files are read, written, and validated.
+- Resource mappings and extensions can be dynamically added or removed, allowing customization of resource resolution and ASDF extension behavior.
+- The module uses thread-local storage to maintain configuration stacks, enabling thread-safe temporary overrides.
+
+Constants
+---------
+
+- **DEFAULT_VALIDATE_ON_READ** : bool  
+  Default setting for schema validation on read (True).
+
+- **DEFAULT_DEFAULT_VERSION** : str  
+  Default ASDF Standard version string.
+
+- **DEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS** : bool  
+  Default flag for filling schema defaults for legacy ASDF versions (True).
+
+- **DEFAULT_IO_BLOCK_SIZE** : int  
+  Default block size for I/O operations (-1 for automatic).
+
+- **DEFAULT_ARRAY_INLINE_THRESHOLD** : int or None  
+  Default threshold for inline array storage (None disables automatic selection).
+
+---
+
+This configuration system provides flexible and thread-safe control over ASDF behavior, enabling users and developers to tailor the environment to their needs.

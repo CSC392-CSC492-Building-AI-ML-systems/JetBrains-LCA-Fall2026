@@ -1,0 +1,111 @@
+Polynomial Factorization Routines
+==================================
+
+This module provides routines for factorization of polynomials over various domains, primarily focusing on characteristic zero fields and integer polynomial rings. It supports univariate and multivariate polynomials and implements classical algorithms such as Zassenhaus and Hensel lifting, as well as specialized methods for algebraic number fields.
+
+Overview
+--------
+
+The core functionality is encapsulated in the `_Factor` mixin class, which provides methods to factor polynomials into irreducible factors over different domains including integers, finite fields, and algebraic number fields.
+
+Key Features
+------------
+
+- **Trial Division**: `_trial_division` method performs trial division of a polynomial by a list of candidate factors to determine their multiplicities.
+
+- **Algebraic Number Field Factorization**: `_aa_factor_trager` factors multivariate polynomials over algebraic number fields using Trager's algorithm.
+
+- **Integer Polynomial Factorization**: `_zz_factor` factors polynomials in \(\mathbb{Z}[X]\), handling both univariate and multivariate cases. It reduces polynomials to primitive square-free form and applies Zassenhaus or Enhanced Extended Zassenhaus (EEZ) algorithms.
+
+- **Mignotte Bound Calculation**: `_zz_mignotte_bound` computes an upper bound on the size of coefficients of factors, used in factorization algorithms.
+
+- **Zassenhaus Algorithm**: `_zz_zassenhaus` implements the classical Zassenhaus algorithm for factoring primitive square-free univariate polynomials over integers.
+
+- **Square-Free Factorization**: `_zz_factor_sqf` factors square-free polynomials in \(\mathbb{Z}[x]\).
+
+- **Hensel Lifting**: `_zz_hensel_lift` and `_zz_hensel_step` perform multifactor Hensel lifting to lift factorizations modulo a prime power.
+
+- **Irreducibility Tests**: `_zz_irreducible_p` uses Eisenstein's criterion to test irreducibility over integers; `_gf_irreducible_p_ben_or` implements Ben-Or's irreducibility test over finite fields.
+
+- **General Factorization Interface**: `factor_list` is the main method to factor polynomials into irreducibles over the polynomial's domain, dispatching to appropriate algorithms based on the domain type.
+
+Detailed Description of Important Methods
+-----------------------------------------
+
+### `_trial_division(f, factors)`
+
+Performs trial division of polynomial `f` by each polynomial in `factors` to determine the exponent of each factor in the factorization of `f`. Returns a sorted list of `(factor, exponent)` pairs.
+
+### `_aa_factor_trager(f)`
+
+Factors multivariate polynomials over algebraic number fields using Trager's algorithm. Returns the leading coefficient and a list of factors with their multiplicities.
+
+### `_zz_factor(f)`
+
+Factors polynomials in \(\mathbb{Z}[X]\). For univariate polynomials, it computes the primitive part and applies square-free factorization followed by Zassenhaus or cyclotomic factorization. For multivariate polynomials, it reduces the problem recursively by eliminating variables.
+
+Returns a tuple `(content, factors)` where `content` is the integer content of the polynomial and `factors` is a list of `(factor, exponent)` pairs.
+
+### `_zz_mignotte_bound(f)`
+
+Computes the Mignotte bound for the polynomial `f`, which is an upper bound on the coefficients of any factor of `f`. This bound is used to limit the search space in factorization algorithms.
+
+### `_zz_zassenhaus(f)`
+
+Implements the Zassenhaus algorithm for factoring primitive square-free univariate polynomials over integers. It selects a suitable prime modulus, factors the polynomial modulo this prime, and then uses Hensel lifting and combinatorial search to reconstruct factors over the integers.
+
+### `_zz_hensel_lift(p, f, f_list, l)`
+
+Performs multifactor Hensel lifting of the factorization of polynomial `f` modulo \(p\) to modulo \(p^l\). Given a list of monic pairwise coprime factors modulo \(p\), it lifts them to factors modulo \(p^l\).
+
+### `_zz_hensel_step(m, f, g, h, s, t)`
+
+Performs one step of Hensel lifting from modulo \(m\) to modulo \(m^2\). Given polynomials satisfying certain congruences modulo \(m\), it computes updated polynomials satisfying the analogous congruences modulo \(m^2\).
+
+### `factor_list(f)`
+
+The main interface for polynomial factorization. It factors polynomial `f` into irreducibles over its domain `K[X]`. The method handles different domains:
+
+- Finite fields: factors square-free polynomials using finite field algorithms.
+- Algebraic number fields: uses Trager's algorithm or modular methods.
+- Integer rings: uses Zassenhaus or EEZ algorithms.
+- Polynomial rings over fields: recursively factors polynomials by eliminating variables.
+
+Returns a tuple `(coefficient, factors)` where `coefficient` is the leading coefficient and `factors` is a list of `(factor, exponent)` pairs.
+
+Examples
+--------
+
+```python
+>>> _, x = ring('x', ZZ)
+>>> (2*x**4 - 2).factor_list()
+(2, [(x - 1, 1), (x + 1, 1), (x**2 + 1, 1)])
+
+>>> _, x, y = ring('x y', ZZ)
+>>> (2*x**2 - 2*y**2).factor_list()
+(2, [(x - y, 1), (x + y, 1)])
+```
+
+References
+----------
+
+- Joachim von zur Gathen and Jürgen Gerhard, *Modern Computer Algebra*, Cambridge University Press, 1999.
+- Michael Ben-Or, "Probabilistic Algorithms in Finite Fields," *Proceedings of the 22nd Annual Symposium on Foundations of Computer Science*, 1981.
+
+Exceptions
+----------
+
+- `CoercionFailedError`: Raised when coercion between domains fails during factorization.
+- `DomainError`: Raised when factorization is not supported over the given domain.
+- `EvaluationFailedError`: Raised when evaluation of polynomials fails during factorization.
+- `ExtraneousFactorsError`: Raised when extraneous factors are detected during factorization.
+
+Notes
+-----
+
+- The factorization routines assume characteristic zero or finite fields.
+- Multivariate polynomial factorization over finite fields is not implemented.
+- The module uses configuration queries to select algorithms dynamically, such as choosing between Trager's and modular methods for algebraic number fields.
+- Cyclotomic factorization and irreducibility tests are optionally used to optimize factorization.
+
+This module is a fundamental component for symbolic algebra systems requiring polynomial factorization capabilities over various algebraic structures.

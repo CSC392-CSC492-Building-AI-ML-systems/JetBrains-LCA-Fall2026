@@ -1,0 +1,118 @@
+Linear Mixed Effects Models
+============================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data, allowing estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.
+
+The primary class in this module, `MixedLM`, fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups. For group *i*, the probability model is:
+
+.. math::
+
+    Y = X \beta + Z \gamma + \epsilon
+
+where:
+
+- *n_i* is the number of observations in group *i*.
+- *Y* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).
+- *X* is an *n_i \times k_{fe}* design matrix for fixed effects (called `exog`).
+- *\beta* is a *k_{fe}*-dimensional vector of fixed effects parameters (`fe_params`).
+- *Z* is a design matrix for random effects with *n_i* rows (called `exog_re`). The number of columns in *Z* can vary by group.
+- *\gamma* is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of *\gamma* (`cov_re`) is common to all groups. Remaining elements correspond to variance components. Each group receives its own independent realization of *\gamma*.
+- *\epsilon* is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance *\sigma^2*. Errors are independent within and between groups.
+
+All of *Y*, *X*, and *Z* must be fully observed. Parameters *\beta*, *\Psi* (random effects covariance), and *\sigma^2* are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors *\gamma* and *\epsilon* are random and define the probability model.
+
+The marginal mean structure is given by:
+
+.. math::
+
+    E[Y \mid X, Z] = X \beta
+
+If only the mean structure is of interest, generalized estimating equations (GEE) provide an alternative to linear mixed models.
+
+Random Effects and Variance Components
+--------------------------------------
+
+Two types of random effects are supported:
+
+1. **Standard random effects:** Correlated with each other arbitrarily. Each group has the same number (*k_{re}*) of standard random effects with the same joint distribution but independent realizations across groups.
+
+2. **Variance components:** Uncorrelated with each other and with standard random effects. Each variance component has mean zero, and all realizations share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Parameterizations
+-----------------
+
+Three parameterizations are used in different contexts:
+
+- **User parameterization:** The covariance of the response is modeled as:
+
+  .. math::
+
+      \text{cov}(Y) = \sigma^2 I + Z \Psi Z'
+
+  This is the main parameterization visible to users.
+
+- **Profile parameterization:** The covariance is expressed as:
+
+  .. math::
+
+      \text{cov}(Y) = I + Z \Psi_1 Z'
+
+  This parameterization is used in the profile likelihood maximization. The user covariance matrix *\Psi* equals *\Psi_1* multiplied by the scale parameter *\sigma^2*.
+
+- **Square root parameterization:** The Cholesky factor of *\Psi_1* is used instead of *\Psi* directly. This is hidden from the user and used internally for optimization.
+
+Parameters can be packed into vectors by concatenating fixed effects parameters, the lower triangle or Cholesky factor of the random effects covariance matrix, and variance component parameters.
+
+Estimation and Optimization
+---------------------------
+
+The likelihood, gradient, and Hessian calculations follow Lindstrom and Bates (1988), adapted to support variance components. Numerical optimization uses generalized least squares (GLS) to avoid explicit optimization over fixed effects parameters. The likelihood is profiled over both the scale parameter and fixed effects parameters.
+
+Due to profiling, the Hessian of the profiled log-likelihood is not calculated, so optimization methods requiring the Hessian (e.g., Newton-Raphson) cannot be used.
+
+References
+----------
+
+- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed-effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+- [Mixed Effects Models Implementation Details](http://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf)
+
+User-Oriented Documentation:
+
+- [Linear Mixed-Effects Models Using lme4](http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf)
+
+- [Longitudinal Data Analysis Slides](http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf)
+
+Module Components
+-----------------
+
+- **MixedLM class:** Specifies and fits linear mixed effects models. Supports fixed effects, random effects, and variance components.
+
+- **MixedLMParams class:** Represents parameter states for mixed linear models, including fixed effects, random effects covariance, and variance components.
+
+- **VCSpec class:** Defines the variance component structure of a multilevel model, including names, design matrices, and column names for each variance component.
+
+- **Utility functions:** Include efficient dot product computations for sparse and dense matrices, Sherman-Morrison-Woodbury solver and log-determinant calculations, and conversion utilities for variance components.
+
+Usage Notes
+-----------
+
+- The model assumes independence between groups.
+
+- Random effects covariance matrices are symmetric and positive definite.
+
+- Variance components allow modeling of additional variance structures beyond standard random effects.
+
+- Missing data handling can be specified via the `missing` parameter in `MixedLM`.
+
+- The module supports both formula-based and array-based model specifications.
+
+This module provides a comprehensive and efficient framework for fitting and analyzing linear mixed effects models, suitable for a wide range of applications involving hierarchical or grouped data.

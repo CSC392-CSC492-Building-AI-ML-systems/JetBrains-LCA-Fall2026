@@ -1,0 +1,139 @@
+Calibration of Predicted Probabilities
+=======================================
+
+Overview
+--------
+
+Probability calibration is the process of adjusting the predicted probabilities of a classifier so that they better reflect the true likelihood of an event. Many classifiers produce scores or probabilities that are not well calibrated, meaning that the predicted probability does not correspond well to the actual frequency of the event. Calibration methods transform these outputs to improve their reliability as probability estimates.
+
+The `CalibratedClassifierCV` class in scikit-learn provides a convenient way to calibrate the predicted probabilities of any classifier using cross-validation. It supports two main calibration methods:
+
+- **Sigmoid calibration (Platt scaling):** Fits a logistic regression model to the classifier’s scores.
+- **Isotonic regression:** A non-parametric calibration method that fits a piecewise constant non-decreasing function.
+
+This tutorial explains how to use `CalibratedClassifierCV` to obtain calibrated probability estimates and discusses important considerations when applying probability calibration.
+
+Why Calibrate Probabilities?
+----------------------------
+
+Some classifiers, such as Support Vector Machines or Naive Bayes, produce decision scores or probabilities that are not well calibrated. For example, a classifier might output a probability of 0.9 for a class, but in reality, only 70% of such predictions are correct. Calibrated probabilities are crucial in applications where decisions depend on the confidence of predictions, such as medical diagnosis, risk assessment, or any probabilistic modeling.
+
+Calibration Methods
+------------------
+
+### Sigmoid Calibration (Platt Scaling)
+
+This method fits a logistic regression model to the classifier’s decision scores or predicted probabilities. It is parametric and tends to work well when the calibration dataset is small. It assumes a sigmoid shape for the calibration curve.
+
+### Isotonic Regression
+
+Isotonic regression is a non-parametric method that fits a monotonically increasing function to map the classifier’s scores to calibrated probabilities. It is more flexible than sigmoid calibration but requires a larger calibration dataset (typically more than 1000 samples) to avoid overfitting.
+
+Using CalibratedClassifierCV
+----------------------------
+
+The `CalibratedClassifierCV` class wraps any classifier and calibrates its predicted probabilities using cross-validation. It can be used in two main modes:
+
+1. **Cross-validated calibration (default):** The base classifier is trained on training folds and calibrated on validation folds. The final prediction averages the calibrated probabilities from each fold’s classifier.
+
+2. **Prefit calibration:** When you already have a fitted classifier, you can calibrate it on a separate calibration dataset by setting `cv="prefit"`.
+
+### Basic Example
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.naive_bayes import GaussianNB
+from sklearn.calibration import CalibratedClassifierCV
+
+# Generate synthetic data
+X, y = make_classification(n_samples=100, n_features=2, n_redundant=0, random_state=42)
+
+# Base classifier
+base_clf = GaussianNB()
+
+# Calibrated classifier with 3-fold cross-validation
+calibrated_clf = CalibratedClassifierCV(base_clf, cv=3)
+calibrated_clf.fit(X, y)
+
+# Predict calibrated probabilities
+probs = calibrated_clf.predict_proba(X)
+print(probs[:5])
+```
+
+### Prefit Calibration Example
+
+```python
+from sklearn.model_selection import train_test_split
+
+# Split data into training and calibration sets
+X_train, X_calib, y_train, y_calib = train_test_split(X, y, random_state=42)
+
+# Fit base classifier on training data
+base_clf.fit(X_train, y_train)
+
+# Calibrate the already fitted classifier on calibration data
+calibrated_clf = CalibratedClassifierCV(base_clf, cv="prefit")
+calibrated_clf.fit(X_calib, y_calib)
+
+# Predict calibrated probabilities on new data
+probs = calibrated_clf.predict_proba([[-0.5, 0.5]])
+print(probs)
+```
+
+Parameters
+----------
+
+- **estimator:** The base classifier to calibrate. If `None`, a `LinearSVC` is used by default.
+- **method:** Calibration method, either `'sigmoid'` (Platt scaling) or `'isotonic'`.
+- **cv:** Cross-validation strategy. Can be an integer (number of folds), a cross-validation splitter, or `"prefit"` if the base estimator is already fitted.
+- **n_jobs:** Number of parallel jobs to run for fitting classifiers in cross-validation.
+- **ensemble:** If `True`, fits one calibrated classifier per fold and averages predictions. If `False`, uses cross-validated predictions to fit a single calibrator on the entire dataset.
+
+Important Notes
+---------------
+
+- Isotonic regression requires a sufficiently large calibration dataset to avoid overfitting.
+- When using `cv="prefit"`, ensure that the calibration data is separate from the data used to fit the base classifier.
+- The calibration is performed on the decision function output if available; otherwise, it uses predicted probabilities.
+- Parallel fitting is supported when `ensemble=True` and `cv` is not `"prefit"`.
+
+Evaluating Calibration
+----------------------
+
+To evaluate the quality of calibration, you can use the `calibration_curve` function to plot the true fraction of positives against the predicted probabilities. A perfectly calibrated classifier will have points lying on the diagonal line.
+
+Example:
+
+```python
+from sklearn.calibration import calibration_curve
+import matplotlib.pyplot as plt
+
+prob_true, prob_pred = calibration_curve(y, calibrated_clf.predict_proba(X)[:, 1], n_bins=10)
+
+plt.plot(prob_pred, prob_true, marker='o')
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.xlabel('Mean predicted probability')
+plt.ylabel('Fraction of positives')
+plt.title('Calibration curve')
+plt.show()
+```
+
+References
+----------
+
+- Zadrozny, B., & Elkan, C. (2001). Obtaining calibrated probability estimates from decision trees and naive Bayesian classifiers. *ICML*.
+- Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate multiclass probability estimates. *KDD*.
+- Platt, J. (1999). Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods.
+- Niculescu-Mizil, A., & Caruana, R. (2005). Predicting good probabilities with supervised learning. *ICML*.
+
+See Also
+--------
+
+- `calibration_curve` — Compute true and predicted probabilities for calibration curves.
+- `sklearn.svm.SVC` with `probability=True` — SVM classifier with built-in probability estimates.
+- `IsotonicRegression` — Non-parametric isotonic regression model used for calibration.
+
+Summary
+-------
+
+Probability calibration is a crucial step when reliable probability estimates are needed from classifiers. The `CalibratedClassifierCV` class in scikit-learn provides an easy-to-use interface to calibrate any classifier using cross-validation and supports both parametric and non-parametric calibration methods. Proper calibration improves decision-making processes that depend on predicted probabilities.

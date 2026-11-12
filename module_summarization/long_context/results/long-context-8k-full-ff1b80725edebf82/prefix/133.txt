@@ -1,0 +1,105 @@
+Storage Driver Documentation
+============================
+
+Overview
+--------
+
+The Storage Driver system provides a flexible and dynamic interface for storing and retrieving data to and from various storage backends, such as NetCDF files. It is designed to handle arbitrary options and data structures, allowing users to organize data hierarchically in directories and variables, and to read/write/append data seamlessly.
+
+Key Components
+--------------
+
+1. **StorageInterface**
+
+   The `StorageInterface` class acts as the main entry point for interacting with the storage system. It interfaces with a specific `StorageIODriver` instance that handles the low-level input/output operations for a particular storage format.
+
+   - Dynamically creates directories and variables on demand.
+   - Provides methods to add metadata to the storage file.
+   - Supports hierarchical data organization through dynamic attributes.
+   - Example usage:
+
+     ```python
+     from iodrivers import NetCDFIODriver
+
+     my_driver = NetCDFIODriver('my_store.nc')
+     my_storage = StorageInterface(my_driver)
+
+     # Writing data to a variable
+     my_storage.my_variable.write([4, 2, 1, 6])
+
+     # Creating directories and variables
+     my_storage.vardir.var1.write("some string")
+     my_storage.vardir.var2.write((4.5, 7.0, -23.1))
+
+     # Appending data dynamically
+     for i in range(10):
+         my_storage.looper.append(i**2)
+     ```
+
+2. **StorageInterfaceDirVar (SIDV)**
+
+   The `StorageInterfaceDirVar` class represents either a directory or a variable within the storage system. It provides a dynamic and intuitive API to create and manipulate storage elements as if they were attributes of the storage interface.
+
+   - Variables and directories are created by accessing attributes dynamically.
+   - Data is not stored in memory but passed directly to the storage driver.
+   - Supports writing, appending, and reading data.
+   - Allows adding metadata to variables or directories.
+   - Prevents naming conflicts by reserving protected method names.
+   - Example usage:
+
+     ```python
+     # Writing a numpy array to a variable
+     import numpy as np
+     my_driver = NetCDFIODriver('my_store.nc')
+     my_store = StorageInterface(my_driver)
+     x = np.eye(3)
+     my_store.my_arr.write(x)
+
+     # Appending data to a variable
+     my_store.the_list.append([0, 0, 1])
+     my_store.the_list.append([0, 0, 1])
+     my_store.the_list.write([1, 1, 1], at_index=0)
+
+     # Adding metadata
+     my_store.my_variable.add_metadata('description', 'This is a sample variable')
+     ```
+
+3. **StorageIODriver (Abstract Base Class)**
+
+   The `StorageIODriver` is an abstract base class defining the interface that all concrete storage drivers must implement. It specifies the essential methods for reading, writing, appending data, and managing metadata.
+
+   - Concrete drivers (e.g., `NetCDFIODriver`) subclass this and implement storage-specific logic.
+   - Handles encoding and decoding of data types.
+   - Manages file-level and variable-level metadata.
+   - Ensures compatibility with different storage backends.
+
+Path Handling
+-------------
+
+Paths to variables and directories within the storage system are represented as slash-separated strings (e.g., `"vardir/var1"`). The system provides utility functions to normalize and decompose these paths:
+
+- `decompose_path(path)`: Splits a path string into its components.
+- `normalize_path(path)`: Cleans and normalizes a path string by removing redundant slashes.
+
+Metadata Management
+-------------------
+
+Metadata can be attached both at the file level and at the variable/directory level:
+
+- Use `StorageInterface.add_metadata(name, data)` to add metadata to the storage file.
+- Use `StorageInterfaceDirVar.add_metadata(name, data)` to add metadata to a specific variable or directory. Metadata is buffered until the variable or directory is bound to the storage backend.
+
+Error Handling and Constraints
+------------------------------
+
+- Attempting to write, append, or read on a directory-like object raises an error.
+- Attempting to treat a variable-like object as a directory raises an error.
+- Reading from a non-existent file raises an error.
+- Certain method names are reserved and cannot be used as variable or directory names.
+
+Summary
+-------
+
+The Storage Driver framework provides a powerful and extensible way to manage hierarchical data storage with dynamic creation of directories and variables. By abstracting the storage backend through the `StorageIODriver` interface, it supports multiple file formats and storage systems transparently. The dynamic attribute-based API of `StorageInterface` and `StorageInterfaceDirVar` makes it intuitive to organize and manipulate data on disk without manual file handling.
+
+For detailed usage examples, refer to the docstrings of `StorageInterface` and `StorageInterfaceDirVar`.

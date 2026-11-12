@@ -1,0 +1,126 @@
+Running Migrations
+==================
+
+This module provides functionality to manage database migrations for Piccolo ORM applications. It supports running migrations forwards (applying new migrations), running migrations backwards (undoing migrations), and checking the status of migrations.
+
+Key Components
+--------------
+
+### ForwardsMigrationManager
+
+Manages applying migrations forwards.
+
+- **Initialization Parameters:**
+  - `app_name` (str): The name of the app to migrate.
+  - `migration_id` (str, default "all"): Migrations will be run up to and including this migration ID.
+  - `fake` (bool, default False): If True, records migrations as run without actually executing them.
+  - `preview` (bool, default False): If True, prints SQL queries without executing them.
+
+- **Methods:**
+  - `run_migrations(app_config: AppConfig) -> MigrationResult`: Runs the migrations for the given app configuration.
+  - `run() -> MigrationResult`: Creates the migration table if necessary and runs migrations for the specified app.
+
+- **Usage:**
+  Use the `forwards` async function to run migrations programmatically or via CLI.
+
+### BackwardsMigrationManager
+
+Manages undoing migrations (rolling back).
+
+- **Initialization Parameters:**
+  - `app_name` (str): The name of the app to reverse migrations for.
+  - `migration_id` (str): Migrations will be reversed up to and including this migration ID.
+  - `auto_agree` (bool, default False): Automatically agree to prompts.
+  - `clean` (bool, default False): If True, deletes migration files after reversing.
+  - `preview` (bool, default False): If True, prints SQL queries without executing them.
+
+- **Methods:**
+  - `run_migrations_backwards(app_config: AppConfig) -> MigrationResult`: Reverses migrations for the given app configuration.
+  - `run() -> MigrationResult`: Creates the migration table if necessary and runs backwards migrations.
+
+- **Usage:**
+  Use the `backwards` async function to undo migrations programmatically or via CLI.
+
+### CheckMigrationManager
+
+Checks and lists the status of migrations.
+
+- **Initialization Parameters:**
+  - `app_name` (str): The name of the app to check migrations for.
+
+- **Methods:**
+  - `get_migration_statuses() -> List[MigrationStatus]`: Returns a list of migration statuses including whether each migration has been run.
+  - `have_ran_count() -> int`: Returns the count of migrations that have been run.
+  - `havent_ran_count() -> int`: Returns the count of migrations that have not been run.
+  - `run()`: Prints a formatted list of migrations and their statuses.
+
+- **Usage:**
+  Use the `check` async function to list migrations and their run status.
+
+Functions
+---------
+
+### forwards(app_name: str, migration_id: str = "all", fake: bool = False, preview: bool = False)
+
+Runs any migrations which haven't been run yet.
+
+- **Parameters:**
+  - `app_name`: The app to migrate. Use `'all'` to migrate all apps.
+  - `migration_id`: Run migrations up to and including this ID. Use `'all'` to run all migrations, or `'1'` to run the next migration only.
+  - `fake`: If True, marks migrations as run without executing them.
+  - `preview`: If True, prints SQL queries without executing.
+
+- **Behavior:**
+  Exits with status 1 if migrations fail.
+
+### backwards(app_name: str, migration_id: str = "1", auto_agree: bool = False, clean: bool = False, preview: bool = False)
+
+Undoes migrations up to a specific migration.
+
+- **Parameters:**
+  - `app_name`: The app to reverse migrations for. Use `'all'` to reverse migrations for all apps.
+  - `migration_id`: Reverse migrations up to and including this ID. Use `'all'` to undo all migrations, or `'1'` to undo the most recent migration.
+  - `auto_agree`: Automatically agree to prompts.
+  - `clean`: Delete migration files after reversing.
+  - `preview`: Print SQL queries without executing.
+
+- **Behavior:**
+  Exits with status 1 if reversing migrations fails.
+
+### check(app_name: str = "all")
+
+Lists all migrations which have and haven't been run.
+
+- **Parameters:**
+  - `app_name`: The app to check migrations for. Use `'all'` to check all apps.
+
+Usage Examples
+--------------
+
+Run all migrations for a specific app:
+
+```python
+await forwards(app_name="my_app")
+```
+
+Undo the most recent migration for all apps, automatically agreeing to prompts:
+
+```python
+await backwards(app_name="all", migration_id="1", auto_agree=True)
+```
+
+Check migration status for a single app:
+
+```python
+await check(app_name="my_app")
+```
+
+Notes
+-----
+
+- When running migrations for all apps, the order of apps is respected to maintain dependencies.
+- The `preview` option is useful for seeing the SQL commands without applying changes.
+- The `fake` option allows marking migrations as applied without executing them, useful for syncing migration state.
+- The `clean` option in backwards migrations deletes migration files after they have been reversed.
+
+This module is designed to be used both programmatically and via command-line interfaces to manage Piccolo ORM migrations efficiently and safely.

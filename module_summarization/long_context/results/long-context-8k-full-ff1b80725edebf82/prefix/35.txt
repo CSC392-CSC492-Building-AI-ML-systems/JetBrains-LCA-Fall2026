@@ -1,0 +1,100 @@
+w_states Command
+================
+
+Overview
+--------
+The `w_states` command is used to display or manipulate basis (initial) and target (recycling) states for a WEST simulation. It provides functionality to view the current states, replace them entirely, or append new target states for the next iteration of the simulation.
+
+By default, `w_states` displays the current basis and target states, either to the console or by dumping them to specified files. When modifying states, it ensures proper handling of probabilities and progress coordinates to maintain simulation consistency.
+
+Modes of Operation
+------------------
+The command supports three mutually exclusive modes of operation:
+
+- **--show** (default):  
+  Displays the current basis and target states for the current iteration.  
+  If specified, states can be dumped to files instead of standard output.
+
+- **--replace**:  
+  Replaces the current basis and/or target states with those specified by the user for the next iteration.  
+  This mode allows complete updating of the states used in the simulation.
+
+- **--append**:  
+  Appends new target states to the existing list of target states for the next iteration.  
+  Appending basis states is not permitted due to the complexity of renormalizing probabilities; users should instead use `--show` to export basis states, edit them manually, and then use `--replace` to update.
+
+Arguments
+---------
+- **--bstate-file BSTATE_FILE**  
+  Specifies a file to read basis state names, probabilities, and auxiliary references from (when using `--append` or `--replace`), or to write them to (when using `--show`).
+
+- **--bstate 'label,probability[,auxref]'**  
+  Adds a basis state directly via the command line. This option can be specified multiple times to add multiple basis states.  
+  Note: Basis states added this way are appended after those read from `--bstate-file` if provided.
+
+- **--tstate-file TSTATE_FILE**  
+  Specifies a file to read target state names and representative progress coordinates from (when using `--append` or `--replace`), or to write them to (when using `--show`).
+
+- **--tstate 'label,pcoord0[,pcoord1[,...]]'**  
+  Adds a target state directly via the command line. This option can be specified multiple times to add multiple target states.  
+  Target states added this way are appended after those read from `--tstate-file` if provided.
+
+Behavior Details
+----------------
+- When displaying states (`--show`), the command outputs the basis and target states for the current iteration. If output files are specified, the states are written there; otherwise, they are printed to standard output.
+
+- When replacing states (`--replace`), if the current iteration has completed segments, the new states are applied to the next iteration.  
+  - Basis states are read from the specified file and/or command-line arguments. The total probability of basis states is checked and rescaled if it does not sum to unity within numerical tolerance.  
+  - Progress coordinates for basis states are assigned using the simulation manager.  
+  - Target states are similarly read from files and/or command-line arguments and saved for the next iteration.
+
+- When appending target states (`--append`), new target states are added to the existing list for the next iteration.  
+  - Appending basis states is disallowed and will cause the command to exit with an error message.  
+  - If the current iteration has completed segments, the appended states are applied to the next iteration.
+
+- The command interacts with the WEST simulation environment to manage data consistency, including updating iteration group links and reporting state changes.
+
+Examples
+--------
+Display current basis and target states to the console:
+
+```
+w_states --show
+```
+
+Dump basis states to a file:
+
+```
+w_states --show --bstate-file bstates.txt
+```
+
+Replace basis states from a file and add a new basis state via command line:
+
+```
+w_states --replace --bstate-file bstates.txt --bstate "newstate,0.1,auxdata"
+```
+
+Append new target states from a file and command line:
+
+```
+w_states --append --tstate-file tstates.txt --tstate "target1,0.5,0.3"
+```
+
+Notes
+-----
+- Basis state probabilities are automatically normalized if they do not sum to one within a small numerical tolerance.
+- Appending basis states is not supported to avoid errors in probability normalization; use the `--show` and `--replace` workflow instead.
+- The command requires access to the WEST simulation environment and data files to function correctly.
+- Progress coordinates for basis states are assigned automatically during replacement.
+
+Logging and Output
+------------------
+- Warnings are logged if basis state probabilities require rescaling.
+- Informational messages indicate when new states are applied to the next iteration.
+- Errors are reported to standard error, and the command exits with a non-zero status if invalid operations are attempted (e.g., appending basis states).
+
+See Also
+--------
+- WEST simulation documentation for details on basis and target states.
+- `w_init` and `w_run` commands for managing WEST simulations.
+

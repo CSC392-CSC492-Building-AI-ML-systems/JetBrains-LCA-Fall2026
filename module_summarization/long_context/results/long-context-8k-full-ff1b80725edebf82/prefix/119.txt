@@ -1,0 +1,127 @@
+Generate Configuration for Prognostic FV3 Runs
+===============================================
+
+This document describes how to generate and use configuration files for prognostic FV3 model runs using the provided Python configuration utilities.
+
+Overview
+--------
+
+The configuration system combines base FV3 configurations with user-specified runtime options and initial conditions to produce a complete FV3 configuration dictionary. This dictionary can then be used to run prognostic simulations with FV3.
+
+Key Components
+--------------
+
+### HighLevelConfig
+
+`HighLevelConfig` is the primary dataclass representing the full configuration for a prognostic run. It combines:
+
+- Base FV3 configuration parameters (`FV3Config`)
+- Runtime user configurations (`UserConfig`)
+- Initial conditions specification
+- Duration of the run segment
+- Emulation settings for Zhao-Carr physics parameterization
+
+Attributes include:
+
+- `base_version` (str): The base physics configuration version (default `"v0.5"`).
+- `initial_conditions` (`InitialCondition` or other): Specifies the initial condition dataset location and timestamp.
+- `duration` (str): Duration of each run segment (e.g., `"3h"`). Overrides the `dt_atmos` setting if provided.
+- `zhao_carr_emulation` (`emulation.EmulationConfig`): Configuration for Zhao-Carr emulation.
+- Other FV3 and runtime configuration fields inherited from `FV3Config` and `UserConfig`.
+
+### InitialCondition
+
+Represents initial condition data with the following attributes:
+
+- `base_url` (str): Base URL or local path to initial condition data.
+- `timestep` (str): Timestamp in `YYYYMMDD.HHMMSS` format.
+- `restart_categories` (`RestartCategoriesConfig`): Optional mapping of FV3GFS restart categories to stored restart names.
+
+### FV3Config
+
+Contains FV3-specific configuration fields not overridden by `HighLevelConfig`. Includes:
+
+- `namelist`: FV3 namelist settings.
+- `experiment_name`: Name of the experiment.
+- `data_table`, `field_table`: Tables specifying diagnostics and fields.
+- `forcing`, `orographic_forcing`, `gfs_analysis_data`: Forcing data configurations.
+
+Functions and Utilities
+-----------------------
+
+### to_fv3config(dict_, model_url=(), diagnostic_ml=False) -> dict
+
+Converts a user-provided dictionary (typically loaded from a YAML file) into a fully merged FV3 configuration dictionary.
+
+- `dict_`: Dictionary containing prognostic run configurations combining FV3 and runtime keys.
+- `model_url`: Optional sequence of URLs to trained machine learning models to be used during the run.
+- `diagnostic_ml`: If `True`, compute and save ML predictions without applying them to the model state.
+
+Raises an error if both nudging and machine learning configurations are enabled simultaneously.
+
+### prepare_config(args)
+
+Reads a user configuration YAML file specified by `args.user_config`, applies any command-line overrides for ML models and diagnostics, converts it to an FV3 configuration dictionary, and outputs the final configuration to standard output.
+
+### main()
+
+Entry point for command-line usage. Parses arguments and calls `prepare_config`.
+
+Command-Line Interface
+----------------------
+
+The script supports the following command-line arguments:
+
+- `user_config` (positional): Path to a YAML file specifying configuration updates relative to the base FV3 config.
+- `--model_url`: One or more remote URLs to trained ML models. If provided, ML updating is enabled and nudging is disabled.
+- `--diagnostic_ml`: Flag to compute and save ML predictions without applying them.
+
+Usage example:
+
+```bash
+python generate_config.py path/to/user_config.yaml --model_url http://example.com/model1 --diagnostic_ml
+```
+
+Configuration File Format
+-------------------------
+
+User configuration files are YAML files that specify updates and overrides to the base FV3 configuration. They combine keys from:
+
+- FV3 configuration (e.g., `namelist`, `experiment_name`, `forcing`)
+- Runtime configuration options (see `runtime.config.UserConfig`)
+- Initial conditions specification under `initial_conditions`
+- Machine learning model settings under `scikit_learn`
+
+Example snippet:
+
+```yaml
+base_version: v0.5
+initial_conditions:
+  base_url: gs://my-bucket/initial_conditions
+  timestep: 20230101.000000
+duration: 3h
+nudging: false
+scikit_learn:
+  model:
+    - gs://my-bucket/ml_models/model1
+  diagnostic_ml: true
+```
+
+Extensibility
+-------------
+
+- The configuration system supports overlays that merge multiple configuration layers, including initial conditions, diagnostics, and ML emulation.
+- The `HighLevelConfig` dataclass can be extended or modified to include additional runtime or physics options.
+- Machine learning models can be combined at runtime if multiple URLs are provided, as long as their outputs do not overlap.
+
+Logging and Diagnostics
+-----------------------
+
+- Logging is configured at the INFO level by default.
+- Diagnostic tables and Fortran file configurations are automatically integrated into the FV3 configuration.
+- Range warnings in the namelist are suppressed by default to avoid unnecessary warnings during runtime.
+
+Summary
+-------
+
+This configuration system provides a flexible and extensible way to generate FV3 prognostic run configurations by combining base physics versions, user runtime options, initial conditions, and machine learning emulation settings. It supports command-line overrides and outputs fully merged FV3 configuration dictionaries ready for simulation.

@@ -1,0 +1,174 @@
+Schedulers
+==========
+
+Stateless learning rate schedulers
+----------------------------------
+
+This module provides stateless learning rate schedulers designed to address some limitations of PyTorch's built-in schedulers in `torch.optim.lr_scheduler`. The primary goal is to enable schedulers to interface directly with Composer's time abstraction (`composer.core.time`), allowing configuration using arbitrary but explicit time units.
+
+Unlike traditional schedulers that maintain internal state, these schedulers are pure functions or callable classes that compute a learning rate multiplier based solely on the current training state and optionally a scale schedule ratio (SSR). This design facilitates flexible and composable learning rate schedules.
+
+See :class:`ComposerScheduler` for the specification of stateless schedulers.
+
+.. contents::
+   :local:
+   :depth: 2
+
+ComposerScheduler
+-----------------
+
+.. autoclass:: ComposerScheduler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+`ComposerScheduler` defines the interface for stateless scheduler functions. Any callable matching its signature can be used as a scheduler.
+
+Schedulers receive the current training :class:`~composer.core.State` and an optional scale schedule ratio (`ssr`) and return a learning rate multiplier :math:`\alpha` to apply to the optimizer's base learning rate.
+
+The learning rate at time :math:`t` is computed as:
+
+.. math::
+
+    \eta(t) = \eta_i \times \alpha(t)
+
+where :math:`\eta_i` is the initial learning rate.
+
+Multiple schedulers can be combined multiplicatively.
+
+Utility Functions
+-----------------
+
+.. autofunction:: compile_composer_scheduler
+
+`compile_composer_scheduler` converts a stateless scheduler into a PyTorch-compatible scheduler object with a `.step()` interface, binding it to the current training state.
+
+.. autofunction:: _convert_time
+
+Schedulers
+----------
+
+The module provides several common scheduler implementations, each implementing the :class:`ComposerScheduler` interface.
+
+StepScheduler
+~~~~~~~~~~~~~
+
+.. autoclass:: StepScheduler
+   :members:
+
+Decays the learning rate discretely at fixed intervals.
+
+The learning rate multiplier is:
+
+.. math::
+
+    \alpha(t) = \gamma^{\lfloor t / \rho \rfloor}
+
+where :math:`\rho` is the step size and :math:`\gamma` is the decay factor.
+
+MultiStepScheduler
+~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: MultiStepScheduler
+   :members:
+
+Decays the learning rate at specified milestones.
+
+The learning rate multiplier is:
+
+.. math::
+
+    \alpha(t) = \gamma^{x}
+
+where :math:`x` is the number of milestones reached.
+
+ConstantScheduler
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ConstantScheduler
+   :members:
+
+Maintains a fixed learning rate multiplier :math:`\alpha` for a specified duration, then returns to 1.0.
+
+LinearScheduler
+~~~~~~~~~~~~~~
+
+.. autoclass:: LinearScheduler
+   :members:
+
+Linearly adjusts the learning rate multiplier from an initial value :math:`\alpha_i` to a final value :math:`\alpha_f` over a specified duration.
+
+The multiplier is:
+
+.. math::
+
+    \alpha(t) = \alpha_i + (\alpha_f - \alpha_i) \times \tau
+
+where :math:`\tau = t / t_{max}` clipped to [0, 1].
+
+ExponentialScheduler
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ExponentialScheduler
+   :members:
+
+Exponentially decays the learning rate by a factor :math:`\gamma` every decay period :math:`\rho`:
+
+.. math::
+
+    \alpha(t) = \gamma^{t / \rho}
+
+CosineAnnealingScheduler
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CosineAnnealingScheduler
+   :members:
+
+Decays the learning rate following the decreasing part of a cosine curve from 1 to a final multiplier :math:`\alpha_f` over a duration :math:`t_{max}`:
+
+.. math::
+
+    \alpha(t) = \alpha_f + (1 - \alpha_f) \times \frac{1}{2} \left(1 + \cos(\pi \times \tau)\right)
+
+where :math:`\tau = t / t_{max}` clipped to [0, 1].
+
+CosineAnnealingWarmRestartsScheduler
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CosineAnnealingWarmRestartsScheduler
+   :members:
+
+Cycles the learning rate decay according to a cosine curve with warm restarts. After each cycle of length :math:`t_0`, the schedule restarts, with subsequent cycle lengths multiplied by :math:`t_{mult}`.
+
+The learning rate multiplier during the :math:`i^\text{th}` cycle is:
+
+.. math::
+
+    \alpha(t) = \alpha_f + (1 - \alpha_f) \times \frac{1}{2} \left(1 + \cos(\pi \times \tau_i)\right)
+
+where
+
+.. math::
+
+    \tau_i = \frac{t - \sum_{j=0}^{i-1} t_0 t_{mult}^j}{t_0 t_{mult}^i}
+
+PolynomialScheduler
+~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PolynomialScheduler
+   :members:
+
+Adjusts the learning rate multiplier according to a polynomial decay:
+
+.. math::
+
+    \alpha(t) = \alpha_f + (1 - \alpha_f) \times (1 - \tau)^{\kappa}
+
+where :math:`\tau = t / t_{max}` clipped to [0, 1], :math:`\kappa` is the power, and :math:`\alpha_f` is the final multiplier.
+
+Summary
+-------
+
+This module provides flexible, stateless learning rate schedulers that integrate seamlessly with Composer's training time abstractions. Users can define custom schedulers by implementing the :class:`ComposerScheduler` interface or use the provided common scheduler classes for typical learning rate schedules.
+
+For more details on usage, see the :class:`ComposerScheduler` documentation and the individual scheduler classes.

@@ -1,0 +1,101 @@
+BaseUser Module Documentation
+=============================
+
+Overview
+--------
+The `BaseUser` module provides a foundational user model designed for authentication purposes within applications. It defines a user table with essential fields and methods to handle user creation, password management, and login functionality, ensuring secure password hashing and validation.
+
+Class: BaseUser
+---------------
+`BaseUser` is a subclass of `Table` representing a user entity with authentication support. It is mapped to the database table named `piccolo_user`.
+
+### Fields
+
+- **id** (`Serial`): Primary key for the user.
+- **username** (`Varchar`): Unique username with a maximum length of 100 characters.
+- **password** (`Secret`): Hashed password stored securely with a maximum length of 255 characters.
+- **first_name** (`Varchar`): Optional first name of the user.
+- **last_name** (`Varchar`): Optional last name of the user.
+- **email** (`Varchar`): Unique email address with a maximum length of 255 characters.
+- **active** (`Boolean`): Indicates if the user account is active. Defaults to `False`.
+- **admin** (`Boolean`): Indicates if the user can log into the Piccolo admin GUI. Defaults to `False`.
+- **superuser** (`Boolean`): Indicates if the user can manage other users' passwords in the Piccolo admin GUI. Defaults to `False`.
+- **last_login** (`Timestamp`): Records the last login time of the user. Nullable.
+
+### Password Policy Constants
+
+- `_min_password_length`: Minimum allowed password length (6 characters).
+- `_max_password_length`: Maximum allowed password length (128 characters).
+- `_pbkdf2_iteration_count`: Number of iterations used in PBKDF2 hashing (600,000), following OWASP recommendations.
+
+Initialization
+--------------
+When a `BaseUser` instance is created, if a raw password is provided, it is automatically hashed using the PBKDF2 SHA-256 algorithm before storage.
+
+Methods
+-------
+
+### Class Methods
+
+- **get_salt() -> str**  
+  Generates a cryptographically secure random salt for password hashing.
+
+- **get_readable() -> Readable**  
+  Returns a `Readable` instance representing the user, primarily displaying the username.
+
+- **_validate_password(password: str)**  
+  Validates a raw password against length constraints and ensures it is not already hashed. Raises `ValueError` if validation fails.
+
+- **update_password_sync(user: Union[str, int], password: str)**  
+  Synchronous method to update a user's password by user ID or username.
+
+- **update_password(user: Union[str, int], password: str)**  
+  Asynchronous method to update a user's password by user ID or username. Validates and hashes the new password before updating.
+
+- **hash_password(password: str, salt: str = "", iterations: Optional[int] = None) -> str**  
+  Hashes a raw password using PBKDF2 with SHA-256, a salt, and a specified number of iterations. Returns the hashed password string in the format:  
+  `pbkdf2_sha256$<iterations>$<salt>$<hashed_password>`
+
+- **split_stored_password(password: str) -> List[str]**  
+  Splits a stored hashed password string into its components: algorithm, iterations, salt, and hashed value. Raises `ValueError` if the format is invalid.
+
+- **login_sync(username: str, password: str) -> Optional[int]**  
+  Synchronous method to authenticate a user by username and password. Returns the user ID if successful, otherwise `None`.
+
+- **login(username: str, password: str) -> Optional[int]**  
+  Asynchronous method to authenticate a user by username and password. Updates the `last_login` timestamp on successful login.
+
+- **create_user_sync(username: str, password: str, **extra_params) -> BaseUser**  
+  Synchronous method to create a new user with validation and password hashing.
+
+- **create_user(username: str, password: str, **extra_params) -> BaseUser**  
+  Asynchronous method to create a new user with validation and password hashing. Returns the created `BaseUser` instance.
+
+### Instance Methods
+
+- **__setattr__(name: str, value: Any)**  
+  Overrides attribute setting to ensure that if the `password` attribute is set, it is automatically hashed unless already hashed.
+
+Usage Notes
+-----------
+- Passwords must be provided in raw form when creating or updating users; the module handles hashing automatically.
+- The module enforces password length constraints and prevents storing already hashed passwords directly.
+- Login methods verify the password by hashing the input and comparing it to the stored hash.
+- On successful login, the user's `last_login` timestamp is updated.
+- The module supports both synchronous and asynchronous operations for password updates, user creation, and login.
+
+Security Considerations
+-----------------------
+- Passwords are hashed using PBKDF2 with SHA-256 and a high iteration count (600,000) to resist brute-force attacks.
+- Unique salts are generated for each password to prevent rainbow table attacks.
+- Passwords are never stored or transmitted in plain text.
+- The module warns and rejects attempts to create users with already hashed passwords.
+
+Logging
+-------
+- Warnings are logged when excessively long usernames or passwords are provided.
+- Attempts to create users with hashed passwords are logged as warnings.
+
+Summary
+-------
+The `BaseUser` module provides a robust and secure user model with built-in authentication support, password hashing, and validation mechanisms. It is designed to be used as a base for user management in applications requiring authentication and administrative user controls.

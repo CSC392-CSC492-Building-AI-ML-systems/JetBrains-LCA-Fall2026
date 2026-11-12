@@ -1,0 +1,154 @@
+w_assign — Assign Walkers to Bins and Macrostates
+=================================================
+
+Synopsis
+--------
+
+The `w_assign` tool assigns simulation walkers to bins, producing an output file (by default named `assign.h5`) that can be used for subsequent analysis. This assignment is essential for consistent analysis of trajectory data, ensuring that the origin bin of each trajectory is known throughout the dataset.
+
+Description
+-----------
+
+`w_assign` processes WESTPA simulation data to assign each walker at each timepoint to a bin and optionally to a kinetic macrostate. The output file contains detailed assignment information that supports downstream analysis tools such as `w_kintrace` and `w_kinmat`.
+
+The tool supports flexible input data sources, multiple methods for defining macrostates, and parallelized processing for efficient handling of large datasets.
+
+Source Data
+-----------
+
+Input data for assignment can be specified in one of the following ways:
+
+- **Custom Dataset Construction Function** (`--construct-dataset`):  
+  Specify a Python function in `MODULE.FUNCTION` format that extracts or computes the data to be assigned. The function is called as `function(n_iter, iter_group)` and must return data indexable as `[segment][timepoint][dimension]`.
+
+- **Data Set Specifications** (`--dsspecs`):  
+  Provide a list of dataset specifications in the format `NAME[,file=FILENAME,slice=SLICE]`. This allows selection of datasets from HDF5 files, optionally slicing multi-dimensional datasets.
+
+- **Default Progress Coordinate Dataset**:  
+  If neither a custom function nor dataset specifications are provided, the default progress coordinate dataset `pcoord` is used.
+
+Specifying Macrostates
+----------------------
+
+Kinetic macrostates can be defined to label trajectories by the macrostate they most recently visited. This is required for kinetic analyses.
+
+Three methods are available to specify macrostates:
+
+1. **Command-Line Single-Bin States** (`--states`):  
+   Define states as coordinate tuples, optionally labeled, e.g., `bound:1.0` or `unbound:(2.5,2.5)`. Each state corresponds to a single bin.
+
+2. **YAML File with Multiple-Bin States** (`--states-from-file`):  
+   Load macrostates from a YAML file defining states as lists of coordinate tuples. Each state can include multiple bins.
+
+3. **User-Defined Function** (`--states-from-function`):  
+   Provide a Python function that takes the bin mapper as input and returns a list of state dictionaries, each with a `"coords"` key containing coordinate tuples and an optional `"label"`.
+
+Output Format
+-------------
+
+The output file (default `assign.h5`) contains the following attributes and datasets:
+
+- **Attributes:**
+  - `nbins` (Integer): Number of valid bins.
+  - `nstates` (Integer): Number of macrostates defined (zero if none).
+
+- **Datasets:**
+  - `/assignments` [iteration][segment][timepoint] (Integer): Bin assignments.
+  - `/npts` [iteration] (Integer): Number of timepoints per iteration.
+  - `/nsegs` [iteration] (Integer): Number of segments per iteration.
+  - `/labeled_populations` [iteration][state][bin] (Float): Bin populations labeled by most recently visited macrostate.
+  - `/bin_labels` [bin] (String): Text labels for bins.
+
+If macrostates are defined, additional datasets include:
+
+- `/trajlabels` [iteration][segment][timepoint] (Integer): Macrostate labels for each trajectory.
+- `/state_labels` [state] (String): Labels of macrostates.
+- `/state_map` [bin] (Integer): Mapping from bin index to macrostate index.
+
+Note:  
+Datasets indexed by state or bin have one extra entry beyond the number of defined states or bins. The last entry corresponds to trajectories or bins outside the defined sets.
+
+Parallelization
+---------------
+
+`w_assign` supports parallel processing to accelerate binning and data reading or calculation. Work is divided among workers to process segments in parallel.
+
+Command-Line Options
+--------------------
+
+The tool provides numerous options for input data, binning, macrostates, and output control. Key options include:
+
+- `--construct-dataset MODULE.FUNCTION`  
+  Use a custom function to construct the dataset for assignment.
+
+- `--dsspecs NAME[,file=FILENAME,slice=SLICE] ...`  
+  Specify datasets to use for assignment.
+
+- `--states STATEDEF ...`  
+  Define single-bin macrostates on the command line.
+
+- `--states-from-file STATEFILE`  
+  Load macrostates from a YAML file.
+
+- `--states-from-function MODULE.FUNCTION`  
+  Load macrostates from a user-defined function.
+
+- `-o, --output OUTPUT`  
+  Specify the output filename (default: `assign.h5`).
+
+- `--subsample`  
+  Enable subsampling of data, useful for steady-state simulations.
+
+- `--config-from-file`  
+  Load binning and macrostates from a configuration scheme in `west.cfg`.
+
+- `--scheme-name SCHEME`  
+  Specify the scheme name when using `--config-from-file`.
+
+Examples
+--------
+
+Assign walkers using the default progress coordinate dataset and save to `assign.h5`:
+
+```bash
+w_assign
+```
+
+Assign walkers using a custom dataset construction function:
+
+```bash
+w_assign --construct-dataset mymodule.myfunc
+```
+
+Define macrostates from a YAML file:
+
+```bash
+w_assign --states-from-file macrostates.yaml
+```
+
+Use a user-defined function to specify macrostates:
+
+```bash
+w_assign --states-from-function mymodule.statefunc
+```
+
+Load binning and macrostates from a configuration scheme:
+
+```bash
+w_assign --config-from-file --scheme-name myscheme
+```
+
+See Also
+--------
+
+- `w_kintrace` — Analyze kinetic trajectories using macrostate assignments.
+- `w_kinmat` — Construct kinetic rate matrices from macrostate assignments.
+
+Logging and Debugging
+---------------------
+
+`w_assign` logs detailed information to assist with debugging and monitoring progress. Use appropriate logging levels to control verbosity.
+
+---
+
+For more information, consult the WESTPA documentation and user guides.

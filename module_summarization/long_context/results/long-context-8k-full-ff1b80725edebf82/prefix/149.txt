@@ -1,0 +1,188 @@
+# FleurXMLModifier
+
+The `FleurXMLModifier` class provides a structured and robust way to organize and group modifications to a `inp.xml` input file used by Fleur. It acts as a low-level interface for applying changes to Fleur input files, leveraging XML setting methods from the `masci_tools.util.xml` modules.
+
+---
+
+## Overview
+
+`FleurXMLModifier` collects modification tasks without immediately applying them to the input file. Instead, it stores these tasks and applies all changes in one batch operation. This approach allows for easier management, undoing, and validation of modifications before they are committed to the input files.
+
+---
+
+## Basic Usage
+
+```python
+from masci_tools.io.fleurxmlmodifier import FleurXMLModifier
+
+# Create a modifier instance
+fmode = FleurXMLModifier()
+
+# Add changes by calling methods corresponding to XML setters
+fmode.set_inpchanges({'Kmax': 4.0})  # Set Kmax to 4.0
+fmode.shift_value({'Gmax': 5.0})     # Add 5 to the current value of Gmax
+
+# Set the local orbital configuration on all iron atoms to '3s 3p'
+fmode.set_species('all-Fe', {'lo': [{'n':3, 'l': 's', 'type': 'SCLO'},
+                                    {'n':3, 'l': 'p', 'type': 'SCLO'}]})
+
+# Undo the last change
+fmode.undo()
+
+# Undo all changes
+fmode.undo(revert_all=True)
+
+# Apply all collected changes to an input file
+new_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')
+```
+
+---
+
+## Features
+
+### Task Management
+
+- **Adding Tasks:** Modification tasks are added by calling methods on the `FleurXMLModifier` instance. These methods correspond to XML setter functions and do not modify the input file immediately.
+- **Undo Changes:** Undo the last change or all changes using the `undo()` method.
+- **Retrieve Tasks:** Access the current list of modification tasks via the `task_list` property or print them using the `changes()` method.
+
+### Applying Modifications
+
+- **Batch Application:** Use `modify_xmlfile()` to apply all registered modifications to a given input XML file and optionally to a corresponding density matrix file (`n_mmp_mat`).
+- **Validation:** Modifications are validated against the Fleur input schema to ensure consistency and correctness.
+- **Support for Multiple Input Types:** The input XML file can be provided as a file path, an open file handle, or an XML etree object.
+
+### Supported Modification Methods
+
+The class supports a wide range of modification methods, including but not limited to:
+
+- `set_inpchanges`
+- `shift_value`
+- `set_xcfunctional`
+- `set_species`
+- `set_species_label`
+- `clone_species`
+- `switch_species`
+- `switch_species_label`
+- `shift_value_species_label`
+- `set_atomgroup`
+- `set_atomgroup_label`
+- `set_complex_tag`
+- `set_simple_tag`
+- `create_tag`
+- `delete_tag`
+- `delete_att`
+- `replace_tag`
+- `set_text`
+- `set_first_text`
+- `set_attrib_value`
+- `set_first_attrib_value`
+- `add_number_to_attrib`
+- `add_number_to_first_attrib`
+- `xml_create_tag`
+- `xml_replace_tag`
+- `xml_delete_tag`
+- `xml_delete_att`
+- `xml_set_attrib_value_no_create`
+- `xml_set_text_no_create`
+- `set_nmmpmat`
+- `rotate_nmmpmat`
+- `align_nmmpmat_to_sqa`
+- `set_nkpts`
+- `set_kpath`
+- `set_kpointlist`
+- `switch_kpointset`
+- `set_kpointpath`
+- `set_kpointmesh`
+
+These methods correspond to XML setter functions defined in the `masci_tools.util.xml` modules.
+
+---
+
+## Class Methods and Properties
+
+### `fromList(task_list, *args, **kwargs)`
+
+Create a `FleurXMLModifier` instance from a list of tasks.
+
+- **Parameters:**
+  - `task_list`: List of tuples where the first element is the method name and the second is a dictionary of keyword arguments.
+  - Additional arguments are passed to the constructor.
+
+- **Returns:** An instance of `FleurXMLModifier` with the tasks added.
+
+### `add_task_list(task_list)`
+
+Add multiple modification tasks at once.
+
+- **Parameters:**
+  - `task_list`: List of tuples with method names and keyword arguments.
+
+### `undo(revert_all=False)`
+
+Undo the last modification or all modifications.
+
+- **Parameters:**
+  - `revert_all`: If `True`, all changes are undone; if `False`, only the last change is undone.
+
+- **Returns:** The current list of remaining tasks after undo.
+
+### `changes()`
+
+Print and return the list of all currently registered modification tasks.
+
+### `modify_xmlfile(original_inpxmlfile, original_nmmp_file=None, validate_changes=True, adjust_version_for_dev_version=True, keep_inpgen_comments=True)`
+
+Apply all registered modifications to the specified input XML file and optionally to a density matrix file.
+
+- **Parameters:**
+  - `original_inpxmlfile`: Path, file handle, or XML etree of the input XML file.
+  - `original_nmmp_file`: Path, list of strings, or file handle for the density matrix file (optional).
+  - `validate_changes`: Whether to validate the changes against the schema (default `True`).
+  - `adjust_version_for_dev_version`: Adjust schema version for development versions (default `True`).
+  - `keep_inpgen_comments`: Preserve comments generated by inpgen (default `True`).
+
+- **Returns:** A tuple containing the modified XML etree and a dictionary of additional modified files (e.g., density matrix).
+
+---
+
+## Internal Mechanisms
+
+- **Task Storage:** Tasks are stored as `ModifierTask` named tuples containing the method name and arguments.
+- **Function Dispatch:** The class maintains dictionaries mapping method names to XML setter functions, categorized by the type of modification (XPath-based, schema dictionary-based, or density matrix-based).
+- **Argument Validation:** Arguments for modification methods are validated against the signatures of the underlying XML setter functions.
+- **Modification Application:** The `apply_modifications` class method applies all tasks to the XML tree and density matrix lines, performing validation and version adjustments as needed.
+
+---
+
+## Notes
+
+- The docstrings for the setter methods are automatically generated from their implementations in the `masci_tools.util.xml` modules.
+- The class is designed to be a low-level utility and can be used as a foundation for higher-level input modification tools.
+- Validation errors during modification application raise exceptions with detailed messages.
+- The class supports undo functionality but does not currently support partial undo beyond the last change.
+
+---
+
+## Example
+
+```python
+from masci_tools.io.fleurxmlmodifier import FleurXMLModifier
+
+# Initialize modifier
+modifier = FleurXMLModifier()
+
+# Schedule modifications
+modifier.set_inpchanges({'Kmax': 3.5})
+modifier.set_species('Fe', {'lo': [{'n':3, 'l':'d', 'type':'SCLO'}]})
+
+# Undo last modification if needed
+modifier.undo()
+
+# Apply modifications to input file
+modified_xml, additional_files = modifier.modify_xmlfile('path/to/inp.xml')
+```
+
+---
+
+`FleurXMLModifier` is a powerful tool for programmatically managing Fleur input files, enabling batch modifications, validation, and easy integration into workflows.

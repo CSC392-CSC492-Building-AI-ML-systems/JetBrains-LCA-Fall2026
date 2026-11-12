@@ -1,0 +1,155 @@
+===============================
+Using SQLite and asyncio Effectively
+===============================
+
+Overview
+--------
+
+This module provides an asynchronous interface for interacting with SQLite databases using `aiosqlite`, designed to work seamlessly with the Piccolo ORM. It includes utilities for type conversion between Python and SQLite, transaction management, batch processing, and connection handling optimized for asynchronous programming with `asyncio`.
+
+Key Features
+------------
+
+- **Type Conversion Adapters and Converters**  
+  Custom adapters and converters are registered with SQLite to ensure consistent and accurate translation of Python types (e.g., `Decimal`, `UUID`, `datetime`, `list`) to SQLite-compatible formats and vice versa. This mimics behavior similar to PostgreSQL, improving data integrity and developer experience.
+
+- **AsyncBatch**  
+  An asynchronous batch processor that allows fetching query results in batches asynchronously. It supports asynchronous iteration and context management, enabling efficient handling of large datasets without blocking the event loop.
+
+- **Transaction Management**  
+  The module supports asynchronous transactions with nested transaction capabilities via savepoints. It provides:
+
+  - `SQLiteTransaction`: An async context manager for wrapping multiple queries in a transaction, supporting different transaction types (`DEFERRED`, `IMMEDIATE`, `EXCLUSIVE`) to optimize locking behavior.
+  - `Atomic`: A helper class to accumulate queries and run them atomically within a transaction, supporting both async and synchronous execution.
+  - `Savepoint`: Enables nested transactions by creating savepoints, allowing partial rollbacks within a transaction.
+
+- **SQLiteEngine**  
+  The core engine class managing connections, query execution, and transaction state. It supports:
+
+  - Asynchronous connection acquisition using `aiosqlite`.
+  - Query execution with automatic handling of SQLite version differences (e.g., handling `RETURNING` clause support).
+  - Batch query execution.
+  - Logging of queries and responses for debugging.
+  - Database file management utilities for testing purposes.
+
+Type Conversion Details
+-----------------------
+
+The module registers the following adapters and converters:
+
+- **Adapters (Python to SQLite):**
+  - `Decimal` → `float`
+  - `uuid.UUID` → `str`
+  - `datetime.time` → ISO 8601 string
+  - `datetime.date` → ISO 8601 string
+  - `datetime.datetime` → ISO 8601 string (converted to UTC if timezone-aware)
+  - `datetime.timedelta` → total seconds as float
+  - `list` → JSON string (only supports lists of `str`, `int`, or `float`)
+
+- **Converters (SQLite to Python):**
+  - `Numeric` → `Decimal`
+  - `Integer` → `int`
+  - `UUID` → `uuid.UUID`
+  - `Date` → `datetime.date`
+  - `Time` → `datetime.time`
+  - `Seconds` → `datetime.timedelta`
+  - `Boolean` → `bool`
+  - `Timestamp` → `datetime.datetime`
+  - `Timestamptz` → `datetime.datetime` with UTC timezone
+  - `Array` → `list` (deserialized from JSON)
+  - `M2M` → `list` (split from comma-separated string)
+
+AsyncBatch Class
+----------------
+
+`AsyncBatch` facilitates asynchronous batch fetching of query results:
+
+- Initialize with a database connection, a Piccolo `Query` object, and a batch size.
+- Supports asynchronous iteration (`async for`) to fetch batches of rows.
+- Implements async context management to handle cursor and connection lifecycle automatically.
+
+Example usage:
+
+```python
+async with engine.batch(query, batch_size=100) as batch:
+    async for rows in batch:
+        process(rows)
+```
+
+Transaction Management
+----------------------
+
+### TransactionType Enum
+
+Defines SQLite transaction modes:
+
+- `DEFERRED`: Default mode, suitable for read-only transactions.
+- `IMMEDIATE`: Acquires a reserved lock immediately, recommended for write transactions.
+- `EXCLUSIVE`: Acquires an exclusive lock, blocking other connections.
+
+### SQLiteTransaction
+
+An async context manager for managing transactions:
+
+- Supports nested transactions via savepoints if enabled.
+- Automatically commits or rolls back based on exceptions.
+- Allows manual commit, rollback, savepoint creation, and rollback to savepoint.
+
+Example usage:
+
+```python
+async with engine.transaction(transaction_type=TransactionType.immediate):
+    await SomeTable.insert(...).run()
+```
+
+### Atomic
+
+A helper class to accumulate multiple queries and run them atomically:
+
+- Add queries using `.add()`.
+- Run asynchronously with `.run()` or synchronously with `.run_sync()`.
+- Supports awaiting directly on the instance.
+
+Example usage:
+
+```python
+transaction = engine.atomic()
+transaction.add(SomeTable.create_table())
+await transaction.run()
+```
+
+SQLiteEngine Class
+-----------------
+
+The main engine class for SQLite asynchronous operations:
+
+- Initialize with database file path, logging options, and connection parameters.
+- Provides methods to get connections, run queries, and manage transactions.
+- Supports batch processing and handles SQLite version differences transparently.
+- Includes utility methods to create or remove the database file (useful for testing).
+- Uses a context variable to track the current transaction for nested transaction support.
+
+Example usage:
+
+```python
+engine = SQLiteEngine(path="mydb.sqlite", log_queries=True)
+
+async def main():
+    async with engine.transaction():
+        await SomeTable.insert(...).run()
+
+    async for batch in await engine.batch(SomeTable.select()):
+        process(batch)
+```
+
+Additional Utilities
+--------------------
+
+- `dict_factory`: A row factory function that returns query results as dictionaries keyed by column names.
+- Internal methods to handle inserted primary keys for SQLite versions prior to 3.35.0.
+- Logging support for queries and responses to aid debugging.
+
+Conclusion
+----------
+
+This module provides a robust and efficient asynchronous interface for SQLite databases, integrating with Piccolo ORM and leveraging `aiosqlite`. It handles complex aspects such as type conversion, transaction management, and batch processing, enabling developers to write clean, performant, and maintainable asynchronous database code with SQLite.

@@ -1,0 +1,96 @@
+Querying
+========
+
+The `Session` class provides a powerful interface for querying entities from the ftrack server. Querying allows you to retrieve entities such as tasks, assets, projects, and more, based on specific criteria.
+
+Basic Querying
+--------------
+
+To query entities, you typically use the `query()` method of a `Session` instance. This method accepts a query string written in the ftrack query language, which is similar to SQL, and returns a collection of matching entities.
+
+Example:
+
+```python
+with ftrack_api.Session() as session:
+    # Query all tasks with the name 'Animation'
+    tasks = session.query("Task where name is 'Animation'")
+    for task in tasks:
+        print(task['name'], task['status'])
+```
+
+The query string syntax supports filtering, sorting, and limiting results. For example:
+
+- Filtering: `"Task where status is 'in progress'"`
+- Sorting: `"Task order by created desc"`
+- Limiting: `"Task limit 10"`
+
+Query Results
+-------------
+
+The result of a query is a collection of entity objects. These entities behave like dictionaries and provide access to their attributes using keys.
+
+Example:
+
+```python
+tasks = session.query("Task where status is 'in progress'")
+for task in tasks:
+    print(task['id'], task['name'], task['status'])
+```
+
+Lazy Loading and Auto-Populate
+------------------------------
+
+By default, the session has `auto_populate` enabled, which means that accessing an attribute of an entity will automatically fetch it from the server if it is not already loaded. This allows for efficient querying and attribute access without needing to explicitly fetch all data upfront.
+
+You can temporarily disable auto-populate using the `auto_populating()` context manager:
+
+```python
+with session.auto_populating(False):
+    task = session.query("Task where id is '123'").one()
+    # Accessing attributes will not trigger additional server requests
+```
+
+Creating and Modifying Entities
+-------------------------------
+
+While querying is primarily for retrieving entities, the session also supports creating new entities and modifying existing ones. Created or modified entities are tracked locally until changes are persisted.
+
+Example of creating an entity:
+
+```python
+new_task = session.create('Task', {'name': 'New Task'})
+```
+
+Tracking Changes
+----------------
+
+The session tracks entities that have been created, modified, or deleted locally. You can access these lists via the following properties:
+
+- `session.created` — List of newly created entities.
+- `session.modified` — List of locally modified entities.
+- `session.deleted` — List of deleted entities.
+
+Resetting and Closing Sessions
+------------------------------
+
+You can reset the session to clear local state and caches using `session.reset()`. This clears pending operations and expunges entities from the session.
+
+To properly close a session and release resources, use `session.close()`.
+
+Event Hub Integration
+---------------------
+
+The session integrates with an event hub that allows subscribing and publishing to events related to entities and server state. This can be used to react to changes in real-time or trigger workflows based on entity updates.
+
+Summary
+-------
+
+- Use `Session.query()` to retrieve entities matching criteria.
+- Query strings support filtering, sorting, and limiting.
+- Entities returned behave like dictionaries with lazy attribute loading.
+- Use `auto_populating()` context manager to control attribute fetching behavior.
+- Track created, modified, and deleted entities via session properties.
+- Reset and close sessions to manage local state and connections.
+- Event hub integration enables event-driven workflows.
+
+For more detailed information on query syntax and advanced usage, please refer to the official ftrack API documentation.

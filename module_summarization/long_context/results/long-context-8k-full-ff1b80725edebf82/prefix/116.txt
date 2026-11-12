@@ -1,0 +1,133 @@
+Search Utilities for ASDF Trees
+===============================
+
+This module provides utilities for searching and manipulating nodes within ASDF (Advanced Scientific Data Format) trees. It enables users to perform complex queries on tree structures, filter results, and modify nodes efficiently.
+
+AsdfSearchResult Class
+----------------------
+
+The central class in this module is `AsdfSearchResult`, which represents the result of a search operation on an ASDF tree. It provides methods to refine searches, access matched nodes, and replace node values.
+
+### Initialization
+
+```python
+AsdfSearchResult(
+    identifiers,
+    node,
+    filters=[],
+    parent_node=None,
+    max_rows=DEFAULT_MAX_ROWS,
+    max_cols=DEFAULT_MAX_COLS,
+    show_values=DEFAULT_SHOW_VALUES,
+)
+```
+
+- **identifiers**: List of keys/indexes identifying the current node within the tree.
+- **node**: The current node object.
+- **filters**: List of filter callables applied to the search results.
+- **parent_node**: The parent node of the current node.
+- **max_rows**: Maximum number of lines to display when rendering.
+- **max_cols**: Maximum number of columns per line when rendering.
+- **show_values**: Whether to display primitive values in the rendered tree.
+
+### Methods
+
+#### format(max_rows=NotSet, max_cols=NotSet, show_values=NotSet)
+
+Change formatting parameters for rendering the search result tree.
+
+- **max_rows**: Limits the number of lines displayed. Can be an integer, tuple (per depth), None (no limit), or NotSet (retain current).
+- **max_cols**: Limits the length of each line. Can be an integer, None (no limit), or NotSet.
+- **show_values**: Boolean to toggle display of primitive values or NotSet.
+
+Returns a new `AsdfSearchResult` instance with updated formatting.
+
+#### search(key=NotSet, type=NotSet, value=NotSet, filter=None)
+
+Refine the search results by applying additional constraints.
+
+- **key**: Select nodes by dictionary key or list index. Can be:
+  - `NotSet`: no constraint.
+  - `str`: interpreted as a regular expression pattern.
+  - Any other object: exact equality match.
+- **type**: Select nodes by type. Can be:
+  - `NotSet`: no constraint.
+  - `str`: regular expression matching fully qualified type names.
+  - `builtins.type`: instance check.
+- **value**: Select nodes by value. Can be:
+  - `NotSet`: no constraint.
+  - `str`: regular expression matching string representation of values.
+  - Any other object: exact equality match.
+- **filter**: Callable accepting one or two arguments (node, optional key/index) returning `True` to keep the node.
+
+Returns a new `AsdfSearchResult` with filtered nodes.
+
+#### replace(value)
+
+Replace all leaf nodes in the current search results with the specified `value`.
+
+- **value**: The new value to assign to matched nodes.
+
+#### schema_info(key="description", preserve_list=True, refresh_extension_manager=False)
+
+Retrieve nested schema information relative to the current search result node.
+
+- **key**: Schema key to look up (default `"description"`).
+- **preserve_list**: If `True`, lists are preserved; otherwise converted to dictionaries.
+- **refresh_extension_manager**: If `True`, refreshes the extension manager before lookup.
+
+Returns a nested dictionary of schema information.
+
+### Properties
+
+#### node
+
+Returns the single leaf node if exactly one result exists; otherwise raises an error or returns `None` if no results.
+
+#### path
+
+Returns the path (as a string) to the single leaf node if exactly one result exists; otherwise raises an error or returns `None`.
+
+#### nodes
+
+Returns a list of all leaf nodes matching the search criteria, in breadth-first order.
+
+#### paths
+
+Returns a list of paths (strings) to all leaf nodes matching the search criteria.
+
+### Indexing
+
+Supports indexing to access child nodes:
+
+```python
+result[key]
+```
+
+Returns a new `AsdfSearchResult` corresponding to the child node identified by `key`.
+
+Rendering and Representation
+----------------------------
+
+The `__repr__` method renders the search result tree as a formatted string, respecting the current formatting parameters (`max_rows`, `max_cols`, `show_values`) and applied filters. If no results are found, a faint italicized message "No results found." is displayed.
+
+Internal Utilities
+------------------
+
+- `_walk_tree_breadth_first(root_identifiers, root_node, callback)`: Walks the tree in breadth-first order, invoking `callback` on each node.
+- `_build_path(identifiers)`: Constructs a Python expression string representing the path to a node.
+- `_wrap_filter(filter)`: Ensures the filter callable accepts one or two arguments.
+
+Usage Summary
+-------------
+
+This module facilitates powerful and flexible querying of ASDF tree structures, allowing users to:
+
+- Search nodes by key, type, or value using exact matches or regular expressions.
+- Apply custom filter functions to refine results.
+- Access matched nodes and their paths.
+- Replace values in matched nodes.
+- Retrieve schema-related metadata for nodes.
+- Format and render search results with customizable display options.
+
+The `AsdfSearchResult` class encapsulates these capabilities, providing an intuitive interface for navigating and manipulating ASDF trees.

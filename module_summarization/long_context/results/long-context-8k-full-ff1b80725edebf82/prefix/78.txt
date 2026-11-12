@@ -1,0 +1,98 @@
+FileNode Module
+===============
+
+Overview
+--------
+
+The `FileNode` module provides a file-like interface for working with nodes inside PyTables database files. It allows users to create and manipulate file nodes that behave similarly to ordinary Python files, supporting binary I/O operations.
+
+This module is designed to work with PyTables `EArray` nodes that store data as arrays of bytes (`UInt8Atom`). It supports creating new file nodes, opening existing ones for read-only or read-write access, and performing standard file operations such as reading, writing, seeking, and truncating.
+
+Key Features
+------------
+
+- **File-like Interface:** Provides classes that implement Python's raw binary I/O interface (`io.RawIOBase`), enabling seamless integration with Python's file handling idioms.
+- **Read-Only and Read-Write Modes:** Supports opening nodes in read-only mode (`ROFileNode`) or read-write mode (`RAFileNode`), with write access limited to appending data.
+- **Binary I/O Support:** Currently, only binary input/output is supported.
+- **Compliance with Python I/O:** Since version 3.0, the module has been rewritten to fully comply with the interfaces defined in Python's `io` module.
+- **Attribute Management:** File nodes expose their attribute sets via the `attrs` property, allowing metadata to be stored alongside file data.
+
+Usage
+-----
+
+- **Creating a New File Node:** Use the `new_node()` function (not shown here) to create a new file node in a PyTables file. This node can then be accessed and manipulated using the `RAFileNode` class.
+- **Opening an Existing File Node:** Use the `open_node()` function (not shown here) to open an existing file node for reading or appending. The `ROFileNode` class provides a read-only interface, while `RAFileNode` allows read-write access.
+- **Reading and Writing:** File nodes support standard file operations such as `read()`, `write()`, `seek()`, `tell()`, `truncate()`, and `readline()`.
+- **Attributes:** Use the `attrs` property to access or add metadata attributes to the file node. Avoid using attribute names in all caps or starting with an underscore to prevent conflicts with internal attributes.
+
+Classes
+-------
+
+### RawPyTablesIO
+
+Base class implementing raw binary I/O on PyTables `EArray` nodes. It provides the core functionality for reading, writing, seeking, and truncating data within the node. It enforces checks on node type, mode compatibility, and file state.
+
+Key methods include:
+
+- `readinto(b)`: Reads bytes into a buffer.
+- `write(b)`: Writes bytes from a buffer, appending data.
+- `seek(pos, whence)`: Moves the file pointer.
+- `tell()`: Returns the current file pointer position.
+- `truncate(pos)`: Truncates the file node, only allowing growth.
+- `readline(limit)`: Reads a line terminated by `\n`.
+- `flush()`: Flushes buffers to the underlying PyTables file.
+
+### FileNodeMixin
+
+A mixin class providing access to the attribute set of the file node via the `attrs` property. It prevents wholesale replacement or deletion of the attribute set to maintain integrity.
+
+### ROFileNode
+
+A read-only file node class combining `FileNodeMixin` and `RawPyTablesIO`. It opens an existing PyTables node in read-only mode, allowing reading and seeking but no writing.
+
+- The underlying PyTables node is accessible via the `node` property.
+- Intended to be instantiated via the `open_node()` function in read-only mode.
+- Supports versions 1 and 2 of the node type, differing in the shape of the stored data.
+
+### RAFileNode
+
+A read-write file node class combining `FileNodeMixin` and `RawPyTablesIO`. It supports opening existing nodes or creating new ones with specified parameters such as location, name, title, filters, and expected size.
+
+- Allows reading and appending data.
+- The underlying PyTables node is accessible via the `node` property.
+- Intended to be instantiated via the `new_node()` or `open_node()` functions.
+- Supports versions 1 and 2 of the node type.
+- Enforces allowed keyword arguments during creation to prevent errors.
+
+Attributes
+----------
+
+- `NodeType` (`str`): The string `'file'`, used as the value for the `NODE_TYPE` system attribute in PyTables nodes.
+- `NodeTypeVersions` (`list`): Supported versions `[1, 2]` for the `NODE_TYPE_VERSION` system attribute.
+
+Version History
+---------------
+
+- **Version 3.0:**
+  - Complete rewrite to comply fully with Python's `io` module interfaces.
+  - Removed the `offset` attribute; use `seek()` and `tell()` methods instead.
+  - Removed the `line_separator` property; the only line separator used for binary I/O is `\n`.
+
+Notes
+-----
+
+- Only binary I/O is supported; text mode is not available.
+- Write access is limited to appending data; overwriting or deleting data is not supported.
+- The module relies on PyTables `EArray` nodes with `UInt8Atom` type for storage.
+- Users should avoid modifying the underlying PyTables node directly to prevent breaking the file node interface.
+
+See Also
+--------
+
+- PyTables documentation and user guide: :ref:`filenode_usersguide`
+- Python `io` module documentation for file interface standards.
+
+License
+-------
+
+This module is part of the PyTables package and is subject to its licensing terms.

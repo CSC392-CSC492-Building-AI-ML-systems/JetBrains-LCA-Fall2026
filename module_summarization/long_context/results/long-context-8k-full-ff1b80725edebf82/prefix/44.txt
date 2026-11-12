@@ -1,0 +1,139 @@
+Library Module Documentation
+============================
+
+This module provides implementations of various library providers that enable reading and listing library items from different storage backends. The supported providers include Azure Storage, ZooKeeper, and the local filesystem. Each provider implements the `LibraryProviderABC` interface and integrates with the application lifecycle and event system.
+
+AzureStorageLibraryProvider
+---------------------------
+
+`AzureStorageLibraryProvider` is a library provider that reads data from a Microsoft Azure Storage container.
+
+### Configuration
+
+The provider is configured using a URL with the following format:
+
+```
+azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER
+```
+
+If the container's Public Access Level is not set to "Public access", an Access Policy with "Read" and "List" permissions must be created. Additionally, a Shared Access Signature (SAS) query string must be appended to the URL, for example:
+
+```
+azure+https://ACCOUNT-NAME.blob.core.windows.net/BLOB-CONTAINER?sv=2020-10-02&si=XXXX&sr=c&sig=XXXXXXXXXXXXXX
+```
+
+### Features
+
+- Connects to Azure Blob Storage and lists blobs within the specified container.
+- Supports caching of blob contents locally to improve performance and reduce network usage.
+- Automatically manages cache directory based on configuration.
+- Provides asynchronous methods to list directory contents and read blob data.
+- Handles HTTP caching using ETag headers to avoid unnecessary downloads.
+
+ZooKeeperLibraryProvider
+------------------------
+
+`ZooKeeperLibraryProvider` is a library provider that reads data from a ZooKeeper ensemble.
+
+### Configuration Variants
+
+1. Fully configured from the `[zookeeper]` section in the configuration file:
+
+   ```ini
+   [zookeeper]
+   servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+   path=/library
+
+   [library]
+   providers:
+       zk://
+   ```
+
+2. Configured by `servers` from `[zookeeper]` section and path from URL:
+
+   ```ini
+   [zookeeper]
+   servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+   path=/else
+
+   [library]
+   providers:
+       zk:///library
+   ```
+
+3. Fully configured from URL:
+
+   ```ini
+   [library]
+   providers:
+       zk://zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181/library
+   ```
+
+4. Configured by `servers` from `[zookeeper]` section and joined path from `[zookeeper]` and URL:
+
+   ```ini
+   [zookeeper]
+   servers=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+   path=/else
+
+   [library]
+   providers:
+       zk://./library
+   ```
+
+If the `path` from the `[zookeeper]` section is missing, the application class name will be used as a default path (e.g., `/BSQueryApp/library`).
+
+### Features
+
+- Connects to ZooKeeper ensemble and reads nodes as library items.
+- Supports asynchronous listing and reading of nodes.
+- Watches for version changes and library updates using ZooKeeper watchers.
+- Supports subscription to paths to detect changes and publish library change events.
+- Handles connection state changes and manages readiness accordingly.
+
+FileSystemLibraryProvider
+-------------------------
+
+`FileSystemLibraryProvider` is a library provider that reads data from the local filesystem.
+
+### Features
+
+- Reads files and lists directories from a specified base path on the local filesystem.
+- Supports asynchronous interface for listing and reading files.
+- Uses inotify (if available) to subscribe to filesystem changes and publish library change events.
+- Recursively subscribes to directory changes to detect additions, deletions, and modifications.
+- Handles common filesystem errors gracefully, such as missing files or directories.
+- Automatically manages readiness state as the filesystem is considered always available.
+
+Common Concepts
+---------------
+
+### Library Items
+
+All providers return instances of `LibraryItem` representing files or directories in the library. Each item has:
+
+- `name`: The path or name of the item.
+- `type`: Either `"item"` for files or `"dir"` for directories.
+- `layer`: The library layer the item belongs to.
+- `providers`: List of providers that can serve the item.
+
+### Asynchronous API
+
+All providers implement asynchronous methods:
+
+- `list(path: str) -> list`: Lists items under the given directory path.
+- `read(path: str) -> typing.IO`: Reads the content of the item at the given path, returning a file-like object.
+
+### Subscription and Change Notifications
+
+Providers may support subscription to paths to detect changes and notify the application via published events (`Library.change!`). This allows dynamic updates and cache invalidation.
+
+Logging
+-------
+
+Each provider uses the standard Python `logging` module to log informational messages, warnings, and errors. The logger is named according to the module namespace.
+
+Summary
+-------
+
+This module enables flexible and extensible access to library data stored in various backends, abstracting the details of each storage system behind a common interface. It supports asynchronous operations, caching, change detection, and integration with application lifecycle events.

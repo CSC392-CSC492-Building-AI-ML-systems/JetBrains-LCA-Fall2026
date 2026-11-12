@@ -1,0 +1,151 @@
+A Quick Dive into Using the API
+===============================
+
+This tutorial provides a brief introduction to using the ftrack API through the `Session` class, which is the primary interface for interacting with an ftrack server.
+
+Creating a Session
+------------------
+
+To start working with the API, you first need to create a `Session` object. The session represents an isolated connection to an ftrack server.
+
+```python
+import ftrack_api
+
+session = ftrack_api.Session(
+    server_url='https://your.ftrack.server',
+    api_key='your_api_key',
+    api_user='your_username'
+)
+```
+
+If you do not provide the `server_url`, `api_key`, or `api_user` explicitly, the session will attempt to read these values from the environment variables:
+
+- `FTRACK_SERVER`
+- `FTRACK_API_KEY`
+- `FTRACK_API_USER`
+
+If `api_user` is not set, it will attempt to use the current system user.
+
+Session Parameters
+------------------
+
+- `auto_populate` (default `True`): When enabled, accessing entity attributes will automatically fetch missing data from the server.
+- `plugin_paths`: List of paths to search for plugins. Defaults to the environment variable `FTRACK_EVENT_PLUGIN_PATH`.
+- `cache`: A cache instance or callable to manage session caching.
+- `cache_key_maker`: Used to generate keys for cached objects.
+- `auto_connect_event_hub`: If `True`, the session will automatically connect to the event hub in a background thread.
+- `schema_cache_path`: Path to cache schema information for faster startup.
+- `plugin_arguments`: Optional dictionary of keyword arguments passed to plugins during discovery.
+
+Working with Entities
+---------------------
+
+Entities represent objects in the ftrack system such as tasks, projects, or assets.
+
+### Creating Entities
+
+You can create new entities using the `create` method:
+
+```python
+new_task = session.create('Task', data={
+    'name': 'My New Task',
+    'parent_id': 'some_parent_entity_id'
+})
+```
+
+The `create` method accepts:
+
+- `entity_type`: The type of entity to create (e.g., `'Task'`, `'Project'`).
+- `data`: Optional dictionary of initial attribute values.
+- `reconstructing`: Internal flag used when reconstructing existing entities.
+
+The created entity is automatically merged into the session cache.
+
+### Accessing Entities
+
+Entities can be queried and accessed through the session's query interface (not shown in this snippet but available in the API).
+
+Session Context Management
+--------------------------
+
+The `Session` class supports context management, allowing you to use it with Python's `with` statement to ensure proper cleanup:
+
+```python
+with ftrack_api.Session(...) as session:
+    # Use session here
+    pass
+# Session is automatically closed here
+```
+
+Closing and Resetting Sessions
+------------------------------
+
+- `close()`: Closes the session, clears caches, pending operations, and disconnects from the server and event hub.
+- `reset()`: Clears local state, pending operations, and cache without closing the session. Useful for resetting the session state during runtime.
+
+Temporary Contexts
+------------------
+
+You can temporarily change session behavior using context managers:
+
+- `auto_populating(auto_populate)`: Temporarily enable or disable automatic population of entity attributes.
+  
+  ```python
+  with session.auto_populating(False):
+      # auto_populate is disabled here
+      pass
+  # auto_populate restored to previous value
+  ```
+
+- `operation_recording(record_operations)`: Temporarily enable or disable recording of operations.
+
+  ```python
+  with session.operation_recording(False):
+      # Changes made here will not be recorded as operations
+      pass
+  ```
+
+Entity State Inspection
+-----------------------
+
+The session provides properties to inspect the state of entities in the local cache:
+
+- `created`: List of newly created entities.
+- `modified`: List of locally modified entities.
+- `deleted`: List of deleted entities.
+
+Event Hub
+---------
+
+The session includes an event hub accessible via the `event_hub` property. The event hub allows publishing and subscribing to events on the ftrack server.
+
+```python
+event_hub = session.event_hub
+```
+
+If `auto_connect_event_hub` is enabled, the event hub connects automatically in the background.
+
+Server Compatibility
+--------------------
+
+The session checks the compatibility of the connected server version and raises an error if the server version is too old.
+
+Example:
+
+```python
+session.check_server_compatibility()
+```
+
+Error Handling
+--------------
+
+- `ftrack_api.exception.ConnectionClosedError`: Raised if operations are attempted on a closed session.
+- `ftrack_api.exception.ServerCompatibilityError`: Raised if the server version is incompatible.
+- `ftrack_api.exception.UnrecognisedEntityTypeError`: Raised if an unknown entity type is requested.
+
+Summary
+-------
+
+The `Session` class is your main entry point to interact with the ftrack API. It manages authentication, caching, event handling, and entity lifecycle. By creating a session and using its methods, you can create, query, and manipulate entities on the ftrack server efficiently and safely.
+
+For more advanced usage, including querying entities, subscribing to events, and plugin development, refer to the full API documentation.

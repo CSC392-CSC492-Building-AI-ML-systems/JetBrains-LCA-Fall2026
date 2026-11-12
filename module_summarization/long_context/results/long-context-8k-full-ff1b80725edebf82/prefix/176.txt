@@ -1,0 +1,132 @@
+Probability Calibration
+=======================
+
+Overview
+--------
+
+Probability calibration refers to the process of adjusting the predicted probabilities of a classifier so that they better reflect the true likelihood of an event. Many classifiers produce scores or probabilities that are not well calibrated, meaning that the predicted probabilities do not correspond well to the actual frequencies of outcomes. Calibration methods aim to transform these outputs into well-calibrated probabilities.
+
+The `CalibratedClassifierCV` class in scikit-learn provides a way to calibrate the predicted probabilities of classifiers using cross-validation. It supports two main calibration methods:
+
+- **Sigmoid calibration (Platt scaling):** Fits a logistic regression model to the classifier scores.
+- **Isotonic regression:** A non-parametric calibration method that fits a piecewise constant non-decreasing function.
+
+Using these methods, `CalibratedClassifierCV` can improve the reliability of predicted probabilities, which is crucial for many applications such as risk assessment, decision making, and probabilistic modeling.
+
+Key Features
+------------
+
+- Supports calibration of any classifier that exposes either a `decision_function` or `predict_proba` method.
+- Uses cross-validation to avoid overfitting during calibration.
+- Can calibrate already fitted classifiers using the `cv="prefit"` option.
+- Supports parallel fitting of classifiers across cross-validation folds.
+- Provides an ensemble of calibrated classifiers when using cross-validation with `ensemble=True`.
+- Offers flexibility in choosing the calibration method (`sigmoid` or `isotonic`).
+- Handles multi-class classification problems.
+
+Parameters
+-----------
+
+- **estimator** : estimator instance, default=None  
+  The base classifier whose predicted probabilities need calibration. If `None`, a default `LinearSVC` is used.
+
+- **method** : {'sigmoid', 'isotonic'}, default='sigmoid'  
+  The calibration method to use.  
+  - `'sigmoid'`: Platt's method, fits a logistic regression model.  
+  - `'isotonic'`: Non-parametric isotonic regression. Use with caution on small calibration sets (less than 1000 samples) as it may overfit.
+
+- **cv** : int, cross-validation generator, iterable or "prefit", default=None  
+  Determines the cross-validation splitting strategy.  
+  - `None` or integer: number of folds for cross-validation (default is 5-fold).  
+  - CV splitter or iterable: custom cross-validation strategy.  
+  - `"prefit"`: assumes the estimator is already fitted; calibration is done on provided data without cross-validation.
+
+- **n_jobs** : int, default=None  
+  Number of jobs to run in parallel during fitting. `None` means 1, `-1` means using all processors.
+
+- **ensemble** : bool, default=True  
+  Controls how the calibrator is fitted when `cv` is not `"prefit"`.  
+  - `True`: Fits a calibrated classifier for each fold and averages their predicted probabilities.  
+  - `False`: Uses cross-validation to obtain unbiased predictions for calibration, then fits the estimator on all data for prediction.
+
+Attributes
+-----------
+
+- **classes_** : ndarray of shape (n_classes,)  
+  The class labels.
+
+- **n_features_in_** : int  
+  Number of features seen during fit (if the underlying estimator exposes this attribute).
+
+- **feature_names_in_** : ndarray of shape (n_features_in_,)  
+  Names of features seen during fit (if the underlying estimator exposes this attribute).
+
+- **calibrated_classifiers_** : list  
+  List of calibrated classifier and calibrator pairs.  
+  - When `cv="prefit"`, contains one pair: the fitted estimator and calibrator.  
+  - When `ensemble=True`, contains one pair per cross-validation fold.  
+  - When `ensemble=False`, contains a single pair with the estimator fitted on all data and the calibrator.
+
+Usage Examples
+---------------
+
+Calibrating a classifier with cross-validation:
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.naive_bayes import GaussianNB
+from sklearn.calibration import CalibratedClassifierCV
+
+X, y = make_classification(n_samples=100, n_features=2, n_redundant=0, random_state=42)
+base_clf = GaussianNB()
+calibrated_clf = CalibratedClassifierCV(base_clf, cv=3)
+calibrated_clf.fit(X, y)
+
+print(len(calibrated_clf.calibrated_classifiers_))  # Output: 3
+print(calibrated_clf.predict_proba(X)[:5, :])
+```
+
+Calibrating an already fitted classifier:
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.calibration import CalibratedClassifierCV
+
+X, y = make_classification(n_samples=100, n_features=2, n_redundant=0, random_state=42)
+X_train, X_calib, y_train, y_calib = train_test_split(X, y, random_state=42)
+
+base_clf = GaussianNB()
+base_clf.fit(X_train, y_train)
+
+calibrated_clf = CalibratedClassifierCV(base_clf, cv="prefit")
+calibrated_clf.fit(X_calib, y_calib)
+
+print(len(calibrated_clf.calibrated_classifiers_))  # Output: 1
+print(calibrated_clf.predict_proba([[-0.5, 0.5]]))
+```
+
+References
+-----------
+
+- Zadrozny, B., & Elkan, C. (2001). Obtaining calibrated probability estimates from decision trees and naive Bayesian classifiers. *ICML 2001*.
+- Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate multiclass probability estimates. *KDD 2002*.
+- Platt, J. (1999). Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods.
+- Niculescu-Mizil, A., & Caruana, R. (2005). Predicting good probabilities with supervised learning. *ICML 2005*.
+
+See Also
+---------
+
+- `calibration_curve` : Compute true and predicted probabilities for a calibration curve.
+
+Additional Notes
+-----------------
+
+- Isotonic regression calibration requires a sufficiently large calibration set to avoid overfitting.
+- When using `cv="prefit"`, the user must ensure that the data used for calibration is disjoint from the data used to fit the base estimator.
+- The calibration is based on the `decision_function` method of the estimator if available; otherwise, it uses `predict_proba`.
+- Parallel fitting is supported to speed up calibration when using cross-validation.
+- The `ensemble` parameter controls whether to average predictions from multiple calibrated classifiers or to calibrate a single classifier trained on all data.
+
+This calibration approach improves the reliability of predicted probabilities, which is essential for downstream tasks that depend on accurate probability estimates.

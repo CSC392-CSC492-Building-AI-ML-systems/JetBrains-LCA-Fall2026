@@ -1,0 +1,105 @@
+Transforms Module
+=================
+
+This module provides a collection of functions and classes for image transformations, including resizing, padding, normalization, and conversions between different image formats such as PIL Images, NumPy arrays, and PyTorch tensors. It supports various interpolation modes and handles images with different numbers of channels and data types.
+
+InterpolationMode Enum
+---------------------
+
+The `InterpolationMode` enum defines the available interpolation methods for resizing images:
+
+- `NEAREST`: Nearest neighbor interpolation.
+- `NEAREST_EXACT`: Exact nearest neighbor interpolation.
+- `BILINEAR`: Bilinear interpolation.
+- `BICUBIC`: Bicubic interpolation.
+- `BOX`: Box interpolation (for PIL compatibility).
+- `HAMMING`: Hamming interpolation.
+- `LANCZOS`: Lanczos interpolation.
+
+Image Dimension and Channel Utilities
+-------------------------------------
+
+- `get_dimensions(img: Tensor) -> List[int]`  
+  Returns the dimensions of an image as `[channels, height, width]`. Supports both PIL Images and tensors.
+
+- `get_image_size(img: Tensor) -> List[int]`  
+  Returns the size of an image as `[width, height]`. Supports both PIL Images and tensors.
+
+- `get_image_num_channels(img: Tensor) -> int`  
+  Returns the number of channels in the image. Supports both PIL Images and tensors.
+
+Image Conversion Functions
+--------------------------
+
+- `to_tensor(pic) -> Tensor`  
+  Converts a PIL Image or NumPy ndarray to a PyTorch tensor. The output tensor is normalized to the range [0, 1] if the input is a byte tensor. This function does not support torchscript.
+
+- `pil_to_tensor(pic: Any) -> Tensor`  
+  Converts a PIL Image to a tensor of the same type without normalization. A deep copy of the underlying array is performed. This function does not support torchscript.
+
+- `to_pil_image(pic, mode=None)`  
+  Converts a tensor or a NumPy ndarray to a PIL Image. Supports specifying the color mode. Raises errors if the input dimensions or modes are incompatible.
+
+- `convert_image_dtype(image: torch.Tensor, dtype: torch.dtype = torch.float) -> torch.Tensor`  
+  Converts a tensor image to the given dtype and scales the values accordingly. Does not support PIL Images. Raises errors for unsafe conversions between floating point and integer types.
+
+Normalization
+-------------
+
+- `normalize(tensor: Tensor, mean: List[float], std: List[float], inplace: bool = False) -> Tensor`  
+  Normalizes a float tensor image with the specified mean and standard deviation per channel. Supports tensors of shape `(C, H, W)` or `(B, C, H, W)`. By default, the operation is out-of-place unless `inplace=True`.
+
+Resizing
+--------
+
+- `resize(img: Tensor, size: List[int], interpolation: InterpolationMode = InterpolationMode.BILINEAR, max_size: Optional[int] = None, antialias: Optional[Union[str, bool]] = "warn") -> Tensor`  
+  Resizes the input image to the given size. Supports both PIL Images and tensors. The `size` argument can be an int or a sequence specifying the desired output size. The aspect ratio is preserved when `size` is an int.  
+  The `interpolation` argument specifies the interpolation mode.  
+  The `max_size` argument limits the maximum size of the longer edge after resizing.  
+  The `antialias` argument controls whether antialiasing is applied (only affects tensors with bilinear or bicubic interpolation).  
+  Note that resizing results may differ between PIL Images and tensors due to differences in antialiasing.
+
+Padding
+-------
+
+- `pad(img: Tensor, padding: List[int], fill: Union[int, float] = 0, padding_mode: str = "constant") -> Tensor`  
+  Pads the given image on all sides with the specified padding value. Supports both PIL Images and tensors. The `padding` argument can be an int or a sequence specifying padding for each border. The `fill` argument specifies the padding value. The `padding_mode` controls the padding behavior (e.g., constant, reflect, symmetric).
+
+Examples
+--------
+
+Converting a PIL Image to a tensor and normalizing:
+
+```python
+from torchvision.transforms import to_tensor, normalize
+
+pil_image = Image.open("image.jpg")
+tensor_image = to_tensor(pil_image)
+normalized_image = normalize(tensor_image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+```
+
+Resizing a tensor image with bilinear interpolation and antialiasing:
+
+```python
+from torchvision.transforms import resize, InterpolationMode
+
+resized_image = resize(tensor_image, size=256, interpolation=InterpolationMode.BILINEAR, antialias=True)
+```
+
+Converting a tensor back to a PIL Image:
+
+```python
+from torchvision.transforms import to_pil_image
+
+pil_image_restored = to_pil_image(resized_image)
+```
+
+Notes
+-----
+
+- Many functions do not support torchscript and will raise errors if used in scripting or tracing modes.
+- The module handles images with different numbers of channels (grayscale, RGB, RGBA, etc.) and data types.
+- When converting between types, care is taken to preserve the image data correctly, including scaling and channel ordering.
+- The `InterpolationMode` enum provides a unified interface for specifying interpolation methods across different functions.
+
+This module is essential for preprocessing and augmenting images in computer vision pipelines using PyTorch and torchvision.

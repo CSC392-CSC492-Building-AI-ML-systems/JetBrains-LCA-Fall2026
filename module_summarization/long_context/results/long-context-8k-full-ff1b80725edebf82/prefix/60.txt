@@ -1,0 +1,104 @@
+collection_api module
+=====================
+
+Support for collections of mapped entities
+-------------------------------------------
+
+The `collection_api` module provides the machinery used by SQLAlchemy's ORM to track and manage changes in collections of mapped entities. It enables arbitrary collection types, including built-in types like lists, sets, and dictionaries, to be used as entity collections without requiring inheritance from a specific base class.
+
+Instrumentation and Decoration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instrumentation is achieved through method decoration, which relays membership change events to the ORM's internal collection management system (`CollectionAttributeImpl`). Two main approaches to instrumentation are provided:
+
+1. **Generic Decorators**: These decorators map function arguments and return values to collection events such as additions and removals.
+
+   Example usage:
+
+   ```python
+   from sqlalchemy.orm.collections import collection
+
+   class MyClass:
+       @collection.adds(1)
+       def store(self, item):
+           self.data.append(item)
+
+       @collection.removes_return()
+       def pop(self):
+           return self.data.pop()
+   ```
+
+2. **Targeted Decorators**: These are specialized decorators tailored for standard Python collection interfaces (`list`, `set`, `dict`). They wrap mutation methods with event notifications and may adapt bulk operations into atomic events.
+
+Collection Instrumentation Process
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a collection class is specified in a relationship (via `collection_class=`), it undergoes a runtime transformation process:
+
+1. If the class is a built-in type, it is substituted with a trivial subclass to allow decoration.
+2. The class is checked for existing instrumentation.
+3. Generic decorators are added.
+4. The collection interface is detected via duck-typing.
+5. Targeted decorators are applied to undecorated interface methods.
+
+This process ensures that collection mutation events are properly emitted without requiring users to manually instrument their collection classes.
+
+Key Concepts and Components
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Decorators (`collection` class)**: A set of decorators to mark methods as appenders, removers, iterators, converters, or to specify how methods add or remove entities from collections.
+
+  - `@collection.appender`: Marks a method as the collection appender.
+  - `@collection.remover`: Marks a method as the collection remover.
+  - `@collection.iterator`: Marks a method as the collection iterator.
+  - `@collection.internally_instrumented`: Marks a method as already instrumented to prevent further decoration.
+  - `@collection.converter`: (Deprecated) Marks a method as a converter for bulk replacement.
+  - `@collection.adds(arg)`: Decorates a method to indicate it adds an entity to the collection.
+  - `@collection.replaces(arg)`: Decorates a method to indicate it replaces an entity in the collection.
+  - `@collection.removes(arg)`: Decorates a method to indicate it removes an entity from the collection.
+  - `@collection.removes_return()`: Decorates a method to indicate it removes an entity based on the return value.
+
+- **CollectionAdapter**: A bridge between the ORM and arbitrary Python collections. It proxies collection operations (append, remove, iterate) to the underlying collection and emits events when entities enter or leave the collection.
+
+  - Manages event firing for append and remove operations.
+  - Supports operations with or without firing events.
+  - Handles special states such as "empty" collections.
+  - Provides iteration and length counting over the adapted collection.
+
+- **collection_adapter(collection)**: A utility function to retrieve the `CollectionAdapter` associated with a given collection instance.
+
+Usage Notes
+~~~~~~~~~~~
+
+- When extending built-in collection types, additional decoration is usually unnecessary if the extension methods delegate to already instrumented methods.
+- Bulk operations like `extend` or `update` may be reimplemented internally to emit atomic append and remove events.
+- For advanced control over event firing and exception management, internal instrumentation using `collection_adapter(self)` is recommended.
+- The owning object and the `CollectionAttributeImpl` managing the collection are accessible through the adapter for sophisticated behaviors.
+
+Example: Custom Collection Instrumentation
+
+```python
+from sqlalchemy.orm.collections import collection
+
+class MyCollection:
+    @collection.appender
+    @collection.adds(1)
+    def add(self, item):
+        # custom add logic
+        self.data.append(item)
+
+    @collection.remover
+    @collection.removes(1)
+    def remove(self, item):
+        # custom remove logic
+        self.data.remove(item)
+```
+
+License
+-------
+
+This module is part of SQLAlchemy and is released under the MIT License.
+
+---
+
+This documentation summarizes the `collection_api` module's role in enabling flexible, event-driven management of ORM entity collections, supporting both built-in and user-defined collection types through a robust instrumentation system.

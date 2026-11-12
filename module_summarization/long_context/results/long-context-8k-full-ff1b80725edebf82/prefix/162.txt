@@ -1,0 +1,62 @@
+Parallel Random Number Generation
+=================================
+
+Overview
+--------
+
+The `numpy.random` module provides a comprehensive framework for parallel random number generation through multiple bit generators and distributions implemented in C and Cython for performance and thread safety. This design enables efficient and reproducible generation of random numbers in parallel computing environments.
+
+Core Components
+---------------
+
+### Bit Generators
+
+Bit generators are the fundamental building blocks of random number generation. They produce raw random bits that are then transformed into random variates from various distributions.
+
+- **SFC64**: An implementation of Chris Doty-Humphrey's Small Fast Chaotic (SFC) 64-bit PRNG. It features a 256-bit internal state and a 64-bit counter to ensure long periods and minimal cycle overlap between distinct seeds. The expected period is approximately 2^255, with a guaranteed minimum cycle length of 2^64.
+
+  Key features of `SFC64` include:
+
+  - Seed initialization via `SeedSequence` for reproducibility.
+  - State management allowing saving and restoring the generator state.
+  - Efficient generation of 32-bit and 64-bit unsigned integers and floating-point numbers.
+  - Compatibility guarantees ensuring consistent output for fixed seeds.
+
+### Distributions
+
+A wide range of probability distributions are implemented in C for speed and parallel safety. These include standard distributions such as uniform, normal, exponential, gamma, beta, and more specialized distributions like binomial, negative binomial, geometric, hypergeometric, and Poisson.
+
+The distributions are designed to work with the bit generators in a thread-safe manner, allowing parallel generation of random variates without interference.
+
+### Parallelism and Thread Safety
+
+- The underlying C implementations use `nogil` functions to release the Python Global Interpreter Lock (GIL), enabling true parallel execution in multi-threaded contexts.
+- Each bit generator maintains its own independent state, allowing multiple generators to operate concurrently without state collisions.
+- The use of `SeedSequence` ensures that seeds can be spawned and managed hierarchically, facilitating reproducible parallel random number streams.
+
+Usage and Integration
+---------------------
+
+- Bit generators such as `SFC64` are exposed as Python classes inheriting from `BitGenerator`.
+- These classes provide methods to generate random integers and floating-point numbers, as well as to retrieve and set the internal state.
+- The random number generation pipeline typically involves creating a `Generator` object that wraps a bit generator, providing a high-level interface for sampling from distributions.
+- The module includes extensive tests and examples demonstrating usage patterns, including parallel and distributed random number generation.
+
+Licensing and Contributions
+---------------------------
+
+This software is dual-licensed under the University of Illinois/NCSA Open Source License and the 3-Clause BSD License, allowing broad use and modification under permissive terms.
+
+Many components are derived from original algorithm sources, with licenses included alongside the component code to ensure proper attribution.
+
+References
+----------
+
+- Chris Doty-Humphrey, "Small Fast Chaotic PRNG" — a high-quality, fast pseudorandom number generator.
+- PractRand Test Suite: <http://pracrand.sourceforge.net/RNG_engines.txt>
+- PCG Random Blog: "Random Invertible Mapping Statistics" <http://www.pcg-random.org/posts/random-invertible-mapping-statistics.html>
+
+Summary
+-------
+
+The `numpy.random` module's parallel random number generation infrastructure combines efficient C implementations, flexible Python interfaces, and robust seeding mechanisms to support high-performance, reproducible, and thread-safe random number generation suitable for parallel and distributed computing applications.

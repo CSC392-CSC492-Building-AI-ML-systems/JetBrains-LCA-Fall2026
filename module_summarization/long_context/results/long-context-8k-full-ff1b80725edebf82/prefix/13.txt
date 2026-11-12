@@ -1,0 +1,126 @@
+Understanding Sessions
+======================
+
+Introduction
+------------
+
+A **Session** represents an isolated context for interacting with an ftrack server. It manages the connection, authentication, caching, event handling, and entity lifecycle within the scope of a single user session. Sessions provide a convenient and consistent way to perform operations against the ftrack API, including querying, creating, modifying, and deleting entities.
+
+Creating a Session
+------------------
+
+To create a session, you need to specify the server URL, API key, and API user credentials. These can be provided explicitly or through environment variables:
+
+- `server_url`: The URL of the ftrack server, including any port number. If not specified, the environment variable `FTRACK_SERVER` is used.
+- `api_key`: The API key for authentication. If not specified, the environment variable `FTRACK_API_KEY` (or the legacy `FTRACK_APIKEY`) is used.
+- `api_user`: The username of the ftrack user. If not specified, the environment variable `FTRACK_API_USER` is used, or the system username is attempted.
+
+Example:
+
+```python
+session = ftrack_api.Session(
+    server_url='https://your.ftrack.server',
+    api_key='your_api_key',
+    api_user='your_username'
+)
+```
+
+Session Features
+----------------
+
+### Auto Populate
+
+By default, the session automatically fetches entity attributes from the server when they are accessed but not yet loaded. This behavior can be controlled via the `auto_populate` flag.
+
+### Caching
+
+Sessions use a layered caching system to improve performance and reduce redundant server requests. The top-level cache is always an in-memory cache. Additional caches can be provided or configured during session creation.
+
+### Event Hub
+
+Sessions include an embedded event hub that allows publishing and subscribing to events. The event hub can be automatically connected to the event server in a background thread, enabling asynchronous event handling.
+
+### Plugin Support
+
+Sessions support plugin discovery and registration. Plugins can extend session functionality, respond to events, or modify behavior.
+
+Session Lifecycle
+-----------------
+
+### Context Manager Support
+
+Sessions can be used as context managers to ensure proper cleanup:
+
+```python
+with ftrack_api.Session(...) as session:
+    # Use session here
+    pass
+# Session is automatically closed here
+```
+
+### Closing a Session
+
+Calling `session.close()` will:
+
+- Close connections to the server.
+- Clear any pending operations.
+- Clear the local cache.
+- Disconnect the event hub.
+
+It is important to close sessions when they are no longer needed to free resources.
+
+### Resetting a Session
+
+The `session.reset()` method clears all pending operations, expunges entities from the session, clears the cache, and reconfigures session aspects dependent on the cache. This is useful to clear local state without closing the session.
+
+Entity Management
+-----------------
+
+### Creating Entities
+
+Entities can be created using the `session.create(entity_type, data=None)` method, where `entity_type` is the type of entity to create (e.g., 'Task', 'Asset'), and `data` is an optional dictionary of initial attribute values.
+
+Created entities are automatically merged into the session cache.
+
+### Tracking Entity States
+
+The session provides properties to inspect the state of entities in the local cache:
+
+- `session.created`: List of newly created entities.
+- `session.modified`: List of locally modified entities.
+- `session.deleted`: List of deleted entities.
+
+These lists help manage changes before committing them to the server.
+
+Operation Recording
+-------------------
+
+Sessions record operations performed on entities, which can be controlled via:
+
+- `session.record_operations`: A boolean flag to enable or disable recording.
+- Context managers `session.operation_recording(True/False)` to temporarily change recording behavior.
+
+Auto Populating Context
+-----------------------
+
+The session provides a context manager `session.auto_populating(True/False)` to temporarily enable or disable automatic population of entity attributes.
+
+Server Compatibility
+--------------------
+
+Upon initialization, the session fetches server information and checks compatibility. It requires a minimum server version (e.g., 3.3.11) to ensure API compatibility.
+
+Event Hub
+---------
+
+The embedded event hub allows subscribing and publishing to events related to the session and server. It supports both local and remote event communication.
+
+Schema Caching
+--------------
+
+Sessions support caching of schema information to improve performance. Schema cache paths can be configured or disabled.
+
+Summary
+-------
+
+The `Session` class is the central component for interacting with the ftrack API. It manages authentication, caching, event handling, and entity lifecycle, providing a robust and flexible interface for client applications. Proper use of sessions ensures efficient and consistent communication with the ftrack server.

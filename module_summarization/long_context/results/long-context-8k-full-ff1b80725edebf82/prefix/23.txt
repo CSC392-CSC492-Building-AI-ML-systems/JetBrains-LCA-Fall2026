@@ -1,0 +1,87 @@
+w_fork Command
+==============
+
+Overview
+--------
+The `w_fork` command prepares a new weighted ensemble simulation from an existing one at a specified iteration. It generates a new HDF5 file representing the forked simulation. This is useful for branching off a new simulation starting from a particular point in a previous simulation.
+
+In the case of executable propagation, users are responsible for preparing the new simulation directory appropriately. This includes making the old simulation's restart data from the specified iteration available as the new simulation's initial state data. The command creates a mapping of old simulation segments to new simulation initial states, which is saved both in the new HDF5 file and as a flat text file to assist in this process.
+
+Target states and basis states for the new simulation are copied from those in the original simulation.
+
+Usage
+-----
+```
+w_fork [OPTIONS]
+```
+
+Options
+-------
+- `-i, --input INPUT_H5FILE`  
+  Specify the input HDF5 file from which to create the new simulation. If not provided, the input file is read from the configuration file.
+
+- `-I, --iteration N_ITER`  
+  Specify the iteration number from which to take the initial distribution for the new simulation. Defaults to the last complete iteration of the input simulation.
+
+- `-o, --output OUTPUT_H5FILE`  
+  Specify the filename for the new simulation HDF5 file. Defaults to `forked.h5`.
+
+- `--istate-map ISTATE_MAP`  
+  Specify the filename for the text file describing the mapping of existing segments to new initial states. Defaults to `istate_map.txt`.
+
+- `--no-headers`  
+  Do not write header lines to the initial state mapping text file.
+
+Description
+-----------
+The `w_fork` command performs the following steps:
+
+1. Opens the existing simulation HDF5 file in read mode.
+
+2. Determines the iteration from which to fork the simulation. If not specified, it uses the last complete iteration.
+
+3. Creates and opens a new HDF5 file for the forked simulation.
+
+4. Copies the target states and basis states from the specified iteration of the original simulation to the new simulation.
+
+5. Transforms each segment from the old simulation at the specified iteration into an initial state and a corresponding new segment in the forked simulation. Each old segment produces one initial state and one new segment.
+
+6. Writes a mapping file that relates old simulation segments to new initial states, aiding in the preparation of restart data for the new simulation.
+
+7. Sets the current iteration of the new simulation to 1 and closes both the old and new HDF5 files.
+
+Initial State and Segment Details
+---------------------------------
+- Each initial state created corresponds to a segment from the old simulation at the fork iteration.
+- Initial states are marked as restart states with status "prepared".
+- New segments are created with iteration number 1, weight copied from the old segment, and parent IDs set to negative values of the corresponding initial state IDs.
+- The progress coordinates of the new segments are initialized with the final progress coordinate of the corresponding old segment.
+
+Output
+------
+- A new HDF5 file containing the forked simulation data.
+- A text file mapping old simulation segments to new initial states, facilitating the setup of restart data for the new simulation.
+
+Example
+-------
+To fork a simulation from iteration 10 of `old_sim.h5` and save the new simulation as `new_sim.h5` with a custom mapping file:
+
+```
+w_fork -i old_sim.h5 -I 10 -o new_sim.h5 --istate-map my_istate_map.txt
+```
+
+If no iteration is specified, the command uses the last complete iteration of the input simulation by default.
+
+Notes
+-----
+- The user must ensure that the restart data from the old simulation at the fork iteration is available and correctly linked to the new simulation initial states.
+- Further adjustments to the new simulation, such as binning, can be performed using other WESTPA tools like `w_binning`.
+
+Logging
+-------
+The command logs its progress and any issues under the logger named `w_fork`.
+
+See Also
+--------
+- `w_binning` — for adjusting binning in the new simulation.
+- WESTPA documentation for managing weighted ensemble simulations.

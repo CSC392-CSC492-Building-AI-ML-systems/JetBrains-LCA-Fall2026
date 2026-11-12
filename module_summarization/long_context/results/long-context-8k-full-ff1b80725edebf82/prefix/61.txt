@@ -1,0 +1,70 @@
+SQLAlchemy ORM Instrumentation Events
+=====================================
+
+The `sqlalchemy.orm.instrumentation` module defines the core system of class instrumentation used by SQLAlchemy's Object Relational Mapper (ORM) to track and manage state on mapped classes and their instances. While this module is typically not accessed directly by user applications, it plays a critical role in enabling the ORM's interactivity and extensibility.
+
+Overview
+--------
+
+Instrumentation in SQLAlchemy refers to the process of wrapping user-defined classes and their attributes with special behavior that allows the ORM to track changes, manage state, and coordinate persistence operations. The `instrumentation` module handles the registration of user classes for state tracking and works closely with related modules such as `state` (which manages per-instance state) and `attributes` (which manages per-class attribute instrumentation).
+
+Key Concepts and Components
+---------------------------
+
+- **ClassManager**  
+  The central class in this module, `ClassManager`, is responsible for managing instrumentation at the class level. It tracks instrumented attributes, manages event dispatching, and coordinates the lifecycle of instances of the class it manages. Each mapped class has an associated `ClassManager` instance accessible via a special attribute on the class.
+
+- **InstanceState**  
+  Although defined in the `state` module, `InstanceState` objects are closely tied to instrumentation. They represent the state of individual instances of instrumented classes and are created and managed by the `ClassManager`.
+
+- **Attribute Instrumentation**  
+  Attributes on mapped classes are wrapped as `QueryableAttribute` objects or other instrumentation-aware descriptors. The `ClassManager` installs and manages these descriptors, enabling change tracking and lazy loading.
+
+- **Event Dispatching**  
+  The `ClassManager` inherits from `EventTarget` and provides an event dispatch system that allows instrumentation events to be intercepted and extended. Events include class instrumentation, attribute instrumentation, and instance lifecycle events.
+
+- **Collection Instrumentation**  
+  Special support is provided for collection attributes (e.g., lists, sets) to enable tracking of changes to collections associated with ORM-mapped objects.
+
+Events Provided
+---------------
+
+The instrumentation system emits several key events that can be listened to or extended by SQLAlchemy extensions or user code:
+
+- **class_instrument(class_)**  
+  Fired when a class is instrumented by the ORM. This event allows extensions to customize or augment the instrumentation process.
+
+- **attribute_instrument(class_, key, attribute)**  
+  Fired when an individual attribute on a class is instrumented. Listeners can use this event to modify attribute behavior or register additional hooks.
+
+- **pickle(state, state_dict)**  
+  Emitted during serialization of an instance's state, allowing customization of how instance state is pickled and restored.
+
+Customization and Extension
+---------------------------
+
+The instrumentation system is designed to be extensible. The `sqlalchemy.ext.instrumentation` module provides mechanisms to customize instrumentation on a per-class or global basis, including the ability to define alternate instrumentation strategies.
+
+Users can also interact with the `ClassManager` API to:
+
+- Instrument or uninstrument attributes dynamically.
+- Manage instance state creation and teardown.
+- Customize collection handling.
+- Hook into lifecycle events via the event dispatch system.
+
+Usage Notes
+-----------
+
+- The instrumentation system installs special attributes on user classes (by default `_sa_instance_state` and `_sa_class_manager`) to manage state and instrumentation metadata.
+- Care should be taken when defining special methods such as `__del__` on instrumented classes, as this can interfere with SQLAlchemy's reference cycle management and lead to memory leaks.
+- The `ClassManager` supports subclass propagation, automatically managing instrumentation for subclasses of instrumented classes.
+
+Version History
+---------------
+
+- **Since version 0.8**: The instrumentation extension system was moved out of the core ORM into the external `sqlalchemy.ext.instrumentation` package. When imported, this package installs itself within `sqlalchemy.orm` to provide enhanced instrumentation resolution mechanics.
+
+Summary
+-------
+
+The `sqlalchemy.orm.instrumentation` module is a foundational component of SQLAlchemy's ORM, enabling the tracking and management of object state and attribute behavior. Through the `ClassManager` and its event system, it provides a flexible and extensible framework that supports the rich feature set of the ORM, including change tracking, lazy loading, and collection management. Understanding this module is essential for advanced customization and extension of SQLAlchemy's ORM behavior.

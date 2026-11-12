@@ -1,0 +1,20 @@
+{
+  "original_id": 114,
+  "repo": "bluesky__bluesky",
+  "docfile_name": "simulation.rst",
+  "source_sha256": "9f3a0736b8fcecaac715924c41b3df3c158dcd314a288064e6fa7cbd3bcc3be9",
+  "context": "from warnings import warn\nfrom bluesky.preprocessors import print_summary_wrapper\n\n\ndef plot_raster_path(plan, x_motor, y_motor, ax=None, probe_size=None, lw=2):\n    \"\"\"Plot the raster path for this plan\n\n    Parameters\n    ----------\n    plan : iterable\n       Must yield `Msg` objects and not be a co-routine\n\n    x_motor, y_motor : str\n       Names of the x and y motors\n\n    ax : matplotlib.axes.Axes\n       The axes to plot to, if none, make new figure + axes\n\n    probe_size : float, optional\n       If not None, use as radius of probe (in same units as motor positions)\n\n    lw : float, optional\n        Width of lines drawn between points\n    \"\"\"\n    import matplotlib.pyplot as plt\n    from matplotlib import collections as mcollections\n    from matplotlib import patches as mpatches\n    if ax is None:\n        ax = plt.subplots()[1]\n    ax.set_aspect('equal')\n\n    cur_x = cur_y = None\n    traj = []\n    for msg in plan:\n        cmd = msg.command\n        if cmd =='set':\n            if msg.obj.name == x_motor:\n                cur_x = msg.args[0]\n            if msg.obj.name == y_motor:\n                cur_y = msg.args[0]\n        elif cmd =='save':\n            traj.append((cur_x, cur_y))\n\n    x, y = zip(*traj)\n    path, = ax.plot(x, y, marker='', linestyle='-', lw=lw)\n    ax.set_xlabel(x_motor)\n    ax.set_ylabel(y_motor)\n    if probe_size is None:\n        read_points = ax.scatter(x, y, marker='o', lw=lw)\n    else:\n        circles = [mpatches.Circle((_x, _y), probe_size,\n                                   facecolor='black', alpha=0.5)\n                   for _x, _y in traj]\n\n        read_points = mcollections.PatchCollection(circles,\n                                                   match_original=True)\n        ax.add_collection(read_points)\n    return {'path': path, 'events': read_points}\n\n\ndef summarize_plan(plan):\n    \"\"\"Print summary of plan\n\n    Prints a minimal version of the plan, showing only moves and\n    where events are created.\n\n    Parameters\n    ----------\n    plan : iterable\n        Must yield `Msg` objects\n    \"\"\"\n    for msg in print_summary_wrapper(plan):\n       ...\n\n\nprint_summary = summarize_plan  # back-compat\n\n\ndef check_limits(plan):\n    \"\"\"\n    Check that a plan will not move devices outside of their limits.\n\n    Parameters\n    ----------\n    plan : iterable\n        Must yield `Msg` objects\n    \"\"\"\n    ignore = []\n    for msg in plan:\n        if msg.command =='set' and msg.obj not in ignore:\n            if hasattr(msg.obj, \"check_value\"):\n                msg.obj.check_value(msg.args[0])\n            else:\n                warn(f\"{msg.obj.name} has no check_value() method\"\n                     f\" to check if {msg.args[0]} is within its limits.\")\n                ignore.append(msg.obj)",
+  "trace": {
+    "selected": [
+      {
+        "start_char": 0,
+        "end_char": 2745,
+        "score": null
+      }
+    ],
+    "fallback": null,
+    "context_tokens": 1254,
+    "context_sha256": "9f3a0736b8fcecaac715924c41b3df3c158dcd314a288064e6fa7cbd3bcc3be9"
+  },
+  "preparation_seconds": 0.0065742500009946525
+}

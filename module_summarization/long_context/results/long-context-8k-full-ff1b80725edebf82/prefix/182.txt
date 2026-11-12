@@ -1,0 +1,100 @@
+Developing scikit-learn Estimators
+==================================
+
+This document provides guidance and an overview of developing estimators in scikit-learn, focusing on multi-output estimators as an example of extending base estimators to support multiple targets.
+
+Overview
+--------
+
+scikit-learn estimators follow a consistent interface and design pattern that enables interoperability and ease of use. Estimators implement at least the following methods:
+
+- `fit(X, y)`: Fit the model to data.
+- `predict(X)`: Predict using the fitted model.
+- Optionally, `partial_fit(X, y)`: Incrementally fit the model to data.
+
+Multi-output Estimators
+-----------------------
+
+Multi-output estimators extend single-output estimators to handle multiple target variables simultaneously. They are meta-estimators that require a base estimator to be provided during construction. The multi-output estimator fits one model per target variable independently.
+
+Two primary multi-output meta-estimators are provided:
+
+- `MultiOutputRegressor`: Extends regressors to multi-target regression by fitting one regressor per target.
+- `MultiOutputClassifier`: Extends classifiers to multi-target classification by fitting one classifier per target.
+
+These meta-estimators parallelize fitting and prediction across targets, optionally using multiple jobs (`n_jobs` parameter).
+
+Key Components and Design Patterns
+----------------------------------
+
+### Base Classes and Mixins
+
+- `BaseEstimator`: Provides basic functionality such as parameter management.
+- `MetaEstimatorMixin`: Indicates that the estimator is a meta-estimator wrapping other estimators.
+- `RegressorMixin` and `ClassifierMixin`: Provide additional methods and tags specific to regressors and classifiers.
+
+### Cloning and Parallelization
+
+- Base estimators are cloned for each target to ensure independent fitting.
+- Parallelization is implemented using `joblib.Parallel` and `delayed` to fit or predict multiple targets concurrently.
+
+### Validation and Metadata Routing
+
+- Input validation ensures that `y` has at least two dimensions for multi-output tasks.
+- Metadata routing allows passing additional parameters to sub-estimators’ methods (`fit`, `partial_fit`) in a structured way.
+- Sample weights are supported if the underlying estimator supports them.
+
+### Partial Fit Support
+
+- Partial fitting is supported if the base estimator implements `partial_fit`.
+- The multi-output estimator manages incremental fitting for each target independently.
+- The `classes` parameter is required on the first call to `partial_fit` for classification tasks.
+
+Example: MultiOutputRegressor
+-----------------------------
+
+```python
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.linear_model import Ridge
+from sklearn.datasets import load_linnerud
+
+X, y = load_linnerud(return_X_y=True)
+regr = MultiOutputRegressor(Ridge(random_state=123)).fit(X, y)
+predictions = regr.predict(X[[0]])
+```
+
+This example demonstrates fitting a multi-output regressor by wrapping a Ridge regressor. Each target variable is modeled independently.
+
+Parameters
+----------
+
+- `estimator`: The base estimator implementing `fit` and `predict`.
+- `n_jobs`: Number of parallel jobs to run for fitting and prediction. Defaults to `None` (1 job).
+
+Attributes
+----------
+
+- `estimators_`: List of fitted estimators, one per target.
+- `n_features_in_`: Number of features seen during fitting (if supported by base estimator).
+- `feature_names_in_`: Names of features seen during fitting (if supported).
+
+Developing Your Own Estimator
+-----------------------------
+
+When developing a new estimator for scikit-learn, consider the following:
+
+1. **Follow the Estimator API**: Implement `fit`, `predict`, and optionally `partial_fit` methods with consistent signatures.
+2. **Parameter Validation**: Use scikit-learn utilities to validate input parameters and data.
+3. **Support Metadata Routing**: For advanced use cases, support metadata routing to enable flexible parameter passing.
+4. **Parallelization**: If your estimator can benefit from parallelism, consider supporting the `n_jobs` parameter.
+5. **Cloning Support**: Ensure your estimator can be cloned using `sklearn.base.clone`.
+6. **Multi-output Support**: If applicable, design your estimator to support multi-output tasks or be compatible with meta-estimators like `MultiOutputRegressor`.
+
+Additional Resources
+--------------------
+
+- Refer to the scikit-learn developer guide for detailed instructions on writing estimators.
+- Review existing meta-estimators in `sklearn.multioutput` for examples of extending base estimators.
+- Utilize scikit-learn’s utilities for validation, cloning, and parallelization to simplify development.
+
+By adhering to these guidelines and leveraging scikit-learn’s infrastructure, you can develop robust, interoperable estimators that integrate seamlessly into the scikit-learn ecosystem.

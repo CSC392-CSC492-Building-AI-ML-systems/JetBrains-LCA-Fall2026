@@ -13,7 +13,9 @@ import urllib.error
 import urllib.request
 
 from bm25_retrieval.rag_retrieval import BM25Index, CodeTokenizer, VERSION, digest
-from rag_pipeline.rag_budget import BudgetLedger
+from rag_pipeline.rag_budget import (
+    BudgetLedger, GPT41_MINI_CONTEXT_WINDOW, GPT41_MINI_SNAPSHOT, PRICES, input_token_upper_bound,
+)
 
 
 def atomic_json(path, value):
@@ -167,7 +169,8 @@ def ensure_manifest(directory, manifest):
 
 def run(args):
     config = json.loads(Path(args.config).read_text())
-    if config.get('model') not in ['gpt-3.5-turbo-0125', 'gpt-4.1-mini']:
+    model = config.get('model')
+    if not isinstance(model, str) or model not in PRICES:
         raise ValueError('Unsupported/unpriced generation model')
     if args.mode == 'check-model':
         load_env(args.env_file)
@@ -182,6 +185,9 @@ def run(args):
     if not args.dataset or not args.tokenizer:
         raise ValueError('Provide the local dataset and GPT-2 tokenizer JSON')
     dataset, tokenizer = Dataset(args.dataset), CodeTokenizer(args.tokenizer)
+    for key, actual in (('dataset_sha256', dataset.sha256), ('tokenizer_sha256', tokenizer.fingerprint)):
+        if key in config and config[key] != actual:
+            raise ValueError(f'{key} does not match the pinned input')
     ids = config.get('ids')
     if ids is None:
         ids = diverse_ids(dataset.metadata(), config['count'], config.get('seed', 20261022))
@@ -189,13 +195,15 @@ def run(args):
         raise ValueError('Invalid or duplicate original dataset IDs')
     settings = config.get('retrieval', {})
     budget, output_cap = config.get('context_tokens', 2000), config.get('max_output_tokens', 2000)
-    if not isinstance(budget, int) or budget <= 0 or budget > 2000:
-        raise ValueError('Context allowance must be an integer from 1 to 2000')
+    if type(budget) is not int or not 1 <= budget <= 8000:
+        raise ValueError('Context allowance must be an integer from 1 to 8000')
     if type(output_cap) is not int or not 1 <= output_cap <= 2000:
         raise ValueError('Output allowance must be 1 to 2000')
     strategies = config.get('strategies', ['prefix', 'bm25'])
     if not strategies or len(set(strategies)) != len(strategies) or any(x not in ['prefix', 'bm25'] for x in strategies):
         raise ValueError('Invalid strategies')
+    if budget > 2000 and (strategies != ['prefix'] or model != GPT41_MINI_SNAPSHOT):
+        raise ValueError('Budgets above 2000 require prefix and the pinned GPT-4.1 mini snapshot')
     # Evaluation references are deliberately excluded from the generation identity.
     pipeline_dir = Path(__file__).resolve().parent
     implementation_files = (
@@ -210,7 +218,8 @@ def run(args):
                 'tokenizer_sha256': tokenizer.fingerprint, 'model': config['model'],
                 'context_tokens': budget, 'max_output_tokens': output_cap, 'temperature': 0,
                 'retrieval': settings, 'strategies': strategies,
-                'scope': 'retrieval_within_supplied_relevant_code_context'}
+                'scope': ('direct_prefix_within_supplied_relevant_code_context' if budget > 2000
+                          else 'retrieval_within_supplied_relevant_code_context')}
     identity = digest(json.dumps(manifest, sort_keys=True))[:16]
     root = Path(args.output_root) / (config.get('name', 'paired') + '-' + identity)
     ensure_manifest(root, manifest)
@@ -261,6 +270,10 @@ def run(args):
             if tokenizer.count(context) > budget:
                 raise RuntimeError('Context exceeds budget')
             prompt = build_prompt(row, context)
+            messages = [{'role': 'system', 'content': 'You are a helpful assistant.'},
+                        {'role': 'user', 'content': prompt}]
+            if model == GPT41_MINI_SNAPSHOT and input_token_upper_bound(messages) + output_cap > GPT41_MINI_CONTEXT_WINDOW:
+                raise RuntimeError('Complete request plus output allowance exceeds model context window')
             prediction_path, response_path = folder / f'{idx}.txt', folder / f'{idx}.generation.json'
             generated = False
             if args.mode == 'generate':
@@ -268,14 +281,14 @@ def run(args):
                     response = json.loads(response_path.read_text())
                     if response['prompt_sha256'] != digest(prompt):
                         raise RuntimeError('Prediction/prompt mismatch')
+                    if model == GPT41_MINI_SNAPSHOT and response.get('model_returned') != model:
+                        raise RuntimeError('Cached prediction model snapshot mismatch')
                     if prediction_path.exists() and digest(prediction_path.read_text()) != response['prediction_sha256']:
                         raise RuntimeError('Prediction content changed')
                     prediction_path.write_text(response['prediction'])
                 else:
                     if prediction_path.exists():
                         raise RuntimeError('Prediction without generation provenance')
-                    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'},
-                                {'role': 'user', 'content': prompt}]
                     job = identity + ':' + strategy + ':' + str(idx)
                     ledger.reserve(job, config['model'], messages, output_cap)
                     tick_api = time.perf_counter()
@@ -292,6 +305,12 @@ def run(args):
                         atomic_json(folder / f'{idx}.error.json', {'exception': type(exc).__name__,
                             'budget': ledger.summary(), 'retry': 'reservation retained; do not retry blindly'})
                         raise RuntimeError('Network/response failure; reservation retained and run stopped') from None
+                    if model == GPT41_MINI_SNAPSHOT and api.get('model') != model:
+                        cost = ledger.settle(job, api.get('usage', {}))
+                        atomic_json(folder / f'{idx}.error.json', {
+                            'expected_model': model, 'returned_model': api.get('model'), 'cost_usd': cost,
+                        })
+                        raise RuntimeError('API returned a different model snapshot; stopped generation')
                     prediction = api['choices'][0]['message']['content']
                     if not isinstance(prediction, str) or not prediction.strip():
                         raise RuntimeError('Empty generation; retain reservation and investigate')

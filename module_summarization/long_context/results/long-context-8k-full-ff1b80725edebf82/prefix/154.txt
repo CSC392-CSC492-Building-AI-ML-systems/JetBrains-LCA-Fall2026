@@ -1,0 +1,103 @@
+Connecting Steps Together
+=========================
+
+In mflowgen, a design flow is constructed by connecting individual *steps* together to form a directed graph. Each step represents a discrete unit of work, such as synthesis, place-and-route, or simulation. Connecting steps defines the flow of data and control between these units.
+
+Concepts
+--------
+
+- **Step**: A node in the graph representing a unit of work. Each step has named inputs and outputs.
+- **Edge**: A directed connection between an output of one step and an input of another step.
+- **Handle**: A tuple identifying a specific input or output of a step, used to create connections.
+
+Handles
+-------
+
+To connect steps, you first obtain *handles* to their inputs and outputs. Handles are tuples of the form:
+
+```
+(step_name, 'inputs' or 'outputs', file_name)
+```
+
+where:
+
+- `step_name` is the name of the step,
+- `'inputs'` or `'outputs'` specifies whether the handle refers to an input or output,
+- `file_name` is the name of the input or output file.
+
+The `Step` class provides convenient methods to get these handles:
+
+- `get_input_handle(file_name)` or shorthand `i(file_name)` — returns a handle to an input.
+- `get_output_handle(file_name)` or shorthand `o(file_name)` — returns a handle to an output.
+
+Example:
+
+```python
+step1 = graph.get_step('step1')
+step2 = graph.get_step('step2')
+
+output_handle = step1.o('output_file.txt')
+input_handle = step2.i('input_file.txt')
+```
+
+Connecting Steps
+----------------
+
+The `Graph` class manages the collection of steps and their connections. To connect two steps, use the `connect` method of the `Graph` object:
+
+```python
+graph.connect(output_handle, input_handle)
+```
+
+This creates an edge from the output of one step to the input of another, establishing a data dependency.
+
+Key points about connecting steps:
+
+- The source handle must be an output handle from one step.
+- The destination handle must be an input handle from another step.
+- The file names in the handles must correspond to valid outputs and inputs defined in the respective steps.
+- The graph ensures no duplicate step names exist.
+- Connections define the flow of files between steps, enabling automated execution ordering.
+
+Example Usage
+-------------
+
+```python
+from mflowgen.components.step import Step
+from mflowgen.components.graph import Graph
+
+# Create a graph
+graph = Graph()
+
+# Add steps
+step1 = Step('path/to/step1')
+step2 = Step('path/to/step2')
+graph.add_step(step1)
+graph.add_step(step2)
+
+# Get handles
+out_handle = step1.o('results.txt')
+in_handle = step2.i('input.txt')
+
+# Connect steps
+graph.connect(out_handle, in_handle)
+```
+
+This example connects the output file `results.txt` from `step1` to the input file `input.txt` of `step2`.
+
+Additional Utilities
+--------------------
+
+- `all_input_handles()` and `all_output_handles()` methods on `Step` return lists of all input or output handles, useful for bulk connections.
+- The graph can report *dangling inputs* — inputs of steps that are not connected to any output — helping to identify incomplete flows.
+
+Summary
+-------
+
+Connecting steps together in mflowgen involves:
+
+1. Creating or obtaining `Step` objects.
+2. Retrieving handles to their inputs and outputs.
+3. Using the `Graph.connect()` method to link outputs to inputs.
+
+This mechanism builds a directed acyclic graph representing the flow of data and execution order, enabling automated and reproducible design flows.

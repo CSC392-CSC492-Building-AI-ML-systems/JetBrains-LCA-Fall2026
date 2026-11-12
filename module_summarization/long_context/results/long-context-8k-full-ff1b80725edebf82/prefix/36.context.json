@@ -1,0 +1,20 @@
+{
+  "original_id": 36,
+  "repo": "westpa__westpa",
+  "docfile_name": "w_succ.rst",
+  "source_sha256": "30cf8c1ac1adcb7689555755c8d63519ba2039afda72a994558b360531ff5d20",
+  "context": "import argparse\nimport sys\n\nimport numpy as np\n\nimport westpa\n\nfrom westpa.core.segment import Segment\nfrom westpa.oldtools.aframe import WESTAnalysisTool, WESTDataReaderMixin, CommonOutputMixin\n\nimport logging\n\nlog = logging.getLogger('w_succ')\n\n\nclass WSucc(CommonOutputMixin, WESTDataReaderMixin, WESTAnalysisTool):\n    def __init__(self):\n        super().__init__()\n        self.include_args['CommonOutputMixin']['print_bin_labels'] = False\n        self.output_file = sys.stdout\n\n    def find_successful_trajs(self):\n        pcoord_formats = {\n            'u8': '%20d',\n            'i8': '%20d',\n            'u4': '%10d',\n            'i4': '%11d',\n            'u2': '%5d',\n            'i2': '%6d',\n            'f4': '%14.7g',\n            'f8': '%23.15g',\n        }\n\n        if not self.output_suppress_headers:\n            self.output_file.write(\n                '''\\\n# successful (recycled) segments\n# column 0:    iteration\n# column 1:    seg_id\n# column 2:    weight\n# column>2:    final progress coordinate value\n'''\n            )\n        for n_iter in range(1, self.data_manager.current_iteration):\n            seg_index = self.get_seg_index(n_iter)\n            all_seg_ids = np.arange(len(seg_index), dtype=np.int_)\n            recycled_seg_ids = all_seg_ids[seg_index[:]['endpoint_type'] == Segment.SEG_ENDPOINT_RECYCLED]\n\n            if len(recycled_seg_ids) == 0:\n                # Attemping to retrieve a 0-length selection from HDF5 (the pcoords below) fails\n                continue\n\n            pcoord_ds = self.get_pcoord_dataset(n_iter)\n            pcoord_len = pcoord_ds.shape[1]\n            pcoord_ndim = pcoord_ds.shape[2]\n            final_pcoords = self.get_pcoord_dataset(n_iter)[recycled_seg_ids, pcoord_len - 1, :]\n            # The above HDF5 selection always returns a vector; we want a 2-d array\n            final_pcoords.shape = (len(recycled_seg_ids), pcoord_ndim)\n\n            for ipc, seg_id in enumerate(recycled_seg_ids):\n                self.output_file.write('%8d    %8d    %20.14g' % (n_iter, seg_id, seg_index[seg_id]['weight']))\n                fields = ['']\n                for field in final_pcoords[ipc]:\n                    fields.append(pcoord_formats.get(field.dtype.str[1:], '%s') % field)\n                self.output_file.write('    '.join(fields))\n                self.output_file.write('\\n')\n\n\ndef entry_point():\n    wsucc = WSucc()\n\n    parser = argparse.ArgumentParser(\n        'w_succ',\n        description='''\\\n    List segments which successfully reach a target state''',\n    )\n\n    westpa.rc.add_args(parser)\n    wsucc.add_args(parser)\n\n    parser.add_argument(\n        '-o',\n        '--output',\n        dest='output_file',\n        help='Store output in OUTPUT_FILE (default: write to standard output).',\n        type=argparse.FileType('wt'),\n        default=sys.stdout,\n    )\n\n    args = parser.parse_args()\n    westpa.rc.process_args(args, config_required=False)\n    wsucc.process_args(args)\n    wsucc.output_file = args.output_file\n\n    wsucc.find_successful_trajs()\n\n\nif __name__ == '__main__':\n    entry_point()",
+  "trace": {
+    "selected": [
+      {
+        "start_char": 0,
+        "end_char": 3073,
+        "score": null
+      }
+    ],
+    "fallback": null,
+    "context_tokens": 1526,
+    "context_sha256": "30cf8c1ac1adcb7689555755c8d63519ba2039afda72a994558b360531ff5d20"
+  },
+  "preparation_seconds": 0.00432520799949998
+}

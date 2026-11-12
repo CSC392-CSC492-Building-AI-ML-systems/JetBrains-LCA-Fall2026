@@ -1,0 +1,190 @@
+QuerySet — Building Queries
+===========================
+
+The `QuerySet` class provides a powerful and flexible interface to build and execute database queries in an expressive and Pythonic way. It supports filtering, ordering, limiting, annotating, grouping, and more, allowing you to retrieve exactly the data you need.
+
+Filtering QuerySets
+-------------------
+
+You can filter a `QuerySet` using the `.filter()` method by passing keyword arguments or `Q` objects. Filtering supports lookups across related models using double underscores (`__`).
+
+Example:
+
+.. code-block:: python3
+
+    # Filter teams where the related event's tournament name is 'Test'
+    teams = Team.filter(events__tournament__name='Test')
+
+You can also combine multiple filters and use `.exclude()` to negate conditions:
+
+.. code-block:: python3
+
+    # Filter teams with name 'A' but exclude those in tournament 'Test'
+    teams = Team.filter(name='A').exclude(events__tournament__name='Test')
+
+Ordering QuerySets
+-----------------
+
+Use `.order_by()` to specify the order of results. You can order by fields on the model or related models by using double underscores.
+
+Example:
+
+.. code-block:: python3
+
+    # Order by name ascending and tournament name descending
+    teams = Team.order_by('name', '-events__tournament__name')
+
+If an unknown field is provided, a `FieldError` will be raised.
+
+Limiting and Offsetting Results
+-------------------------------
+
+Limit the number of results returned using `.limit()`:
+
+.. code-block:: python3
+
+    # Limit to 10 results
+    teams = Team.limit(10)
+
+Offset the results using `.offset()` to skip a number of records:
+
+.. code-block:: python3
+
+    # Skip first 5 results
+    teams = Team.offset(5)
+
+Both methods raise `ParamsError` if negative values are provided.
+
+Distinct Results
+----------------
+
+Use `.distinct()` to ensure the results are unique. This is especially useful when combined with `.values()` or `.values_list()`.
+
+Example:
+
+.. code-block:: python3
+
+    # Get distinct tournament names
+    tournaments = Tournament.distinct().values('name')
+
+Annotating QuerySets
+-------------------
+
+You can add annotations to your query results using `.annotate()`. Annotations allow you to include aggregate values or computed fields.
+
+Example:
+
+.. code-block:: python3
+
+    from tortoise.functions import Count
+
+    # Annotate teams with the count of related events
+    teams = Team.annotate(event_count=Count('events'))
+
+Grouping Results
+----------------
+
+Use `.group_by()` to group results by one or more fields. This must be called before `.values()` or `.values_list()`.
+
+Example:
+
+.. code-block:: python3
+
+    # Group teams by tournament name
+    teams = Team.group_by('events__tournament__name').values('events__tournament__name')
+
+Selecting Specific Fields
+-------------------------
+
+Instead of fetching full model instances, you can retrieve dictionaries or tuples of specific fields.
+
+- `.values(*fields, **field_aliases)` returns a list of dictionaries.
+
+  Example:
+
+  .. code-block:: python3
+
+      # Get list of dicts with team names and their tournament names
+      teams = Team.values('name', tournament_name='events__tournament__name')
+
+- `.values_list(*fields, flat=False)` returns a list of tuples or a flat list if `flat=True` and only one field is specified.
+
+  Example:
+
+  .. code-block:: python3
+
+      # Get list of team names
+      team_names = Team.values_list('name', flat=True)
+
+Deleting and Updating
+---------------------
+
+- `.delete()` deletes all objects matched by the `QuerySet`.
+
+  Example:
+
+  .. code-block:: python3
+
+      # Delete all teams with no events
+      Team.filter(events__isnull=True).delete()
+
+- `.update(**kwargs)` updates all objects matched by the `QuerySet` with the given field values.
+
+  Example:
+
+  .. code-block:: python3
+
+      # Update all teams to have is_active=True
+      Team.filter(is_active=False).update(is_active=True)
+
+Chaining QuerySet Methods
+-------------------------
+
+All `QuerySet` methods return a new `QuerySet` instance, allowing you to chain calls fluently:
+
+.. code-block:: python3
+
+    teams = (
+        Team.filter(events__tournament__name='Test')
+        .order_by('-created_at')
+        .limit(10)
+        .offset(5)
+        .annotate(event_count=Count('events'))
+        .values('name', 'event_count')
+    )
+
+Prefetching Related Objects
+---------------------------
+
+Use `.prefetch_related()` to fetch related objects efficiently in a single query, reducing database hits.
+
+Example:
+
+.. code-block:: python3
+
+    teams = Team.prefetch_related('events')
+
+Summary of Common QuerySet Methods
+----------------------------------
+
+- `.filter(*args, **kwargs)` — Filter results by conditions.
+- `.exclude(*args, **kwargs)` — Exclude results matching conditions.
+- `.order_by(*fields)` — Order results by specified fields.
+- `.limit(n)` — Limit the number of results.
+- `.offset(n)` — Skip a number of results.
+- `.distinct()` — Return distinct results.
+- `.annotate(**kwargs)` — Add annotations (aggregates or computed fields).
+- `.group_by(*fields)` — Group results by fields.
+- `.values(*fields, **field_aliases)` — Return dictionaries of specified fields.
+- `.values_list(*fields, flat=False)` — Return tuples or flat list of specified fields.
+- `.delete()` — Delete matched records.
+- `.update(**kwargs)` — Update matched records.
+- `.prefetch_related(*fields)` — Prefetch related objects.
+
+Exceptions
+----------
+
+- `FieldError` — Raised when an unknown field is referenced.
+- `ParamsError` — Raised when invalid parameters (e.g., negative limit or offset) are provided.
+
+Using `QuerySet` allows you to build complex queries in an intuitive and efficient manner, leveraging Python syntax and powerful ORM features.

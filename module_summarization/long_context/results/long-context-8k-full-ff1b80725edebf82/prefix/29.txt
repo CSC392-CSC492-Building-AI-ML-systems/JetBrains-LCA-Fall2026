@@ -1,0 +1,100 @@
+w_ntop — Select Walkers from Bins by Weight or Randomly
+=======================================================
+
+Description
+-----------
+
+The ``w_ntop`` command selects walkers from bins based on their weights or randomly. It requires an assignment file that maps walkers to bins at each timepoint (see ``w_assign --help`` for information on generating this file). By default, it selects the top N highest-weight walkers from each bin (hence the name ``w_ntop``). Alternatively, it can select the lowest-weight walkers or randomly-selected walkers.
+
+This tool is useful for analyzing or extracting subsets of walkers from WESTPA simulations according to their weights or random sampling within bins.
+
+Output Format
+-------------
+
+The output file (specified with ``-o/--output``, default: ``ntop.h5``) contains the following datasets:
+
+- ``/n_iter`` [iteration]  
+  *(Integer)* Iteration numbers for each entry in other datasets.
+
+- ``/nsegs`` [iteration][bin]  
+  *(Integer)* Number of segments in each bin/state in the given iteration.  
+  This is generally the same as the number requested with ``--count`` but may be smaller if fewer walkers exist.
+
+- ``/seg_ids`` [iteration][bin][segment]  
+  *(Integer)* Segment IDs matching the selection in each iteration for each bin.  
+  For iteration ``n_iter``, only the first ``nsegs[n_iter]`` entries are valid. For example, the list of matching segment IDs in bin 0 in the first stored iteration is ``seg_ids[0][0][:nsegs[0,0]]``.
+
+- ``/weights`` [iteration][bin][segment]  
+  *(Floating-point)* Weights corresponding to each segment in ``/seg_ids``.
+
+Command-Line Arguments
+----------------------
+
+Input Options
+~~~~~~~~~~~~~
+
+- ``-a``, ``--assignments``  
+  Use assignments from the given ASSIGNMENTS file (default: ``assign.h5``). This file maps walkers to bins at each timepoint.
+
+Selection Options
+~~~~~~~~~~~~~~~~~
+
+- ``-n``, ``--count``  
+  Select COUNT walkers from each iteration for each bin (default: 1).
+
+- ``-t``, ``--timepoint``  
+  Base selection on the given TIMEPOINT within each iteration. Default is ``-1``, which corresponds to the last timepoint.
+
+- Selection mode (mutually exclusive):
+
+  - ``--highweight``  
+    Select COUNT highest-weight walkers from each bin (default).
+
+  - ``--lowweight``  
+    Select COUNT lowest-weight walkers from each bin.
+
+  - ``--random``  
+    Select COUNT walkers randomly from each bin.
+
+Output Options
+~~~~~~~~~~~~~~
+
+- ``-o``, ``--output``  
+  Write output to OUTPUT file (default: ``ntop.h5``).
+
+Progress Reporting
+------------------
+
+The command provides progress indication during execution.
+
+Usage Example
+-------------
+
+Select the top 3 highest-weight walkers from each bin at the last timepoint and write to ``top3.h5``:
+
+```
+w_ntop -n 3 -o top3.h5
+```
+
+Select 2 lowest-weight walkers from each bin at timepoint 0:
+
+```
+w_ntop -n 2 -t 0 --lowweight
+```
+
+Select 5 random walkers from each bin:
+
+```
+w_ntop -n 5 --random
+```
+
+Notes
+-----
+
+- The assignment file must be generated beforehand, typically using ``w_assign``.
+
+- The number of walkers selected per bin may be less than requested if insufficient walkers exist in that bin.
+
+- The output file is an HDF5 file compatible with WESTPA tools for further analysis.
+
+-----------------------------------------------------------------------------

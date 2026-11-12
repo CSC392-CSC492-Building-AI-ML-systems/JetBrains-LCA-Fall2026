@@ -1,0 +1,124 @@
+Working with Large Data Sets
+============================
+
+Overview
+--------
+
+This module provides a framework for distributed estimation routines designed to handle large data sets efficiently. It supports multiple methods of distribution, including sequential and parallel processing, with parallel backends such as joblib, dask.distributed, yarn, and ipyparallel.
+
+The framework is flexible and supports various estimation methods, including:
+
+- Debiased regularized estimation (default)
+- Simple coefficient averaging (naive)
+  - Regularized
+  - Unregularized
+
+The default method implements regularized estimation with debiasing, following the approach described in:
+
+Jason D. Lee, Qiang Liu, Yuekai Sun, and Jonathan E. Taylor.  
+"Communication-Efficient Sparse Regression: A One-Shot Approach."  
+arXiv:1503.04337, 2015. https://arxiv.org/abs/1503.04337
+
+Key Concepts
+------------
+
+Several variables and procedures are central to the debiasing method and the estimation of the approximate inverse covariance matrix:
+
+- **wexog**  
+  A weighted design matrix used in the node-wise regression procedure.
+
+- **nodewise_row**  
+  Produced for each variable using LASSO regression during the node-wise regression step to estimate the approximate inverse covariance matrix.
+
+- **nodewise_weight**  
+  Weights derived from gamma_hat values used to reweight the node-wise regression coefficients.
+
+- **approx_inv_cov**  
+  The estimate of the approximate inverse covariance matrix, used to debias the coefficient averages and gradients. For OLS models, this approximates  
+  \[
+  n \times (X^T X)^{-1}
+  \]  
+  and is formed via node-wise regression.
+
+DistributedModel Class
+----------------------
+
+The `DistributedModel` class orchestrates the distributed estimation process.
+
+### Parameters
+
+- **partitions**: Number of partitions to split the data into.
+- **model_class**: The statsmodels model class to use for estimation (defaults to OLS).
+- **init_kwds**: Initialization keywords for the model.
+- **init_kwds_generator**: Optional generator producing varying init keywords per partition (useful for WLS, GLS).
+- **estimation_method**: Function to estimate parameters per partition (defaults to debiased regularized estimation).
+- **estimation_kwds**: Keywords passed to the estimation method.
+- **join_method**: Function to combine partition results (defaults to debiased joining).
+- **join_kwds**: Keywords passed to the join method.
+- **results_class**: Class for the results object (defaults to `RegularizedResults`).
+- **results_kwds**: Keywords passed to the results class.
+
+### Methods
+
+- **fit(data_generator, fit_kwds=None, parallel_method="sequential", parallel_backend=None, init_kwds_generator=None)**  
+  Performs distributed estimation using the specified parallel method. Supports:
+  - `"sequential"`: Runs partitions sequentially.
+  - `"joblib"`: Runs partitions in parallel using joblib.
+  
+  Returns the combined parameter estimates.
+
+- **fit_sequential(data_generator, fit_kwds, init_kwds_generator=None)**  
+  Sequentially fits the model on each data partition.
+
+- **fit_joblib(data_generator, fit_kwds, parallel_backend, init_kwds_generator=None)**  
+  Fits the model in parallel using joblib with optional parallel backends.
+
+Estimation and Joining Methods
+------------------------------
+
+### Regularized Debiased Estimation (`_est_regularized_debiased`)
+
+This method fits a regularized model on each partition and computes:
+
+- Estimated parameters
+- Gradient of the log-likelihood
+- Node-wise regression rows and weights for approximate inverse covariance estimation
+
+It uses the weighted design matrix and node-wise LASSO regressions to estimate the inverse covariance matrix needed for debiasing.
+
+### Naive Estimation (`_est_regularized_naive` and `_est_unregularized_naive`)
+
+These methods fit regularized or unregularized models on each partition without debiasing.
+
+### Joining Results
+
+- **Debiased Join (`_join_debiased`)**  
+  Combines partition results by averaging parameters and gradients, then applies the approximate inverse covariance matrix to debias the estimates. Thresholding can be applied to set small coefficients to zero.
+
+- **Naive Join (`_join_naive`)**  
+  Averages the coefficients from each partition and applies thresholding.
+
+Usage Notes
+-----------
+
+- The framework is designed to handle large datasets by splitting data into manageable partitions.
+- Parallel processing can significantly speed up estimation on multi-core or distributed systems.
+- The debiased regularized estimation method improves accuracy by correcting bias introduced by regularization.
+- The approximate inverse covariance matrix is estimated via node-wise LASSO regressions, which can be computationally intensive but necessary for debiasing.
+- Thresholding small coefficients to zero helps in sparse model interpretation.
+
+Example Workflow
+----------------
+
+1. Initialize a `DistributedModel` with the desired number of partitions and model class.
+2. Prepare a data generator that yields `(endog, exog)` tuples for each partition.
+3. Call the `fit` method with the data generator and fitting keywords.
+4. Retrieve the combined parameter estimates from the results object.
+
+References
+----------
+
+- Lee, J. D., Liu, Q., Sun, Y., & Taylor, J. E. (2015). Communication-Efficient Sparse Regression: A One-Shot Approach. arXiv preprint arXiv:1503.04337.  
+  https://arxiv.org/abs/1503.04337
+
+This framework provides a robust and flexible approach to distributed estimation for large-scale regression problems, leveraging modern parallel computing tools and advanced statistical techniques.

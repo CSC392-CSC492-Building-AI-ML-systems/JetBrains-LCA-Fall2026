@@ -1,0 +1,232 @@
+Nonparametric Methods
+=====================
+
+Univariate Kernel Density Estimators
+------------------------------------
+
+Kernel density estimation (KDE) is a fundamental nonparametric technique to estimate the probability density function of a random variable. Unlike parametric methods, KDE does not assume a specific functional form for the distribution, making it flexible for modeling complex data structures.
+
+References
+^^^^^^^^^^
+
+- Racine, Jeff. (2008) "Nonparametric Econometrics: A Primer," Foundation and Trends in Econometrics: Vol 3: No 1, pp1-88.  
+  http://dx.doi.org/10.1561/0800000009
+
+- Silverman, B.W. Density Estimation for Statistics and Data Analysis.
+
+- https://en.wikipedia.org/wiki/Kernel_%28statistics%29
+
+KDEUnivariate Class
+-------------------
+
+The `KDEUnivariate` class provides an efficient implementation of univariate kernel density estimation using FFT-based methods for Gaussian kernels. It is designed for continuous, univariate data and offers fast computation compared to multivariate KDE implementations.
+
+### Initialization
+
+```python
+KDEUnivariate(endog)
+```
+
+- **Parameters:**
+  - `endog` : array_like  
+    The one-dimensional data array for which the density estimate is desired.
+
+### Methods
+
+#### fit
+
+```python
+fit(kernel='gau', bw='normal_reference', fft=True, weights=None, gridsize=None, adjust=1, cut=3, clip=(-np.inf, np.inf))
+```
+
+Fits the kernel density estimator to the data.
+
+- **Parameters:**
+  - `kernel` : str  
+    Kernel type to use. Options include:
+    - `"gau"` : Gaussian (default)
+    - `"epa"` : Epanechnikov
+    - `"uni"` : Uniform
+    - `"tri"` : Triangular
+    - `"biw"` : Biweight
+    - `"triw"` : Triweight
+    - `"cos"` : Cosine
+    - `"cos2"` : Cosine2
+
+  - `bw` : str, float, or callable  
+    Bandwidth selection method or value. Options:
+    - `"scott"` : Scott's rule of thumb
+    - `"silverman"` : Silverman's rule of thumb
+    - `"normal_reference"` : Kernel-specific normal reference rule (default)
+    - float : user-specified bandwidth
+    - callable : function that returns bandwidth given data and kernel
+
+  - `fft` : bool  
+    Whether to use FFT-based computation (only Gaussian kernel supported).
+
+  - `weights` : array_like or None  
+    Optional weights for observations.
+
+  - `gridsize` : int or None  
+    Number of points in the evaluation grid.
+
+  - `adjust` : float  
+    Factor to adjust the bandwidth.
+
+  - `cut` : float  
+    Extends the grid beyond the data range by `cut * bw`.
+
+  - `clip` : tuple  
+    Range to clip the data before estimation.
+
+- **Returns:**  
+  The fitted `KDEUnivariate` instance.
+
+### Properties
+
+- `density` : ndarray  
+  Estimated density values at the support grid.
+
+- `support` : ndarray  
+  Grid points where the density is evaluated.
+
+- `bw` : float  
+  Bandwidth used in estimation.
+
+- `kernel` : Kernel instance  
+  Kernel object used for estimation.
+
+- `cdf` : ndarray  
+  Cumulative distribution function evaluated at the support.
+
+- `sf` : ndarray  
+  Survival function (1 - CDF) evaluated at the support.
+
+- `cumhazard` : ndarray  
+  Cumulative hazard function evaluated at the support.
+
+- `entropy` : float  
+  Differential entropy of the estimated density.
+
+- `icdf` : ndarray  
+  Inverse cumulative distribution function (quantiles) estimated from data.
+
+### Methods
+
+- `evaluate(point)`  
+  Evaluate the estimated density at given point(s).
+
+Kernel Density Estimator Functions
+----------------------------------
+
+Two main functions provide kernel density estimation capabilities:
+
+### kdensity
+
+```python
+kdensity(x, kernel='gau', bw='normal_reference', weights=None, gridsize=None, adjust=1, clip=(-np.inf, np.inf), cut=3, retgrid=True)
+```
+
+Rosenblatt-Parzen univariate kernel density estimator.
+
+- **Parameters:**
+  - `x` : array_like  
+    Data for density estimation.
+  - `kernel` : str  
+    Kernel type (same options as in `KDEUnivariate`).
+  - `bw` : str, float, or callable  
+    Bandwidth selection method or value.
+  - `weights` : array_like or None  
+    Optional weights for observations.
+  - `gridsize` : int or None  
+    Number of grid points.
+  - `adjust` : float  
+    Bandwidth adjustment factor.
+  - `clip` : tuple  
+    Data clipping range.
+  - `cut` : float  
+    Grid extension factor.
+  - `retgrid` : bool  
+    Whether to return the grid points along with density.
+
+- **Returns:**
+  - `density` : ndarray  
+    Estimated density values.
+  - `grid` : ndarray (optional)  
+    Grid points where density is evaluated.
+
+- **Notes:**  
+  This method creates an intermediate array of size (`gridsize` x `nobs`), which can be computationally expensive for large datasets. For faster computation, use `kdensityfft` when applicable.
+
+### kdensityfft
+
+```python
+kdensityfft(x, kernel='gau', bw='normal_reference', weights=None, gridsize=None, adjust=1, clip=(-np.inf, np.inf), cut=3, retgrid=True)
+```
+
+Fast Fourier Transform (FFT) based Rosenblatt-Parzen univariate kernel density estimator.
+
+- **Parameters:**
+  - `x` : array_like  
+    Data for density estimation.
+  - `kernel` : str  
+    Currently, only `"gau"` (Gaussian) kernel is implemented.
+  - `bw` : str, float, or callable  
+    Bandwidth selection method or value.
+  - `weights` : array_like or None  
+    Weights are not currently implemented.
+  - `gridsize` : int or None  
+    Number of grid points, rounded up to the next power of two.
+  - `adjust` : float  
+    Bandwidth adjustment factor.
+  - `clip` : tuple  
+    Data clipping range.
+  - `cut` : float  
+    Grid extension factor.
+  - `retgrid` : bool  
+    Whether to return the grid points along with density.
+
+- **Returns:**
+  - `density` : ndarray  
+    Estimated density values.
+  - `grid` : ndarray (optional)  
+    Grid points where density is evaluated.
+
+- **Notes:**  
+  This method follows Silverman (1982) with improvements by Jones and Lotwick (1984) and Fan and Marron (1994). It uses linear binning and FFT for efficient computation. Currently, weights are not supported, and only the Gaussian kernel is implemented.
+
+- **References:**
+  - Fan, J. and J.S. Marron. (1994) "Fast implementations of nonparametric curve estimators." Journal of Computational and Graphical Statistics, 3(1), 35-56.
+  - Jones, M.C. and H.W. Lotwick. (1984) "Remark AS R50: A Remark on Algorithm AS 176. Kernel Density Estimation Using the Fast Fourier Transform." Journal of the Royal Statistical Society, Series C, 33(1), 120-122.
+  - Silverman, B.W. (1982) "Algorithm AS 176. Kernel density estimation using the Fast Fourier Transform." Journal of the Royal Statistical Society, Series C, 31(2), 93-99.
+
+Usage Example
+-------------
+
+```python
+import numpy as np
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+nobs = 300
+np.random.seed(1234)
+data = np.random.normal(size=nobs)
+
+dens = sm.nonparametric.KDEUnivariate(data)
+dens.fit()
+
+plt.plot(dens.support, dens.density)
+plt.title('Kernel Density Estimate')
+plt.show()
+```
+
+Notes
+-----
+
+- The `KDEUnivariate` class is optimized for univariate continuous data and is faster than multivariate KDE implementations due to its FFT-based algorithm.
+- Bandwidth selection is crucial for KDE performance; several automatic rules and user-defined options are available.
+- The cumulative distribution function (CDF), survival function (SF), cumulative hazard, entropy, and inverse CDF can be computed from the fitted KDE.
+- FFT-based KDE is currently limited to Gaussian kernels and does not support weights.
+- For multivariate or mixed data types, consider using `KDEMultivariate` (not covered here).
+
+This module provides a comprehensive toolkit for nonparametric density estimation, enabling flexible and efficient analysis of univariate data distributions without relying on parametric assumptions.

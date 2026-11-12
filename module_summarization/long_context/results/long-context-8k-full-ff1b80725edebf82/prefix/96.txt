@@ -1,0 +1,110 @@
+Getting Started with Mitogen Core Utilities
+============================================
+
+This tutorial provides an introduction to the core utilities provided by the Mitogen library for managing child processes, pseudo-terminals (PTYs), and inter-process communication in Python. These utilities are designed to facilitate efficient and robust process management, especially in complex environments involving privilege escalation, SELinux constraints, and terminal handling.
+
+Overview
+--------
+
+Mitogen's core utilities enable you to:
+
+- Create child processes with controlled standard input/output/error streams.
+- Manage pseudo-terminals (PTYs) for processes requiring terminal access.
+- Handle communication channels using socket pairs or pipes, with SELinux-aware fallbacks.
+- Control terminal settings such as disabling echo and setting raw mode.
+- Schedule and manage future events with cancellable timers.
+
+Creating Child Processes
+------------------------
+
+Mitogen provides flexible functions to spawn child processes with customized I/O configurations.
+
+### Basic Child Process Creation
+
+Use `create_child(args, merge_stdio=False, stderr_pipe=False, escalates_privilege=False, preexec_fn=None)` to create a child process where `args` is the argument vector for the program to execute.
+
+- `merge_stdio`: If `True`, merges `stderr` into `stdout` to avoid TTY connections.
+- `stderr_pipe`: If `True` and `merge_stdio` is `False`, connects `stderr` to a separate pipe for independent logging.
+- `escalates_privilege`: If `True`, avoids UNIX socket pairs due to SELinux restrictions.
+- `preexec_fn`: Optional function to run in the child process before execution.
+
+Example:
+
+```python
+proc = create_child(['python3', 'script.py'])
+```
+
+### Using Pseudo-Terminals (PTYs)
+
+Some programs require a controlling terminal (TTY) to function correctly, such as those prompting for passwords.
+
+- `tty_create_child(args)`: Creates a child process connected to a PTY, making the PTY the controlling terminal.
+- `hybrid_tty_create_child(args, escalates_privilege=False)`: Combines PTY for `stderr` and controlling TTY with socket pairs for `stdin` and `stdout` to improve throughput.
+
+Example:
+
+```python
+proc = tty_create_child(['sudo', 'some_command'])
+```
+
+Handling Communication Channels
+-------------------------------
+
+Mitogen prefers UNIX socket pairs for bidirectional communication due to their efficiency and tunable buffer sizes. However, SELinux restrictions may require falling back to pipes.
+
+- `create_socketpair(size=None)`: Creates a socket pair with optional buffer size.
+- `create_best_pipe(escalates_privilege=False)`: Creates the best available communication channels, considering SELinux and privilege escalation.
+
+Terminal Control Utilities
+--------------------------
+
+Mitogen includes utilities to manipulate terminal settings:
+
+- `disable_echo(fd)`: Disables local echo on the terminal associated with file descriptor `fd`.
+- `cfmakeraw(tflags)`: Modifies terminal flags to raw mode, disabling canonical input and echo.
+
+These are useful when managing PTYs or controlling terminal behavior for child processes.
+
+Scheduling Future Events
+------------------------
+
+Mitogen provides a simple timer mechanism to schedule cancellable future events:
+
+- `Timer(when, func)`: Represents a scheduled event at time `when` that calls `func`.
+- `TimerList`: Manages a list of `Timer` objects efficiently.
+
+This can be used to implement timeouts or delayed actions in your applications.
+
+Handling Special Cases and Errors
+---------------------------------
+
+- The module handles broken PTY configurations on Linux by manually opening `/dev/ptmx` and associated slave devices.
+- It logs warnings if `sys.executable` is unset, defaulting to `/usr/bin/python`.
+- SELinux detection disables the use of socket pairs when necessary.
+- Detailed error messages are provided for PTY creation failures and other system-level issues.
+
+Example: Creating a Child Process with PTY and Disabled Echo
+------------------------------------------------------------
+
+```python
+master_fp, slave_fp = openpty()
+disable_echo(master_fp.fileno())
+disable_echo(slave_fp.fileno())
+
+proc = popen(
+    args=['/bin/bash'],
+    stdin=slave_fp,
+    stdout=slave_fp,
+    stderr=slave_fp,
+    preexec_fn=_acquire_controlling_tty,
+    close_fds=True,
+)
+slave_fp.close()
+```
+
+Conclusion
+----------
+
+Mitogen's core utilities provide powerful abstractions for process and terminal management in Python, handling many low-level details and platform-specific quirks. By leveraging these utilities, you can build robust systems that interact with child processes and terminals efficiently and securely.
+
+For more advanced usage and integration, refer to the full Mitogen documentation and source code.

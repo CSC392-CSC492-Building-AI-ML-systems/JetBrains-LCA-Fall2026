@@ -1,0 +1,117 @@
+Operations Module
+=================
+
+This module provides a comprehensive set of classes and functions to represent and manipulate database schema migration operations, particularly focusing on constraints such as primary keys, unique constraints, foreign keys, and general constraints. These operations are designed to be used within migration scripts to generate and apply schema changes in a database-agnostic manner.
+
+Core Concepts
+-------------
+
+### MigrateOperation
+
+The base class for all migration command and organization objects. It serves as the foundation for the operation extensibility API.
+
+- **info**: A memoized property returning a dictionary for storing arbitrary information associated with the operation.
+- **reverse()**: Abstract method to produce the reverse operation.
+- **to_diff_tuple()**: Abstract method to produce a tuple representation of the operation for diffing purposes.
+
+Constraint Operations
+---------------------
+
+### AddConstraintOp
+
+Represents an operation to add a constraint to a database table.
+
+- **constraint_type**: Property indicating the type of constraint (e.g., primary key, unique, foreign key).
+- **register_add_constraint(type_: str)**: Class method decorator to register subclasses for specific constraint types.
+- **from_constraint(constraint: Constraint)**: Class method to create an `AddConstraintOp` instance from a SQLAlchemy `Constraint` object.
+- **to_constraint(migration_context: Optional[MigrationContext])**: Abstract method to convert the operation back to a SQLAlchemy `Constraint`.
+- **reverse()**: Returns a corresponding `DropConstraintOp` to reverse the addition.
+- **to_diff_tuple()**: Returns a tuple describing the addition operation.
+
+### DropConstraintOp
+
+Represents an operation to drop a constraint from a database table.
+
+- **__init__(constraint_name, table_name, type_, schema, _reverse)**: Initializes the drop operation with constraint details.
+- **reverse()**: Returns an `AddConstraintOp` to reverse the drop.
+- **to_diff_tuple()**: Returns a tuple describing the drop operation.
+- **from_constraint(constraint: Constraint)**: Creates a `DropConstraintOp` from a SQLAlchemy `Constraint`.
+- **to_constraint()**: Returns the original constraint object if available.
+- **drop_constraint(operations, constraint_name, table_name, type_, schema)**: Class method to issue a drop constraint operation.
+- **batch_drop_constraint(operations, constraint_name, type_)**: Class method to issue a drop constraint operation within a batch migration context.
+
+### CreatePrimaryKeyOp
+
+Represents an operation to create a primary key constraint.
+
+- **constraint_type**: Set to `"primarykey"`.
+- **__init__(constraint_name, table_name, columns, schema, **kw)**: Initializes the primary key creation operation.
+- **from_constraint(constraint: Constraint)**: Creates an instance from a SQLAlchemy `PrimaryKeyConstraint`.
+- **to_constraint(migration_context)**: Converts the operation to a `PrimaryKeyConstraint` object.
+- **create_primary_key(operations, constraint_name, table_name, columns, schema)**: Issues a create primary key operation.
+- **batch_create_primary_key(operations, constraint_name, columns)**: Issues a batch create primary key operation.
+
+### CreateUniqueConstraintOp
+
+Represents an operation to create a unique constraint.
+
+- **constraint_type**: Set to `"unique"`.
+- **__init__(constraint_name, table_name, columns, schema, **kw)**: Initializes the unique constraint creation operation.
+- **from_constraint(constraint: Constraint)**: Creates an instance from a SQLAlchemy `UniqueConstraint`.
+- **to_constraint(migration_context)**: Converts the operation to a `UniqueConstraint` object.
+- **create_unique_constraint(operations, constraint_name, table_name, columns, schema, **kw)**: Issues a create unique constraint operation.
+- **batch_create_unique_constraint(operations, constraint_name, columns, **kw)**: Issues a batch create unique constraint operation.
+
+### CreateForeignKeyOp
+
+Represents an operation to create a foreign key constraint.
+
+- **constraint_type**: Set to `"foreignkey"`.
+- **__init__(constraint_name, source_table, referent_table, local_cols, remote_cols, **kw)**: Initializes the foreign key creation operation.
+- **to_diff_tuple()**: Returns a tuple describing the addition of a foreign key.
+- **from_constraint(constraint: Constraint)**: Creates an instance from a SQLAlchemy `ForeignKeyConstraint`.
+- **Additional keyword arguments**: Supports options such as `onupdate`, `ondelete`, `deferrable`, `initially`, `use_alter`, and `match` to control foreign key behavior.
+
+Integration with Operations and BatchOperations
+-----------------------------------------------
+
+The module integrates with the `Operations` and `BatchOperations` classes to register these operations, allowing them to be invoked in migration scripts either individually or as part of batch operations. This design supports both granular and bulk schema changes.
+
+Usage Examples
+--------------
+
+Creating a primary key constraint:
+
+```python
+from alembic import op
+
+op.create_primary_key("pk_my_table", "my_table", ["id", "version"])
+```
+
+Creating a unique constraint:
+
+```python
+from alembic import op
+
+op.create_unique_constraint("uq_user_name", "user", ["name"])
+```
+
+Dropping a constraint:
+
+```python
+from alembic import op
+
+op.drop_constraint("fk_user_address", "user", type_="foreignkey")
+```
+
+Batch operations omit the need to specify table and schema names explicitly, as these are inferred from the batch context.
+
+Extensibility
+-------------
+
+The operation classes support extensibility through registration decorators and dispatchers, allowing new constraint types and operations to be added seamlessly. The `AddConstraintOp` class, for example, uses a dispatcher to route constraint types to their corresponding operation classes.
+
+Summary
+-------
+
+This module provides a structured and extensible framework for defining and applying schema migration operations related to constraints. It abstracts the complexity of SQL DDL statements into Python objects and methods, facilitating automated and programmatic database schema evolution.
