@@ -202,6 +202,24 @@ class LineGeneratorHF(SpecificLineGenerator):
         # datapoint.pop('completion_lines', None)
         return {k: len(v) for k, v in dict_of_lines.items()}
 
+    def restore_line_results(self, datapoint: DatapointBase, rows: list[dict]) -> dict[str, int]:
+        """Rebuild what `generate_line` keeps in memory from the rows it saved earlier (resuming an interrupted run).
+
+        Every row is checked against the datapoint (line class, line number, ground truth), so rows that belong to a
+        different shard or dataset are refused instead of silently reused."""
+        dict_of_lines = self.load_lines(datapoint)
+        pending = iter(rows)
+        for sc_name, list_of_lines in dict_of_lines.items():
+            self.generation_results[sc_name] = GenerationResults(list(), list())
+            for line_num in list_of_lines:
+                row = next(pending, None)
+                gt_line = datapoint.get_line(line_num)
+                if row is None or (row['line_class'], row['line_num'], row['ground_truth']) != (sc_name, line_num, gt_line):
+                    raise ValueError(f"saved rows do not match datapoint {self.datapoint_idx} at line {line_num} ({sc_name}): "
+                                     "refusing to resume with results from a different run")
+                self.generation_results[sc_name].append_result(prediction=row['prediction_line'], gt=gt_line)
+        return {k: len(v) for k, v in dict_of_lines.items()}
+
     def _load_tokenizer(self):
         self._tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_path)
 
@@ -307,6 +325,40 @@ def shard_indices(n_items: int, shard_index: int, shard_count: int) -> list[int]
     return [i for i in range(n_items) if i % shard_count == shard_index]
 
 
+def split_finished_datapoints(rows: list[dict], expected_rows: dict[int, int]) -> tuple[dict[int, list[dict]], list[dict]]:
+    """Group the rows an interrupted run saved by datapoint (`datapoint_idx`).
+
+    A datapoint is finished only when all its lines are present (`expected_rows[idx]` of them); the rows of any other
+    datapoint, the one that was running when the run died, come back separately and are redone from scratch."""
+    by_datapoint: dict[int, list[dict]] = {}
+    for row in rows:
+        by_datapoint.setdefault(row.get('datapoint_idx'), []).append(row)
+    finished = {idx: group for idx, group in by_datapoint.items() if expected_rows.get(idx) == len(group)}
+    unfinished = [row for idx, group in by_datapoint.items() if idx not in finished for row in group]
+    return finished, unfinished
+
+
+def prepare_resume(results_path: str, input_data: list[DatapointBase]) -> dict[int, list[dict]]:
+    """Make `results_path` hold only the finished datapoints of an interrupted run and return their rows by index.
+
+    The rows of the unfinished datapoint are moved to `<results_path>.unfinished` (kept, never deleted), so the file
+    ends up exactly as if the run had stopped cleanly after its last finished datapoint."""
+    if not os.path.exists(results_path):
+        return {}
+    with jsonlines.open(results_path) as reader:
+        rows = list(reader)
+    expected = {i: sum(len(lines) for lines in dp.completion_lines.values()) for i, dp in enumerate(input_data)}
+    finished, unfinished = split_finished_datapoints(rows, expected)
+    with jsonlines.open(results_path, 'w') as writer:
+        writer.write_all([row for row in rows if row.get('datapoint_idx') in finished])
+    if unfinished:
+        with jsonlines.open(results_path + '.unfinished', 'a') as writer:
+            writer.write_all(unfinished)
+    print(f"Resuming: {len(finished)} finished datapoints kept ({sum(len(g) for g in finished.values())} lines), "
+          f"{len(unfinished)} lines of unfinished datapoints set aside in {results_path}.unfinished")
+    return finished
+
+
 def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] = None) -> list:
     """`limit` evenly spaced items. With `heldout_of=N`, first drop the N evenly spaced items that
     `select_subset(items, N)` would return, so the two selections are disjoint and together cover everything."""
@@ -321,7 +373,7 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
                         context_provider_factory: Optional[Callable[[DatapointBase], ContextProvider]] = None,
                         run_zero: bool = True, run_context: bool = True, limit: Optional[int] = None,
                         heldout_of: Optional[int] = None, select: Optional[Callable[[int], list[int]]] = None,
-                        line_filter: Optional[Callable[[int], dict[str, list[int]]]] = None):
+                        line_filter: Optional[Callable[[int], dict[str, list[int]]]] = None, resume: bool = False):
     """Generate and score target lines.
 
     By default, reads preprocessed datapoints from `args.input_data_path` and runs a zero-context pass and a pass
@@ -331,6 +383,8 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
     `select(n)` returning explicit indices (e.g. `dev_indices`) overrides `limit`/`heldout_of`.
     `line_filter(i)` (needs `select`) returns, for the datapoint at original index `i`, the lines to evaluate per
     category; datapoints left with no lines are skipped. It is only called for the selected datapoints.
+    `resume=True` continues an interrupted run from `args.results_path` (context pass only): the datapoints whose lines
+    are all saved are reused as they are, the rest are generated again (see `prepare_resume`).
     """
     set_seed(args.seed)
     if input_data is None:
@@ -364,14 +418,20 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
         em_dict['all'] = list()
         es_dict['all'] = list()
         sc_counts = None
+        finished = prepare_resume(args.results_path, input_data) if resume and not use_zero_context else {}
         for datapoint_idx, datapoint in enumerate(tqdm(input_data)):
             generator = LineGeneratorHF(model, device, max_seq_len=args.seq_max_len, tokenizer_path=args.tokenizer_path, results_path=args.results_path)
             generator.datapoint_idx = datapoint_idx
-            provider = None
-            if context_provider_factory is not None and not use_zero_context:
-                provider = context_provider_factory(datapoint)
-            el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context,
-                                                context_provider=provider)
+            if datapoint_idx in finished:
+                el_counts = generator.restore_line_results(datapoint, finished[datapoint_idx])
+            else:
+                provider = None
+                if context_provider_factory is not None and not use_zero_context:
+                    provider = context_provider_factory(datapoint)
+                el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context,
+                                                    context_provider=provider)
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()  # hand cached blocks back between datapoints (the 32 GB card runs close to full)
             if sc_counts is None:
                 sc_counts = el_counts
             else:

@@ -66,6 +66,11 @@ def validate(cfg: DictConfig) -> None:
             raise ValueError(f"need 0 <= shard_index < shard_count, got {shard_index!r} of {shard_count!r}")
         if cfg.split != 'all' or cfg.limit_datapoints is not None:
             raise ValueError("shards split the whole dataset: use split=all and no limit_datapoints")
+    if cfg.get('resume'):  # absent in older configs
+        if cfg.overwrite:
+            raise ValueError("resume=true keeps the existing results, overwrite=true deletes them: pick one")
+        if cfg.arm == 'zero' or cfg.run_zero:
+            raise ValueError("resume only continues the context pass (the zero-context pass is not saved apart)")
     cap = cfg.get('context_cap')  # absent in older configs
     if cap is not None:
         if cap < 1:
@@ -124,9 +129,10 @@ def run_arm(cfg: DictConfig):
     context_cap = cfg.get('context_cap')
     arm_dir = arm_directory(cfg)
     results_path = arm_dir / 'generation_results.jsonl'
-    if results_path.exists():
+    resume = bool(cfg.get('resume'))
+    if results_path.exists() and not resume:
         if not cfg.overwrite:
-            raise FileExistsError(f"{results_path} exists; use a different arm_name or overwrite=true")
+            raise FileExistsError(f"{results_path} exists; use a different arm_name or overwrite=true or resume=true")
         shutil.rmtree(arm_dir)
     arm_dir.mkdir(parents=True, exist_ok=True)
 
@@ -140,7 +146,7 @@ def run_arm(cfg: DictConfig):
     )
 
     kwargs = dict(run_zero=cfg.arm == 'zero' or cfg.run_zero, run_context=cfg.arm != 'zero',
-                  **datapoint_selection(cfg))
+                  resume=resume, **datapoint_selection(cfg))
     if cfg.arm in ('zero', 'rag', 'agent'):
         kwargs['input_data'] = load_datapoints(cfg.dataset)
     elif cfg.static_mode == 'provider':
@@ -205,7 +211,7 @@ def run_arm(cfg: DictConfig):
                'limit_datapoints': cfg.limit_datapoints,
                'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra, 'lines': cfg.lines,
                'static_mode': cfg.static_mode,
-               'shard_index': cfg.get('shard_index'), 'shard_count': cfg.get('shard_count'),
+               'shard_index': cfg.get('shard_index'), 'shard_count': cfg.get('shard_count'), 'resumed': resume,
                'code': git_state(), 'wall_seconds': wall_seconds, 'cost': cost,
                'scores': scores, 'em_difference_vs_zero': em_diff, 'line_counts': line_counts}
     (arm_dir / 'summary.json').write_text(json.dumps(summary, indent=4))
