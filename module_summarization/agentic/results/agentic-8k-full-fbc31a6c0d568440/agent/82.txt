@@ -1,0 +1,124 @@
+BaseUser Module Documentation
+=============================
+
+Overview
+--------
+The `BaseUser` module provides a foundational user model designed for authentication purposes within an application. It defines a user table with essential fields and methods to manage user credentials securely, including password hashing, validation, and user creation.
+
+Class: BaseUser
+---------------
+`BaseUser` is a subclass of `Table` from the Piccolo ORM, representing a user entity with authentication support.
+
+### Table Name
+- `piccolo_user`
+
+### Fields
+- `id` (`Serial`): Auto-incrementing primary key.
+- `username` (`Varchar`): Unique username with a maximum length of 100 characters.
+- `password` (`Secret`): Hashed password stored securely with a maximum length of 255 characters.
+- `first_name` (`Varchar`): Optional first name of the user.
+- `last_name` (`Varchar`): Optional last name of the user.
+- `email` (`Varchar`): Unique email address with a maximum length of 255 characters.
+- `active` (`Boolean`): Indicates if the user account is active. Defaults to `False`.
+- `admin` (`Boolean`): Indicates if the user has admin access to the Piccolo admin GUI. Defaults to `False`.
+- `superuser` (`Boolean`): Indicates if the user can manage other users' passwords in the Piccolo admin GUI. Defaults to `False`.
+- `last_login` (`Timestamp`): Records the last login time of the user. Optional.
+
+### Password Policy Constants
+- `_min_password_length`: Minimum allowed password length (6 characters).
+- `_max_password_length`: Maximum allowed password length (128 characters).
+- `_pbkdf2_iteration_count`: Number of iterations for PBKDF2 hashing (600,000), following OWASP recommendations.
+
+Initialization
+--------------
+When a `BaseUser` instance is created, if a raw password is provided, it is automatically hashed using the PBKDF2 SHA-256 algorithm unless it is already hashed.
+
+Class Methods
+-------------
+
+### get_salt()
+Generates a cryptographically secure random salt as a hexadecimal string.
+
+**Returns:**  
+`str` — A 32-character hexadecimal salt string.
+
+### get_readable()
+Returns a `Readable` instance used to represent the user row as a readable string, primarily displaying the username.
+
+**Returns:**  
+`Readable` — A readable representation template for the user.
+
+### _validate_password(password: str)
+Validates a raw password against the module's password policy.
+
+**Parameters:**  
+- `password` (`str`): The raw password string to validate.
+
+**Raises:**  
+- `ValueError` if the password is missing, too short, too long, or already hashed.
+
+### update_password_sync(user: Union[str, int], password: str)
+Synchronous wrapper for the asynchronous `update_password` method.
+
+**Parameters:**  
+- `user` (`str` or `int`): The username or user ID whose password is to be updated.  
+- `password` (`str`): The new raw password.
+
+**Returns:**  
+Result of the asynchronous `update_password` method executed synchronously.
+
+### update_password(user: Union[str, int], password: str) (async)
+Asynchronously updates the password for a specified user.
+
+**Parameters:**  
+- `user` (`str` or `int`): The username or user ID.  
+- `password` (`str`): The new raw password.
+
+**Notes:**  
+- The method expects the raw password and handles hashing internally.  
+- The user can be identified by username (string) or user ID (integer).
+
+### create_user_sync(username: str, password: str, **extra_params) -> BaseUser
+Synchronous wrapper for the asynchronous `create_user` method.
+
+**Parameters:**  
+- `username` (`str`): The username for the new user.  
+- `password` (`str`): The raw password for the new user.  
+- `**extra_params`: Additional fields to set on the user.
+
+**Returns:**  
+`BaseUser` — The newly created user instance.
+
+### create_user(username: str, password: str, **extra_params) -> BaseUser (async)
+Asynchronously creates a new user with validation and saves it to the database.
+
+**Parameters:**  
+- `username` (`str`): The username for the new user.  
+- `password` (`str`): The raw password for the new user.  
+- `**extra_params`: Additional fields to set on the user.
+
+**Raises:**  
+- `ValueError` if the username is missing or the password is invalid.
+
+**Returns:**  
+`BaseUser` — The newly created user instance.
+
+Usage Notes
+-----------
+- Passwords are hashed using PBKDF2 with SHA-256 and a high iteration count for security.
+- It is recommended to use `create_user` or `create_user_sync` for creating users to ensure proper validation.
+- The `update_password` and `update_password_sync` methods provide secure ways to update user passwords.
+- The `admin` and `superuser` flags control access levels within the Piccolo admin GUI.
+
+Logging
+-------
+The module uses Python's standard logging library to warn if an attempt is made to create a user with an already hashed password.
+
+References
+----------
+- OWASP Password Storage Cheat Sheet:  
+  https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
+
+---
+
+This module forms the basis for user authentication and management within applications using the Piccolo ORM framework.

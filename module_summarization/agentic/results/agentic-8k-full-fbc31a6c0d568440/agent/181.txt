@@ -1,0 +1,91 @@
+Dataset Loading Utilities
+=========================
+
+This section describes the utilities provided for loading various datasets in different formats, including ARFF and svmlight/libsvm formats. These utilities facilitate easy access to datasets for machine learning tasks, handling different data representations and formats efficiently.
+
+ARFF Dataset Loading
+--------------------
+
+The ARFF dataset loader supports parsing ARFF files, a common format for datasets in machine learning. Two parsers are available:
+
+- **liac-arff parser**: A pure Python ARFF parser that is less memory- and CPU-efficient but handles sparse ARFF datasets well.
+- **pandas parser**: Uses pandas to parse ARFF files, providing efficient handling of dense datasets.
+
+The parser can be selected automatically by setting the `parser` parameter to `"auto"` (the future default). In this mode, `"liac-arff"` is chosen for sparse ARFF datasets, while `"pandas"` is selected for dense datasets.
+
+Additional keyword arguments for pandas' `read_csv` function can be passed via the `read_csv_kwargs` parameter to customize the loading process.
+
+Returned Data Structure
+~~~~~~~~~~~~~~~~~~~~~~
+
+The loader returns a `Bunch` object, a dictionary-like container with the following attributes:
+
+- `data`: Feature matrix as a NumPy array, SciPy sparse matrix, or pandas DataFrame. Categorical features are encoded as ordinals.
+- `target`: Target labels or regression values as a NumPy array or pandas Series/DataFrame.
+- `DESCR`: Full description of the dataset.
+- `feature_names`: List of feature names.
+- `target_names`: List of target column names.
+- `categories`: Dictionary mapping categorical feature names to their categories (None if `as_frame=True`).
+- `details`: Additional metadata from OpenML.
+- `frame`: pandas DataFrame containing both data and target (present only if `as_frame=True`).
+
+If `return_X_y=True`, a tuple `(data, target)` is returned instead.
+
+Notes on Parsers
+~~~~~~~~~~~~~~~~
+
+- The `"liac-arff"` parser encodes categorical features as strings, while the `"pandas"` parser infers types and may cast numerical categories to integers.
+- Numerical features tagged as 'REAL' or 'NUMERICAL' are encoded as float64 by `"liac-arff"`, whereas `"pandas"` may use pandas' Integer extension dtype.
+- Classification datasets with integer categories are loaded as integers by `"pandas"` but as strings by `"liac-arff"`.
+- The `"pandas"` parser does not strip single quotes from string columns, unlike `"liac-arff"` which strips them for categorical columns.
+- When `as_frame=False`, `"liac-arff"` returns ordinally encoded data with categories in the `categories` attribute, while `"pandas"` returns a NumPy array.
+
+svmlight / libsvm Dataset Loading
+---------------------------------
+
+The `load_svmlight_file` function loads datasets in the svmlight/libsvm format into a sparse CSR matrix. This text-based format stores one sample per line and omits zero-valued features, making it suitable for sparse datasets.
+
+Features:
+
+- The first element of each line can be a target variable.
+- Supports multilabel datasets.
+- Can handle pairwise preference constraints (query IDs) used in learning to rank problems.
+- Supports loading from file paths, file descriptors, or file-like objects.
+- Automatically decompresses `.gz` or `.bz2` files.
+- Provides options to specify the number of features, data type, zero-based indexing, and file reading offsets.
+
+Parameters
+~~~~~~~~~~
+
+- `f`: File path, file descriptor, or file-like object to load.
+- `n_features`: Number of features to use; inferred if None.
+- `dtype`: Data type of the output arrays (default: `np.float64`).
+- `multilabel`: Whether samples may have multiple labels.
+- `zero_based`: Whether feature indices are zero-based (`True`), one-based (`False`), or `"auto"` to infer.
+- `query_id`: If `True`, returns query IDs for each sample.
+- `offset`: Number of bytes to skip at the start of the file.
+- `length`: Number of bytes to read after the offset.
+
+Returns
+~~~~~~~
+
+- `X`: Sparse CSR matrix of shape `(n_samples, n_features)` containing the data.
+- `y`: Target array or list of tuples (if multilabel).
+- `query_id`: Array of query IDs (if `query_id=True`).
+
+Usage Notes
+~~~~~~~~~~~
+
+- Parsing text-based svmlight files can be expensive; caching with `joblib.Memory.cache` is recommended for repeated use.
+- The loader is implemented in Cython for reasonable speed.
+- For faster loading, an alternative API-compatible loader is available at https://github.com/mblondel/svmlight-loader.
+
+Additional Utilities
+--------------------
+
+Other dataset loading utilities include functions to load multiple svmlight files simultaneously and support for loading datasets from various sources with caching and downloading capabilities.
+
+Summary
+-------
+
+These dataset loading utilities provide flexible and efficient means to import datasets in common machine learning formats, handling sparse and dense data, categorical features, multilabel targets, and metadata. They support automatic parsing, caching, and integration with pandas for convenient data manipulation.

@@ -1,0 +1,87 @@
+w_trace Command
+===============
+
+Overview
+--------
+
+The `w_trace` command is used to trace individual WEST trajectories and emit or calculate quantities along the trajectory.
+
+Trajectories are specified as pairs of iteration number and segment ID (`N_ITER:SEG_ID`). Each segment is traced back to its initial point, and various quantities—most notably `n_iter` and `seg_id`—are printed in order from the initial point up to the specified segment in the given iteration.
+
+Output
+------
+
+The output is stored in several files, all named according to the pattern given by the `-o` / `--output-pattern` parameter. The default output pattern is:
+
+```
+traj_%d_%d
+```
+
+where the printf-style format codes are replaced by the iteration number and segment ID of the terminal segment of the trajectory being traced.
+
+Datasets
+--------
+
+Individual datasets can be selected for writing using the `-d` / `--dataset` option, which may be specified multiple times. The simplest form is:
+
+```
+-d dsname
+```
+
+This causes data from the dataset `dsname` along the trace to be stored to HDF5. The dataset is assumed to be stored on a per-iteration basis, with the first dimension corresponding to `seg_id` and the second dimension corresponding to time within the segment.
+
+Extended dataset options can be specified as comma-separated key=value pairs after the dataset name, for example:
+
+```
+-d dsname,alias=newname,index=idsname,file=otherfile.h5,slice=[100,...]
+```
+
+Supported options for datasets include:
+
+- `alias=newname`  
+  When writing this data to HDF5 or text files, use `newname` instead of `dsname` to identify the dataset. This is useful when retrieving different slices of a dataset and storing them with different names.
+
+- `index=idsname`  
+  The dataset is not stored on a per-iteration basis for all segments, but instead as a single dataset whose first dimension indexes `n_iter`/`seg_id` pairs. The index to these pairs is given by `idsname`.
+
+- `file=otherfile.h5`  
+  Instead of reading data from the main WEST HDF5 file (usually `west.h5`), read data from `otherfile.h5`.
+
+- `slice=[100,...]`  
+  Retrieve only the specified slice from the dataset to minimize I/O by selecting a subset of interest.
+
+Output Format
+-------------
+
+The trace output includes summary information about each segment in the trajectory. The output columns are separated by at least one space and include:
+
+- Column 0: iteration number (`n_iter`), where 0 corresponds to the initial state
+- Column 1: segment ID (`seg_id`) or initial state ID
+- Column 2: weight of the segment
+- Column 3: wallclock time in seconds
+- Column 4: CPU time in seconds
+- Columns 5 and onward: final progress coordinate values
+
+If the progress coordinate is one-dimensional, column 5 contains the final progress coordinate value. For multi-dimensional progress coordinates, columns 5 through N contain the final progress coordinate values.
+
+Example Output Header:
+
+```
+# Trace of trajectory ending in n_iter:seg_id 123:45 (endpoint type <type>)
+# column  0: iteration (0 => initial state)
+# column  1: seg_id (or initial state ID)
+# column  2: weight
+# column  3: wallclock time (s)
+# column  4: CPU time (s)
+# columns 5 -- 7: final progress coordinate value
+```
+
+Usage Notes
+-----------
+
+- The command traces back from the specified segment to the initial point of the trajectory.
+- The output files are named according to the output pattern, allowing easy identification of the traced trajectory.
+- Multiple datasets can be traced and output simultaneously, with flexible options for dataset selection and slicing.
+- The command supports reading data from alternative HDF5 files if specified.
+
+This tool is essential for detailed analysis of WEST trajectories, enabling users to extract and examine segment-level data along traced paths.

@@ -1,0 +1,116 @@
+Understanding Sessions
+======================
+
+The **Session** object is a central component for interacting with the server API. It manages the connection, handles requests, and provides access to server information and event handling. This document provides an overview of the session's functionality and usage patterns.
+
+Session Lifecycle and Context Management
+----------------------------------------
+
+A session can be used as a context manager, allowing for automatic setup and teardown of the connection:
+
+.. code-block:: python
+
+    with session:
+        # Use session here
+        pass
+    # Session is automatically closed on exit
+
+The context management is implemented via the `__enter__` and `__exit__` methods. When exiting the context, the session is closed to ensure proper cleanup of resources.
+
+Properties and Attributes
+-------------------------
+
+- **closed**  
+  Indicates whether the session has been closed. Once closed, the session cannot be used for further operations.
+
+- **server_information**  
+  Returns a dictionary containing information about the connected server, such as its version.
+
+- **server_url**  
+  The URL of the server to which the session is connected.
+
+- **api_user**  
+  The username used for authentication in the session.
+
+- **api_key**  
+  The API key used for authentication.
+
+- **event_hub**  
+  Provides access to the event hub associated with the session, allowing publishing and subscribing to events.
+
+- **_local_cache**  
+  Provides access to the top-level memory cache used by the session.
+
+Request Handling and Connection Management
+------------------------------------------
+
+The session manages an internal request session used to communicate with the server. Access to this request session is provided via the `_request` property. If the session has been closed and the connection is no longer available, accessing `_request` will raise a `ConnectionClosedError`.
+
+Server Compatibility
+--------------------
+
+The session includes a method `check_server_compatibility()` to verify that the connected server version meets the minimum requirements for the API client. If the server version is unknown or incompatible, a `ServerCompatibilityError` is raised.
+
+Closing a Session
+-----------------
+
+The `close()` method cleanly closes the session by terminating connections, clearing any pending operations, and emptying the local cache. It is important to call this method when the session is no longer needed to free resources properly.
+
+Event Publishing
+----------------
+
+The session can publish events to the event hub. For example, it publishes a `'ftrack.api.session.ready'` event when the session is ready:
+
+.. code-block:: python
+
+    self.event_hub.publish(
+        ftrack_api.event.base.Event(
+            topic='ftrack.api.session.ready',
+            data=dict(session=self)
+        ),
+        synchronous=True
+    )
+
+Review Session Invites
+----------------------
+
+The session provides methods to send review session invites:
+
+- `send_review_session_invite(invitee)`  
+  Sends an invite to a single review session invitee. The invitee must be a committed instance of `ReviewSessionInvitee`.
+
+- `send_review_session_invites(invitees)`  
+  Sends invites to a list of review session invitees. All invitees must be committed.
+
+If the server does not support the invite action, a `ServerCompatibilityError` is raised with an informative message.
+
+Context Managers for Session Settings
+-------------------------------------
+
+Two helper context managers allow temporary modification of session settings:
+
+- **AutoPopulatingContext**  
+  Temporarily changes the session's `auto_populate` setting within a context block.
+
+- **OperationRecordingContext**  
+  Temporarily changes the session's `record_operations` setting within a context block.
+
+These context managers ensure that the original settings are restored after the context is exited.
+
+Operation Payload
+-----------------
+
+The `OperationPayload` class represents the payload of an operation sent to the server. It behaves like a mutable mapping (dictionary) and can be initialized with key-value pairs. This class is used internally to structure data for API calls.
+
+Summary
+-------
+
+The session object encapsulates the connection and communication with the server API, providing mechanisms for:
+
+- Managing connection lifecycle and cleanup  
+- Accessing server and authentication information  
+- Publishing and handling events  
+- Sending review session invites  
+- Temporarily modifying session behavior via context managers  
+
+Proper use of sessions ensures efficient and safe interaction with the server, including compatibility checks and resource management.

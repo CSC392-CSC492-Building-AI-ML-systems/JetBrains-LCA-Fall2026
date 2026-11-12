@@ -1,0 +1,357 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Less Frequently Used FITS Data Structures\n=========================================\n\nThis section provides documentation on some of the less frequently used data structures encountered in FITS (Flexible Image Transport System) files. While the most common FITS data structures include Primary HDUs and Image HDUs, there are additional specialized structures that are useful in particular contexts.\n\nColumn Definitions and Table HDUs\n---------------------------------\n\nFITS supports table data structures through the use of columns, which are defined using `Column` or `ColDefs` objects. These columns can be used to create binary or ASCII tables within FITS files.\n\n- **Columns Parameter**  \n  The `columns` parameter accepts a sequence of `Column` or `ColDefs`-like objects. It can also accept objects with a column-like structure from which a `ColDefs` can be instantiated. Examples include existing `BinTableHDU` or `TableHDU` objects, or a `numpy.recarray`.\n\n- **Data Initialization**  \n  If the columns have data arrays attached, that data may be used to initialize the new table. Otherwise, the input columns serve as a template for creating a new table with the requested number of rows.\n\n- **Header Parameter**  \n  An optional `Header` object can be provided to instantiate the new HDU. Header keywords specifically related to defining the table structure can be included here.\n\nHandling of TDIM and TFORM Keywords\n-----------------------------------\n\nIn FITS binary tables, the `TDIMn` keyword specifies the dimensionality of the data in the nth column, while the `TFORMn` keyword specifies the data format and repeat count.\n\n- Normally, the product of the dimensions listed in a `TDIMn` keyword must be less than or equal to the repeat count in the corresponding `TFORMn` keyword.\n- If the product is less than the repeat count, the trailing bytes are treated as unspecified fill values.\n- This allows for some flexibility in defining array columns where the actual data may not fill the entire allocated space.\n\nCard Objects and Keyword Handling\n--------------------------------\n\nFITS headers consist of cards, each representing a keyword-value-comment triplet.\n\n- **Card Construction**  \n  The `Card` constructor validates its inputs and raises exceptions on illegal arguments, such as invalid data structures or incorrect types.\n\n- **Keyword Length**  \n  Long card keywords are allowed but will generate a warning to alert the user.\n\n- **Illegal Characters**  \n  Keywords containing illegal characters are not permitted and will raise warnings or errors.\n\nFile Modes and HDUList Behavior\n-------------------------------\n\nWhen working with FITS files, the mode in which the file is opened affects how changes to the HDUList are handled.\n\n- **Append Mode**  \n  Opening a file in append mode allows adding new HDUs but does not permit modifying existing ones.\n\n- **Update Mode**  \n  Opening a file in update mode allows in-place modifications to existing HDUs, provided the changes do not alter the size structure of the HDUList. Changes are written back to the original file upon calling `flush()` or closing the file.\n\n- **Structural Changes**  \n  If changes affect the size structure (e.g., adding or deleting HDUs, expanding or reducing headers beyond their original size), the file may need to be rewritten or handled differently to accommodate these changes.\n\nData Access and Header Retrieval\n--------------------------------\n\n- The `getdata` function retrieves data from a specified HDU within a FITS file, optionally returning the header as well.\n- Additional keyword arguments can be passed to `astropy.io.fits.open` to control file opening behavior.\n- The function handles file modes and ensures proper closing of files after data retrieval.\n\nSummary\n-------\n\nWhile the primary FITS data structures cover most use cases, understanding these less frequently used structures and behaviors is important for advanced FITS file manipulation and interpretation. Proper handling of column definitions, table HDUs, card keywords, and file modes ensures robust and flexible FITS file operations.",
+  "prediction_sha256": "5b114b2c08086f8e3c9144ff4e684f383ad47709c10ed93b744484d8e6123d4e",
+  "prompt_sha256": "9dfaae593ac2a39c55c81ca26cc3cbe62f4b456f50b48242bfd323052357425d",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 9691,
+    "completion_tokens": 906,
+    "total_tokens": 10597
+  },
+  "cost_usd": 0.005326,
+  "generation_seconds": 11.197581293003168,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "unfamiliar"
+        },
+        "response": {
+          "status": "no_results",
+          "excerpts": [],
+          "code_tokens": 0
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "fits data structures"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1028,
+              "start_char": 766586,
+              "end_char": 767178,
+              "code": "\"), mode=\"update\") as u:\n                # When the changes do not alter the size structures of the\n                # original (or since last flush) HDUList, the changes are\n                # written back \"in place\".\n                assert u[0].header[\"rootname\"] == \"U2EQ0201T\"\n                u[0].header[\"rootname\"] = \"abc\"\n                assert u[1].data[1, 1] == 349\n                u[1].data[1, 1] = 99\n                u.flush()\n\n                # If the changes affect the size structure, e.g. adding or\n                # deleting HDU(s), header was expanded or reduced beyond\n       ",
+              "code_tokens": 300,
+              "score": 8.761786107295
+            },
+            {
+              "chunk_id": 1027,
+              "start_char": 765813,
+              "end_char": 766461,
+              "code": "         # file.  A file opened with append mode can only add new HDU's.\n            os.rename(self.temp(\"test_new.fits\"), self.temp(\"test_append.fits\"))\n\n            with fits.open(self.temp(\"test_append.fits\"), mode=\"append\") as a:\n                # The above change did not take effect since this was made\n                # after the flush().\n                assert a[1].data[1, 1] == 349\n                a.append(r[1])\n            del a\n\n            # When changes are made to an HDUList which was opened with\n            # \"update\" mode, they will be written back to the original file\n            # when a flush/close is called.\n            os",
+              "code_tokens": 300,
+              "score": 8.17513274293
+            },
+            {
+              "chunk_id": 1512,
+              "start_char": 1098411,
+              "end_char": 1099121,
+              "code": "deabcdeabcdeabcdeabcdeabcdeabcdeab\"\n            )\n        c = fits.Card(\"abc\", \"a\" * 68, \"abcdefg\")\n        with pytest.warns(fits.verify.VerifyWarning):\n            assert str(c) == f\"ABC     = '{'a' * 68}'\"\n\n    def test_constructor_filter_illegal_data_structures(self):\n        \"\"\"Test that Card constructor raises exceptions on bad arguments\"\"\"\n\n        pytest.raises(ValueError, fits.Card, (\"abc\",), {\"value\": (2, 3)})\n        pytest.raises(ValueError, fits.Card, \"key\", [], \"comment\")\n\n    def test_keyword_too_long(self):\n        \"\"\"Test that long Card keywords are allowed, but with a warning\"\"\"\n\n        pytest.warns(UserWarning, fits.Card, \"abcdefghi\", \"long\")\n\n    def test_illegal_characters_in_key",
+              "code_tokens": 300,
+              "score": 7.78300155149
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "fits data structures less frequently used"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1512,
+              "start_char": 1098411,
+              "end_char": 1099121,
+              "code": "deabcdeabcdeabcdeabcdeabcdeabcdeab\"\n            )\n        c = fits.Card(\"abc\", \"a\" * 68, \"abcdefg\")\n        with pytest.warns(fits.verify.VerifyWarning):\n            assert str(c) == f\"ABC     = '{'a' * 68}'\"\n\n    def test_constructor_filter_illegal_data_structures(self):\n        \"\"\"Test that Card constructor raises exceptions on bad arguments\"\"\"\n\n        pytest.raises(ValueError, fits.Card, (\"abc\",), {\"value\": (2, 3)})\n        pytest.raises(ValueError, fits.Card, \"key\", [], \"comment\")\n\n    def test_keyword_too_long(self):\n        \"\"\"Test that long Card keywords are allowed, but with a warning\"\"\"\n\n        pytest.warns(UserWarning, fits.Card, \"abcdefghi\", \"long\")\n\n    def test_illegal_characters_in_key",
+              "code_tokens": 300,
+              "score": 9.967906518938
+            },
+            {
+              "chunk_id": 1267,
+              "start_char": 926838,
+              "end_char": 927580,
+              "code": "fits.ColDefs(cols))\n        hdu.writeto(self.temp(\"test.fits\"))\n\n        with fits.open(self.temp(\"test.fits\")) as h:\n            # Need to force string arrays to byte arrays in order to compare\n            # correctly on Python 3\n            assert (h[1].data[\"str\"].encode(\"ascii\") == arra).all()\n            assert (h[1].data[\"strarray\"].encode(\"ascii\") == arrb).all()\n            assert (h[1].data[\"intarray\"] == arrc).all()\n\n    def test_mismatched_tform_and_tdim(self):\n        \"\"\"Normally the product of the dimensions listed in a TDIMn keyword\n        must be less than or equal to the repeat count in the TFORMn keyword.\n\n        This tests that this works if less than (treating the trailing bytes\n        as unspecified fill values",
+              "code_tokens": 300,
+              "score": 8.796763968191
+            },
+            {
+              "chunk_id": 1028,
+              "start_char": 766586,
+              "end_char": 767178,
+              "code": "\"), mode=\"update\") as u:\n                # When the changes do not alter the size structures of the\n                # original (or since last flush) HDUList, the changes are\n                # written back \"in place\".\n                assert u[0].header[\"rootname\"] == \"U2EQ0201T\"\n                u[0].header[\"rootname\"] = \"abc\"\n                assert u[1].data[1, 1] == 349\n                u[1].data[1, 1] = 99\n                u.flush()\n\n                # If the changes affect the size structure, e.g. adding or\n                # deleting HDU(s), header was expanded or reduced beyond\n       ",
+              "code_tokens": 300,
+              "score": 8.761786107295
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "fits data structures rarely used"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1512,
+              "start_char": 1098411,
+              "end_char": 1099121,
+              "code": "deabcdeabcdeabcdeabcdeabcdeabcdeab\"\n            )\n        c = fits.Card(\"abc\", \"a\" * 68, \"abcdefg\")\n        with pytest.warns(fits.verify.VerifyWarning):\n            assert str(c) == f\"ABC     = '{'a' * 68}'\"\n\n    def test_constructor_filter_illegal_data_structures(self):\n        \"\"\"Test that Card constructor raises exceptions on bad arguments\"\"\"\n\n        pytest.raises(ValueError, fits.Card, (\"abc\",), {\"value\": (2, 3)})\n        pytest.raises(ValueError, fits.Card, \"key\", [], \"comment\")\n\n    def test_keyword_too_long(self):\n        \"\"\"Test that long Card keywords are allowed, but with a warning\"\"\"\n\n        pytest.warns(UserWarning, fits.Card, \"abcdefghi\", \"long\")\n\n    def test_illegal_characters_in_key",
+              "code_tokens": 300,
+              "score": 9.967906518938
+            },
+            {
+              "chunk_id": 1028,
+              "start_char": 766586,
+              "end_char": 767178,
+              "code": "\"), mode=\"update\") as u:\n                # When the changes do not alter the size structures of the\n                # original (or since last flush) HDUList, the changes are\n                # written back \"in place\".\n                assert u[0].header[\"rootname\"] == \"U2EQ0201T\"\n                u[0].header[\"rootname\"] = \"abc\"\n                assert u[1].data[1, 1] == 349\n                u[1].data[1, 1] = 99\n                u.flush()\n\n                # If the changes affect the size structure, e.g. adding or\n                # deleting HDU(s), header was expanded or reduced beyond\n       ",
+              "code_tokens": 300,
+              "score": 8.761786107295
+            },
+            {
+              "chunk_id": 1027,
+              "start_char": 765813,
+              "end_char": 766461,
+              "code": "         # file.  A file opened with append mode can only add new HDU's.\n            os.rename(self.temp(\"test_new.fits\"), self.temp(\"test_append.fits\"))\n\n            with fits.open(self.temp(\"test_append.fits\"), mode=\"append\") as a:\n                # The above change did not take effect since this was made\n                # after the flush().\n                assert a[1].data[1, 1] == 349\n                a.append(r[1])\n            del a\n\n            # When changes are made to an HDUList which was opened with\n            # \"update\" mode, they will be written back to the original file\n            # when a flush/close is called.\n            os",
+              "code_tokens": 300,
+              "score": 8.17513274293
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "fits data structures rarely used examples"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1512,
+              "start_char": 1098411,
+              "end_char": 1099121,
+              "code": "deabcdeabcdeabcdeabcdeabcdeabcdeab\"\n            )\n        c = fits.Card(\"abc\", \"a\" * 68, \"abcdefg\")\n        with pytest.warns(fits.verify.VerifyWarning):\n            assert str(c) == f\"ABC     = '{'a' * 68}'\"\n\n    def test_constructor_filter_illegal_data_structures(self):\n        \"\"\"Test that Card constructor raises exceptions on bad arguments\"\"\"\n\n        pytest.raises(ValueError, fits.Card, (\"abc\",), {\"value\": (2, 3)})\n        pytest.raises(ValueError, fits.Card, \"key\", [], \"comment\")\n\n    def test_keyword_too_long(self):\n        \"\"\"Test that long Card keywords are allowed, but with a warning\"\"\"\n\n        pytest.warns(UserWarning, fits.Card, \"abcdefghi\", \"long\")\n\n    def test_illegal_characters_in_key",
+              "code_tokens": 300,
+              "score": 9.967906518938
+            },
+            {
+              "chunk_id": 1920,
+              "start_char": 1395757,
+              "end_char": 1396563,
+              "code": "     Parameters\n        ----------\n        columns : sequence of `Column`, `ColDefs` -like\n            The columns from which to create the table data, or an object with\n            a column-like structure from which a `ColDefs` can be instantiated.\n            This includes an existing `BinTableHDU` or `TableHDU`, or a\n            `numpy.recarray` to give some examples.\n\n            If these columns have data arrays attached that data may be used in\n            initializing the new table.  Otherwise the input columns will be\n            used as a template for a new table with the requested number of\n            rows.\n\n        header : `Header`\n            An optional `Header` object to instantiate the new HDU yet.  Header\n            keywords specifically related to defining the table structure",
+              "code_tokens": 300,
+              "score": 9.311587426975
+            },
+            {
+              "chunk_id": 437,
+              "start_char": 329500,
+              "end_char": 330248,
+              "code": ", extname, extver\n        The rest of the arguments are for HDU specification.  See the\n        `getdata` documentation for explanations/examples.\n    **kwargs\n        Any additional keyword arguments to be passed to\n        `astropy.io.fits.open`.\n\n    Returns\n    -------\n    header : `Header` object\n    \"\"\"\n    mode, closed = _get_file_mode(filename)\n    hdulist, extidx = _getext(filename, mode, *args, **kwargs)\n    try:\n        hdu = hdulist[extidx]\n        header = hdu.header\n    finally:\n        hdulist.close(closed=closed)\n\n    return header\n\n\ndef getdata(filename, *args, header=None, lower=None, upper=None, view=None, **kwargs):\n    \"\"\"\n    Get the data from an HDU of a FITS file (and optionally the\n    header).\n\n    Parameters\n   ",
+              "code_tokens": 300,
+              "score": 9.107935806381
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "fits data structures rarely used"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3600,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "151c77cc87aefbdc5c943748a5ed7f5ffd316e570194c4caa31c543be6ae5652",
+        "request_id": "chatcmpl-Ej9n7OqHbykZCboFLQYTl9YIhcgW6",
+        "usage": {
+          "prompt_tokens": 158,
+          "completion_tokens": 16,
+          "total_tokens": 174,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.880000000000002e-05,
+        "seconds": 0.637133874995925,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "13ec5b20728c2bf730bae411ac02db815c3d221a4fb0a704422adfc61cc7ce7a",
+        "request_id": "chatcmpl-Ej9n8RDo8Ew7XzrtRO6P0ukIdSxuO",
+        "usage": {
+          "prompt_tokens": 201,
+          "completion_tokens": 16,
+          "total_tokens": 217,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000106,
+        "seconds": 0.7293628749976051,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "fb4d79dfd486724a6df00d06c3a34cb229ffa8e761bd9991517c64ea7e3e2b83",
+        "request_id": "chatcmpl-Ej9n99i5rdZpUB3z4tzleRvEomrq2",
+        "usage": {
+          "prompt_tokens": 922,
+          "completion_tokens": 19,
+          "total_tokens": 941,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003992,
+        "seconds": 0.7588072500002454,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "4e47f3b4699353725b90ee4b14de234cd6ec1669cb68f6b36e69491996ff2493",
+        "request_id": "chatcmpl-Ej9nAAAnCg9f78hH2CC9puLwhlKdN",
+        "usage": {
+          "prompt_tokens": 1689,
+          "completion_tokens": 18,
+          "total_tokens": 1707,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007044,
+        "seconds": 0.832962291999138,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "8660a48656d1a4cc3fb8e6b303c5a60bb6ccd79d20aacc70e7cc3d015de9c880",
+        "request_id": "chatcmpl-Ej9nAibLAqnlfuwp9B7aqqEpRUX7o",
+        "usage": {
+          "prompt_tokens": 2412,
+          "completion_tokens": 19,
+          "total_tokens": 2431,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009952000000000001,
+        "seconds": 0.6798245840036543,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "871c058bfa3169efba5abf56de456e2832e46f1bda6592d92e95d620beaf54e5",
+        "request_id": "chatcmpl-Ej9nBZIku84O2wsVu7KD0jVLibLmO",
+        "usage": {
+          "prompt_tokens": 3201,
+          "completion_tokens": 18,
+          "total_tokens": 3219,
+          "prompt_tokens_details": {
+            "cached_tokens": 2304,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0013092,
+        "seconds": 0.6852492500038352,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "37df1994d3cf1b268b8068bf72f558e3eb7a5009a6f89d2f7dce29cebaeeb700",
+        "request_id": "chatcmpl-Ej9nC0Mpgck5DBleTBiERihNAThso",
+        "usage": {
+          "prompt_tokens": 1108,
+          "completion_tokens": 800,
+          "total_tokens": 1908,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0017232,
+        "seconds": 6.874241167002765,
+        "retry_count": 0
+      }
+    ]
+  }
+}

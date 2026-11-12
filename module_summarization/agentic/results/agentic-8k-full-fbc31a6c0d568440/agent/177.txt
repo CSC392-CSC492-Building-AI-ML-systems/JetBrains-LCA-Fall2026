@@ -1,0 +1,131 @@
+Pipelines and Composite Estimators
+==================================
+
+Pipelines
+---------
+
+A `Pipeline` is a sequence of data transforms followed by a final estimator. It allows you to chain multiple processing steps together so that they can be treated as a single object. This is particularly useful for assembling several steps that can be cross-validated together while setting different parameters.
+
+Each intermediate step in the pipeline must implement both `fit` and `transform` methods, making them transformers. The final step only needs to implement `fit`, as it is the estimator that will be used for prediction.
+
+The pipeline supports parameter setting using a double underscore `'__'` syntax to specify parameters of individual steps. For example, if a pipeline has a step named `'svc'`, you can set the parameter `'C'` of the SVC estimator by using `'svc__C'`.
+
+Transformers in the pipeline can be cached using the `memory` parameter to avoid recomputing expensive transformations during repeated fitting.
+
+**Parameters:**
+
+- `steps` : list of (name, transform) tuples  
+  List of named transforms and a final estimator to be chained sequentially.
+
+- `memory` : str or joblib.Memory-like object, default=None  
+  Used to cache the fitted transformers of the pipeline.
+
+- `verbose` : bool, default=False  
+  If True, prints the time elapsed while fitting each step.
+
+**Attributes:**
+
+- `named_steps` : Bunch  
+  Read-only attribute to access any step by name.
+
+- `classes_` : ndarray  
+  Class labels if the final estimator is a classifier.
+
+- `n_features_in_` : int  
+  Number of features seen during fit (if available).
+
+- `feature_names_in_` : ndarray  
+  Names of features seen during fit (if available).
+
+**Example:**
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svc', SVC())
+])
+
+pipe.fit(X_train, y_train)
+score = pipe.score(X_test, y_test)
+```
+
+For more details, see the User Guide section on pipelines.
+
+---
+
+FeatureUnion and Composite Estimators
+-------------------------------------
+
+`FeatureUnion` is a composite estimator that applies a list of transformer objects in parallel to the input data and concatenates their outputs. This is useful for combining several feature extraction mechanisms into a single transformer.
+
+Each transformer in the union can be named, and parameters can be set using the `'__'` syntax similar to pipelines. Transformers can be replaced, dropped, or set to passthrough mode.
+
+**Parameters:**
+
+- `transformer_list` : list of (name, transformer) tuples  
+  List of transformer objects to be applied in parallel.
+
+- `n_jobs` : int, default=None  
+  Number of jobs to run in parallel.
+
+- `transformer_weights` : dict or None, default=None  
+  Multiplicative weights for features per transformer.
+
+- `verbose` : bool, default=False  
+  If True, prints the time elapsed while fitting each transformer.
+
+**Attributes:**
+
+- `named_transformers` : Bunch  
+  Read-only attribute to access transformers by name.
+
+- `n_features_in_` : int  
+  Number of features seen during fit (if available).
+
+- `feature_names_in_` : ndarray  
+  Names of features seen during fit (if available).
+
+**Example:**
+
+```python
+from sklearn.pipeline import FeatureUnion
+from sklearn.decomposition import PCA, TruncatedSVD
+
+union = FeatureUnion([
+    ('pca', PCA(n_components=1)),
+    ('svd', TruncatedSVD(n_components=2))
+])
+
+X = [[0., 1., 3], [2., 2., 5]]
+X_transformed = union.fit_transform(X)
+```
+
+You can also set parameters of individual transformers using the `'__'` syntax:
+
+```python
+union.set_params(pca__n_components=1).fit_transform(X)
+```
+
+---
+
+Convenience Functions
+---------------------
+
+- `make_pipeline(*steps, memory=None, verbose=False)`  
+  Constructs a `Pipeline` without needing to name the steps explicitly. Step names are automatically assigned based on the estimator types.
+
+- `make_union(*transformers, n_jobs=None, verbose=False)`  
+  Constructs a `FeatureUnion` without needing to name the transformers explicitly. Transformer names are automatically assigned based on their types.
+
+---
+
+These composite estimators facilitate building complex workflows by combining multiple transformers and estimators into a single object that can be treated like any other estimator in scikit-learn. This enables streamlined model building, parameter tuning, and evaluation.

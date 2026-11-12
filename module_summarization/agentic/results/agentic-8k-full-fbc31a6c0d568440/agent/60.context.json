@@ -1,0 +1,34 @@
+{
+  "original_id": 60,
+  "repo": "sqlalchemy__sqlalchemy",
+  "docfile_name": "collection_api.rst",
+  "source_sha256": "0789aee82f252c52d82a8e577f440ff5d07866854886e6eda9cd8246604ebe1f",
+  "context": "       def decorator(fn):\n            fn._sa_instrument_before = (\"fire_remove_event\", arg)\n            return fn\n\n        return decorator\n\n    @staticmethod\n    def removes_return():\n        \"\"\"Mark the method as removing an entity in the collection.\n\n        Adds \"remove from collection\" handling to the method.  The return\n        value of the method, if any, is considered the value to remove.  The\n        method arguments are not inspected::\n\n            @collection.removes_return()\n            def pop(self):...\n\n        For methods where the value to remove is known at call-time, use\n        collection.remove.\n\n        \"\"\"\n\n        def decorator(fn):\n            fn._sa_instrument_after = \"fire_remove_event\"\n           \n\n return fn\n\n        return decorator\n\n\nif TYPE_CHECKING:\n\n    def collection_adapter(collection: Collection[Any]) -> CollectionAdapter:\n        \"\"\"Fetch the :class:`.CollectionAdapter` for a collection.\"\"\"\n\nelse:\n    collection_adapter = operator.attrgetter(\"_sa_adapter\")\n\n\nclass CollectionAdapter:\n    \"\"\"Bridges between the ORM and arbitrary Python collections.\n\n    Proxies base-level collection operations (append, remove, iterate)\n    to the underlying Python collection, and emits add/remove events for\n    entities entering or leaving the collection.\n\n    The ORM uses :class:`.CollectionAdapter` exclusively for interaction with\n    entity collections.\n\n\n    \"\"\"\n\n    __slots__ = (\n        \"attr\",\n        \"_key\",\n        \"_data\",\n        \"owner_state\",\n        \"_converter\",\n        \"invalidated\",\n        \"empty\",\n    )\n\n    attr: CollectionAttributeImpl\n    _key: str\n\n    # this is actually a weakref; see note in constructor\n    _data: Callable[..., _AdaptedCollectionProtocol]\n\n    owner_state: InstanceState[Any]\n    _converter: _CollectionConverterProtocol\n    invalidated: bool\n    empty: bool\n\n    def __init__(\n        self,\n        attr: CollectionAttributeImpl,\n        owner_state: InstanceState[Any],\n        data: _AdaptedCollectionProtocol,\n    ):\n        self.attr = attr\n        self._key = attr.key\n\n        # this weakref stays referenced throughout the lifespan of\n        # CollectionAdapter.  so while the weakref can return None, this\n        # is realistically only during garbage collection of this object, so\n        # we type this as a callable that returns _AdaptedCollectionProtocol\n        # in all cases.\n        self._data = weakref.ref(data)  # type: ignore\n\n        self.owner_state = owner_state\n        data._sa_adapter = self\n        self._converter = data._sa_converter\n        self.invalidated = False\n        self.empty = False\n\n    def _warn_invalidated(self) -> None:\n        util.warn(\"This collection has been invalidated.\")\n\n    @property\n    def data(self) -> _AdaptedCollectionProtocol:\n        \"The entity collection being adapted.\"\n        return self._data()\n\n    @property\n    def _referenced_by_owner(self) -> bool:\n        \"\"\"return True if the owner state still refers to this collection.\n\n        This will return False within a bulk replace operation,\n        where this collection is the one being replaced.\n\n        \"\"\"\n        return self.owner_state.dict[self._key] is self._data()\n\n    def bulk_appender(self):\n        return self._data()._sa_appender\n\n    def append_with_event(\n        self, item: Any, initiator: Optional[AttributeEventToken] = None\n    ) -> None:\n        \"\"\"Add an entity to the collection, firing mutation events.\"\"\"\n\n        self._data()._sa_appender(item, _sa_initiator=initiator)\n\n    def _set_empty(self, user_data):\n        assert (\n            not self.empty\n        ), \"This collection adapter is already in the 'empty' state\"\n        self.empty = True\n        self.owner_state._empty_collections[self._key] = user_data\n\n    def _reset_empty(self) -> None:\n        assert (\n            self.empty\n        ), \"This collection adapter is not in the 'empty' state\"\n        self\n\n.empty = False\n        self.owner_state.dict[\n            self._key\n        ] = self.owner_state._empty_collections.pop(self._key)\n\n    def _refuse_empty(self) -> NoReturn:\n        raise sa_exc.InvalidRequestError(\n            \"This is a special 'empty' collection which cannot accommodate \"\n            \"internal mutation operations\"\n        )\n\n    def append_without_event(self, item: Any) -> None:\n        \"\"\"Add or restore an entity to the collection, firing no events.\"\"\"\n\n        if self.empty:\n            self._refuse_empty()\n        self._data()._sa_appender(item, _sa_initiator=False)\n\n    def append_multiple_without_event(self, items: Iterable[Any]) -> None:\n        \"\"\"Add or restore an entity to the collection, firing no events.\"\"\"\n        if self.empty:\n  \n\nset_decorators(),\n        ),\n        # decorators are required for dicts and object collections.\n        dict: ({\"iterator\": \"values\"}, _dict_decorators()),\n    }\n)\n\n\ndef __go(lcls):\n    global keyfunc_mapping, mapped_collection\n    global column_keyed_dict, column_mapped_collection\n    global MappedCollection, KeyFuncDict\n    global attribute_keyed_dict, attribute_mapped_collection\n\n    from.mapped_collection import keyfunc_mapping\n    from.mapped_collection import column_keyed_dict\n    from.mapped_collection import attribute_keyed_dict\n    from.mapped_collection import KeyFuncDict\n\n    from.mapped_collection import mapped_collection\n    from.mapped_collection import column_mapped_collection\n    from.mapped_collection import attribute_mapped_collection\n    from.mapped_collection import MappedCollection\n\n    # ensure instrumentation is associated with\n    # these built-in classes; if a user-defined class\n  \n\n  # subclasses these and uses @internally_instrumented,\n    # the superclass is otherwise not instrumented.\n    # see [ticket:2406].\n    _instrument_class(InstrumentedList)\n    _instrument_class(InstrumentedSet)\n    _instrument_class(KeyFuncDict)\n\n\n__go(locals())",
+  "preparation_seconds": 0.19873520801775157,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 14824,
+        "end_char": 15557
+      },
+      {
+        "start_char": 15557,
+        "end_char": 18732
+      },
+      {
+        "start_char": 18732,
+        "end_char": 19504
+      },
+      {
+        "start_char": 50933,
+        "end_char": 51853
+      },
+      {
+        "start_char": 51853,
+        "end_char": 52116
+      }
+    ],
+    "context_tokens": 2216,
+    "context_sha256": "1c8801088f96ee3feff1caea1937c1e657e2c59ac699c3c091b1840e7257df61"
+  }
+}

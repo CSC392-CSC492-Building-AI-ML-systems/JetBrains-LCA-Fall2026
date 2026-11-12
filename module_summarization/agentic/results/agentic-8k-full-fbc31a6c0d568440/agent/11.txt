@@ -1,0 +1,112 @@
+Working with Entities
+=====================
+
+This section describes how to work with entities within the session, including creating, retrieving, ensuring existence, updating, deleting, and querying entities.
+
+Creating Entities
+-----------------
+
+Entities can be created using the `create` method by specifying the entity type and initial data. The constructed entity will be automatically merged into the session.
+
+Example:
+
+```python
+entity = session.create('User', {'username': 'martin'})
+```
+
+The internal `_create` method is responsible for instantiating an entity of the specified type with the provided data.
+
+Ensuring Entities
+-----------------
+
+The `ensure` method retrieves an entity of a given type with specified data, creating it if necessary.
+
+- *data* should be a dictionary similar to that passed to `create`.
+- By default, the method checks for an entity matching all keys in *data*.
+- Optionally, *identifying_keys* can be specified as a list of keys to consider when searching for an existing entity.
+- If any identifying key is missing in *data*, a `KeyError` is raised.
+- If no identifying keys can be determined, a `ValueError` is raised.
+- Only top-level scalar values are supported for identifying keys.
+- If multiple entities match the criteria, a `MultipleResultsFoundError` is raised.
+- If no matching entity is found, a new entity is created with the supplied data.
+- If a matching entity is found, it is updated with the supplied data if necessary.
+- If an entity is created or updated, a commit is issued automatically.
+
+Example:
+
+```python
+# First time, a new entity with username 'martin' is created.
+entity = session.ensure('User', {'username': 'martin'})
+
+# Subsequent calls retrieve the existing entity.
+entity = session.ensure('User', {'username': 'martin'})
+
+# Existing entity may be updated to match supplied data.
+entity = session.ensure(
+    'User', {'username': 'martin', 'email': 'martin@example.com'}
+)
+```
+
+Retrieving Entities
+-------------------
+
+The `get` method returns an entity of a specified type with a unique entity key.
+
+- It first checks the configured cache for the entity.
+- If not found in cache, it queries the server.
+- If no matching entity is found, it returns `None`.
+- The entity key must match the primary key attributes of the entity type.
+- If the entity key length does not match the expected primary key length, a `ValueError` is raised.
+
+Example:
+
+```python
+entity = session.get('User', ['martin'])
+```
+
+The internal `_get` method attempts to retrieve the entity from the cache and raises a `KeyError` if not found.
+
+Deleting Entities
+-----------------
+
+Entities can be marked for deletion using the `delete` method. This records a delete operation that will be committed later.
+
+Example:
+
+```python
+session.delete(entity)
+```
+
+Querying Entities
+-----------------
+
+The `query` method allows querying remote data according to an expression.
+
+- The expression is not executed immediately.
+- Instead, a `QueryResult` instance is returned, which executes the remote call upon access.
+- The `page_size` parameter specifies the maximum page size for the query result.
+
+Example:
+
+```python
+results = session.query('User where username is "martin"').all()
+```
+
+Committing Changes
+------------------
+
+Changes made to entities, including creations, updates, and deletions, are recorded as operations and can be committed to the server.
+
+- The commit process batches operations and optimizes them.
+- For example, if an entity is created and deleted in the same batch, all related payloads are removed.
+- The commit process handles create, update, and delete operations accordingly.
+
+Notes
+-----
+
+- When ensuring entities, if you want to control commit behavior manually, perform the `query` and `create` calls yourself instead of using `ensure`.
+- Only top-level scalar values are supported for identifying keys in `ensure`.
+- The system uses caching to optimize retrieval of entities.
+- Entity types are dynamically constructed and cached based on schemas.
+
+This documentation provides an overview of the primary methods and workflows for working with entities in the session. For more detailed usage and advanced querying, refer to the querying documentation and API reference.

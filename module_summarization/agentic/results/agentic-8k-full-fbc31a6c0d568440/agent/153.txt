@@ -1,0 +1,108 @@
+Geometric Image Transformations
+===============================
+
+This module provides tools and classes for geometric image transformations, focusing on camera models and coordinate transformations in 3D space. It includes implementations for pinhole camera models, matrix transformations, and utility functions to work with camera intrinsics and extrinsics.
+
+PinholeCamera Class
+-------------------
+
+The `PinholeCamera` class represents a pinhole camera model with batch support for efficient computation using PyTorch.
+
+**Constructor:**
+
+```python
+PinholeCamera(intrinsics: torch.Tensor, extrinsics: torch.Tensor, height: torch.Tensor, width: torch.Tensor) -> None
+```
+
+**Parameters:**
+
+- `intrinsics` (torch.Tensor): Tensor of shape `(B, 4, 4)` containing the full 4x4 camera calibration matrices for a batch of cameras.
+- `extrinsics` (torch.Tensor): Tensor of shape `(B, 4, 4)` containing the full 4x4 rotation-translation matrices for a batch of cameras.
+- `height` (torch.Tensor): Tensor of shape `(B,)` containing the image heights for each camera in the batch.
+- `width` (torch.Tensor): Tensor of shape `(B,)` containing the image widths for each camera in the batch.
+
+**Notes:**
+
+- The class attributes are stored in batch form to leverage PyTorch's parallelism and improve computational performance.
+
+**Properties:**
+
+- `intrinsics` (torch.Tensor): Returns the full 4x4 intrinsics matrix of shape `(B, 4, 4)`.
+- `extrinsics` (torch.Tensor): Returns the full 4x4 extrinsics matrix of shape `(B, 4, 4)`.
+- `batch_size` (int): Returns the batch size `B`.
+- `fx` (torch.Tensor): Returns the focal length in the x-direction for each camera in the batch, shape `(B,)`.
+- `fy` (torch.Tensor): Returns the focal length in the y-direction for each camera in the batch, shape `(B,)`.
+- `height` (torch.Tensor): Returns the image height for each camera in the batch, shape `(B,)`.
+- `width` (torch.Tensor): Returns the image width for each camera in the batch, shape `(B,)`.
+
+**Validation:**
+
+The class performs validation on input tensors to ensure correct shapes and batch consistency:
+- Intrinsics and extrinsics must be either `(B, 4, 4)` or `(B, N, 4, 4)`.
+- Height and width must be one-dimensional tensors of shape `(B,)`.
+- Batch sizes of all inputs must match.
+
+Coordinate Transformations
+--------------------------
+
+The module includes functions to transform pixel coordinates to camera coordinates using depth maps and camera intrinsics.
+
+**pixel_to_camera_coordinates**
+
+Converts pixel coordinates and depth maps into 3D camera coordinates.
+
+**Inputs:**
+
+- `depth` (torch.Tensor): Depth map tensor of shape `(B, 1, H, W)`.
+- `intrinsics_inv` (torch.Tensor): Inverse of camera intrinsics matrices, shape `(B, 4, 4)`.
+- `pixel_coords` (torch.Tensor): Pixel coordinates tensor of shape `(B, H, W, 3)`.
+
+**Output:**
+
+- Returns a tensor of shape `(B, H, W, 3)` representing the 3D camera coordinates `(x, y, z)`.
+
+**Notes:**
+
+- Validates input shapes to ensure compatibility.
+- Uses `transform_points` utility to apply inverse intrinsics to pixel coordinates.
+- Multiplies transformed points by depth to obtain camera coordinates.
+
+Pinhole Matrix Transformations
+------------------------------
+
+The module provides classes to convert pinhole camera parameters into transformation matrices and their inverses.
+
+**PinholeMatrix**
+
+Transforms pinhole camera parameters into full 4x4 pinhole matrices.
+
+- **Input:** Tensor of shape `(N, 12)` representing pinhole camera parameters.
+- **Output:** Tensor of shape `(N, 4, 4)` representing the corresponding pinhole matrices.
+
+**Example:**
+
+```python
+pinhole = torch.rand(1, 12)          # Nx12
+transform = PinholeMatrix()
+pinhole_matrix = transform(pinhole)  # Nx4x4
+```
+
+**InversePinholeMatrix**
+
+Computes the inverse of pinhole matrices from pinhole camera parameters.
+
+- **Input:** Tensor of shape `(N, 12)` representing pinhole camera parameters.
+- **Output:** Tensor of shape `(N, 4, 4)` representing the inverse pinhole matrices.
+
+**Example:**
+
+```python
+pinhole = torch.rand(1, 12)                  # Nx12
+transform = InversePinholeMatrix()
+pinhole_matrix_inv = transform(pinhole)      # Nx4x4
+```
+
+Summary
+-------
+
+This module facilitates working with geometric transformations in computer vision, particularly for camera modeling and 3D coordinate transformations. It supports batch processing for efficient computation and provides validation to ensure input correctness. The `PinholeCamera` class encapsulates camera intrinsics and extrinsics, while utility functions and classes enable conversion between different representations and coordinate systems.

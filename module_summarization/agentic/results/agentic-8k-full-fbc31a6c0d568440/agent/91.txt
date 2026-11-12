@@ -1,0 +1,66 @@
+RandAugment Module
+==================
+
+Overview
+--------
+This module provides functionality to apply RandAugment-style data augmentation to batches of samples. RandAugment is a simple and effective data augmentation technique introduced in the paper "RandAugment: Practical automated data augmentation with a reduced search space" (https://arxiv.org/abs/1909.13719). It applies a sequence of randomly selected augmentation operations with a fixed magnitude to each sample in a batch.
+
+Key Functions
+-------------
+
+apply_rand_augment(augmentations, data, n, m, num_magnitude_bins=31, seed=None, **kwargs)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies a list of augmentations in RandAugment fashion.
+
+- **augmentations** (`List[_Augmentation]`): List of augmentation operations to sample from.
+- **data** (`DataNode`): Batch of samples to be augmented.
+- **n** (`int`): Number of augmentation operations to apply sequentially to each sample.
+- **m** (`int`): Magnitude bin index indicating the strength of each operation. Must be in `[0, num_magnitude_bins - 1]`.
+- **num_magnitude_bins** (`int`, optional): Number of discrete bins to divide the magnitude range into. Default is 31.
+- **seed** (`int`, optional): Random seed for reproducibility.
+- **kwargs**: Additional keyword arguments passed to augmentation operations (e.g., `shape`, `fill_value`, `interp_type`).
+
+Returns:
+- `DataNode`: Batch of transformed samples.
+
+Raises exceptions if parameters are invalid (e.g., negative `n`, out-of-range `m`).
+
+get_rand_augment_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Generates a list of augmentation operations forming the RandAugment suite with monotonic magnitude behavior.
+
+- **use_shape** (`bool`, optional): Whether to include shape information in augmentations.
+- **max_translate_abs** (`int`, optional): Maximum absolute translation in pixels.
+- **max_translate_rel** (`float`, optional): Maximum relative translation as a fraction of image size.
+
+Returns:
+- `List[_Augmentation]`: List of augmentation operations with magnitude ranges designed so that strength increases monotonically with magnitude bin.
+
+This suite includes translations, shears, rotations, brightness, contrast, color, sharpness, posterize, solarize, equalize, auto contrast, and identity operations. Some operations use magnitude ranges where strength decreases towards the center of the range to better reflect perceptual effects.
+
+get_rand_augment_non_monotonic_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Generates a list of augmentation operations forming a RandAugment suite with magnitude ranges similar to AutoAugment.
+
+- **use_shape** (`bool`, optional): Whether to include shape information in augmentations.
+- **max_translate_abs** (`int`, optional): Maximum absolute translation in pixels.
+- **max_translate_rel** (`float`, optional): Maximum relative translation as a fraction of image size.
+
+Returns:
+- `List[_Augmentation]`: List of augmentation operations where magnitude ranges do not necessarily increase monotonically with magnitude bin.
+
+This variant uses brightness, contrast, color, sharpness, posterize, and solarize with ranges as used in AutoAugment, which may not align with the intuition that higher magnitude bins correspond to stronger operations.
+
+Usage Notes
+-----------
+- The module supports excluding specific augmentations from the suite.
+- Custom augmentation lists can be passed directly to `apply_rand_augment` for fine-tuning or extending the augmentation pipeline.
+- Magnitude bins discretize the continuous strength range of each augmentation, allowing consistent control over augmentation intensity.
+- Some augmentations accept additional parameters such as `shape`, `fill_value`, and `interp_type` to control output image properties.
+
+References
+----------
+- RandAugment Paper: https://arxiv.org/abs/1909.13719
+- AutoAugment Paper: https://arxiv.org/abs/1805.09501
+
+This module is part of the NVIDIA DALI AutoAugment package and integrates with its augmentation framework to provide efficient and flexible data augmentation pipelines.

@@ -1,0 +1,176 @@
+Markov Chain Monte Carlo (MCMC) Framework
+=========================================
+
+Overview
+--------
+
+The Markov Chain Monte Carlo (MCMC) framework provides a flexible and extensible infrastructure for performing MCMC simulations using OpenMM and OpenMMTools. It allows users to define and combine various MCMC moves to sample from complex thermodynamic ensembles efficiently.
+
+Key Components
+--------------
+
+- **MCMCMove**  
+  An abstract base class representing a single MCMC move.  
+  To implement a new MCMC move, subclass `MCMCMove` and implement the `apply` method, which modifies the thermodynamic and sampler states.  
+  Instances can maintain internal statistics such as the number of attempted moves and acceptance rates.
+
+- **MCMCSampler**  
+  The main sampler class that manages the simulation.  
+  It holds the current thermodynamic state, sampler state, and the move or set of moves to apply at each iteration.  
+  The sampler runs the simulation by repeatedly applying the specified moves.
+
+- **Move Containers**  
+  To facilitate complex move strategies, the framework provides container moves that combine multiple moves:
+  
+  - **SequenceMove**  
+    Applies a sequence of MCMC moves in order at each iteration.  
+    Useful for combining different types of moves that should be applied sequentially.
+  
+  - **WeightedMove**  
+    Selects one move at random from a set of moves according to specified probabilities at each iteration.  
+    Enables stochastic selection among multiple move types.
+
+Usage Examples
+--------------
+
+Creating Initial States
+~~~~~~~~~~~~~~~~~~~~~~~
+
+First, create the initial thermodynamic and sampler states for your system. For example, for alanine dipeptide in vacuum:
+
+```python
+from simtk import unit
+from openmmtools import testsystems
+from openmmtools.states import ThermodynamicState, SamplerState
+
+test = testsystems.AlanineDipeptideVacuum()
+thermodynamic_state = ThermodynamicState(system=test.system, temperature=298*unit.kelvin)
+sampler_state = SamplerState(positions=test.positions)
+```
+
+Defining Moves and Sampler
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create MCMC moves such as GHMC or Langevin dynamics moves:
+
+```python
+ghmc_move = GHMCMove(timestep=1.0*unit.femtosecond, n_steps=50)
+langevin_move = LangevinDynamicsMove(n_steps=10)
+```
+
+You can create a sampler with a single move:
+
+```python
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=ghmc_move)
+```
+
+Combining Moves
+~~~~~~~~~~~~~~~
+
+- **Sequence of Moves**
+
+Apply multiple moves in sequence each iteration:
+
+```python
+sequence_move = SequenceMove([ghmc_move, langevin_move])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=sequence_move)
+```
+
+- **Weighted Random Move**
+
+Select one move randomly each iteration with specified probabilities:
+
+```python
+weighted_move = WeightedMove([(ghmc_move, 0.5), (langevin_move, 0.5)])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=weighted_move)
+```
+
+Running the Simulation
+~~~~~~~~~~~~~~~~~~~~~~
+
+Minimize the system and run the sampler for a number of iterations:
+
+```python
+sampler.minimize()
+sampler.run(n_iterations=1000)
+```
+
+Context Caching
+---------------
+
+By default, MCMC moves use a global `ContextCache` that manages OpenMM Contexts on the fastest available platform. You can configure the platform and cache parameters:
+
+```python
+import openmm
+from openmmtools import cache
+
+reference_platform = openmm.Platform.getPlatformByName('Reference')
+cache.global_context_cache.platform = reference_platform
+cache.global_context_cache.time_to_live = 10  # number of read/write operations before context is discarded
+```
+
+Alternatively, you can create local caches for finer control:
+
+```python
+local_cache1 = cache.ContextCache(capacity=5, time_to_live=50)
+local_cache2 = cache.ContextCache(platform=reference_platform, capacity=1)
+
+sequence_move = SequenceMove([HMCMove(), LangevinDynamicsMove()], context_cache=local_cache1)
+ghmc_move = GHMCMove(context_cache=local_cache2)
+```
+
+If you prefer not to cache contexts at all, use the `DummyContextCache`:
+
+```python
+dummy_cache = cache.DummyContextCache(platform=reference_platform)
+ghmc_move = GHMCMove(context_cache=dummy_cache)
+```
+
+Examples
+--------
+
+- **Alanine Dipeptide Vacuum Simulation with Weighted Moves**
+
+```python
+from simtk import unit
+from openmmtools import testsystems
+from openmmtools.states import ThermodynamicState, SamplerState
+
+test = testsystems.AlanineDipeptideVacuum()
+thermodynamic_state = ThermodynamicState(system=test.system, temperature=298*unit.kelvin)
+sampler_state = SamplerState(positions=test.positions)
+
+move = WeightedMove([(HMCMove(n_steps=10), 0.5), (LangevinDynamicsMove(n_steps=10), 0.5)])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=move)
+sampler.run(n_iterations=1000)
+```
+
+- **Lennard-Jones Fluid NPT Ensemble with Sequence Moves**
+
+```python
+from simtk import unit
+from openmmtools import testsystems
+from openmmtools.states import ThermodynamicState, SamplerState
+
+test = testsystems.LennardJonesFluid(nparticles=200)
+thermodynamic_state = ThermodynamicState(system=test.system, temperature=298*unit.kelvin, pressure=1*unit.atmospheres)
+sampler_state = SamplerState(positions=test.positions)
+
+move = SequenceMove([GHMCMove(n_steps=50), MonteCarloBarostatMove(n_attempts=5)])
+sampler = MCMCSampler(thermodynamic_state, sampler_state, move=move)
+sampler.run(n_iterations=500)
+```
+
+Summary
+-------
+
+The MCMC framework in OpenMMTools provides a modular and extensible approach to constructing MCMC simulations. By defining moves and combining them in sequences or weighted sets, users can tailor sampling strategies to their specific systems and research questions. Context caching optimizes performance by reusing OpenMM Contexts, and the framework supports both global and local caching strategies.
+
+For detailed API usage, refer to the classes:
+
+- `MCMCMove` — base class for moves  
+- `MCMCSampler` — sampler managing states and moves  
+- `SequenceMove` — container for sequential moves  
+- `WeightedMove` — container for probabilistic move selection  
+
+This framework facilitates advanced sampling techniques in molecular simulations with OpenMM.

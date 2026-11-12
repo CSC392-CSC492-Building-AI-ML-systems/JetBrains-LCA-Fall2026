@@ -1,0 +1,138 @@
+w_pdist — Calculate time-resolved, multi-dimensional probability distributions of WE datasets
+===============================================================================================
+
+Overview
+--------
+
+The `w_pdist` command calculates time-resolved, multi-dimensional probability distributions from weighted ensemble (WE) simulation datasets. It produces normalized histograms representing the probability distributions of specified data over iterations, which can be further analyzed or visualized.
+
+Source Data
+-----------
+
+Source data for the probability distribution calculation can be provided in one of the following ways:
+
+- **Default dataset:** If no dataset is specified, the progress coordinate dataset `pcoord` from the main WEST HDF5 file (`west.h5`) is used.
+
+- **Custom dataset construction function:** Use the `--construct-dataset` option to specify a Python function in `MODULE.FUNCTION` syntax. This function is called once per iteration as `function(n_iter, iter_group)`, where `n_iter` is the iteration number and `iter_group` is the corresponding group in the WEST HDF5 file. The function must return data indexable as `[segment][timepoint][dimension]`.
+
+- **Data set specifications (DSSPECs):** Use the `--dsspecs` option to specify one or more datasets to use. Each DSSPEC is formatted as `NAME[,file=FILENAME,slice=SLICE]`, where:
+  - `NAME` is the dataset name,
+  - `file=FILENAME` optionally specifies the HDF5 file (defaults to `west.h5`),
+  - `slice=SLICE` optionally specifies a Python slice expression to select a subset of the dataset (e.g., `[0:2]`).
+
+Histogram Binning
+-----------------
+
+Histograms are constructed to represent the probability distributions. By default, 100 bins are used in each dimension. This can be customized with the `-b` or `--bins` option, which accepts:
+
+- A single integer `N`: Use `N` uniformly spaced bins in each dimension.
+
+- A comma-separated sequence of integers `N1,N2,...`: Use `N1` bins for the first dimension, `N2` for the second, etc.
+
+- A list of lists of bin boundaries: `[[B11, B12, ...], [B21, B22, ...], ...]` where each inner list specifies explicit bin boundaries for a dimension. These boundaries need not be uniform and are evaluated as Python expressions with `np` available (e.g., `np.arange()`).
+
+If uniform bin counts are specified (single integer or list of integers), the program scans all data to determine minimum and maximum values for each dimension, which may be computationally expensive for large datasets. Providing explicit bin boundaries avoids this scan.
+
+**Note:** These bins are unrelated to the bins used for driving WE sampling.
+
+Output Format
+-------------
+
+The output is stored in an HDF5 file (default `pdist.h5`, configurable with `-o/--output`) containing:
+
+- `histograms`: A dataset of normalized histograms. The first axis corresponds to iteration number, and subsequent axes correspond to the dimensions of the input data.
+
+- `/binbounds_0`, `/binbounds_1`, ...: Datasets containing bin boundaries for each dimension.
+
+- `/midpoints_0`, `/midpoints_1`, ...: Datasets containing bin midpoints for each dimension.
+
+- `n_iter`: A vector of iteration numbers corresponding to the histograms.
+
+This output can be used with the `plothist` tool for visualization or further processing.
+
+Subsequent Processing
+---------------------
+
+The generated output file can be visualized or analyzed using the `plothist` command. Refer to `plothist --help` for usage details.
+
+Parallelization
+---------------
+
+`w_pdist` supports parallelized binning and input data reading by default, improving performance on large datasets. For simpler cases or smaller datasets, serial processing can be enabled with the `--serial` option.
+
+Command-Line Options
+--------------------
+
+Some key command-line options include:
+
+- `-b`, `--bins`: Specify histogram bins (integer, list of integers, or list of bin boundaries).
+
+- `-o`, `--output`: Specify output filename (default: `pdist.h5`).
+
+- `--construct-dataset`: Specify a Python function to construct the source dataset.
+
+- `--dsspecs`: Specify one or more dataset specifications.
+
+- `--construct-wdataset`: Specify a Python function to construct weight data.
+
+- `--compress`: Compress histograms to reduce storage size at the cost of increased analysis time.
+
+- `--loose`: Ignore data points outside the specified bin boundaries (use with caution).
+
+- `--serial`: Disable parallel processing.
+
+- Iteration range selection options (see `--help`).
+
+- Progress indicator options.
+
+For a full list of options, run `w_pdist --help`.
+
+Examples
+--------
+
+Calculate probability distributions using the default progress coordinate dataset:
+
+```bash
+w_pdist
+```
+
+Specify custom bins for a 2D dataset:
+
+```bash
+w_pdist -b 50,100
+```
+
+Use a custom dataset construction function:
+
+```bash
+w_pdist --construct-dataset mymodule.myfunction
+```
+
+Specify multiple datasets:
+
+```bash
+w_pdist --dsspecs pcoord file=west.h5,slice=[0:2] otherdataset file=other.h5
+```
+
+Compress output histograms:
+
+```bash
+w_pdist --compress
+```
+
+Ignore out-of-range data points:
+
+```bash
+w_pdist --loose
+```
+
+See Also
+--------
+
+- `plothist`: Tool for plotting histograms generated by `w_pdist`.
+
+- WESTPA documentation for weighted ensemble simulations.
+
+---
+
+This tool is part of the WESTPA suite for weighted ensemble simulation analysis.

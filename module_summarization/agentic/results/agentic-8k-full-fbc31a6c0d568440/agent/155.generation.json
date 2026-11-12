@@ -1,0 +1,391 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Getting Started with Mitogen\n=============================\n\nMitogen is a Python library designed to simplify and optimize the creation of distributed applications by enabling efficient remote procedure calls and process management. This guide provides an overview of key concepts and usage patterns to help you get started quickly.\n\nCreating Efficient Communication Channels\n-----------------------------------------\n\nMitogen uses UNIX socket pairs to establish communication channels between processes. Socket pairs are bidirectional and economical on file descriptor usage, allowing a single descriptor to serve both standard input and output. Additionally, socket buffers are tunable, which can improve file transfer throughput and reduce IO loop iterations.\n\nExample function to create a socket pair for child process stdio channels:\n\n```python\ndef create_socketpair(size=None):\n    \"\"\"\n    Create a socketpair for use as a child's UNIX stdio channels.\n    \"\"\"\n    # Implementation details...\n```\n\nDisabling Terminal Echo\n-----------------------\n\nWhen working with terminal file descriptors, you may need to disable echo to prevent input from being displayed. Mitogen provides a utility function to disable echo on a given file descriptor:\n\n```python\ndef disable_echo(fd):\n    \"\"\"\n    Disable terminal echo on the specified file descriptor.\n    \"\"\"\n    old = termios.tcgetattr(fd)\n    new = cfmakeraw(old)\n    flags = getattr(termios, 'TCSASOFT', 0)\n    if not mitogen.core.IS_WSL:\n        flags |= termios.TCSAFLUSH\n    termios.tcsetattr(fd, flags, new)\n```\n\nThis function configures the terminal to raw mode, disabling echo and other input processing features.\n\nUsing Call Chains for Efficient Remote Calls\n--------------------------------------------\n\nMitogen supports pipelined remote procedure calls through the `CallChain` class. This allows multiple calls to be sent in a single round-trip, reducing latency and improving throughput.\n\nExample usage of `CallChain` with pipelining enabled:\n\n```python\nchain = mitogen.parent.CallChain(context, pipelined=True)\nchain.call_no_reply(os.mkdir, '/tmp/foo')\nchain.call_no_reply(os.mkdir, '/tmp/foo/bar')\nrecv = chain.call_async(subprocess.check_output, '/tmp/foo')\nchain.call(do_something)\n\nif recv.get().unpickle() == 'baz':\n    pass\n```\n\nKey points about `CallChain`:\n\n- If any call in the chain fails, subsequent calls are not executed.\n- Exceptions are asynchronously delivered to the receiver.\n- The `reset()` method must be called to discard exceptions and prevent unbounded memory usage in long-running programs.\n- The context manager protocol is supported to automatically invoke `reset()`:\n\n```python\nwith mitogen.parent.CallChain(context, pipelined=True) as chain:\n    chain.call_no_reply(...)\n    chain.call_no_reply(...)\n    chain.call(...)\n# chain.reset() is automatically called here\n```\n\nLimitations on Callable Types\n-----------------------------\n\nMitogen cannot invoke certain types of callables due to serialization constraints:\n\n- **Closures:** Serializing arbitrary program state is not supported.\n- **Anonymous functions (lambdas):** No universal method exists to recover references.\n- **Instance methods:** Serializing instance state is not supported.\n\nAttempting to use these will raise a `TypeError` with an explanatory message.\n\nExample error messages:\n\n- \"Mitogen cannot invoke closures, as doing so would require serializing arbitrary program state.\"\n- \"Mitogen cannot invoke anonymous functions, as no universal method exists to recover a reference.\"\n- \"Mitogen cannot invoke instance methods, as doing so would require serializing arbitrary program state.\"\n\nBuffer Size Considerations\n--------------------------\n\nEfficient IO depends on appropriate buffer sizes. Mitogen uses a chunk size of 131072 bytes (128 KiB) to optimize message sizes and reduce IO loop iterations.\n\nNotes on buffer sizes:\n\n- Most UNIX TTYs have fixed buffers of 2KiB-4KiB, which are not ideal for high throughput.\n- Pipe buffer sizes vary across UNIX systems; Linux defaults to 64KiB but can be smaller under memory pressure.\n- Intermediary processes (e.g., OpenSSH) may impose their own buffer limits (commonly 64KiB).\n\nMitogen aims to use buffer sizes that are multiples of the chunk size to maximize efficiency.\n\nStandard IO Handling\n--------------------\n\nMitogen includes mechanisms to manage standard IO streams safely, including temporarily redirecting stdio to `/dev/null` to handle unusual startup conditions or to avoid interference.\n\nExample snippet to nullify stdio:\n\n```python\ndef _nullify_stdio(self):\n    \"\"\"\n    Replace standard input, output, and error with /dev/null.\n    \"\"\"\n    for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n        fd = os.open('/dev/null', mode)\n        if fd != stdfd:\n            os.dup2(fd, stdfd)\n            os.close(fd)\n```\n\nThis ensures that the process does not accidentally read from or write to unintended file descriptors.\n\nSummary\n-------\n\nMitogen provides powerful abstractions for remote execution and inter-process communication with a focus on efficiency and simplicity. By leveraging socket pairs, pipelined call chains, and careful buffer management, it enables scalable distributed applications in Python.\n\nTo get started, create contexts and use `CallChain` for pipelined remote calls, handle exceptions properly with `reset()`, and avoid unsupported callable types such as closures and lambdas.\n\nFor more detailed usage and advanced features, refer to the full Mitogen documentation.",
+  "prediction_sha256": "024620bf9bf140b296e0c7d1c3511fba8cd0a0747395f22d50a7cd0539ce6938",
+  "prompt_sha256": "2bdf651d6eec0500770c4aa518cccdd3aa3203276d36a9c9d315ad653fdd5902",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 13049,
+    "completion_tokens": 1208,
+    "total_tokens": 14257
+  },
+  "cost_usd": 0.007152400000000001,
+  "generation_seconds": 17.635073249992274,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting started"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 73,
+              "start_char": 58445,
+              "end_char": 59018,
+              "code": " after %.2f seconds',\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker, 'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.",
+              "code_tokens": 300,
+              "score": 4.144997111876
+            },
+            {
+              "chunk_id": 74,
+              "start_char": 59127,
+              "end_char": 59695,
+              "code": "     self._fail_connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n   ",
+              "code_tokens": 300,
+              "score": 3.942178496334
+            },
+            {
+              "chunk_id": 305,
+              "start_char": 238831,
+              "end_char": 239454,
+              "code": "setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n               ",
+              "code_tokens": 300,
+              "score": 3.806712299375
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting_started"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 73,
+              "start_char": 58445,
+              "end_char": 59018,
+              "code": " after %.2f seconds',\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker, 'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.",
+              "code_tokens": 300,
+              "score": 4.144997111876
+            },
+            {
+              "chunk_id": 74,
+              "start_char": 59127,
+              "end_char": 59695,
+              "code": "     self._fail_connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n   ",
+              "code_tokens": 300,
+              "score": 3.942178496334
+            },
+            {
+              "chunk_id": 305,
+              "start_char": 238831,
+              "end_char": 239454,
+              "code": "setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n               ",
+              "code_tokens": 300,
+              "score": 3.806712299375
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "usage example"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 63176,
+              "code": "interference.\n\n    In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled,",
+              "code_tokens": 300,
+              "score": 7.357597400961
+            },
+            {
+              "chunk_id": 132,
+              "start_char": 103584,
+              "end_char": 104558,
+              "code": " size. For example,\n#:\n#: * Most UNIXes have TTYs with fixed 2KiB-4KiB buffers, making them unsuitable\n#:   for efficient IO.\n#: * Different UNIXes have varying presets for pipes, which may not be\n#:   configurable. On recent Linux the default pipe buffer size is 64KiB, but\n#:   under memory pressure may be as low as 4KiB for unprivileged processes.\n#: * When communication is via an intermediary process, its internal buffers\n#:   effect the speed OS buffers will drain. For example OpenSSH uses 64KiB\n#:   reads.\n#:\n#: An ideal :class:`Message` has a size that is a multiple of\n#: :data:`CHUNK_SIZE` inclusive of headers, to avoid wasting IO loop iterations\n#: writing small trailer chunks.\nCHUNK_SIZE = 131072\n\n_tls = threading.local()\n\n\nif __name__ == 'mitogen.core':\n    # When loaded using import mechanism, ExternalContext.main() will not have\n    # a chance to set the synthetic mitogen global, so just import it here.\n    import mitogen\nelse:\n    # When loaded as",
+              "code_tokens": 300,
+              "score": 4.326568230732
+            },
+            {
+              "chunk_id": 8,
+              "start_char": 7640,
+              "end_char": 8471,
+              "code": "speed, cc]\n\n\ndef disable_echo(fd):\n    old = termios.tcgetattr(fd)\n    new = cfmakeraw(old)\n    flags = getattr(termios, 'TCSASOFT', 0)\n    if not mitogen.core.IS_WSL:\n        # issue #319: Windows Subsystem for Linux as of July 2018 throws EINVAL\n        # if TCSAFLUSH is specified.\n        flags |= termios.TCSAFLUSH\n    termios.tcsetattr(fd, flags, new)\n\n\ndef create_socketpair(size=None):\n    \"\"\"\n    Create a :func:`socket.socketpair` for use as a child's UNIX stdio\n    channels. As socketpairs are bidirectional, they are economical on file\n    descriptor usage as one descriptor can be used for ``stdin`` and\n    ``stdout``. As they are sockets their buffers are tunable, allowing large\n    buffers to improve file transfer throughput and reduce IO loop iterations.\n    \"\"\"\n    if size is None:\n        size = mitogen.core",
+              "code_tokens": 300,
+              "score": 4.198523828505
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting started example"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 132,
+              "start_char": 103584,
+              "end_char": 104558,
+              "code": " size. For example,\n#:\n#: * Most UNIXes have TTYs with fixed 2KiB-4KiB buffers, making them unsuitable\n#:   for efficient IO.\n#: * Different UNIXes have varying presets for pipes, which may not be\n#:   configurable. On recent Linux the default pipe buffer size is 64KiB, but\n#:   under memory pressure may be as low as 4KiB for unprivileged processes.\n#: * When communication is via an intermediary process, its internal buffers\n#:   effect the speed OS buffers will drain. For example OpenSSH uses 64KiB\n#:   reads.\n#:\n#: An ideal :class:`Message` has a size that is a multiple of\n#: :data:`CHUNK_SIZE` inclusive of headers, to avoid wasting IO loop iterations\n#: writing small trailer chunks.\nCHUNK_SIZE = 131072\n\n_tls = threading.local()\n\n\nif __name__ == 'mitogen.core':\n    # When loaded using import mechanism, ExternalContext.main() will not have\n    # a chance to set the synthetic mitogen global, so just import it here.\n    import mitogen\nelse:\n    # When loaded as",
+              "code_tokens": 300,
+              "score": 4.326568230732
+            },
+            {
+              "chunk_id": 73,
+              "start_char": 58445,
+              "end_char": 59018,
+              "code": " after %.2f seconds',\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker, 'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.",
+              "code_tokens": 300,
+              "score": 4.144997111876
+            },
+            {
+              "chunk_id": 74,
+              "start_char": 59127,
+              "end_char": 59695,
+              "code": "     self._fail_connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n   ",
+              "code_tokens": 300,
+              "score": 3.942178496334
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "getting_started example usage"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 63176,
+              "code": "interference.\n\n    In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled,",
+              "code_tokens": 300,
+              "score": 7.357597400961
+            },
+            {
+              "chunk_id": 132,
+              "start_char": 103584,
+              "end_char": 104558,
+              "code": " size. For example,\n#:\n#: * Most UNIXes have TTYs with fixed 2KiB-4KiB buffers, making them unsuitable\n#:   for efficient IO.\n#: * Different UNIXes have varying presets for pipes, which may not be\n#:   configurable. On recent Linux the default pipe buffer size is 64KiB, but\n#:   under memory pressure may be as low as 4KiB for unprivileged processes.\n#: * When communication is via an intermediary process, its internal buffers\n#:   effect the speed OS buffers will drain. For example OpenSSH uses 64KiB\n#:   reads.\n#:\n#: An ideal :class:`Message` has a size that is a multiple of\n#: :data:`CHUNK_SIZE` inclusive of headers, to avoid wasting IO loop iterations\n#: writing small trailer chunks.\nCHUNK_SIZE = 131072\n\n_tls = threading.local()\n\n\nif __name__ == 'mitogen.core':\n    # When loaded using import mechanism, ExternalContext.main() will not have\n    # a chance to set the synthetic mitogen global, so just import it here.\n    import mitogen\nelse:\n    # When loaded as",
+              "code_tokens": 300,
+              "score": 4.326568230732
+            },
+            {
+              "chunk_id": 8,
+              "start_char": 7640,
+              "end_char": 8471,
+              "code": "speed, cc]\n\n\ndef disable_echo(fd):\n    old = termios.tcgetattr(fd)\n    new = cfmakeraw(old)\n    flags = getattr(termios, 'TCSASOFT', 0)\n    if not mitogen.core.IS_WSL:\n        # issue #319: Windows Subsystem for Linux as of July 2018 throws EINVAL\n        # if TCSAFLUSH is specified.\n        flags |= termios.TCSAFLUSH\n    termios.tcsetattr(fd, flags, new)\n\n\ndef create_socketpair(size=None):\n    \"\"\"\n    Create a :func:`socket.socketpair` for use as a child's UNIX stdio\n    channels. As socketpairs are bidirectional, they are economical on file\n    descriptor usage as one descriptor can be used for ``stdin`` and\n    ``stdout``. As they are sockets their buffers are tunable, allowing large\n    buffers to improve file transfer throughput and reduce IO loop iterations.\n    \"\"\"\n    if size is None:\n        size = mitogen.core",
+              "code_tokens": 300,
+              "score": 4.198523828505
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 79
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 79,
+              "start_char": 62400,
+              "end_char": 65795,
+              "code": "interference.\n\n    In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled, :meth:`reset` must be invoked to ensure any\n    exception is discarded, otherwise unbounded memory usage is possible in\n    long-running programs. The context manager protocol is supported to ensure\n    :meth:`reset` is always invoked::\n\n        with mitogen.parent.CallChain(context, pipelined=True) as chain:\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call(...)\n\n        # chain.reset() automatically invoked.\n    \"\"\"\n    def __init__(self, context, pipelined=False):\n        self.context = context\n        if pipelined:\n            self.chain_id = self.make_chain_id()\n        else:\n            self.chain_id = None\n\n    @classmethod\n    def make_chain_id(cls):\n        return '%s-%s-%x-%x' % (\n            socket.gethostname(),\n            os.getpid(),\n            thread.get_ident(),\n            int(1e6 * mitogen.core.now()),\n        )\n\n    def __repr__(self):\n        return '%s(%s)' % (self.__class__.__name__, self.context)\n\n    def __enter__(self):\n        return self\n\n    def __exit__(self, _1, _2, _3):\n        self.reset()\n\n    def reset(self):\n        \"\"\"\n        Instruct the target to forget any related exception.\n        \"\"\"\n        if not self.chain_id:\n            return\n\n        saved, self.chain_id = self.chain_id, None\n        try:\n            self.call_no_reply(mitogen.core.Dispatcher.forget_chain, saved)\n        finally:\n            self.chain_id = saved\n\n    closures_msg = (\n        'Mitogen cannot invoke closures, as doing so would require '\n        'serializing arbitrary program state, and no universal '\n        'method exists to recover a reference to them.'\n    )\n\n    lambda_msg = (\n        'Mitogen cannot invoke anonymous functions, as no universal method '\n        'exists to recover a reference to an anonymous function.'\n    )\n\n    method_msg = (\n        'Mitogen cannot invoke instance methods, as doing so would require '\n        'serializing arbitrary program state.'\n    )\n\n    def make_msg(self, fn, *args, **kwargs):\n        if getattr(fn, closure_attr, None) is not None:\n            raise TypeError(self.closures_msg)\n        if fn.__name__ == '<lambda>':\n            raise TypeError(self.lambda_msg)\n\n        if inspect.ismethod(fn):\n            im_self = getattr(fn, IM_SELF_ATTR)\n            if not inspect.isclass(im_self):\n                raise TypeError(self.method_msg)\n            klass = mitogen.core.to_text(im_self.__name__)\n        else:\n            klass = None\n\n        tup = (\n            self.chain_id,\n            mitogen.core.to_text(fn.__module__),\n           ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 6000,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "54fb78d6f67fcd2ae8f6c641695158e43c8b948dcfc346be9be9fc453ec1d92d",
+        "request_id": "chatcmpl-Ej9hgmlF1RFV2DpfIMOrYqT9VgVRU",
+        "usage": {
+          "prompt_tokens": 154,
+          "completion_tokens": 15,
+          "total_tokens": 169,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.56e-05,
+        "seconds": 0.7222345419941121,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "0212f29d68384d00cc5a51a88764b7d2849df7f44062c006ef548820c957ff06",
+        "request_id": "chatcmpl-Ej9hh5SjZxNpson5UXZfvCAyL43Bn",
+        "usage": {
+          "prompt_tokens": 774,
+          "completion_tokens": 15,
+          "total_tokens": 789,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00033360000000000003,
+        "seconds": 1.5549427500009187,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "246fde28d8ccc988b2929c7a29bae6dfb4f9ca1cb3de8668c2338b900de53434",
+        "request_id": "chatcmpl-Ej9hiBT2HicovoFaExMVoD2cnZEqp",
+        "usage": {
+          "prompt_tokens": 1394,
+          "completion_tokens": 15,
+          "total_tokens": 1409,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0005816,
+        "seconds": 0.8007257499994012,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "614ccef19b9d0088814b31ddf1717718b47b1acd33f4f85886f337157662cf40",
+        "request_id": "chatcmpl-Ej9hjf8zzk53MnE9JW5Nqu8dyIkHV",
+        "usage": {
+          "prompt_tokens": 2260,
+          "completion_tokens": 16,
+          "total_tokens": 2276,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009296,
+        "seconds": 0.869573957999819,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "2774af6b435df2316318c9fcce81ce5c4220402275f188e6f334c01d35e08632",
+        "request_id": "chatcmpl-Ej9hkbHGyDWngfdvI5aTfI5PCnibE",
+        "usage": {
+          "prompt_tokens": 2969,
+          "completion_tokens": 17,
+          "total_tokens": 2986,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012148000000000003,
+        "seconds": 0.9102570000031847,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "204afcd894d4a43fc205d4217afa2f4c0a307067d5a0932499fda31b956021e2",
+        "request_id": "chatcmpl-Ej9hl9PkefxcLq85RefosFpfG7ZTW",
+        "usage": {
+          "prompt_tokens": 3837,
+          "completion_tokens": 15,
+          "total_tokens": 3852,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015588000000000002,
+        "seconds": 0.7809608329989715,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "4bed2641a3707ea72cad521a783610623279a245e720f0b5789e93031faba8b2",
+        "request_id": "chatcmpl-Ej9hm9iSbwHAmUInAVY7PiezzdFwM",
+        "usage": {
+          "prompt_tokens": 1661,
+          "completion_tokens": 1115,
+          "total_tokens": 2776,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0024484,
+        "seconds": 11.996378416995867,
+        "retry_count": 0
+      }
+    ]
+  }
+}

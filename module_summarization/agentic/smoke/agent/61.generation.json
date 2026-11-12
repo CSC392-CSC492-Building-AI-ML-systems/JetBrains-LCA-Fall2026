@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Event System and ClassManager Documentation\n===========================================\n\nOverview\n--------\n\nThis module provides the core event system and class-level state management for SQLAlchemy's instrumentation framework. It defines the `ClassManager` class, which tracks state information and manages event dispatching at the class level, enabling fine-grained control over attribute loading, state updates, and lifecycle events of mapped classes.\n\nKey Components\n--------------\n\n### ClassManager\n\n`ClassManager` is a generic class responsible for managing instrumentation and event dispatching for a particular mapped class. It inherits from `HasMemoized`, `Dict[str, QueryableAttribute[Any]]`, and `EventTarget`, combining memoization capabilities, attribute mapping, and event handling.\n\n#### Attributes\n\n- `dispatch`: An event dispatcher instance that manages event listeners and dispatches events related to the `ClassManager`.\n- `MANAGER_ATTR`: The default attribute name used to store the manager on a class.\n- `STATE_ATTR`: The default attribute name used to store instance state.\n- `expired_attribute_loader`: A callable responsible for loading expired or deferred attributes on instances.\n- `init_method`: Optional custom initialization method for instances.\n- `original_init`: The original `__init__` method of the class before instrumentation.\n- `factory`: Optional factory callable to create new `ClassManager` instances.\n- `declarative_scan`: Weak reference to the mapper configuration used during declarative scanning.\n- `registry`: The registry that tracks all `ClassManager` instances.\n- `class_`: The class being managed.\n- `_bases`: List of `ClassManager` instances corresponding to base classes of `class_`.\n\n#### Initialization\n\nUpon initialization, `ClassManager` collects managers from base classes, merges their state, and sets up event dispatching. It also warns if the managed class defines a `__del__` method, as this can cause memory leaks due to reference cycles.\n\n#### Methods\n\n- `_update_state(finalize=False, mapper=None, registry=None, declarative_scan=None, expired_attribute_loader=None, init_method=None)`: Updates the internal state of the manager, optionally finalizing instrumentation and setting various components such as the mapper, registry, and attribute loader.\n- `_finalize()`: Completes the instrumentation process by setting up necessary hooks and dispatching the `class_instrument` event.\n- `is_mapped`: Property indicating whether the class has been mapped (i.e., has an associated mapper).\n- Memoized attributes such as `_all_key_set`, `_collection_impl_keys`, `_scalar_loader_impls`, and `_loader_impls` provide cached sets of attribute keys and implementations relevant to collections and scalar loaders.\n\n#### Deprecated Attributes\n\n- `deferred_scalar_loader`: Deprecated alias for `expired_attribute_loader`, maintained for backward compatibility with a deprecation warning.\n\nProtocols\n---------\n\n### _ExpiredAttributeLoaderProto\n\nA protocol defining the signature for callables that load expired attributes on instances. Such callables accept an instance state, a set of attribute names to load, and a passive loading flag.\n\n### _ManagerFactory\n\nA protocol defining a callable that takes a class and returns a corresponding `ClassManager` instance.\n\nEvent Dispatching\n-----------------\n\nThe `ClassManager` integrates with SQLAlchemy's event system via its `dispatch` attribute, which is an event dispatcher specialized for `ClassManager` events. This allows listeners to hook into lifecycle events such as class instrumentation, attribute loading, and state changes.\n\nUsage Notes\n-----------\n\n- The `ClassManager` is central to SQLAlchemy's instrumentation and should generally be interacted with through higher-level APIs.\n- Custom initialization methods can be provided via the `init_method` parameter during state updates.\n- Care should be taken to avoid defining `__del__` methods on mapped classes to prevent memory leaks.\n- The event system allows for extensibility and customization of class behavior during ORM operations.\n\nSummary\n-------\n\nThis module encapsulates the mechanisms for managing class-level instrumentation and event dispatching within SQLAlchemy. The `ClassManager` serves as the cornerstone for tracking attribute state, managing lifecycle events, and integrating with the broader event system, enabling powerful and flexible ORM behavior.",
+  "prediction_sha256": "21b6f2299bf460ec1053881e4d02ba468d5192c320c723beee9c6c32079dc4cf",
+  "prompt_sha256": "af0548322064a9b2ba30ea5a7ff926cd17e3b0dab4be93c45644ff68d43c9f4e",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 10552,
+    "completion_tokens": 1161,
+    "total_tokens": 11713
+  },
+  "cost_usd": 0.006078400000000001,
+  "generation_seconds": 12.370016083001246,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "events"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 5,
+              "start_char": 4891,
+              "end_char": 5476,
+              "code": "._bases:\n            self.update(base_)\n\n        cast(\n            \"InstanceEvents\", self.dispatch._events\n        )._new_classmanager_instance(class_, self)\n\n        for basecls in class_.__mro__:\n            mgr = opt_manager_of_class(basecls)\n            if mgr is not None:\n                self.dispatch._update(mgr.dispatch)\n\n        self.manage()\n\n        if \"__del__\" in class_.__dict__:\n            util.warn(\n                \"__del__() method on class %s will \"\n                \"cause unreachable cycles and memory leaks, \"\n                \"as SQLAlchemy instrumentation often",
+              "code_tokens": 300,
+              "score": 2.654520902654
+            },
+            {
+              "chunk_id": 1,
+              "start_char": 1316,
+              "end_char": 2440,
+              "code": " typing import cast\nfrom typing import Collection\nfrom typing import Dict\nfrom typing import Generic\nfrom typing import Iterable\nfrom typing import List\nfrom typing import Optional\nfrom typing import Set\nfrom typing import Tuple\nfrom typing import Type\nfrom typing import TYPE_CHECKING\nfrom typing import TypeVar\nfrom typing import Union\nimport weakref\n\nfrom. import base\nfrom. import collections\nfrom. import exc\nfrom. import interfaces\nfrom. import state\nfrom._typing import _O\nfrom.attributes import _is_collection_attribute_impl\nfrom.. import util\nfrom..event import EventTarget\nfrom..util import HasMemoized\nfrom..util.typing import Literal\nfrom..util.typing import Protocol\n\nif TYPE_CHECKING:\n    from._typing import _RegistryType\n    from.attributes import AttributeImpl\n    from.attributes import QueryableAttribute\n    from.collections import _AdaptedCollectionProtocol\n    from.collections import _CollectionFactoryType\n    from.decl_base import _MapperConfig\n    from.events import InstanceEvents\n    from.mapper import Mapper\n    from.state import InstanceState\n    from..event import dispatcher\n\n_T = TypeVar(\"_",
+              "code_tokens": 300,
+              "score": 2.114109484206
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 4301,
+              "end_char": 4812,
+              "code": "        self.info = {}\n        self.new_init = None\n        self.local_attrs = {}\n        self.originals = {}\n        self._finalized = False\n        self.factory = None\n        self.init_method = None\n\n        self._bases = [\n            mgr\n            for mgr in cast(\n                \"List[Optional[ClassManager[Any]]]\",\n                [\n                    opt_manager_of_class(base)\n                    for base in self.class_.__bases__\n                    if isinstance(base, type)\n                ],\n  ",
+              "code_tokens": 300,
+              "score": 2.089631506415
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 1316,
+              "end_char": 5091,
+              "code": " typing import cast\nfrom typing import Collection\nfrom typing import Dict\nfrom typing import Generic\nfrom typing import Iterable\nfrom typing import List\nfrom typing import Optional\nfrom typing import Set\nfrom typing import Tuple\nfrom typing import Type\nfrom typing import TYPE_CHECKING\nfrom typing import TypeVar\nfrom typing import Union\nimport weakref\n\nfrom. import base\nfrom. import collections\nfrom. import exc\nfrom. import interfaces\nfrom. import state\nfrom._typing import _O\nfrom.attributes import _is_collection_attribute_impl\nfrom.. import util\nfrom..event import EventTarget\nfrom..util import HasMemoized\nfrom..util.typing import Literal\nfrom..util.typing import Protocol\n\nif TYPE_CHECKING:\n    from._typing import _RegistryType\n    from.attributes import AttributeImpl\n    from.attributes import QueryableAttribute\n    from.collections import _AdaptedCollectionProtocol\n    from.collections import _CollectionFactoryType\n    from.decl_base import _MapperConfig\n    from.events import InstanceEvents\n    from.mapper import Mapper\n    from.state import InstanceState\n    from..event import dispatcher\n\n_T = TypeVar(\"_T\", bound=Any)\nDEL_ATTR = util.symbol(\"DEL_ATTR\")\n\n\nclass _ExpiredAttributeLoaderProto(Protocol):\n    def __call__(\n        self,\n        state: state.InstanceState[Any],\n        toload: Set[str],\n        passive: base.PassiveFlag,\n    ) -> None:\n       ...\n\n\nclass _ManagerFactory(Protocol):\n    def __call__(self, class_: Type[_O]) -> ClassManager[_O]:\n       ...\n\n\nclass ClassManager(\n    HasMemoized,\n    Dict[str, \"QueryableAttribute[Any]\"],\n    Generic[_O],\n    EventTarget,\n):\n    \"\"\"Tracks state information at the class level.\"\"\"\n\n    dispatch: dispatcher[ClassManager[_O]]\n\n    MANAGER_ATTR = base.DEFAULT_MANAGER_ATTR\n    STATE_ATTR = base.DEFAULT_STATE_ATTR\n\n    _state_setter = staticmethod(util.attrsetter(STATE_ATTR))\n\n    expired_attribute_loader: _ExpiredAttributeLoaderProto\n    \"previously known as deferred_scalar_loader\"\n\n    init_method: Optional[Callable[..., None]]\n    original_init: Optional[Callable[..., None]] = None\n\n    factory: Optional[_ManagerFactory]\n\n    declarative_scan: Optional[weakref.ref[_MapperConfig]] = None\n\n    registry: _RegistryType\n\n    if not TYPE_CHECKING:\n        # starts as None during setup\n        registry = None\n\n    class_: Type[_O]\n\n    _bases: List[ClassManager[Any]]\n\n    @property\n    @util.deprecated(\n        \"1.4\",\n        message=\"The ClassManager.deferred_scalar_loader attribute is now \"\n        \"named expired_attribute_loader\",\n    )\n    def deferred_scalar_loader(self):\n        return self.expired_attribute_loader\n\n    @deferred_scalar_loader.setter  # type: ignore[no-redef]\n    @util.deprecated(\n        \"1.4\",\n        message=\"The ClassManager.deferred_scalar_loader attribute is now \"\n        \"named expired_attribute_loader\",\n    )\n    def deferred_scalar_loader(self, obj):\n        self.expired_attribute_loader = obj\n\n    def __init__(self, class_):\n        self.class_ = class_\n        self.info = {}\n        self.new_init = None\n        self.local_attrs = {}\n        self.originals = {}\n        self._finalized = False\n        self.factory = None\n        self.init_method = None\n\n        self._bases = [\n            mgr\n            for mgr in cast(\n                \"List[Optional[ClassManager[Any]]]\",\n                [\n                    opt_manager_of_class(base)\n                    for base in self.class_.__bases__\n                    if isinstance(base, type)\n                ],\n            )\n            if mgr is not None\n        ]\n\n        for base_ in self._bases:\n            self.update(base_)\n\n        cast(\n            \"InstanceEvents\", self.dispatch._events\n        )._new_classmanager_instance(class_, self)\n\n        for basecls in class_.__mro__:\n  ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 5
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 5,
+              "start_char": 4891,
+              "end_char": 7958,
+              "code": "._bases:\n            self.update(base_)\n\n        cast(\n            \"InstanceEvents\", self.dispatch._events\n        )._new_classmanager_instance(class_, self)\n\n        for basecls in class_.__mro__:\n            mgr = opt_manager_of_class(basecls)\n            if mgr is not None:\n                self.dispatch._update(mgr.dispatch)\n\n        self.manage()\n\n        if \"__del__\" in class_.__dict__:\n            util.warn(\n                \"__del__() method on class %s will \"\n                \"cause unreachable cycles and memory leaks, \"\n                \"as SQLAlchemy instrumentation often creates \"\n                \"reference cycles.  Please remove this method.\" % class_\n            )\n\n    def _update_state(\n        self,\n        finalize: bool = False,\n        mapper: Optional[Mapper[_O]] = None,\n        registry: Optional[_RegistryType] = None,\n        declarative_scan: Optional[_MapperConfig] = None,\n        expired_attribute_loader: Optional[\n            _ExpiredAttributeLoaderProto\n        ] = None,\n        init_method: Optional[Callable[..., None]] = None,\n    ) -> None:\n        if mapper:\n            self.mapper = mapper  # type: ignore[assignment]\n        if registry:\n            registry._add_manager(self)\n        if declarative_scan:\n            self.declarative_scan = weakref.ref(declarative_scan)\n        if expired_attribute_loader:\n            self.expired_attribute_loader = expired_attribute_loader\n\n        if init_method:\n            assert not self._finalized, (\n                \"class is already instrumented, \"\n                \"init_method %s can't be applied\" % init_method\n            )\n            self.init_method = init_method\n\n        if not self._finalized:\n            self.original_init = (\n                self.init_method\n                if self.init_method is not None\n                and self.class_.__init__ is object.__init__\n                else self.class_.__init__\n            )\n\n        if finalize and not self._finalized:\n            self._finalize()\n\n    def _finalize(self) -> None:\n        if self._finalized:\n            return\n        self._finalized = True\n\n        self._instrument_init()\n\n        _instrumentation_factory.dispatch.class_instrument(self.class_)\n\n    def __hash__(self) -> int:  # type: ignore[override]\n        return id(self)\n\n    def __eq__(self, other: Any) -> bool:\n        return other is self\n\n    @property\n    def is_mapped(self) -> bool:\n        return \"mapper\" in self.__dict__\n\n    @HasMemoized.memoized_attribute\n    def _all_key_set(self):\n        return frozenset(self)\n\n    @HasMemoized.memoized_attribute\n    def _collection_impl_keys(self):\n        return frozenset(\n            [attr.key for attr in self.values() if attr.impl.collection]\n        )\n\n    @HasMemoized.memoized_attribute\n    def _scalar_loader_impls(self):\n        return frozenset(\n            [\n                attr.impl\n                for attr in self.values()\n                if attr.impl.accepts_scalar_loader\n            ]\n        )\n\n    @HasMemoized.memoized_attribute\n    def _loader_impls(self):\n  ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 4301,
+              "end_char": 7268,
+              "code": "        self.info = {}\n        self.new_init = None\n        self.local_attrs = {}\n        self.originals = {}\n        self._finalized = False\n        self.factory = None\n        self.init_method = None\n\n        self._bases = [\n            mgr\n            for mgr in cast(\n                \"List[Optional[ClassManager[Any]]]\",\n                [\n                    opt_manager_of_class(base)\n                    for base in self.class_.__bases__\n                    if isinstance(base, type)\n                ],\n            )\n            if mgr is not None\n        ]\n\n        for base_ in self._bases:\n            self.update(base_)\n\n        cast(\n            \"InstanceEvents\", self.dispatch._events\n        )._new_classmanager_instance(class_, self)\n\n        for basecls in class_.__mro__:\n            mgr = opt_manager_of_class(basecls)\n            if mgr is not None:\n                self.dispatch._update(mgr.dispatch)\n\n        self.manage()\n\n        if \"__del__\" in class_.__dict__:\n            util.warn(\n                \"__del__() method on class %s will \"\n                \"cause unreachable cycles and memory leaks, \"\n                \"as SQLAlchemy instrumentation often creates \"\n                \"reference cycles.  Please remove this method.\" % class_\n            )\n\n    def _update_state(\n        self,\n        finalize: bool = False,\n        mapper: Optional[Mapper[_O]] = None,\n        registry: Optional[_RegistryType] = None,\n        declarative_scan: Optional[_MapperConfig] = None,\n        expired_attribute_loader: Optional[\n            _ExpiredAttributeLoaderProto\n        ] = None,\n        init_method: Optional[Callable[..., None]] = None,\n    ) -> None:\n        if mapper:\n            self.mapper = mapper  # type: ignore[assignment]\n        if registry:\n            registry._add_manager(self)\n        if declarative_scan:\n            self.declarative_scan = weakref.ref(declarative_scan)\n        if expired_attribute_loader:\n            self.expired_attribute_loader = expired_attribute_loader\n\n        if init_method:\n            assert not self._finalized, (\n                \"class is already instrumented, \"\n                \"init_method %s can't be applied\" % init_method\n            )\n            self.init_method = init_method\n\n        if not self._finalized:\n            self.original_init = (\n                self.init_method\n                if self.init_method is not None\n                and self.class_.__init__ is object.__init__\n                else self.class_.__init__\n            )\n\n        if finalize and not self._finalized:\n            self._finalize()\n\n    def _finalize(self) -> None:\n        if self._finalized:\n            return\n        self._finalized = True\n\n        self._instrument_init()\n\n        _instrumentation_factory.dispatch.class_instrument(self.class_)\n\n    def __hash__(self) -> int:  # type: ignore[override]\n        return id(self)\n\n    def __eq__(self, other: Any) -> bool:\n        return other is self\n\n ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "8ebc74a11590db9d86c392ea5ad3bdce70803e43e5d570388dd9c34e5aab7466",
+        "request_id": "chatcmpl-Ej8C0j5g1DM5yTKHRnFs31hgZ46IB",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 14,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.480000000000001e-05,
+        "seconds": 0.7099231669999426,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "2c683565743c6250927f720bf5c8c2f07aff736ddf26c93b5f14405a5cab8905",
+        "request_id": "chatcmpl-Ej8C13Af09Cdw6mz3ZymVjq2Sih8t",
+        "usage": {
+          "prompt_tokens": 833,
+          "completion_tokens": 15,
+          "total_tokens": 848,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00035720000000000006,
+        "seconds": 1.69505858300181,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "258667effcb212beeb33b80c643421b306699b40d65b0ce64257f053ceb363b1",
+        "request_id": "chatcmpl-Ej8C2yfHY2cdNyOXWKRDtwFG5oMko",
+        "usage": {
+          "prompt_tokens": 1861,
+          "completion_tokens": 15,
+          "total_tokens": 1876,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007684000000000001,
+        "seconds": 0.6723663750017295,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "c15a3bf6e77ddacad82b2ea7938aa0d4ae419c9f4ff1c3c3b7f4955331917b8d",
+        "request_id": "chatcmpl-Ej8C3Xb9q8JFIuJQ5K1Xxl3DHzMPz",
+        "usage": {
+          "prompt_tokens": 2696,
+          "completion_tokens": 15,
+          "total_tokens": 2711,
+          "prompt_tokens_details": {
+            "cached_tokens": 1664,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0011024000000000001,
+        "seconds": 0.7634383330005221,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "2a079403907c4e385922c54ca4fb14ab3ba6071968dded0cb3968cb11874f4e3",
+        "request_id": "chatcmpl-Ej8C4lijVxBbUsEgMoID8ps45mgAJ",
+        "usage": {
+          "prompt_tokens": 3484,
+          "completion_tokens": 269,
+          "total_tokens": 3753,
+          "prompt_tokens_details": {
+            "cached_tokens": 2560,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018240000000000003,
+        "seconds": 2.614903792000405,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "1591d37c83a84551b3561bc739cc99e18193bc604087070881a95b8409b127dc",
+        "request_id": "chatcmpl-Ej8C6YhD5v3JX3Oc1TmhhZVhqVUsN",
+        "usage": {
+          "prompt_tokens": 1522,
+          "completion_tokens": 833,
+          "total_tokens": 2355,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0019416000000000004,
+        "seconds": 5.914325832996838,
+        "retry_count": 0
+      }
+    ]
+  }
+}

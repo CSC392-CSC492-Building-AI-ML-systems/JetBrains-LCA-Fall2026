@@ -1,0 +1,305 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "# FleurXMLModifier\n\nThe `FleurXMLModifier` class provides a structured and convenient way to group and organize modifications to a `inp.xml` file used by FLEUR. It leverages XML setting methods from the modules `masci_tools.util.xml.xml_setters_names` and `masci_tools.util.xml.xml_setters_basic` to collect and apply changes in a controlled manner.\n\n## Overview\n\nInstead of modifying an input XML file directly, `FleurXMLModifier` collects a series of modification tasks that can be applied all at once. This approach allows for better management of changes, including the ability to undo modifications before they are applied.\n\n## Basic Usage\n\n```python\nfrom masci_tools.io.fleurxmlmodifier import FleurXMLModifier\n\n# Create an instance of the modifier\nfmode = FleurXMLModifier()\n\n# Add changes by calling methods on the modifier instance.\n# The method names correspond to the setting methods in the xml_setters modules.\n# These calls do not modify the input file immediately but collect tasks.\n\nfmode.set_inpchanges({'Kmax': 4.0})  # Set Kmax to 4.0\nfmode.shift_value({'Gmax': 5.0})     # Add 5 to the current value of Gmax\n\n# Set the local orbital configuration on all iron atoms to '3s 3p'\nfmode.set_species('all-Fe', {'lo': [{'n': 3, 'l': 's', 'type': 'SCLO'},\n                                    {'n': 3, 'l': 'p', 'type': 'SCLO'}]})\n\n# Undo the last change\n# fmode.undo()\n\n# Undo all changes added so far\n# fmode.undo(revert_all=True)\n\n# Apply all collected changes to an input XML file\nnew_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')\n```\n\n## Features\n\n- **Task Collection:** Changes are collected as tasks rather than applied immediately, allowing batch processing.\n- **Undo Capability:** Supports undoing the last change or all changes before applying them.\n- **Multiple Setter Support:** Integrates setter functions from different namespaces (`xpath`, `schema_dict`, `nmmpmat`) for flexible modification strategies.\n- **Validation:** Optionally validates method signatures and arguments to ensure correctness.\n- **Instantiation from Task List:** Can be instantiated directly from a list of modification tasks.\n\n## Methods\n\n### `__init__(validate_signatures: bool = True)`\n\nInitializes a new `FleurXMLModifier` instance.\n\n- `validate_signatures`: If `True`, validates the signatures of modification methods when tasks are added.\n\n### `fromList(task_list: list[tuple[str, dict[str, Any]]], *args, **kwargs) -> FleurXMLModifier`\n\nClass method to instantiate a `FleurXMLModifier` from a predefined list of tasks.\n\n- `task_list`: A list of tuples where the first element is the name of the modification method and the second is a dictionary of keyword arguments for that method.\n- Additional arguments are passed to the constructor.\n\nReturns an instance with the tasks added.\n\n### `add_task_list(task_list: list[tuple[str, dict[str, Any]]])`\n\nAdds multiple modification tasks to the current instance.\n\n- `task_list`: List of tuples with method names and keyword arguments.\n\nRaises a `ValueError` if an unknown modification method is specified.\n\n### `modify_xmlfile(xmlfile: XMLFileLike) -> tuple[etree._ElementTree, list[Path]]`\n\nApplies all collected modification tasks to the specified XML input file.\n\n- `xmlfile`: Path or file-like object pointing to the FLEUR input XML file.\n\nReturns a tuple containing the modified XML tree and a list of any additional files generated during modification.\n\n### `undo(revert_all: bool = False)`\n\nReverts the last added modification task or all tasks if `revert_all` is set to `True`.\n\n## Internal Mechanisms\n\n- **Setter Functions:** The class maintains dictionaries of setter functions categorized by their modification approach (`xpath_functions`, `schema_dict_functions`, `nmmpmat_functions`). These functions are used to perform the actual XML modifications.\n- **Task Representation:** Each modification task is stored as a `ModifierTask` named tuple containing the method name and its arguments.\n- **Signature Validation:** The class can validate the arguments passed to modification methods to ensure they match the expected signatures.\n- **Extensibility:** Additional setter functions can be registered dynamically via the `_extra_functions` dictionary.\n\n## Notes\n\n- The class is designed to work with FLEUR input files and relies on the specific XML structure and setter functions defined in the `masci_tools` package.\n- It is recommended to use the `modify_xmlfile` method to apply all changes at once rather than modifying the XML file incrementally.\n- Undo functionality helps in managing complex sequences of modifications without immediate file changes.\n\n---\n\nThis class is a powerful tool for programmatically managing FLEUR input XML files, enabling reproducible and maintainable workflows for input preparation and modification.",
+  "prediction_sha256": "eaf3d007662a4400e57df52527e79ad04e312458db7cd7e1149dd23b701796d6",
+  "prompt_sha256": "374961a73193cd010894dbcafa4af78d41ab734e0aebbe9708776a15b8802b59",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 14437,
+    "completion_tokens": 1133,
+    "total_tokens": 15570
+  },
+  "cost_usd": 0.0075876,
+  "generation_seconds": 12.510105000990734,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "class FleurXMLModifier"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 1635,
+              "end_char": 2478,
+              "code": "_names import set_attrib_value\nfrom masci_tools.util.xml.common_functions import clear_xml, eval_xpath_one, get_inpgen_comments, readd_inpgen_comments\nfrom masci_tools.util.schema_dict_util import ensure_relaxation_xinclude\nfrom masci_tools.io.fleur_xml import load_inpxml\nfrom masci_tools.util.typing import XMLFileLike, FileLike\nfrom pathlib import Path\nfrom lxml import etree\nimport warnings\n#Enable warnings for missing docstrings\n#pylint: enable=missing-function-docstring\n\n\nclass ModifierTask(NamedTuple):\n    name: str\n    args: tuple[Any, ...] = ()\n    kwargs: dict[str, Any] = {}\n\n\nclass FleurXMLModifier:\n    \"\"\"\n    Class for grouping and organizing changes to a inp.xml file of fleur via the\n    xml setting methods in :py:mod:`~masci_tools.util.xml.xml_setters_names` and\n    :py:mod:`~masci_tools.util.xml.xml_setters_basic`\n\n   ",
+              "code_tokens": 300,
+              "score": 11.351478573751
+            },
+            {
+              "chunk_id": 5,
+              "start_char": 4189,
+              "end_char": 4920,
+              "code": "_functions.get('schema_dict', {})}\n            cls.nmmpmat_functions = {**cls._nmmpmat_functions, **cls._extra_functions.get('nmmpmat', {})}\n\n        return super().__new__(cls)\n\n    def __init__(self, validate_signatures: bool = True) -> None:\n\n        self._tasks: list[ModifierTask] = []\n        self.validate_signatures = validate_signatures\n\n    @classmethod\n    def fromList(cls, task_list: list[tuple[str, dict[str, Any]]], *args: Any, **kwargs: Any) -> FleurXMLModifier:\n        \"\"\"\n        Instantiate the FleurXMLModifier from a list of tasks to be added immediately\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a",
+              "code_tokens": 300,
+              "score": 8.98010284653
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2614,
+              "end_char": 3284,
+              "code": "   fmode = FleurXMLModifier()\n\n        #Add changes by calling the methods on this class\n        #(names correspond to the setting methods in the xml_setters modules)\n        #They are not modifying a input file directly\n        #Instead all the tasks are collected and performed in one go\n\n        fmode.set_inpchanges({'Kmax': 4.0}) #Set Kmax to 4.0\n        fmode.shift_value({'Gmax': 5.0}) #Add 5 to the current value of Gmax\n\n        #Set the local orbital configuration on all iron atoms to '3s 3p'\n        fmode.set_species('all-Fe', {'lo': [{'n':3, 'l': 's', 'type': 'SCLO'},\n                                            {'n':3, 'l': 'p', 'type': 'SCLO'}]})\n\n     ",
+              "code_tokens": 300,
+              "score": 7.309175300396
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 2
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 1635,
+              "end_char": 5247,
+              "code": "_names import set_attrib_value\nfrom masci_tools.util.xml.common_functions import clear_xml, eval_xpath_one, get_inpgen_comments, readd_inpgen_comments\nfrom masci_tools.util.schema_dict_util import ensure_relaxation_xinclude\nfrom masci_tools.io.fleur_xml import load_inpxml\nfrom masci_tools.util.typing import XMLFileLike, FileLike\nfrom pathlib import Path\nfrom lxml import etree\nimport warnings\n#Enable warnings for missing docstrings\n#pylint: enable=missing-function-docstring\n\n\nclass ModifierTask(NamedTuple):\n    name: str\n    args: tuple[Any, ...] = ()\n    kwargs: dict[str, Any] = {}\n\n\nclass FleurXMLModifier:\n    \"\"\"\n    Class for grouping and organizing changes to a inp.xml file of fleur via the\n    xml setting methods in :py:mod:`~masci_tools.util.xml.xml_setters_names` and\n    :py:mod:`~masci_tools.util.xml.xml_setters_basic`\n\n    The basic usage is shown below\n\n    .. code-block:: python\n\n        from masci_tools.io.fleurxmlmodifier import FleurXMLModifier\n\n        fmode = FleurXMLModifier()\n\n        #Add changes by calling the methods on this class\n        #(names correspond to the setting methods in the xml_setters modules)\n        #They are not modifying a input file directly\n        #Instead all the tasks are collected and performed in one go\n\n        fmode.set_inpchanges({'Kmax': 4.0}) #Set Kmax to 4.0\n        fmode.shift_value({'Gmax': 5.0}) #Add 5 to the current value of Gmax\n\n        #Set the local orbital configuration on all iron atoms to '3s 3p'\n        fmode.set_species('all-Fe', {'lo': [{'n':3, 'l': 's', 'type': 'SCLO'},\n                                            {'n':3, 'l': 'p', 'type': 'SCLO'}]})\n\n        #To undo the last change call undo\n        #fmode.undo()\n\n        #revert_all=True resets all added tasks\n        #fmode.undo(revert_all=True)\n\n        #To apply the changes to an input file use the modify_xmlfile method\n        new_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')\n\n    \"\"\"\n\n    _xpath_functions: dict[str, Callable] = XPATH_SETTERS\n    _schema_dict_functions: dict[str, Callable] = SCHEMA_DICT_SETTERS\n    _nmmpmat_functions: dict[str, Callable] = NMMPMAT_SETTERS\n\n    _extra_functions: dict[Literal['xpath', 'schema_dict', 'nmmpmat'], dict[str, Callable]] = {}\n\n    def __new__(cls, validate_signatures=True):\n\n        if getattr(cls, 'xpath_functions', None) is None:\n            cls.xpath_functions = {**cls._xpath_functions, **cls._extra_functions.get('xpath', {})}\n            cls.schema_dict_functions = {**cls._schema_dict_functions, **cls._extra_functions.get('schema_dict', {})}\n            cls.nmmpmat_functions = {**cls._nmmpmat_functions, **cls._extra_functions.get('nmmpmat', {})}\n\n        return super().__new__(cls)\n\n    def __init__(self, validate_signatures: bool = True) -> None:\n\n        self._tasks: list[ModifierTask] = []\n        self.validate_signatures = validate_signatures\n\n    @classmethod\n    def fromList(cls, task_list: list[tuple[str, dict[str, Any]]], *args: Any, **kwargs: Any) -> FleurXMLModifier:\n        \"\"\"\n        Instantiate the FleurXMLModifier from a list of tasks to be added immediately\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a dict\n\n        Other arguments are passed on to the __init__ method\n\n        :returns: class with the task list instantiated\n        \"\"\"\n\n        fm = cls(*args, **kwargs)\n        fm.add_task_list(task_list)\n        return fm\n\n    def add_task_list(self, task_list: list[tuple[str, dict[str, Any]]]) -> None:\n        \"\"\"\n      ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 5
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 5,
+              "start_char": 4189,
+              "end_char": 7753,
+              "code": "_functions.get('schema_dict', {})}\n            cls.nmmpmat_functions = {**cls._nmmpmat_functions, **cls._extra_functions.get('nmmpmat', {})}\n\n        return super().__new__(cls)\n\n    def __init__(self, validate_signatures: bool = True) -> None:\n\n        self._tasks: list[ModifierTask] = []\n        self.validate_signatures = validate_signatures\n\n    @classmethod\n    def fromList(cls, task_list: list[tuple[str, dict[str, Any]]], *args: Any, **kwargs: Any) -> FleurXMLModifier:\n        \"\"\"\n        Instantiate the FleurXMLModifier from a list of tasks to be added immediately\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a dict\n\n        Other arguments are passed on to the __init__ method\n\n        :returns: class with the task list instantiated\n        \"\"\"\n\n        fm = cls(*args, **kwargs)\n        fm.add_task_list(task_list)\n        return fm\n\n    def add_task_list(self, task_list: list[tuple[str, dict[str, Any]]]) -> None:\n        \"\"\"\n        Add a list of tasks to be added\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a dict\n        \"\"\"\n\n        facade_methods = self.get_avail_actions()\n\n        for name, kwargs in task_list:\n            try:\n                facade_methods[name](**kwargs)\n            except KeyError as exc:\n                raise ValueError(f\"Unknown modification method '{name}'\") from exc\n\n    def _validate_signature(self, name: str, *args: Any, **kwargs: Any) -> None:\n        \"\"\"\n        DEPRECATED: use `_validate_arguments` instead without unpacking args/kwargs\n        \"\"\"\n        warnings.warn(\n            'The _validate_signature method is deprecated. '\n            'Please use _validate_arguments without unpacking args/kwargs instead', DeprecationWarning)\n        self._validate_arguments(name, args, kwargs)\n\n    def _get_setter_function_and_prefix(self, name: str) -> tuple[Callable[[Any], Any], tuple[str, ...]]:\n        \"\"\"\n        Get the setter function and a prefix standing in for the arguments that\n        are substituted when performing the modification\n        \"\"\"\n        if name in self.xpath_functions:\n            func = self.xpath_functions[name]\n            prefix: tuple[str, ...] = ('xmltree',)\n        elif name in self.schema_dict_functions:\n            func = self.schema_dict_functions[name]\n            prefix = ('xmltree', 'schema_dict')\n        elif name in self.nmmpmat_functions:\n            func = self.nmmpmat_functions[name]\n            prefix = ('xmltree', 'nmmplines', 'schema_dict')\n\n        if func is None:\n            raise ValueError(f'Failed to validate setter {name}. Maybe the function was'\n                             'not registered in masci_tools.util.xml.collect_xml_setters')\n\n        #For functions decorated with the schema_dict_version_dispatch\n        #We check only the default (This function should have a compatible signature for all registered functions)\n        if getattr(func, 'registry', None) is not None:\n            func = func.registry['default']\n\n        return func, prefix\n\n    def _get_setter_func_kwargs(self, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"\n        Map the given args and kwargs to just kwargs for the\n        setter function with the given name\n\n        :param name: name of the setter function\n        :param args: positional arguments to the setter function\n        :param k",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 5
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3,
+              "start_char": 2614,
+              "end_char": 6038,
+              "code": "   fmode = FleurXMLModifier()\n\n        #Add changes by calling the methods on this class\n        #(names correspond to the setting methods in the xml_setters modules)\n        #They are not modifying a input file directly\n        #Instead all the tasks are collected and performed in one go\n\n        fmode.set_inpchanges({'Kmax': 4.0}) #Set Kmax to 4.0\n        fmode.shift_value({'Gmax': 5.0}) #Add 5 to the current value of Gmax\n\n        #Set the local orbital configuration on all iron atoms to '3s 3p'\n        fmode.set_species('all-Fe', {'lo': [{'n':3, 'l': 's', 'type': 'SCLO'},\n                                            {'n':3, 'l': 'p', 'type': 'SCLO'}]})\n\n        #To undo the last change call undo\n        #fmode.undo()\n\n        #revert_all=True resets all added tasks\n        #fmode.undo(revert_all=True)\n\n        #To apply the changes to an input file use the modify_xmlfile method\n        new_xmltree, additional_files = fmode.modify_xmlfile('/path/to/input/file/inp.xml')\n\n    \"\"\"\n\n    _xpath_functions: dict[str, Callable] = XPATH_SETTERS\n    _schema_dict_functions: dict[str, Callable] = SCHEMA_DICT_SETTERS\n    _nmmpmat_functions: dict[str, Callable] = NMMPMAT_SETTERS\n\n    _extra_functions: dict[Literal['xpath', 'schema_dict', 'nmmpmat'], dict[str, Callable]] = {}\n\n    def __new__(cls, validate_signatures=True):\n\n        if getattr(cls, 'xpath_functions', None) is None:\n            cls.xpath_functions = {**cls._xpath_functions, **cls._extra_functions.get('xpath', {})}\n            cls.schema_dict_functions = {**cls._schema_dict_functions, **cls._extra_functions.get('schema_dict', {})}\n            cls.nmmpmat_functions = {**cls._nmmpmat_functions, **cls._extra_functions.get('nmmpmat', {})}\n\n        return super().__new__(cls)\n\n    def __init__(self, validate_signatures: bool = True) -> None:\n\n        self._tasks: list[ModifierTask] = []\n        self.validate_signatures = validate_signatures\n\n    @classmethod\n    def fromList(cls, task_list: list[tuple[str, dict[str, Any]]], *args: Any, **kwargs: Any) -> FleurXMLModifier:\n        \"\"\"\n        Instantiate the FleurXMLModifier from a list of tasks to be added immediately\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a dict\n\n        Other arguments are passed on to the __init__ method\n\n        :returns: class with the task list instantiated\n        \"\"\"\n\n        fm = cls(*args, **kwargs)\n        fm.add_task_list(task_list)\n        return fm\n\n    def add_task_list(self, task_list: list[tuple[str, dict[str, Any]]]) -> None:\n        \"\"\"\n        Add a list of tasks to be added\n\n        :param task_list: list of tuples first index is the name of the method\n                          second is defining the arguments by keyword in a dict\n        \"\"\"\n\n        facade_methods = self.get_avail_actions()\n\n        for name, kwargs in task_list:\n            try:\n                facade_methods[name](**kwargs)\n            except KeyError as exc:\n                raise ValueError(f\"Unknown modification method '{name}'\") from exc\n\n    def _validate_signature(self, name: str, *args: Any, **kwargs: Any) -> None:\n        \"\"\"\n        DEPRECATED: use `_validate_arguments` instead without unpacking args/kwargs\n        \"\"\"\n        warnings.warn(\n            'The _validate_signature method is deprecated. '\n            'Please use _validate_arg",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "6431d3ddf79c1803d5cb26b874049fc03877ff6ae77c54926772234c2938e6a2",
+        "request_id": "chatcmpl-Ej9d627HGlwBSVyDmLcTTpA7fScEw",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 17,
+          "total_tokens": 173,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.960000000000001e-05,
+        "seconds": 0.6954192500052159,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "4201359bdf6bc2bed607341d7d739d03ac37f673fe955c3059cb7dae82d176cd",
+        "request_id": "chatcmpl-Ej9d7UBheuuUMsqdipm6H18MqZipu",
+        "usage": {
+          "prompt_tokens": 944,
+          "completion_tokens": 15,
+          "total_tokens": 959,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004016,
+        "seconds": 0.5974095839992515,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "f3d587c4ca7181fbe4fa8289019d7be61a14b341f2f0729795b1e3effef52e0c",
+        "request_id": "chatcmpl-Ej9d7CTNYGeABIEYmr14QIx1QZThQ",
+        "usage": {
+          "prompt_tokens": 1994,
+          "completion_tokens": 15,
+          "total_tokens": 2009,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008216,
+        "seconds": 0.789802041996154,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "66fb33abd9fa96dbb1d78715fc0143b1ab664892e15e11af32b0b20e877a3ee7",
+        "request_id": "chatcmpl-Ej9d8b3wKt0EyammQkkdC4r0s407c",
+        "usage": {
+          "prompt_tokens": 2930,
+          "completion_tokens": 15,
+          "total_tokens": 2945,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001196,
+        "seconds": 0.745446582994191,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "1fdabb6e885e3a22f99c6b0684c7e7d597e7c07826be42e7a8b40489ada7fba2",
+        "request_id": "chatcmpl-Ej9d99CmChxAdA6GPaNvGzXHARpaz",
+        "usage": {
+          "prompt_tokens": 2966,
+          "completion_tokens": 15,
+          "total_tokens": 2981,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012104000000000001,
+        "seconds": 0.6224942919943715,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "04a926ffdf2b57b3498bcf11dcc0d3d7e02e264e8ee154da6299f010e088e743",
+        "request_id": "chatcmpl-Ej9dArqyqaR1Iy4UpssOziM7ZhZ0M",
+        "usage": {
+          "prompt_tokens": 3939,
+          "completion_tokens": 15,
+          "total_tokens": 3954,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015996,
+        "seconds": 0.910307209000166,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "9fb0f74b51b6bd13c834fdc414afabaf5731316d300025350863b675387f094e",
+        "request_id": "chatcmpl-Ej9dAAUJznzDDheevhpJ74dDxOtRN",
+        "usage": {
+          "prompt_tokens": 1508,
+          "completion_tokens": 1041,
+          "total_tokens": 2549,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0022688,
+        "seconds": 8.149226041001384,
+        "retry_count": 0
+      }
+    ]
+  }
+}

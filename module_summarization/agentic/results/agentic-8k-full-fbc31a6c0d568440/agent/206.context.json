@@ -1,0 +1,50 @@
+{
+  "original_id": 206,
+  "repo": "scikit-learn__scikit-learn",
+  "docfile_name": "svm.rst",
+  "source_sha256": "3bbba9107489169116a068c7dd92978a4fa595fee37a0a1200c2606c95403878",
+  "context": "\n        Platt scaling to produce probability estimates from decision values.\n        If `probability=False`, it's an empty array. Platt scaling uses the\n        logistic function\n        ``1 / (1 + exp(decision_value * probA_ + probB_))``\n        where ``probA_`` and ``probB_`` are learned from the dataset [2]_. For\n        more information on the multiclass case and training procedure see\n        section 8 of [1]_.\n\n    shape_fit_ : tuple of int of shape (n_dimensions_of_X,)\n        Array dimensions of training vector ``X``.\n\n    See Also\n    --------\n    SVR : Support Vector Machine for Regression implemented using libsvm.\n\n    LinearSVC : Scalable Linear Support Vector Machine for classification\n        implemented using liblinear. Check the See Also section of\n        LinearSVC for more comparison element.\n\n    References\n    ----------\n    .. [1] `LIBSVM: A\n\nnames_in_ : ndarray of shape (`n_features_in_`,)\n        Names of features seen during :term:`fit`. Defined only when `X`\n        has feature names that are all strings.\n\n        .. versionadded:: 1.0\n\n    n_iter_ : int\n        Number of iterations run by the optimization routine to fit the model.\n\n        .. versionadded:: 1.1\n\n    n_support_ : ndarray of shape (1,), dtype=int32\n        Number of support vectors.\n\n    shape_fit_ : tuple of int of shape (n_dimensions_of_X,)\n        Array dimensions of training vector ``X``.\n\n    support_ : ndarray of shape (n_SV,)\n        Indices of support vectors.\n\n    support_vectors_ : ndarray of shape (n_SV, n_features)\n        Support vectors.\n\n    See Also\n    --------\n    NuSVR : Support Vector Machine for regression implemented using libsvm\n  \n\n versionadded:: 0.24\n\n    feature_names_in_ : ndarray of shape (`n_features_in_`,)\n        Names of features seen during :term:`fit`. Defined only when `X`\n        has feature names that are all strings.\n\n        .. versionadded:: 1.0\n\n    n_iter_ : int\n        Number of iterations run by the optimization routine to fit the model.\n\n        .. versionadded:: 1.1\n\n    n_support_ : ndarray of shape (1,), dtype=int32\n        Number of support vectors.\n\n    shape_fit_ : tuple of int of shape (n_dimensions_of_X,)\n        Array dimensions of training vector ``X``.\n\n    support_ : ndarray of shape (n_SV,)\n        Indices of support vectors.\n\n    support_vectors_ : ndarray of shape (n_SV, n_features)\n        Support vectors.\n\n    See Also\n    --------\n    NuSVC : Support\n\n finite.\"\n                \" The input data may contain large values and need to be\"\n                \" preprocessed.\"\n            )\n\n        # Since, in the case of SVC and NuSVC, the number of models optimized by\n        # libSVM could be greater than one (depending on the input), `n_iter_`\n        # stores an ndarray.\n        # For the other sub-classes (SVR, NuSVR, and OneClassSVM), the number of\n        # models optimized by libSVM is always one, so `n_iter_` stores an\n        # integer.\n        if self._impl in [\"c_svc\", \"nu_svc\"]:\n            self.n_iter_ = self._num_iter\n        else:\n            self.n_iter_ = self._num_iter.item()\n\n    \n\n    return self\n\n    def _validate_targets(self, y):\n        \"\"\"Validation of y and class_weight.\n\n        Default implementation for SVR and one-class; overridden in BaseSVC.\n        \"\"\"\n        return column_or_1d(y, warn=True).astype(np.float64, copy=False)\n\n    def _warn_from_fit_status(self):\n        assert self.fit_status_ in (0, 1)\n        if self.fit_status_ == 1:\n            warnings.warn(\n                \"Solver terminated early (max_iter=%i).\"\n                \"  Consider pre-processing your data with\"\n                \" StandardScaler or MinMaxScaler.\"\n                % self.max_iter,\n                ConvergenceWarning,\n            )\n\n    def _dense_fit(self, X, y, sample_weight, solver_type, kernel, random_seed):\n        if callable(self.kernel):\n            # you must store a reference to X to compute the kernel in predict\n            # TODO: add keyword copy to copy on demand\n            self.__Xfit = X\n            X = self._compute_kernel(X)\n\n            if X.shape[0] != X.shape[1]:\n                raise ValueError(\"X.shape[0] should be equal to X.shape[1]\")\n\n        libsvm.set_verbosity_wrap(self.verbose)\n\n        # we don't pass **self.get_params() to allow subclasses to\n        # add other parameters to __init__\n        (\n            self.support_,\n            self.support_vectors_,\n            self._n_support,\n            self.dual_coef_,\n            self.intercept_,\n            self._probA,\n            self._probB,\n            self.fit_status_,\n            self._num_iter,\n        ) = libsvm.fit(\n            X,\n            y,\n            svm_type=solver_type,\n            sample_weight=sample_weight,\n            # TODO(1.4): Replace \"_class_weight\" with \"class_weight_\"\n            class_weight=getattr(self, \"_class_weight\", np.empty(0)),\n            kernel=kernel,\n            C=self.C,\n            nu=self.nu,\n            probability=self.probability,\n            degree=self.degree,\n            shrinking=self.shrinking,\n            tol=self.tol,\n            cache_size=self.cache_size,\n            coef0=self.coef0,\n            gamma=self._gamma,\n            epsilon=self.epsilon,\n            max_iter=self.max_iter,\n            random_seed=random_seed,\n        )\n\n        self._warn_from_fit_status()\n\n    def _s\n\n   # compared to the second point\n    assert np.all(pred_class_deci_val[:, 0] < pred_class_deci_val[:, 1])\n\n\n@pytest.mark.parametrize(\"SVCClass\", [svm.SVC, svm.NuSVC])\ndef test_svc_invalid_break_ties_param(SVCClass):\n    X, y = make_blobs(random_state=42)\n\n    svm = SVCClass(\n        kernel=\"linear\", decision_function_shape=\"ovo\", break_ties=True, random_state=42\n    ).fit(X, y)\n\n    with pytest.raises(ValueError, match=\"break_ties must be False\"):\n        svm.predict(y)\n\n\n@pytest.mark.parametrize(\"SVCClass\", [svm.SVC, svm.NuSVC])\ndef test_svc_ovr_tie_breaking(SVCClass):\n    \"\"\"Test if predict breaks ties in OVR mode.\n    Related issue: https://github.com/scikit-learn/scikit-learn/issues/8277\n \n\n  K[ii, jj] += X1[ii].count(\"B\") * X2[jj].count(\"B\")\n                K[jj, ii] = K[ii, jj]\n        return K\n\n    K = string_kernel(data, data)\n    assert_array_equal(np.dot(X, X.T), K)\n\n    svc1 = Estimator(kernel=string_kernel).fit(data, y)\n    svc2 = Estimator(kernel=\"linear\").fit(X, y)\n    svc3 = Estimator(kernel=\"precomputed\").fit(K, y)\n\n    assert svc1.score(data, y) == svc3.score(K, y)\n    assert svc1.score(data, y) == svc2.score(X, y)\n    if hasattr(svc1, \"decision_function\"):  # classifier\n        assert_allclose(svc1.decision_function(data), svc2.decision_function(X))\n        assert_allclose(svc1\n\n))\n        assert_array_equal(svc1.predict(data), svc3.predict(K))\n    else:  # regressor\n        assert_allclose(svc1.predict(data), svc2.predict(X))\n        assert_allclose(svc1.predict(data), svc3.predict(K))\n\n\ndef test_svc_raises_error_internal_representation():\n    \"\"\"Check that SVC raises error when internal representation is altered.\n\n    Non-regression test for #18891 and https://nvd.nist.gov/vuln/detail/CVE-2020-28975\n    \"\"\"\n    clf = svm.SVC(kernel=\"linear\").fit(X, Y)\n    clf._n_support[0] = 1000000\n\n    msg = \"The internal representation of SVC was altered\"\n    with pytest.raises(ValueError, match=msg):\n        clf.predict(X)\n\n\n@pytest.mark.parametrize(\n    \"estimator, expected_n_iter_type\n\nlasses that inherit\n    # from BaseSVC.\n    # Note that for SVC, and NuSVC this is an ndarray; while for SVR, NuSVR, and\n    # OneClassSVM, it is an int.\n    # For SVC and NuSVC also check the shape of n_iter_.\n    X, y = dataset\n    n_iter = estimator(kernel=\"linear\").fit(X, y).n_iter_\n    assert type(n_iter) == expected_n_iter_type\n    if estimator in [svm.SVC, svm.NuSVC]:\n        n_classes = len(np.unique(y))\n        assert n_iter.shape == (n_classes * (n_classes - 1) // 2,)\n\n\n# TODO(1.4): Remove\n@pytest.mark.parametrize(\"Klass\", [SVR, NuSVR, OneClassSVM])\ndef test_svm_class_weights_deprecation(Klass):\n    clf = Klass()\n    with warnings.catch_warnings():\n        warnings.simplefilter(\"error",
+  "preparation_seconds": 0.7286580820073141,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 34130,
+        "end_char": 35005
+      },
+      {
+        "start_char": 51285,
+        "end_char": 52081
+      },
+      {
+        "start_char": 57962,
+        "end_char": 58734
+      },
+      {
+        "start_char": 83126,
+        "end_char": 83778
+      },
+      {
+        "start_char": 83778,
+        "end_char": 86041
+      },
+      {
+        "start_char": 398769,
+        "end_char": 399472
+      },
+      {
+        "start_char": 403596,
+        "end_char": 404208
+      },
+      {
+        "start_char": 404322,
+        "end_char": 405032
+      },
+      {
+        "start_char": 405600,
+        "end_char": 406303
+      }
+    ],
+    "context_tokens": 3611,
+    "context_sha256": "e45fcd29cfb1a1df5806c0a4525dd3a2d82abc8f61488c221d3af01c06f83741"
+  }
+}

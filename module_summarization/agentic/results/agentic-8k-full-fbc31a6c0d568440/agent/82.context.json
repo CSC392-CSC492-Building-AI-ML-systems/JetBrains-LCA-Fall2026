@@ -1,0 +1,30 @@
+{
+  "original_id": 82,
+  "repo": "piccolo-orm__piccolo",
+  "docfile_name": "baseuser.rst",
+  "source_sha256": "22a1b09abf593e45d17ffcbcc8b64969386d35033a0bbf9bbbbbd5153c27db79",
+  "context": "\"\"\"\nA User model, used for authentication.\n\"\"\"\nfrom __future__ import annotations\n\nimport datetime\nimport hashlib\nimport logging\nimport secrets\nimport typing as t\n\nfrom piccolo.columns import Boolean, Secret, Timestamp, Varchar\nfrom piccolo.columns.column_types import Serial\nfrom piccolo.columns.readable import Readable\nfrom piccolo.table import Table\nfrom piccolo.utils.sync import run_sync\n\nlogger = logging.getLogger(__name__)\n\n\nclass BaseUser(Table, tablename=\"piccolo_user\"):\n    \"\"\"\n    Provides a basic user, with authentication support.\n    \"\"\"\n\n    id: Serial\n    username = Varchar(length=100, unique=True)\n    password = Secret(length=255)\n    first_name = Varchar(null=True)\n    last_name = Varchar(null=True)\n    email = Varchar(length=255, unique=True)\n    active = Boolean(default=False)\n    admin = Boolean(\n        default=False, help_text=\"An admin can log into the Piccolo admin GUI.\"\n    )\n \n\n   superuser = Boolean(\n        default=False,\n        help_text=(\n            \"If True, this user can manage other users's passwords in the \"\n            \"Piccolo admin GUI.\"\n        ),\n    )\n    last_login = Timestamp(\n        null=True,\n        default=None,\n        required=False,\n        help_text=\"When this user last logged in.\",\n    )\n\n    _min_password_length = 6\n    _max_password_length = 128\n    # The number of hash iterations recommended by OWASP:\n    # https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2\n    _pbkdf2_iteration_count = 600_000\n\n    def __init__(self, **kwargs):\n        # Generating passwords upfront is expensive, so might need reworking.\n        password = kwargs.get(\"password\", None)\n        if password:\n            if not password.startswith(\"pbkdf2_sha256\"):\n                kwargs[\"password\"] = self.__class__.hash_password(password)\n        super().__init__(**kwargs)\n\n    @classmethod\n    def get_salt(cls):\n        return secrets.token_hex(16)\n\n    @classmethod\n    def get_readable(cls) -> Readable:\n        \"\"\"\n        Used to get a readable string, representing a table row.\n        \"\"\"\n        return Readable(template=\"%s\", columns=[cls.username])\n\n    ###########################################################################\n\n    @classmethod\n    def _validate_password(cls, password: str):\n        \"\"\"\n        Validate the raw password. Used by :meth:`update_password` and\n        :meth:`create_user`.\n\n        :param password:\n            The raw password e.g. ``'hello123'``.\n        :raises ValueError:\n            If the password fails any of the criteria.\n\n        \"\"\"\n        if not password:\n            raise ValueError(\"A password must be provided.\")\n\n        if len(password) < cls._min_password_length:\n            raise ValueError(\"The password is too short.\")\n\n        if len(password) > cls._max_password_length:\n            raise ValueError(\"The password is too long.\")\n\n        if password.startswith(\"pbkdf2_sha256\"):\n            logger.warning(\n                \"Tried to create a user with an already hashed password.\"\n            )\n            raise ValueError(\"Do not pass a hashed password.\")\n\n    ###########################################################################\n\n    @classmethod\n    def update_password_sync(cls, user: t.Union[str, int], password: str):\n        \"\"\"\n        A sync equivalent of :meth:`update_password`.\n        \"\"\"\n        return run_sync(cls.update_password(user, password))\n\n    @classmethod\n    async def update_password(cls, user: t.Union[str, int], password: str):\n        \"\"\"\n        The password is the raw password string e.g. ``'password123'``.\n        The user can be a user ID, or a username.\n        \"\"\"\n        if isinstance(user, str):\n            clause = cls.username == user\n        elif isinstance(user, int):\n            clause\n\n        return None\n\n    ###########################################################################\n\n    @classmethod\n    def create_user_sync(\n        cls, username: str, password: str, **extra_params\n    ) -> BaseUser:\n        \"\"\"\n        A sync equivalent of :meth:`create_user`.\n        \"\"\"\n        return run_sync(\n            cls.create_user(\n                username=username, password=password, **extra_params\n            )\n        )\n\n    @classmethod\n    async def create_user(\n        cls, username: str, password: str, **extra_params\n    ) -> BaseUser:\n        \"\"\"\n        Creates a new user, and saves it in the database. It is recommended to\n        use this rather than instantiating and saving ``BaseUser`` directly, as\n    \n\n    we add extra validation.\n\n        :raises ValueError:\n            If the username or password is invalid.\n        :returns:\n            The created ``BaseUser`` instance.\n\n        \"\"\"\n        if not username:\n            raise ValueError(\"A username must be provided.\")\n\n        cls._validate_password(password=password)\n\n        user = cls(username=username, password=password, **extra_params)\n        await user.save()\n        return user",
+  "preparation_seconds": 0.08409854100318626,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 0,
+        "end_char": 913
+      },
+      {
+        "start_char": 913,
+        "end_char": 3799
+      },
+      {
+        "start_char": 7597,
+        "end_char": 8337
+      },
+      {
+        "start_char": 8337,
+        "end_char": 8781
+      }
+    ],
+    "context_tokens": 1989,
+    "context_sha256": "0e790984888442827e0da6fcadd5159fdb33466768badc79b02e532725a45f86"
+  }
+}

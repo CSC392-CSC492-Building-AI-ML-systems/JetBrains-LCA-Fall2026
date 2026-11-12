@@ -1,0 +1,95 @@
+Resources
+=========
+
+Support for plugins that provide access to resources such as schemas.
+
+This module provides classes and utilities to manage resource mappings, which are collections of resources identified by URIs. These resources can be schemas or other data needed by plugins or applications.
+
+Classes
+-------
+
+DirectoryResourceMapping
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+A resource mapping that reads resource content from a directory or directory tree.
+
+See :class:`~asdf_standard.resource.DirectoryResourceMapping` for details.
+
+ResourceMappingProxy
+~~~~~~~~~~~~~~~~~~~~
+
+Wrapper around a resource mapping that carries additional information on the package that provided the mapping.
+
+This class implements the `collections.abc.Mapping` interface and delegates all mapping operations to the wrapped resource mapping.
+
+Methods and Properties:
+
+- `maybe_wrap(delegate)` (class method)  
+  Wraps the given delegate mapping in a `ResourceMappingProxy` if it is not already wrapped.
+
+- `__init__(delegate, package_name=None, package_version=None)`  
+  Initialize the proxy with the given delegate mapping and optional package metadata.
+
+- `__getitem__(uri)`  
+  Retrieve the resource associated with the given URI.
+
+- `__len__()`  
+  Return the number of resources in the mapping.
+
+- `__iter__()`  
+  Iterate over the URIs in the mapping.
+
+- `delegate` (property)  
+  Returns the wrapped mapping instance.
+
+- `package_name` (property)  
+  Returns the name of the Python package that provided this mapping, or `None` if added at runtime.
+
+- `package_version` (property)  
+  Returns the version of the Python package that provided this mapping, or `None` if added at runtime.
+
+- `class_name` (property)  
+  Returns the fully qualified class name of the wrapped mapping.
+
+- `__eq__(other)`  
+  Equality comparison based on the wrapped delegate.
+
+- `__hash__()`  
+  Hash based on the identity of the wrapped delegate.
+
+- `__repr__()`  
+  Returns a string representation including class name, package info, and number of resources.
+
+ResourceManager
+~~~~~~~~~~~~~~~
+
+Wraps multiple resource mappings into a single interface with friendlier error handling.
+
+This class implements the `collections.abc.Mapping` interface and aggregates multiple resource mappings. When multiple mappings contain the same URI, the first mapping takes precedence.
+
+Parameters
+----------
+resource_mappings : iterable of collections.abc.Mapping  
+    Underlying resource mappings to be wrapped.
+
+Usage
+-----
+
+The `ResourceManager` allows clients to access resources from multiple mappings transparently. The `ResourceMappingProxy` can be used to add metadata about the origin of a resource mapping, such as the package name and version.
+
+Example:
+
+```python
+from resources import ResourceManager, ResourceMappingProxy
+
+# Wrap a resource mapping with package metadata
+proxy = ResourceMappingProxy(delegate_mapping, package_name="mypackage", package_version="1.0.0")
+
+# Create a resource manager with multiple mappings
+manager = ResourceManager([proxy, another_mapping])
+
+# Access a resource by URI
+resource = manager["http://example.com/schema"]
+```
+
+This module facilitates plugin architectures where resources such as JSON schemas or other data files need to be discovered and accessed in a uniform way.

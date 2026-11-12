@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "RandAugment Module\n==================\n\nOverview\n--------\nThis module provides functionality to apply RandAugment-style data augmentation to batches of samples. RandAugment is a simple and effective data augmentation technique introduced in the paper \"RandAugment: Practical automated data augmentation with a reduced search space\" (https://arxiv.org/abs/1909.13719). It applies a sequence of randomly selected augmentation operations with a fixed magnitude to each sample in a batch.\n\nKey Functions\n-------------\n\napply_rand_augment(augmentations, data, n, m, num_magnitude_bins=31, seed=None, **kwargs)\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nApplies a list of augmentations in RandAugment fashion.\n\n- **augmentations** (`List[_Augmentation]`): List of augmentation operations to sample from.\n- **data** (`DataNode`): Batch of samples to be augmented.\n- **n** (`int`): Number of augmentation operations to apply sequentially to each sample.\n- **m** (`int`): Magnitude bin index indicating the strength of each operation. Must be in `[0, num_magnitude_bins - 1]`.\n- **num_magnitude_bins** (`int`, optional): Number of discrete bins to divide the magnitude range into. Default is 31.\n- **seed** (`int`, optional): Random seed for reproducibility.\n- **kwargs**: Additional keyword arguments passed to augmentation operations (e.g., `shape`, `fill_value`, `interp_type`).\n\nReturns:\n- `DataNode`: Batch of transformed samples.\n\nRaises exceptions if parameters are invalid (e.g., negative `n`, out-of-range `m`).\n\nget_rand_augment_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nGenerates a list of augmentation operations forming the RandAugment suite with monotonic magnitude behavior.\n\n- **use_shape** (`bool`, optional): Whether to include shape information in augmentations.\n- **max_translate_abs** (`int`, optional): Maximum absolute translation in pixels.\n- **max_translate_rel** (`float`, optional): Maximum relative translation as a fraction of image size.\n\nReturns:\n- `List[_Augmentation]`: List of augmentation operations with magnitude ranges designed so that strength increases monotonically with magnitude bin.\n\nThis suite includes translations, shears, rotations, brightness, contrast, color, sharpness, posterize, solarize, equalize, auto contrast, and identity operations. Some operations use magnitude ranges where strength decreases towards the center of the range to better reflect perceptual effects.\n\nget_rand_augment_non_monotonic_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nGenerates a list of augmentation operations forming a RandAugment suite with magnitude ranges similar to AutoAugment.\n\n- **use_shape** (`bool`, optional): Whether to include shape information in augmentations.\n- **max_translate_abs** (`int`, optional): Maximum absolute translation in pixels.\n- **max_translate_rel** (`float`, optional): Maximum relative translation as a fraction of image size.\n\nReturns:\n- `List[_Augmentation]`: List of augmentation operations where magnitude ranges do not necessarily increase monotonically with magnitude bin.\n\nThis variant uses brightness, contrast, color, sharpness, posterize, and solarize with ranges as used in AutoAugment, which may not align with the intuition that higher magnitude bins correspond to stronger operations.\n\nUsage Notes\n-----------\n- The module supports excluding specific augmentations from the suite.\n- Custom augmentation lists can be passed directly to `apply_rand_augment` for fine-tuning or extending the augmentation pipeline.\n- Magnitude bins discretize the continuous strength range of each augmentation, allowing consistent control over augmentation intensity.\n- Some augmentations accept additional parameters such as `shape`, `fill_value`, and `interp_type` to control output image properties.\n\nReferences\n----------\n- RandAugment Paper: https://arxiv.org/abs/1909.13719\n- AutoAugment Paper: https://arxiv.org/abs/1805.09501\n\nThis module is part of the NVIDIA DALI AutoAugment package and integrates with its augmentation framework to provide efficient and flexible data augmentation pipelines.",
+  "prediction_sha256": "fe9b86e4fd4fa57dcc5fa5b747c959cf4f4fef79a122de4c76d2ff7f1e03c11d",
+  "prompt_sha256": "6a6b555a1da6071e6c1456dc68bbff1374fdae20ebed6bd7d39b8fb7b0ed5d7e",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 7247,
+    "completion_tokens": 1419,
+    "total_tokens": 8666
+  },
+  "cost_usd": 0.0051692000000000005,
+  "generation_seconds": 12.959929167001974,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "rand_augment"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 13,
+              "start_char": 12019,
+              "end_char": 12682,
+              "code": "9), True, a.shift_enhance_range),\n        a.contrast.augmentation((0, 0.9), True, a.shift_enhance_range),\n        a.color.augmentation((0, 0.9), True, a.shift_enhance_range),\n        a.sharpness.augmentation((0, 0.9), True, a.sharpness_kernel),\n        a.posterize.augmentation((8, 4), False, a.poster_mask_uint8),\n        # solarization strength increases with decreasing magnitude (threshold)\n        a.solarize.augmentation((256, 0)),\n        a.equalize,\n        a.auto_contrast,\n        a.identity,\n    ]\n\n\ndef get_rand_augment_non_monotonic_suite(\n        use_shape: bool = False, max_translate_abs: Optional[int] = None,\n        max_translate_rel: Optional[",
+              "code_tokens": 300,
+              "score": 2.217497743596
+            },
+            {
+              "chunk_id": 5,
+              "start_char": 5139,
+              "end_char": 5893,
+              "code": "      If, instead of just limiting the set of operations, you need to include some custom\n        operations or fine-tune the existing ones, you can use the\n        :meth:`~nvidia.dali.auto_aug.rand_augment.apply_rand_augment` directly, which accepts\n        a list of augmentations.\n\n    Returns\n    -------\n    DataNode\n        A batch of transformed samples.\n    \"\"\"\n    aug_kwargs = {\"fill_value\": fill_value, \"interp_type\": interp_type}\n    use_shape = shape is not None\n    if use_shape:\n        aug_kwargs[\"shape\"] = shape\n    if monotonic_mag:\n        augmentations = get_rand_augment_suite(use_shape, max_translate_abs, max_translate_rel)\n    else:\n        augmentations = get_rand_augment_non_monotonic_suite(use_shape, max_translate_abs,\n     ",
+              "code_tokens": 300,
+              "score": 2.092122496467
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 4265,
+              "end_char": 4982,
+              "code": " ranges for some color operations differ.\n        There, the :meth:`~nvidia.dali.auto_aug.augmentations.posterize` and\n        :meth:`~nvidia.dali.auto_aug.augmentations.solarize` strength decreases with increasing\n        magnitude bins and enhance operations (\n        :meth:`~nvidia.dali.auto_aug.augmentations.brightness`,\n        :meth:`~nvidia.dali.auto_aug.augmentations.contrast`,\n        :meth:`~nvidia.dali.auto_aug.augmentations.color`,\n        :meth:`~nvidia.dali.auto_aug.augmentations.sharpness`) use (0.1, 1.9) range,\n        which means that the strength decreases the closer the magnitudes are to the center\n        of the range. See\n        :meth:`~nvidia.dali.auto_aug.rand_augment.get_rand_augment",
+              "code_tokens": 300,
+              "score": 1.961552848074
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 5
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 5,
+              "start_char": 5139,
+              "end_char": 8895,
+              "code": "      If, instead of just limiting the set of operations, you need to include some custom\n        operations or fine-tune the existing ones, you can use the\n        :meth:`~nvidia.dali.auto_aug.rand_augment.apply_rand_augment` directly, which accepts\n        a list of augmentations.\n\n    Returns\n    -------\n    DataNode\n        A batch of transformed samples.\n    \"\"\"\n    aug_kwargs = {\"fill_value\": fill_value, \"interp_type\": interp_type}\n    use_shape = shape is not None\n    if use_shape:\n        aug_kwargs[\"shape\"] = shape\n    if monotonic_mag:\n        augmentations = get_rand_augment_suite(use_shape, max_translate_abs, max_translate_rel)\n    else:\n        augmentations = get_rand_augment_non_monotonic_suite(use_shape, max_translate_abs,\n                                                             max_translate_rel)\n    augmentation_names = set(aug.name for aug in augmentations)\n    assert len(augmentation_names) == len(augmentations)\n    excluded = excluded or []\n    for name in excluded:\n        if name not in augmentation_names:\n            raise Exception(f\"The `{name}` was specified in `excluded`, but the RandAugment suite \"\n                            f\"does not contain augmentation with this name. \"\n                            f\"The augmentations in the suite are: {', '.join(augmentation_names)}.\")\n    selected_augments = [aug for aug in augmentations if aug.name not in excluded]\n    return apply_rand_augment(selected_augments, data, n, m,\n                              num_magnitude_bins=num_magnitude_bins, seed=seed, **aug_kwargs)\n\n\ndef apply_rand_augment(augmentations: List[_Augmentation], data: _DataNode, n: int, m: int,\n                       num_magnitude_bins: int = 31, seed: Optional[int] = None,\n                       **kwargs) -> _DataNode:\n    \"\"\"\n    Applies the list of ``augmentations`` in RandAugment (https://arxiv.org/abs/1909.13719) fashion.\n    Each sample is transformed with ``n`` operations in a sequence randomly selected from the\n    ``augmentations`` list. Each operation uses ``m`` as the magnitude bin.\n\n    Args\n    ----\n    augmentations : List[core._Augmentation]\n        List of augmentations to be sampled and applied in RandAugment fashion.\n    data : DataNode\n        A batch of samples to be processed.\n    n: int\n        The number of randomly sampled operations to be applied to a sample.\n    m: int\n        A magnitude bin (strength) of each operation to be applied, it must be an integer\n        within ``[0, num_magnitude_bins - 1]``.\n    num_magnitude_bins: int\n        The number of bins to divide the magnitude ranges into.\n    seed: int\n        Seed to be used to randomly sample operations (and to negate magnitudes).\n    kwargs:\n        Any extra parameters to be passed when calling `augmentations`.\n        The signature of each augmentation is checked for any extra arguments and if\n        the name of the argument matches one from the `kwargs`, the value is\n        passed as an argument. For example, some augmentations from the default\n        RandAugment suite accept ``shapes``, ``fill_value`` and ``interp_type``.\n    Returns\n    -------\n    DataNode\n        A batch of transformed samples.\n    \"\"\"\n    if not isinstance(n, int) or n < 0:\n        raise Exception(\n            f\"The number of operations to apply `n` must be a non-negative integer, got {n}.\")\n    if not isinstance(num_magnitude_bins, int) or num_magnitude_bins < 1:\n        raise Exception(\n            f\"The `num_magnitude_bins` must be a positive integer, got {num_magnitude_bins}.\")\n    if not isinstance(m, int) or not 0 <= m < num_magnitude_bins:\n        raise Exception(f\"The magnitude bin `m` must be an integer from \"\n                        f\"`[0, {num_magnitude_bins - 1}]` range. Got {",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 13
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 13,
+              "start_char": 12019,
+              "end_char": 14060,
+              "code": "9), True, a.shift_enhance_range),\n        a.contrast.augmentation((0, 0.9), True, a.shift_enhance_range),\n        a.color.augmentation((0, 0.9), True, a.shift_enhance_range),\n        a.sharpness.augmentation((0, 0.9), True, a.sharpness_kernel),\n        a.posterize.augmentation((8, 4), False, a.poster_mask_uint8),\n        # solarization strength increases with decreasing magnitude (threshold)\n        a.solarize.augmentation((256, 0)),\n        a.equalize,\n        a.auto_contrast,\n        a.identity,\n    ]\n\n\ndef get_rand_augment_non_monotonic_suite(\n        use_shape: bool = False, max_translate_abs: Optional[int] = None,\n        max_translate_rel: Optional[float] = None) -> List[_Augmentation]:\n    \"\"\"\n    Similarly to :meth:`~nvidia.dali.auto_aug.rand_augment.get_rand_augment_suite` creates a list\n    of RandAugment augmentations.\n\n    This variant uses brightness, contrast, color, sharpness, posterize, and solarize\n    with magnitude ranges as used by the AutoAugment. However, those ranges do not meet\n    the intuition that the bigger magnitude bin corresponds to stronger operation.\n    \"\"\"\n    default_translate_abs, default_translate_rel = 100, 100 / 224\n    # translations = [translate_x, translate_y] with adjusted magnitude range\n    translations = _get_translations(use_shape, default_translate_abs, default_translate_rel,\n                                     max_translate_abs, max_translate_rel)\n    return translations + [\n        a.shear_x.augmentation((0, 0.3), True),\n        a.shear_y.augmentation((0, 0.3), True),\n        a.rotate.augmentation((0, 30), True),\n        a.brightness.augmentation((0.1, 1.9), False, None),\n        a.contrast.augmentation((0.1, 1.9), False, None),\n        a.color.augmentation((0.1, 1.9), False, None),\n        a.sharpness.augmentation((0.1, 1.9), False, a.sharpness_kernel_shifted),\n        a.posterize.augmentation((0, 4), False, a.poster_mask_uint8),\n        a.solarize.augmentation((0, 256), False, None),\n        a.equalize,\n        a.auto_contrast,\n        a.identity,\n    ]",
+              "code_tokens": 871
+            }
+          ],
+          "code_tokens": 871
+        }
+      }
+    ],
+    "code_tokens_returned": 3271,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "6bbfa8a2072ee58452dee498a331f004870f6c5f0a07b90db7d70f1c8f923067",
+        "request_id": "chatcmpl-Ej8OGtz6BKyvTaWGNY5gK8HEDJz7B",
+        "usage": {
+          "prompt_tokens": 158,
+          "completion_tokens": 16,
+          "total_tokens": 174,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.880000000000002e-05,
+        "seconds": 0.7816963750010473,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "38c36b7cb291ee3c1b0a7546bc6127e5a557fe2af33ff9bd6586be23671b60c4",
+        "request_id": "chatcmpl-Ej8OHgH0qYbhGLDZdjNanNsQ3juSs",
+        "usage": {
+          "prompt_tokens": 917,
+          "completion_tokens": 15,
+          "total_tokens": 932,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003908,
+        "seconds": 0.9724667500013311,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "5143722d999f9d18adf3e7e949406d9f42c12028ac8ecdec3d146dd36faaa920",
+        "request_id": "chatcmpl-Ej8OIyCzQP4wm0r3RSb8tmCqxINgK",
+        "usage": {
+          "prompt_tokens": 1925,
+          "completion_tokens": 15,
+          "total_tokens": 1940,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000794,
+        "seconds": 0.7880425420007668,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "c2ee4df575b7f953cf6b841ae49f0dae7e1d60b3f30c7046177c841b36d8d328",
+        "request_id": "chatcmpl-Ej8OJ3FIduUYwOnGZG2oM6tfmYR0e",
+        "usage": {
+          "prompt_tokens": 2590,
+          "completion_tokens": 512,
+          "total_tokens": 3102,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018552,
+        "seconds": 4.128176207999786,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "979a1c14b551ee276630c2369f6e48679c3de615f3eb1ed3a8026e7f28efabdc",
+        "request_id": "chatcmpl-Ej8ONYV6xQPxhf899bszCwvyRgULt",
+        "usage": {
+          "prompt_tokens": 1657,
+          "completion_tokens": 861,
+          "total_tokens": 2518,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020404,
+        "seconds": 6.2895472919990425,
+        "retry_count": 0
+      }
+    ]
+  }
+}

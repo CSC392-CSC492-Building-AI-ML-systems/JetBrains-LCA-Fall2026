@@ -1,0 +1,34 @@
+{
+  "original_id": 173,
+  "repo": "sasview__sasmodels",
+  "docfile_name": "sesans_fitting.rst",
+  "source_sha256": "6759af75b0f808df372e3d4b593d82b70aa7877522a2b2e8952f3c1e936369e6",
+  "context": ")\n        pars.update(self._resolution_pars)\n        return pars\n\n    def theory(self):\n        # type: () -> np.ndarray\n        \"\"\"\n        Return the theory corresponding to the model parameters.\n\n        This method uses lazy evaluation, and requires model.update() to be\n        called when the parameters have changed.\n        \"\"\"\n        if 'theory' not in self._cache:\n            pars = self.model.state()\n            self._cache['theory'] = self._calc_theory(pars, cutoff=self.cutoff)\n        return self._cache['theory']\n\n    def residuals(self):\n        # type: () -> np.ndarray\n        \"\"\"\n        Return theory minus data normalized by uncertainty.\n        \"\"\"\n        #if np.any(self.err ==\n\n # type: (...) -> None\n    \"\"\"\n    Plot theory calculation.\n\n    *data* is needed to define the graph properties such as labels and\n    units, and to define the data mask.\n\n    *theory* is a matrix of the same shape as the data.\n\n    *view* is log or linear\n\n    *use_data* is True if the data should be plotted as well as the theory.\n\n    *limits* sets the intensity limits on the plot; if None then the limits\n    are inferred from the data.\n\n    *Iq_calc* is the raw theory values without resolution smearing\n    \"\"\"\n    if hasattr(data, 'isSesans') and data.isSesans:\n        _plot_result_sesans(data, theory, resid, use_data=True, limits=limits)\n    elif hasattr(data, 'qx_data') and not getattr(data, 'radial', False):\n        _plot_result2D(data, theory, resid, view, use_data, limits=limits)\n    else:\n        _plot_result1D(data, theory\n\n_util.nxsunit import Converter\n\n    # Pre-compute the Hankel matrix (H)\n    SElength = Converter(data._xunit)(data.x, \"A\")\n\n    theta_max = Converter(\"radians\")(data.sample.zacceptance)[0]\n    q_max = 2 * np.pi / np.max(data.source.wavelength) * np.sin(theta_max)\n    zaccept = Converter(\"1/A\")(q_max, \"1/\" + data.source.wavelength_unit),\n\n    Rmax = 10000000\n    hankel = sesans.SesansTransform(data.x, SElength,\n                                    data.source.wavelength,\n                                    zaccept, Rmax)\n    return hankel\n\n\nclass DataMixin(object):\n    \"\"\"\n    DataMixin captures the common aspects of evaluating a SAS model for a\n\n\n    particular data set, including calculating Iq and evaluating the\n    resolution function.  It is used in particular by :class:`DirectModel`,\n    which evaluates a SAS model parameters as key word arguments to the\n    calculator method, and by :class:`bumps_model.Experiment`, which wraps the\n    model and data for use with the Bumps fitting engine.  It is not\n    currently used by :class:`sasview_model.SasviewModel` since this will\n    require a number of changes to SasView before we can do it.\n\n    :meth:`_interpret_data` initializes the data structures necessary\n    to manage the calculations.  This sets attributes in the child class\n    such as *data_type* and *resolution*.\n\n    :meth:`_calc_theory` evaluates the model at the given control values.\n\n    :meth:`_set_data` sets the intensity data in the data object,\n    possibly with random noise added.  This is useful for simulating a\n    dataset with the results from :meth:`_calc_theory`.\n    \"\"\"\n    def _interpret_data(self, data, model):\n        # type: (Data, KernelModel) -> None\n        # pylint: disable=attribute-defined-outside-init\n\n        self._data = data\n        self._model = model\n\n        # interpret data\n        if hasattr(data, 'isSesans') and data.isSesans:\n            self.data_type = 'sesans'\n        elif hasattr(data, 'qx_data'):\n            self.data_type = 'Iqxy'\n        elif getattr(data, 'oriented', False):\n            self.data_type = 'Iq-oriented'\n        else:\n            self.data_type = 'Iq'\n\n        if self.data_type == 'sesans':\n            res = _make_sesans_transform(data)\n            index = slice(None, None)\n            if data.y is not None:\n                Iq, dIq = data.y, data.dy\n            else:\n                Iq, dIq = None, None\n        elif self.data_type == 'Iqxy':\n            #if not model.info.parameters.has_2d:\n            #    raise ValueError(\"not 2D without orientation or magnetic parameters\")\n            q = np.sqrt(data.qx_data**2 + data.qy_data**2)\n            qmin = getattr(data, 'qmin', 1e-16)\n            qmax = getattr(data, 'qmax', np.inf)\n            accuracy = getattr(data, 'accuracy', 'Low')\n            index = (data.mask == 0) & (q >= qmin) & (q <= qmax)\n            if data.data is not None:\n                index &= ~np.isnan(data.data)\n                Iq = data.data[index]\n                dIq = data.err_data[index]\n            else:\n                Iq, dIq = None, None\n            res = resolution2d.Pinhole2D(data=data, index=index,\n                                         nsigma=3.0, accuracy=accuracy)\n        elif self.data_type == 'Iq':\n            index = (data.x >= data.q\n\nmin) & (data.x <= data.qmax)\n            mask = getattr(data, 'mask', None)\n            if mask is not None:\n                index &= (mask == 0)\n            if data.y is not None:\n                index &= ~np.isnan(data.y)\n                Iq = data.y[index]\n                dIq = data.dy[index]\n            else:\n                Iq, dIq = None, None\n            if getattr(data, 'dx', None) is not None:\n                q, dq = data.x[index], data.dx[index]\n                if (dq > 0).any():\n                    res = resolution.Pinhole1D(q, dq)\n            ",
+  "preparation_seconds": 0.1774228329959442,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 110037,
+        "end_char": 110741
+      },
+      {
+        "start_char": 181447,
+        "end_char": 182292
+      },
+      {
+        "start_char": 622148,
+        "end_char": 622800
+      },
+      {
+        "start_char": 622800,
+        "end_char": 625440
+      },
+      {
+        "start_char": 625440,
+        "end_char": 626000
+      }
+    ],
+    "context_tokens": 2456,
+    "context_sha256": "f7a702729e2391aec518bdd06e0a94b11c980e279739faf21eb41f90b921377b"
+  }
+}

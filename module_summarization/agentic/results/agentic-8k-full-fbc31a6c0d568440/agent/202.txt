@@ -1,0 +1,122 @@
+Permutation Feature Importance
+==============================
+
+Permutation feature importance is a model inspection technique that can be used to estimate the importance of features for a fitted estimator. It works by measuring the increase in the prediction error of the model after permuting the feature’s values, which breaks the relationship between the feature and the target. Features that cause a large increase in error when permuted are considered more important.
+
+Overview
+--------
+
+Permutation importance is computed by the following procedure:
+
+1. Fit a model on the training data.
+2. Measure the baseline performance of the model on a validation set.
+3. For each feature:
+   - Permute the values of the feature across all samples, effectively breaking the association between the feature and the target.
+   - Measure the performance of the model on the permuted data.
+   - The importance of the feature is the difference between the baseline performance and the performance on the permuted data.
+
+This method is model-agnostic and can be applied to any fitted estimator.
+
+Usage
+-----
+
+The `permutation_importance` function computes permutation feature importance for a fitted estimator.
+
+Key parameters include:
+
+- `estimator`: The fitted model to inspect.
+- `X`: The data on which to compute the permutation importance.
+- `y`: The target values.
+- `n_repeats`: Number of times to permute a feature. The importance is averaged over these repeats.
+- `scoring`: A string or callable to evaluate the predictions on the permuted data.
+- `random_state`: Controls the randomness of the permutation.
+- `n_jobs`: Number of jobs to run in parallel.
+- `max_samples`: If not None, randomly sample this number or fraction of samples to speed up computation.
+
+The function returns an object containing:
+
+- `importances`: Raw permutation importance scores for each feature and repeat.
+- `importances_mean`: Mean importance score for each feature.
+- `importances_std`: Standard deviation of importance scores for each feature.
+
+Examples
+--------
+
+### Classification Example
+
+```python
+from sklearn.linear_model import LogisticRegression
+from sklearn.inspection import permutation_importance
+from sklearn.datasets import make_classification
+import numpy as np
+
+X, y = make_classification(n_samples=100, n_features=4, random_state=0)
+clf = LogisticRegression(solver="lbfgs").fit(X, y)
+
+result = permutation_importance(clf, X, y, n_repeats=10, random_state=0)
+
+print(result.importances_mean)
+```
+
+### Regression Example
+
+```python
+from sklearn.linear_model import LinearRegression
+from sklearn.inspection import permutation_importance
+from sklearn.datasets import make_regression
+from sklearn.preprocessing import scale
+import numpy as np
+
+X, y = make_regression(n_samples=500, n_features=10, random_state=0)
+X = scale(X)
+y = scale(y)
+
+lr = LinearRegression().fit(X, y)
+
+result = permutation_importance(lr, X, y, n_repeats=50, scoring="neg_mean_squared_error")
+
+print(result.importances_mean)
+```
+
+Advanced Usage
+--------------
+
+- **Parallel computation**: The computation can be parallelized using the `n_jobs` parameter. Parallelism does not affect the results.
+- **Handling different data types**: The function supports both NumPy arrays and pandas DataFrames as input.
+- **Large datasets**: Supports memory mapping for large datasets to reduce memory usage.
+- **Multiple scoring metrics**: Supports multiple scoring metrics simultaneously by passing a list or dictionary of scorers.
+- **Sample weighting**: Supports sample weights if the scoring function accepts them.
+
+Notes and Warnings
+------------------
+
+- The permutation importance depends on the scoring metric used. Different metrics may yield different importance values.
+- When using custom scoring functions, ensure they accept the parameters expected by `permutation_importance`.
+- If `max_samples` is set, it must be less than or equal to the number of samples in `X`.
+- Permutation importance can be unstable for highly correlated features.
+- The method assumes that the model is already fitted.
+
+Testing and Validation
+----------------------
+
+Extensive tests ensure:
+
+- Equivalence of results between sequential and parallel computations.
+- Consistency of results between array and DataFrame inputs.
+- Correct handling of sample weights and custom scoring functions.
+- Proper error handling for invalid parameters such as `max_samples`.
+
+References
+----------
+
+- Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5–32.
+- Fisher, A., Rudin, C., & Dominici, F. (2019). All Models are Wrong, but Many are Useful: Learning a Variable’s Importance by Studying an Entire Class of Prediction Models Simultaneously. Journal of Machine Learning Research, 20(177), 1–81.
+
+See Also
+--------
+
+- `sklearn.inspection.partial_dependence`
+- `sklearn.feature_selection.SelectFromModel`
+- `sklearn.ensemble.RandomForestClassifier.feature_importances_`
+
+This method provides a straightforward and model-agnostic way to interpret the importance of features in predictive models by quantifying the effect of feature value permutations on model performance.

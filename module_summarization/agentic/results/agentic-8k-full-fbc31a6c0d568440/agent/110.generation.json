@@ -1,0 +1,262 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Best Effort Callback\n====================\n\nThe `BestEffortCallback` class provides a flexible and robust callback mechanism designed to handle live data streams during experimental runs. It supports live plotting, tabular display, and baseline data handling with minimal configuration, making it suitable for interactive data acquisition and visualization.\n\nOverview\n--------\n\n`BestEffortCallback` inherits from `QtAwareCallback` and is decorated with `make_class_safe` to ensure safe execution with logging support. It manages internal state related to live plots, tables, and baseline data, and offers several user-configurable options to control its behavior.\n\nKey Features\n------------\n\n- **Live Plotting:** Automatically generates live plots for hinted fields from data streams, excluding those specified in `noplot_streams`.\n- **Live Table:** Displays a live-updating table of hinted readings from the primary data stream.\n- **Baseline Handling:** Prints and manages baseline data streams separately.\n- **Flexible Configuration:** Enables or disables headings, tables, baseline printing, and plots independently.\n- **Peak Detection:** Integrates peak statistics computation for live data streams.\n- **Safe and Robust:** Uses internal heuristics and safe class wrapping to handle various data stream configurations gracefully.\n\nUsage\n-----\n\nThe callback can be instantiated with optional parameters:\n\n- `fig_factory`: A factory function or object to create matplotlib figures for plotting.\n- `table_enabled`: Boolean flag to enable or disable the live table display (default is `True`).\n\nExample:\n\n```python\ncallback = BestEffortCallback(fig_factory=my_fig_factory, table_enabled=True)\n```\n\nPublic Methods\n--------------\n\n- `enable_heading()`: Enable printing of timestamp and IDs at the top of a run.\n- `disable_heading()`: Disable the heading printout.\n- `enable_table()`: Enable printing of hinted readings from the primary stream in a live table.\n- `disable_table()`: Disable the live table display.\n- `enable_baseline()`: Enable printing of hinted fields from the baseline stream.\n- `disable_baseline()`: Disable baseline printing.\n- `enable_plots()`: Enable plotting of hinted fields from all streams except those in `noplot_streams`.\n- `disable_plots()`: Disable all plotting.\n\nCallback Invocation\n-------------------\n\nThe callback is designed to be called with the signature:\n\n```python\ncallback(name, doc, *args, **kwargs)\n```\n\nwhere `name` is the event name, `doc` is the document describing the event, and additional arguments as needed.\n\nIf all of table, baseline, and plots are disabled, the callback returns immediately without processing.\n\nInternal Behavior\n-----------------\n\n- On `start(doc)`, the callback initializes internal state, clears previous data, and prepares hints and dimensions based on the plan document.\n- It guesses dimensions if none are provided, defaulting to motor names or time.\n- Maintains mappings from descriptor unique IDs to live plot, grid, and scatter instances.\n- Tracks streams seen to manage plotting and table updates.\n- Supports overplotting and can omit plots with a single data point.\n- Integrates peak statistics computation for live data analysis.\n\nAttributes\n----------\n\n- `overplot` (bool): Whether to overplot data on existing plots (default `True`).\n- `noplot_streams` (list): List of stream names to exclude from plotting (default `['baseline']`).\n- `omit_single_point_plot` (bool): Whether to omit plots with only a single data point (default `True`).\n- `peaks` (PeakResults): Stores peak detection results.\n- `_table_enabled` (bool): Internal flag for table display.\n- `_baseline_enabled` (bool): Internal flag for baseline display.\n- `_plots_enabled` (bool): Internal flag for plotting.\n\nTesting\n-------\n\nFor instructions on how to test `BestEffortCallback` in a simulated environment, please refer to:\n\n```\ntests/interactive/best_effort_cb.py\n```\n\nDependencies\n------------\n\n- `matplotlib` for plotting.\n- `numpy` for numerical operations.\n- `cycler` for color cycling in plots.\n- Internal modules: `.core`, `.mpl_plotting`, `.fitting`.\n\nLogging\n-------\n\nThe class uses a logger named after its module to report warnings and errors during execution.\n\n---\n\nThis callback is intended for use in live data acquisition scenarios where immediate feedback via plots and tables is beneficial. It balances ease of use with configurability and robustness.",
+  "prediction_sha256": "bc68df7a29a57f4f43f73b7e207c35e17ac60b3c84c1d5a8b9dbdbfb604d58d2",
+  "prompt_sha256": "314e71c914c7a4944c5f85395ccac030a1d814f9c72f7f15ef05e9e7d2b9e65a",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 6481,
+    "completion_tokens": 1352,
+    "total_tokens": 7833
+  },
+  "cost_usd": 0.0047556000000000005,
+  "generation_seconds": 11.744090624997625,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 5,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "callbacks"
+        },
+        "response": {
+          "status": "no_results",
+          "excerpts": [],
+          "code_tokens": 0
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "Callback"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 882,
+              "code": "'''\n    Best Effort Callback.\n    For instructions on how to test in a simulated environment please see:\n        tests/interactive/best_effort_cb.py\n'''\nfrom cycler import cycler\nfrom datetime import datetime\nfrom io import StringIO\nimport itertools\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pprint import pformat\nimport re\nimport sys\nimport threading\nimport time\nfrom warnings import warn\nimport weakref\n\nfrom.core import LiveTable, make_class_safe\nfrom.mpl_plotting import LivePlot, LiveGrid, LiveScatter, QtAwareCallback\nfrom.fitting import PeakStats\nimport logging\n\nlogger = logging.getLogger(__name__)\n\n\n@make_class_safe(logger=logger)\nclass BestEffortCallback(QtAwareCallback):\n    def __init__(self, *, fig_factory=None, table_enabled=True, **kwargs):\n        super().__init__(**kwargs)\n        # internal state\n        self._start_doc = None\n        self._desc",
+              "code_tokens": 300,
+              "score": 4.984843202053
+            }
+          ],
+          "code_tokens": 300
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3779,
+              "code": "'''\n    Best Effort Callback.\n    For instructions on how to test in a simulated environment please see:\n        tests/interactive/best_effort_cb.py\n'''\nfrom cycler import cycler\nfrom datetime import datetime\nfrom io import StringIO\nimport itertools\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pprint import pformat\nimport re\nimport sys\nimport threading\nimport time\nfrom warnings import warn\nimport weakref\n\nfrom.core import LiveTable, make_class_safe\nfrom.mpl_plotting import LivePlot, LiveGrid, LiveScatter, QtAwareCallback\nfrom.fitting import PeakStats\nimport logging\n\nlogger = logging.getLogger(__name__)\n\n\n@make_class_safe(logger=logger)\nclass BestEffortCallback(QtAwareCallback):\n    def __init__(self, *, fig_factory=None, table_enabled=True, **kwargs):\n        super().__init__(**kwargs)\n        # internal state\n        self._start_doc = None\n        self._descriptors = {}\n        self._table = None\n        self._heading_enabled = True\n        self._table_enabled = table_enabled\n        self._baseline_enabled = True\n        self._plots_enabled = True\n        # axes supplied from outside\n        self._fig_factory = fig_factory\n        # maps descriptor uid to dict which maps data key to LivePlot instance\n        self._live_plots = {}\n        self._live_grids = {}\n        self._live_scatters = {}\n        self._peak_stats = {}  # same structure as live_plots\n        self._cleanup_motor_heuristic = False\n        self._stream_names_seen = set()\n\n        # public options\n        self.overplot = True\n        self.noplot_streams = ['baseline']\n        self.omit_single_point_plot = True\n\n        # public data\n        self.peaks = PeakResults()\n\n        # hack to handle the bottom border of the table\n        self._buffer = StringIO()\n        self._baseline_toggle = True\n\n    def enable_heading(self):\n        \"Print timestamp and IDs at the top of a run.\"\n        self._heading_enabled = True\n\n    def disable_heading(self):\n        \"Opposite of enable_heading()\"\n        self._heading_enabled = False\n\n    def enable_table(self):\n        \"Print hinted readings from the 'primary' stream in a LiveTable.\"\n        self._table_enabled = True\n\n    def disable_table(self):\n        \"Opposite of enable_table()\"\n        self._table_enabled = False\n\n    def enable_baseline(self):\n        \"Print hinted fields from the 'baseline' stream.\"\n        self._baseline_enabled = True\n\n    def disable_baseline(self):\n        \"Opposite of enable_baseline()\"\n        self._baseline_enabled = False\n\n    def enable_plots(self):\n        \"Plot hinted fields from all streams not in ``noplot_streams``.\"\n        self._plots_enabled = True\n\n    def disable_plots(self):\n        \"Do not plot anything.\"\n        self._plots_enabled = False\n\n    def __call__(self, name, doc, *args, **kwargs):\n        if not (self._table_enabled or self._baseline_enabled or\n                self._plots_enabled):\n            return\n        super().__call__(name, doc, *args, **kwargs)\n\n    def start(self, doc):\n        self.clear()\n        self._start_doc = doc\n        self.plan_hints = doc.get('hints', {})\n\n        # Prepare a guess about the dimensions (independent variables) in case\n        # we need it.\n        motors = self._start_doc.get('motors')\n        if motors is not None:\n            GUESS = [([motor], 'primary') for motor in motors]\n        else:\n            GUESS = [(['time'], 'primary')]\n\n        # Ues the guess if there is not hint about dimensions.\n        dimensions = self.plan_hints.get('dimensions')\n        if dimensions is None:\n            self._cleanup_motor_heuristic = True\n            dimensions = GUESS\n\n        # We can only cope with all the dimensions belonging to the same\n        # stream unless we resample. We are not doing to handle that yet.",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 1800,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "db32ccb9d4992e0add04d0b7e43fb74298013afa9e0352fb3089d64435426dc0",
+        "request_id": "chatcmpl-Ej8aNvpv6jyQa7hQ86mFPpvP0PuMO",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 14,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.480000000000001e-05,
+        "seconds": 0.7750679169985233,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "9e929138e280d925639b2cdef1ddcca1628b28b3af95ee5e196bf8023bef7b5b",
+        "request_id": "chatcmpl-Ej8aN6Zd87BDIxpupWgNt3SiwB0CX",
+        "usage": {
+          "prompt_tokens": 197,
+          "completion_tokens": 14,
+          "total_tokens": 211,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00010120000000000002,
+        "seconds": 0.6267023749969667,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "42c191648398444e9d146ead51fda3383b42d625b7d2352d3e0079a789c49ed3",
+        "request_id": "chatcmpl-Ej8aOdRLLpzWgCDRJ61tWpbnrHt4F",
+        "usage": {
+          "prompt_tokens": 498,
+          "completion_tokens": 15,
+          "total_tokens": 513,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0002232,
+        "seconds": 0.6930586669986951,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "8c3fcb35da61a6b1710bd4f7cdad5e98afd956173b7ef95744e8451feede2d2f",
+        "request_id": "chatcmpl-Ej8aPvkJDKbceM1C9LiD4OGX30JP4",
+        "usage": {
+          "prompt_tokens": 1525,
+          "completion_tokens": 15,
+          "total_tokens": 1540,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000634,
+        "seconds": 0.5993899579989375,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "09958d1ad2f440ddd2ffbe7ab0b316e094ce771ebffb42b081cfb0cc1f941926",
+        "request_id": "chatcmpl-Ej8aPH89LKB3n50mvxNOCiuw05hXs",
+        "usage": {
+          "prompt_tokens": 1561,
+          "completion_tokens": 15,
+          "total_tokens": 1576,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006484,
+        "seconds": 0.649961291004729,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "4d7e9f1e5ca1aec85e1e1fdb1f7297424b8932adf51ebae24bac90938eaa7131",
+        "request_id": "chatcmpl-Ej8aQH56u3UfSy3AOF8z8w5FietVc",
+        "usage": {
+          "prompt_tokens": 1597,
+          "completion_tokens": 384,
+          "total_tokens": 1981,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012532000000000003,
+        "seconds": 2.978831000000355,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "d02614ebf3b69aa670e2010b993f5e3667fdc43cf5b31275ac81cd397acc52b0",
+        "request_id": "chatcmpl-Ej8aTgYGHNnFNWeMrsPwULKZdGut7",
+        "usage": {
+          "prompt_tokens": 947,
+          "completion_tokens": 895,
+          "total_tokens": 1842,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018108,
+        "seconds": 5.421079416999419,
+        "retry_count": 0
+      }
+    ]
+  }
+}

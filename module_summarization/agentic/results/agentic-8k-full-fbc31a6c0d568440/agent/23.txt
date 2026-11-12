@@ -1,0 +1,95 @@
+w_fork — Prepare a New Weighted Ensemble Simulation by Forking an Existing One
+===============================================================================
+
+Synopsis
+--------
+
+.. code-block:: console
+
+    w_fork [OPTIONS]
+
+Description
+-----------
+
+`w_fork` prepares a new weighted ensemble (WE) simulation by forking from an existing simulation at a specified iteration. It generates a new HDF5 file representing the new simulation, initializing it based on the state of the original simulation at the chosen iteration.
+
+This command is useful for branching off new simulations from a previously completed or ongoing WE simulation, allowing exploration of alternative pathways or conditions starting from a known ensemble distribution.
+
+When using executable propagation, users must manually prepare the new simulation directory, ensuring that restart data from the original simulation at the specified iteration is available as initial state data for the new simulation. To assist with this, `w_fork` creates a mapping between old simulation segments and new simulation initial states, saved both in the new HDF5 file and as a flat text file.
+
+Target states and basis states for the new simulation are copied from those in the original simulation at the specified iteration.
+
+Options
+-------
+
+- `-i`, `--input` *INPUT_H5FILE*
+
+    Specify the input HDF5 file from which to create the new simulation. If not provided, the input file is read from the configuration file.
+
+- `-I`, `--iteration` *N_ITER*
+
+    Specify the iteration number from the original simulation to use as the initial distribution for the new simulation. Defaults to the last complete iteration if not specified.
+
+- `-o`, `--output` *OUTPUT_H5FILE*
+
+    Specify the filename for the new simulation HDF5 file. Defaults to `forked.h5`.
+
+- `--istate-map` *ISTATE_MAP*
+
+    Specify the filename for the text file describing the mapping of existing segments to new initial states. Defaults to `istate_map.txt`.
+
+- `--no-headers`
+
+    If set, the header lines are omitted from the ISTATE_MAP text file.
+
+Behavior and Details
+--------------------
+
+1. **Input Simulation Data**
+
+   The command opens the specified input HDF5 file (or the default from configuration) in read mode and determines the iteration to fork from (defaulting to the last completed iteration).
+
+2. **New Simulation Setup**
+
+   A new HDF5 file is created and opened for writing. Target states and basis states from the original simulation at the chosen iteration are copied into the new simulation file.
+
+3. **Initial States and Segments**
+
+   Each segment from the original simulation at the fork iteration is transformed into one initial state and one corresponding new segment in the new simulation. This one-to-one mapping preserves the ensemble distribution at the fork point.
+
+4. **Mapping File**
+
+   A text file is generated that maps each old simulation segment (identified by iteration and segment ID) to the new simulation initial state ID. This file aids in preparing the new simulation directory, especially for executable propagation where restart data must be managed manually.
+
+Example
+-------
+
+Fork a new simulation from iteration 10 of an existing simulation stored in `sim1.h5`, saving the new simulation as `sim2.h5` and writing the initial state mapping to `map.txt`:
+
+.. code-block:: console
+
+    w_fork -i sim1.h5 -I 10 -o sim2.h5 --istate-map map.txt
+
+Notes
+-----
+
+- The user is responsible for ensuring that restart data from the original simulation at the fork iteration is available and correctly linked for the new simulation, particularly when using executable propagation.
+
+- Further adjustments to the new simulation's initial states and segments can be made using other WESTPA tools such as `w_binning`.
+
+See Also
+--------
+
+- `w_binning` — Adjust binning and initial states in a weighted ensemble simulation.
+
+- WESTPA documentation for managing weighted ensemble simulations.
+
+Logging
+-------
+
+`w_fork` logs its progress and any warnings or errors under the logger named `w_fork`.
+
+License
+-------
+
+Part of the WESTPA software suite. See WESTPA documentation for license details.

@@ -1,0 +1,306 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Basics — Indexing and Structured Arrays\n=======================================\n\nThis module provides utility functions for working with NumPy structured arrays and record arrays, focusing on indexing, flattening nested data types, and combining multiple arrays with complex dtypes.\n\nFlattening Nested Data Types\n----------------------------\n\nStructured arrays in NumPy can have nested fields (fields that themselves have subfields). The function `flatten_descr(ndtype)` recursively flattens such nested dtype descriptions into a simple list of (fieldname, dtype) pairs.\n\nExample:\n\n```python\n>>> from numpy.lib import recfunctions as rfn\n>>> ndtype = np.dtype([('a', np.int32), ('b', [('ba', np.float64), ('bb', np.int32)])])\n>>> rfn.flatten_descr(ndtype)\n(('a', dtype('int32')), ('ba', dtype('float64')), ('bb', dtype('int32')))\n```\n\nCombining Data Types from Multiple Arrays\n-----------------------------------------\n\nThe functions `_zip_dtype(seqarrays, flatten=False)` and `_zip_descr(seqarrays, flatten=False)` combine the dtype descriptions of a sequence of arrays into a single dtype description.\n\n- `seqarrays` is a sequence of arrays whose dtypes are to be combined.\n- `flatten` indicates whether nested dtype descriptions should be collapsed into a flat structure.\n\nThese utilities are useful when merging or concatenating arrays with structured dtypes.\n\nField Structure Mapping\n-----------------------\n\nThe function `get_fieldstructure(adtype, lastname=None, parents=None)` returns a dictionary mapping each field name to a list of its parent fields, which helps in simplifying access to nested fields.\n\nExample:\n\n```python\n>>> from numpy.lib import recfunctions as rfn\n>>> ndtype = np.dtype([('A', int),\n...                    ('B', [('BA', int),\n...                           ('BB', [('BBA', int), ('BBB', int)])])])\n>>> rfn.get_fieldstructure(ndtype)\n{'A': [], 'B': [], 'BA': ['B'], 'BB': ['B'], 'BBA': ['B', 'BB'], 'BBB': ['B', 'BB']}\n```\n\nIterators Over Fields and Records\n---------------------------------\n\n- `_izip_fields_flat(iterable)` returns an iterator over the concatenated fields of a sequence of arrays, flattening any nested structure.\n- `_izip_fields(iterable)` returns an iterator over concatenated fields without necessarily flattening nested structures.\n- `_izip_records(seqarrays, fill_value=None, flatten=True)` returns an iterator over concatenated items from a sequence of arrays, optionally flattening nested fields and filling shorter arrays with a specified fill value.\n\nThese iterators facilitate iteration over complex structured arrays in a flexible manner.\n\nSummary\n-------\n\nThis module is designed to assist with advanced indexing and manipulation of structured arrays in NumPy, particularly when dealing with nested fields. It provides tools to flatten nested dtypes, combine dtype descriptions from multiple arrays, map field hierarchies, and iterate over fields and records efficiently.",
+  "prediction_sha256": "856b6502bcc4a7612acf4ff409805e12b872ea27cd6eee2b0f9a0c1a1cf89410",
+  "prompt_sha256": "3276e0f403ddb024eaeaf7d7a829918282fb573c8a5d1d768edc0f885fc11434",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 11232,
+    "completion_tokens": 698,
+    "total_tokens": 11930
+  },
+  "cost_usd": 0.0056096,
+  "generation_seconds": 12.541541458012944,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "basics.indexing"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 7,
+              "start_char": 5833,
+              "end_char": 6535,
+              "code": "       for a in seqarrays:\n            current = a.dtype\n            if current.names is not None and len(current.names) == 1:\n                # special case - dtypes of 1 field are flattened\n                newdtype.extend(_get_fieldspec(current))\n            else:\n                newdtype.append(('', current))\n    return np.dtype(newdtype)\n\n\ndef _zip_descr(seqarrays, flatten=False):\n    \"\"\"\n    Combine the dtype description of a series of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays\n    flatten : {boolean}, optional\n        Whether to collapse nested descriptions.\n    \"\"\"\n    return _zip_dtype(seqarrays, flatten=flatten).descr\n\n\ndef get",
+              "code_tokens": 300,
+              "score": 3.919341385687
+            }
+          ],
+          "code_tokens": 300
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 7
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 7,
+              "start_char": 5833,
+              "end_char": 9392,
+              "code": "       for a in seqarrays:\n            current = a.dtype\n            if current.names is not None and len(current.names) == 1:\n                # special case - dtypes of 1 field are flattened\n                newdtype.extend(_get_fieldspec(current))\n            else:\n                newdtype.append(('', current))\n    return np.dtype(newdtype)\n\n\ndef _zip_descr(seqarrays, flatten=False):\n    \"\"\"\n    Combine the dtype description of a series of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays\n    flatten : {boolean}, optional\n        Whether to collapse nested descriptions.\n    \"\"\"\n    return _zip_dtype(seqarrays, flatten=flatten).descr\n\n\ndef get_fieldstructure(adtype, lastname=None, parents=None,):\n    \"\"\"\n    Returns a dictionary with fields indexing lists of their parent fields.\n\n    This function is used to simplify access to fields nested in other fields.\n\n    Parameters\n    ----------\n    adtype : np.dtype\n        Input datatype\n    lastname : optional\n        Last processed field name (used internally during recursion).\n    parents : dictionary\n        Dictionary of parent fields (used interbally during recursion).\n\n    Examples\n    --------\n    >>> from numpy.lib import recfunctions as rfn\n    >>> ndtype =  np.dtype([('A', int),\n   ...                     ('B', [('BA', int),\n   ...                            ('BB', [('BBA', int), ('BBB', int)])])])\n    >>> rfn.get_fieldstructure(ndtype)\n   ... # XXX: possible regression, order of BBA and BBB is swapped\n    {'A': [], 'B': [], 'BA': ['B'], 'BB': ['B'], 'BBA': ['B', 'BB'], 'BBB': ['B', 'BB']}\n\n    \"\"\"\n    if parents is None:\n        parents = {}\n    names = adtype.names\n    for name in names:\n        current = adtype[name]\n        if current.names is not None:\n            if lastname:\n                parents[name] = [lastname, ]\n            else:\n                parents[name] = []\n            parents.update(get_fieldstructure(current, name, parents))\n        else:\n            lastparent = [_ for _ in (parents.get(lastname, []) or [])]\n            if lastparent:\n                lastparent.append(lastname)\n            elif lastname:\n                lastparent = [lastname, ]\n            parents[name] = lastparent or []\n    return parents\n\n\ndef _izip_fields_flat(iterable):\n    \"\"\"\n    Returns an iterator of concatenated fields from a sequence of arrays,\n    collapsing any nested structure.\n\n    \"\"\"\n    for element in iterable:\n        if isinstance(element, np.void):\n            yield from _izip_fields_flat(tuple(element))\n        else:\n            yield element\n\n\ndef _izip_fields(iterable):\n    \"\"\"\n    Returns an iterator of concatenated fields from a sequence of arrays.\n\n    \"\"\"\n    for element in iterable:\n        if (hasattr(element, '__iter__') and\n                not isinstance(element, str)):\n            yield from _izip_fields(element)\n        elif isinstance(element, np.void) and len(tuple(element)) == 1:\n            # this statement is the same from the previous expression\n            yield from _izip_fields(element)\n        else:\n            yield element\n\n\ndef _izip_records(seqarrays, fill_value=None, flatten=True):\n    \"\"\"\n    Returns an iterator of concatenated items from a sequence of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays.\n    fill_value : {None, integer}\n        Value used to pad shorter iterables.\n    flatten : {True, False},\n        Whether to\n    \"\"\"\n\n    # Should we flatten the items, or just use a nested approach\n",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "_zip_dtype"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 7,
+              "start_char": 5833,
+              "end_char": 6535,
+              "code": "       for a in seqarrays:\n            current = a.dtype\n            if current.names is not None and len(current.names) == 1:\n                # special case - dtypes of 1 field are flattened\n                newdtype.extend(_get_fieldspec(current))\n            else:\n                newdtype.append(('', current))\n    return np.dtype(newdtype)\n\n\ndef _zip_descr(seqarrays, flatten=False):\n    \"\"\"\n    Combine the dtype description of a series of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays\n    flatten : {boolean}, optional\n        Whether to collapse nested descriptions.\n    \"\"\"\n    return _zip_dtype(seqarrays, flatten=flatten).descr\n\n\ndef get",
+              "code_tokens": 300,
+              "score": 5.754856567802
+            },
+            {
+              "chunk_id": 6,
+              "start_char": 5174,
+              "end_char": 5744,
+              "code": "', '<i4')])])\n    >>> rfn.flatten_descr(ndtype)\n    (('a', dtype('int32')), ('ba', dtype('float64')), ('bb', dtype('int32')))\n\n    \"\"\"\n    names = ndtype.names\n    if names is None:\n        return (('', ndtype),)\n    else:\n        descr = []\n        for field in names:\n            (typ, _) = ndtype.fields[field]\n            if typ.names is not None:\n                descr.extend(flatten_descr(typ))\n            else:\n                descr.append((field, typ))\n        return tuple(descr)\n\n\ndef _zip_dtype(seqarrays, flatten=False):\n    newdtype = []\n    if flatten:\n  ",
+              "code_tokens": 300,
+              "score": 5.38561625617
+            },
+            {
+              "chunk_id": 16,
+              "start_char": 13126,
+              "end_char": 13711,
+              "code": "            seqtype = MaskedRecords\n                else:\n                    seqtype = MaskedArray\n            elif asrecarray:\n                seqtype = recarray\n            else:\n                seqtype = ndarray\n            return seqarrays.view(dtype=seqdtype, type=seqtype)\n        else:\n            seqarrays = (seqarrays,)\n    else:\n        # Make sure we have arrays in the input sequence\n        seqarrays = [np.asanyarray(_m) for _m in seqarrays]\n    # Find the sizes of the inputs and their maximum\n    sizes = tuple(a.size for a in seqarrays)\n    maxlength = max(sizes)\n  ",
+              "code_tokens": 300,
+              "score": 5.211087409173
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 6
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 6,
+              "start_char": 5174,
+              "end_char": 8492,
+              "code": "', '<i4')])])\n    >>> rfn.flatten_descr(ndtype)\n    (('a', dtype('int32')), ('ba', dtype('float64')), ('bb', dtype('int32')))\n\n    \"\"\"\n    names = ndtype.names\n    if names is None:\n        return (('', ndtype),)\n    else:\n        descr = []\n        for field in names:\n            (typ, _) = ndtype.fields[field]\n            if typ.names is not None:\n                descr.extend(flatten_descr(typ))\n            else:\n                descr.append((field, typ))\n        return tuple(descr)\n\n\ndef _zip_dtype(seqarrays, flatten=False):\n    newdtype = []\n    if flatten:\n        for a in seqarrays:\n            newdtype.extend(flatten_descr(a.dtype))\n    else:\n        for a in seqarrays:\n            current = a.dtype\n            if current.names is not None and len(current.names) == 1:\n                # special case - dtypes of 1 field are flattened\n                newdtype.extend(_get_fieldspec(current))\n            else:\n                newdtype.append(('', current))\n    return np.dtype(newdtype)\n\n\ndef _zip_descr(seqarrays, flatten=False):\n    \"\"\"\n    Combine the dtype description of a series of arrays.\n\n    Parameters\n    ----------\n    seqarrays : sequence of arrays\n        Sequence of arrays\n    flatten : {boolean}, optional\n        Whether to collapse nested descriptions.\n    \"\"\"\n    return _zip_dtype(seqarrays, flatten=flatten).descr\n\n\ndef get_fieldstructure(adtype, lastname=None, parents=None,):\n    \"\"\"\n    Returns a dictionary with fields indexing lists of their parent fields.\n\n    This function is used to simplify access to fields nested in other fields.\n\n    Parameters\n    ----------\n    adtype : np.dtype\n        Input datatype\n    lastname : optional\n        Last processed field name (used internally during recursion).\n    parents : dictionary\n        Dictionary of parent fields (used interbally during recursion).\n\n    Examples\n    --------\n    >>> from numpy.lib import recfunctions as rfn\n    >>> ndtype =  np.dtype([('A', int),\n   ...                     ('B', [('BA', int),\n   ...                            ('BB', [('BBA', int), ('BBB', int)])])])\n    >>> rfn.get_fieldstructure(ndtype)\n   ... # XXX: possible regression, order of BBA and BBB is swapped\n    {'A': [], 'B': [], 'BA': ['B'], 'BB': ['B'], 'BBA': ['B', 'BB'], 'BBB': ['B', 'BB']}\n\n    \"\"\"\n    if parents is None:\n        parents = {}\n    names = adtype.names\n    for name in names:\n        current = adtype[name]\n        if current.names is not None:\n            if lastname:\n                parents[name] = [lastname, ]\n            else:\n                parents[name] = []\n            parents.update(get_fieldstructure(current, name, parents))\n        else:\n            lastparent = [_ for _ in (parents.get(lastname, []) or [])]\n            if lastparent:\n                lastparent.append(lastname)\n            elif lastname:\n                lastparent = [lastname, ]\n            parents[name] = lastparent or []\n    return parents\n\n\ndef _izip_fields_flat(iterable):\n    \"\"\"\n    Returns an iterator of concatenated fields from a sequence of arrays,\n    collapsing any nested structure.\n\n    \"\"\"\n    for element in iterable:\n        if isinstance(element, np.void):\n            yield from _izip_fields_flat(tuple(element))\n        else:\n            yield element\n\n\ndef _izip_fields(iterable):\n    \"\"\"\n    Returns an",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 7
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 8
+        },
+        "response": {
+          "status": "unknown_chunk",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 4200,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "ba3b2bb3da83b80d58ec0eec16f3544f3293e8fd5d364047e1fec092efdc0809",
+        "request_id": "chatcmpl-Ej9MFjSjSNNyNFlqkrUc4kEPegb0k",
+        "usage": {
+          "prompt_tokens": 158,
+          "completion_tokens": 17,
+          "total_tokens": 175,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9.04e-05,
+        "seconds": 0.8666862079990096,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "973ff2e6984abf0ab95fb46bc9707383fc9a6151e951426293f633b02b38b334",
+        "request_id": "chatcmpl-Ej9cG6dYSSz6HOwxP86u15WTmdbau",
+        "usage": {
+          "prompt_tokens": 416,
+          "completion_tokens": 15,
+          "total_tokens": 431,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0001904,
+        "seconds": 2.043723875001888,
+        "retry_count": 1
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "0836d168175f75b39d7e418483598e6fd0b87bb16f89b5121d693ef6a9d39c93",
+        "request_id": "chatcmpl-Ej9cH0o3L6fn6QYhMMFfNadbDlGDv",
+        "usage": {
+          "prompt_tokens": 1393,
+          "completion_tokens": 16,
+          "total_tokens": 1409,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0005828000000000001,
+        "seconds": 1.047569291004038,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "3f774c8a28cebfddf75d1e29398a22d18efb4ecc3c6d2b6d1ba5ca3c0c7aba4e",
+        "request_id": "chatcmpl-Ej9cJY4UtD06uDu1d54uoHT8Sd8os",
+        "usage": {
+          "prompt_tokens": 2058,
+          "completion_tokens": 15,
+          "total_tokens": 2073,
+          "prompt_tokens_details": {
+            "cached_tokens": 1280,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008472,
+        "seconds": 1.219755083002383,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "536709ac3efe8b1085d07f8ef816b12240c056e6a9f762f29ec3127d59307cb3",
+        "request_id": "chatcmpl-Ej9cKNfoGm29DBscTHok9nyHgGT2H",
+        "usage": {
+          "prompt_tokens": 3008,
+          "completion_tokens": 15,
+          "total_tokens": 3023,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012272000000000001,
+        "seconds": 1.9770379590045195,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "e013bd36dbeec3fac246f67f6f64631826a5a1950acdc0cab49fb81aa2c0bf4c",
+        "request_id": "chatcmpl-Ej9cLhi1IX5Euvax0AjBlHqK3ydbD",
+        "usage": {
+          "prompt_tokens": 3044,
+          "completion_tokens": 15,
+          "total_tokens": 3059,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012416,
+        "seconds": 1.0521849170036148,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "999d1a1260beb189777cdb77dedfe9c061716ea2d950fe9169c0a586851fff9c",
+        "request_id": "chatcmpl-Ej9cMXUTBQpa8NiwhLJXI0A75lhHs",
+        "usage": {
+          "prompt_tokens": 1155,
+          "completion_tokens": 605,
+          "total_tokens": 1760,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00143,
+        "seconds": 4.334584124997491,
+        "retry_count": 0
+      }
+    ]
+  }
+}

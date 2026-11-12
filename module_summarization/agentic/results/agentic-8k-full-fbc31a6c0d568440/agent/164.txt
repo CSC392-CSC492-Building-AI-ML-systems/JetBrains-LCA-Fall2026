@@ -1,0 +1,91 @@
+Conditions in PyTables
+======================
+
+PyTables supports querying tables using conditions, which are expressions that select rows based on specified criteria. These conditions are written as strings representing boolean expressions involving table columns and variables.
+
+Overview
+--------
+
+A condition is a string expression that can reference columns of a table and other variables. PyTables compiles these conditions into efficient functions using the Numexpr library, enabling fast evaluation and the use of indexes when available.
+
+The main method to query rows using conditions is the `Table.where()` method, which returns an iterator over rows fulfilling the condition.
+
+Condition Variables
+-------------------
+
+The variables used in a condition expression correspond to columns in the table or other user-defined variables. By default, all top-level, non-nested columns with identifier-like names are available as variables in the condition.
+
+You can provide a mapping `condvars` to the `where()` method to define or override the variables used in the condition. Variables in `condvars` should be either `Column` instances of the table or other values convertible to arrays.
+
+If `condvars` is not provided or is `None`, PyTables attempts to find variables in the current local and global namespace. This behavior is mainly intended for interactive use and can be disabled by passing an explicit (possibly empty) mapping.
+
+Using Indexes in Conditions
+----------------------------
+
+When possible, PyTables uses indexes on columns to speed up condition evaluation. The system detects which columns in the condition have usable indexes and compiles the condition accordingly.
+
+The method `Table.will_query_use_indexing(condition, condvars=None)` can be used to determine which columns' indexes will be used for a given condition. It returns a frozenset of column path names whose indexes are usable, or an empty set if no indexes will be used.
+
+It is recommended to write conditions placing indexed columns as left and outermost in the expression to maximize performance.
+
+Condition Compilation
+---------------------
+
+Conditions are compiled internally into `CompiledCondition` instances. This compilation involves:
+
+- Parsing the condition string into an expression tree.
+- Extracting variable names and their types.
+- Identifying columns with usable indexes.
+- Creating a Numexpr function object for efficient evaluation.
+
+The compiled condition contains:
+
+- `function`: the Numexpr function object.
+- `parameters`: the list of parameter names in order.
+- `index_variables`: the set of variables corresponding to indexed columns.
+- `index_expression`: the part of the condition expression that can use indexes.
+
+Example Usage of `where()`
+--------------------------
+
+```python
+passvalues = [row['col3'] for row in
+              table.where('(col1 > 0) & (col2 <= 20)', step=5)
+              if your_function(row['col2'])]
+print("Values that pass the cuts:", passvalues)
+```
+
+This example iterates over rows where `col1` is greater than 0 and `col2` is less than or equal to 20, stepping every 5 rows, and applies an additional Python function filter.
+
+Important Notes
+---------------
+
+- Expressions such as chained comparisons (`0 < c1 <= 1`) do not work as expected; use explicit boolean operators instead.
+- All variables used in the condition must have their Numexpr types specified.
+- When the condition includes string literals, special care is needed to ensure correct evaluation.
+- While iterating over rows with `where()`, avoid modifying the table (e.g., appending or removing rows) to prevent unexpected errors.
+
+Error Handling
+--------------
+
+If a condition does not have a boolean type, a `TypeError` is raised.
+
+If the condition does not involve any columns, a `ValueError` is raised indicating that no columns take part in the condition.
+
+Advanced Usage
+--------------
+
+The function `call_on_recarr(func, params, recarr, param2arg=None, **kwargs)` can be used internally to call a compiled condition function over a record array, mapping parameters to arguments and extracting nested fields as needed.
+
+Summary
+-------
+
+- Conditions are boolean expressions used to select rows in PyTables tables.
+- They can reference columns and other variables.
+- Conditions are compiled for efficient evaluation using Numexpr.
+- Indexed columns in conditions speed up queries.
+- Use `Table.where()` to iterate over rows fulfilling a condition.
+- Provide `condvars` to define variables used in conditions explicitly.
+- Avoid modifying tables during iteration with `where()`.
+
+For more details, see the `Table.where()` method and the `conditions` module in PyTables.

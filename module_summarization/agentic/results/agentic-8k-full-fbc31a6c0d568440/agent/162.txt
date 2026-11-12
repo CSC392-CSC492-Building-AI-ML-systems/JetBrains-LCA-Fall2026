@@ -1,0 +1,120 @@
+Parallel Random Number Generation
+=================================
+
+This document describes the features and usage of parallel random number generation using the PCG64 and Philox bit generators. These generators provide efficient, statistically sound random number streams suitable for parallel and distributed computing environments.
+
+PCG64 Bit Generator
+-------------------
+
+The PCG64 bit generator is a high-quality, 128-bit state random number generator based on the PCG family of algorithms. It is designed to be used with a `Generator` or similar object that supports low-level access.
+
+### State and Seeding
+
+The internal state of PCG64 consists of two unsigned 128-bit integers represented as Python integers:
+
+- The PRNG state, which is advanced by a linear congruential generator (LCG).
+- A fixed odd increment used in the LCG.
+
+The seed input is processed by a `SeedSequence` to generate both values. The increment is not independently settable.
+
+### Parallel Features
+
+For parallel applications, the recommended approach is to use the `SeedSequence.spawn` method to generate independent entropy values, which are then used to initialize separate PCG64 bit generators. This ensures statistically independent random streams across parallel processes or threads.
+
+Example:
+
+```python
+from numpy.random import Generator, PCG64, SeedSequence
+
+sg = SeedSequence(1234)
+rg = [Generator(PCG64(s)) for s in sg.spawn(10)]
+```
+
+### Jumping the State
+
+PCG64 supports advancing the internal state by an arbitrary number of steps using the `advance` method. Additionally, the `jumped` method returns a new bit generator whose state is advanced as if a large number of random numbers have been generated. This is useful for splitting the random sequence into non-overlapping segments for parallel use.
+
+The step size used for jumping is related to the golden ratio (φ), specifically `(φ - 1) * 2^128`.
+
+### Compatibility Guarantee
+
+PCG64 guarantees that a fixed seed will always produce the same random integer stream, ensuring reproducibility.
+
+### References
+
+- PCG, A Family of Better Random Number Generators: http://www.pcg-random.org/
+- O'Neill, Melissa E., "PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation": https://www.cs.hmc.edu/tr/hmc-cs-2014-0905.pdf
+
+Philox Bit Generator
+--------------------
+
+Philox is a counter-based random number generator designed for parallel applications. It produces high-quality random numbers by combining a 256-bit counter and a 128-bit key.
+
+### State and Seeding
+
+The Philox state consists of:
+
+- A 256-bit counter encoded as a 4-element uint64 array, incremented by 1 for every 4 generated 64-bit random numbers.
+- A 128-bit key encoded as a 2-element uint64 array, which determines the sequence produced.
+
+The input seed is processed by a `SeedSequence` to generate the key, while the counter is initialized to zero. Alternatively, users can specify the key and counter directly, bypassing the seed.
+
+### Parallel Features
+
+Philox supports parallel random number generation through two main mechanisms:
+
+1. **Spawning Independent Generators:**
+
+   Use `SeedSequence.spawn` to generate independent seeds for multiple Philox generators:
+
+   ```python
+   from numpy.random import Generator, Philox, SeedSequence
+
+   sg = SeedSequence(1234)
+   rg = [Generator(Philox(s)) for s in sg.spawn(10)]
+   ```
+
+2. **Jumping the State:**
+
+   The `jumped` method advances the generator state as if \(2^{128}\) random numbers have been generated, allowing the creation of non-overlapping subsequences. This method can be chained to produce multiple independent generators:
+
+   ```python
+   from numpy.random import Generator, Philox
+
+   bit_generator = Philox(1234)
+   rg = []
+   for _ in range(10):
+       rg.append(Generator(bit_generator))
+       bit_generator = bit_generator.jumped()
+   ```
+
+3. **Using Distinct Keys:**
+
+   Alternatively, different keys can be used to create independent generators:
+
+   ```python
+   key = 2**96 + 2**33 + 2**17 + 2**9
+   rg = [Generator(Philox(key=key+i)) for i in range(10)]
+   ```
+
+### Compatibility Guarantee
+
+Philox guarantees that a fixed seed will always produce the same random integer stream, ensuring reproducibility.
+
+### Examples
+
+```python
+from numpy.random import Generator, Philox
+
+rg = Generator(Philox(1234))
+print(rg.standard_normal())
+```
+
+### References
+
+- John K. Salmon, Mark A. Moraes, Ron O. Dror, and David E. Shaw, "Parallel Random Numbers: As Easy as 1, 2, 3," Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC11), ACM, 2011.
+
+Summary
+-------
+
+Both PCG64 and Philox provide robust mechanisms for parallel random number generation. By leveraging `SeedSequence.spawn`, state jumping, or distinct keys, users can generate multiple independent random streams suitable for parallel computations. These features ensure statistical independence, reproducibility, and efficient generation of random numbers in high-performance and distributed computing environments.

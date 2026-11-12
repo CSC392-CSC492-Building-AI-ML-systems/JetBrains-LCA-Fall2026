@@ -1,0 +1,105 @@
+Best Effort Callback
+====================
+
+The `BestEffortCallback` class provides a flexible and robust callback mechanism designed to handle live data streams during experimental runs. It supports live plotting, tabular display, and baseline data handling with minimal configuration, making it suitable for interactive data acquisition and visualization.
+
+Overview
+--------
+
+`BestEffortCallback` inherits from `QtAwareCallback` and is decorated with `make_class_safe` to ensure safe execution with logging support. It manages internal state related to live plots, tables, and baseline data, and offers several user-configurable options to control its behavior.
+
+Key Features
+------------
+
+- **Live Plotting:** Automatically generates live plots for hinted fields from data streams, excluding those specified in `noplot_streams`.
+- **Live Table:** Displays a live-updating table of hinted readings from the primary data stream.
+- **Baseline Handling:** Prints and manages baseline data streams separately.
+- **Flexible Configuration:** Enables or disables headings, tables, baseline printing, and plots independently.
+- **Peak Detection:** Integrates peak statistics computation for live data streams.
+- **Safe and Robust:** Uses internal heuristics and safe class wrapping to handle various data stream configurations gracefully.
+
+Usage
+-----
+
+The callback can be instantiated with optional parameters:
+
+- `fig_factory`: A factory function or object to create matplotlib figures for plotting.
+- `table_enabled`: Boolean flag to enable or disable the live table display (default is `True`).
+
+Example:
+
+```python
+callback = BestEffortCallback(fig_factory=my_fig_factory, table_enabled=True)
+```
+
+Public Methods
+--------------
+
+- `enable_heading()`: Enable printing of timestamp and IDs at the top of a run.
+- `disable_heading()`: Disable the heading printout.
+- `enable_table()`: Enable printing of hinted readings from the primary stream in a live table.
+- `disable_table()`: Disable the live table display.
+- `enable_baseline()`: Enable printing of hinted fields from the baseline stream.
+- `disable_baseline()`: Disable baseline printing.
+- `enable_plots()`: Enable plotting of hinted fields from all streams except those in `noplot_streams`.
+- `disable_plots()`: Disable all plotting.
+
+Callback Invocation
+-------------------
+
+The callback is designed to be called with the signature:
+
+```python
+callback(name, doc, *args, **kwargs)
+```
+
+where `name` is the event name, `doc` is the document describing the event, and additional arguments as needed.
+
+If all of table, baseline, and plots are disabled, the callback returns immediately without processing.
+
+Internal Behavior
+-----------------
+
+- On `start(doc)`, the callback initializes internal state, clears previous data, and prepares hints and dimensions based on the plan document.
+- It guesses dimensions if none are provided, defaulting to motor names or time.
+- Maintains mappings from descriptor unique IDs to live plot, grid, and scatter instances.
+- Tracks streams seen to manage plotting and table updates.
+- Supports overplotting and can omit plots with a single data point.
+- Integrates peak statistics computation for live data analysis.
+
+Attributes
+----------
+
+- `overplot` (bool): Whether to overplot data on existing plots (default `True`).
+- `noplot_streams` (list): List of stream names to exclude from plotting (default `['baseline']`).
+- `omit_single_point_plot` (bool): Whether to omit plots with only a single data point (default `True`).
+- `peaks` (PeakResults): Stores peak detection results.
+- `_table_enabled` (bool): Internal flag for table display.
+- `_baseline_enabled` (bool): Internal flag for baseline display.
+- `_plots_enabled` (bool): Internal flag for plotting.
+
+Testing
+-------
+
+For instructions on how to test `BestEffortCallback` in a simulated environment, please refer to:
+
+```
+tests/interactive/best_effort_cb.py
+```
+
+Dependencies
+------------
+
+- `matplotlib` for plotting.
+- `numpy` for numerical operations.
+- `cycler` for color cycling in plots.
+- Internal modules: `.core`, `.mpl_plotting`, `.fitting`.
+
+Logging
+-------
+
+The class uses a logger named after its module to report warnings and errors during execution.
+
+---
+
+This callback is intended for use in live data acquisition scenarios where immediate feedback via plots and tables is beneficial. It balances ease of use with configurability and robustness.

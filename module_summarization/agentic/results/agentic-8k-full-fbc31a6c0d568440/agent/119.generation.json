@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Generate Configuration Documentation\n====================================\n\nOverview\n--------\n\nThis module provides functionality to generate and manipulate configuration dictionaries for FV3-based prognostic model runs. It supports specifying initial conditions, run duration, physics timestep, and additional model options such as machine learning configurations and emulation settings.\n\nKey Classes and Functions\n-------------------------\n\n**HighLevelConfig**\n\n- Represents the high-level user configuration for a prognostic run.\n- Attributes include:\n  - `base_version` (str): The base FV3 configuration version, default is `\"v0.5\"`.\n  - `initial_conditions` (InitialCondition or Any): Specification for the initial conditions.\n  - `duration` (str): Duration of each segment, overrides settings in `namelist.coupler_nml`. Must be a valid input to `pandas.TimeDelta` (e.g., `\"3h\"`).\n  - `zhao_carr_emulation` (EmulationConfig): Configuration for Zhao-Carr emulation.\n- Methods:\n  - `_initial_condition_overlay()`: Returns overlay dictionary for initial conditions.\n  - `_to_fv3config_specific()`: Converts to an `FV3Config` instance with specific attributes.\n  - `to_runtime_config()`: Extracts Python runtime configurations as a `UserConfig` instance.\n  - `_physics_timestep()`: Computes the physics timestep as a `timedelta` based on merged FV3 configuration overlays.\n  - `_duration`: Property returning the run duration as an optional `timedelta`.\n  - `to_fv3config()`: Translates the high-level configuration into a full FV3 configuration dictionary, merging overlays and applying run duration.\n\n**to_fv3config(dict_, model_url=None, diagnostic_ml=None)**\n\n- Converts a dictionary of prognostic run configurations into an FV3 configuration dictionary.\n- Supports command-line overrides for machine learning model URLs and diagnostic ML flags.\n- Validates that nudging and machine learning configurations are not enabled simultaneously.\n- Returns a dictionary compatible with FV3 configuration APIs.\n\n**prepare_config(args)**\n\n- Reads a YAML configuration file specified by `args.user_config`.\n- Converts the loaded dictionary into an FV3 configuration dictionary using `to_fv3config`.\n- Dumps the final configuration to standard output.\n\n**main()**\n\n- Sets up logging and command-line argument parsing.\n- Parses arguments including the path to the user configuration YAML file and optional model URL and diagnostic ML flags.\n- Calls `prepare_config` to generate and output the final FV3 configuration.\n\nCommand-Line Interface\n----------------------\n\nThe module provides a command-line interface with the following arguments:\n\n- `user_config` (positional): Path to a YAML file specifying configuration updates from the base FV3 configuration. This file can include updates to diagnostic tables, runtime settings, and other prognostic run parameters.\n- `--model_url` (optional): URL or list of URLs specifying machine learning models to use.\n- `--diagnostic_ml` (optional): Flag to enable diagnostic machine learning.\n\nUsage Example\n-------------\n\n```bash\npython generate_config.py path/to/config_update.yaml --model_url http://example.com/model.pkl --diagnostic_ml\n```\n\nThis command reads the configuration updates from `config_update.yaml`, applies the specified machine learning model URL and diagnostic ML flag, and outputs the resulting FV3 configuration dictionary.\n\nNotes\n-----\n\n- The configuration system merges multiple overlays to produce the final FV3 configuration, including base configurations, initial condition overlays, runtime settings, and diagnostic configurations.\n- Duration strings must be compatible with `pandas.to_timedelta`.\n- Machine learning and nudging configurations are mutually exclusive and cannot be enabled simultaneously.\n- The module relies on external libraries such as `dacite` for dataclass instantiation, `yaml` for YAML parsing, and `fv3config` for FV3 configuration management.\n\nSee Also\n--------\n\n- :py:class:`runtime.config.UserConfig` — Documentation on runtime configuration attributes.\n- :py:class:`FV3Config` — Details on FV3 configuration structure and usage.\n- `fv3config` API — For manipulating FV3 configuration dictionaries.\n\nThis documentation provides an overview of how to generate and customize FV3 prognostic run configurations using the provided code.",
+  "prediction_sha256": "2b9d080118ff0cf62d197414cf46ea4a04e3f4388ccf15902f811340ad889498",
+  "prompt_sha256": "6d0fc88e836ef667c4e2e579f3b75a097156bf066e52aa177488c3f53fe6df6f",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 8381,
+    "completion_tokens": 1424,
+    "total_tokens": 9805
+  },
+  "cost_usd": 0.0056308,
+  "generation_seconds": 14.208788583997375,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "config usage"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 9,
+              "start_char": 7843,
+              "end_char": 8570,
+              "code": "  configurations\n\n    Args:\n        ``dict_``:  a dictionary containing prognostic run configurations.  This\n            dictionary combines fv3config-related keys with\n            :py:class:`runtime.config.UserConfig` settings.\n\n    Returns:\n        an fv3config configuration dictionary that can be operated on with\n        fv3config APIs.\n    \"\"\"\n    user_config = dacite.from_dict(HighLevelConfig, dict_, dacite.Config(strict=True))\n\n    # insert command line option overrides\n    if user_config.scikit_learn is None:\n        if model_url:\n            user_config.scikit_learn = MachineLearningConfig(\n                model=list(model_url), diagnostic_ml=diagnostic_ml\n            )\n    else:\n        if model_url:\n        ",
+              "code_tokens": 300,
+              "score": 0.095848901907
+            },
+            {
+              "chunk_id": 10,
+              "start_char": 8676,
+              "end_char": 9392,
+              "code": "kit_learn.diagnostic_ml = diagnostic_ml\n\n    if user_config.nudging and user_config.scikit_learn:\n        raise NotImplementedError(\n            \"Nudging and machine learning cannot currently be run at the same time.\"\n        )\n\n    return user_config.to_fv3config()\n\n\ndef prepare_config(args):\n    # Get model config with prognostic run updates\n    with open(args.user_config, \"r\") as f:\n        dict_ = yaml.safe_load(f)\n\n    final = to_fv3config(\n        dict_, model_url=args.model_url, diagnostic_ml=args.diagnostic_ml,\n    )\n    fv3config.dump(final, sys.stdout)\n\n\ndef main():\n    logging.basicConfig(level=logging.INFO)\n    parser = _create_arg_parser()\n    args = parser.parse_args()\n    prepare_config(args)",
+              "code_tokens": 285,
+              "score": 0.094431861048
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2969,
+              "end_char": 3766,
+              "code": " physics config\n        initial_conditions: Specification for the initial conditions\n        duration: the duration of each segment. If provided, overrides any\n            settings in ``namelist.coupler_nml``. Must be a valid input to\n            ``pandas.TimeDelta``.  Examples: ``3h``.\n\n    See :py:class:`runtime.config.UserConfig` and :py:class:`FV3Config` for\n    documentation on other allowed attributes\n\n    \"\"\"\n\n    base_version: str = \"v0.5\"\n    initial_conditions: Union[InitialCondition, Any] = \"\"\n    duration: str = \"\"\n    zhao_carr_emulation: emulation.EmulationConfig = emulation.EmulationConfig()\n\n    def _initial_condition_overlay(self):\n        return (\n            self.initial_conditions.overlay\n            if isinstance(self.initial_conditions, InitialCondition)\n          ",
+              "code_tokens": 300,
+              "score": 0.091724089059
+            }
+          ],
+          "code_tokens": 885
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 9
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 9,
+              "start_char": 7843,
+              "end_char": 9392,
+              "code": "  configurations\n\n    Args:\n        ``dict_``:  a dictionary containing prognostic run configurations.  This\n            dictionary combines fv3config-related keys with\n            :py:class:`runtime.config.UserConfig` settings.\n\n    Returns:\n        an fv3config configuration dictionary that can be operated on with\n        fv3config APIs.\n    \"\"\"\n    user_config = dacite.from_dict(HighLevelConfig, dict_, dacite.Config(strict=True))\n\n    # insert command line option overrides\n    if user_config.scikit_learn is None:\n        if model_url:\n            user_config.scikit_learn = MachineLearningConfig(\n                model=list(model_url), diagnostic_ml=diagnostic_ml\n            )\n    else:\n        if model_url:\n            user_config.scikit_learn.model = list(model_url)\n        if diagnostic_ml:\n            user_config.scikit_learn.diagnostic_ml = diagnostic_ml\n\n    if user_config.nudging and user_config.scikit_learn:\n        raise NotImplementedError(\n            \"Nudging and machine learning cannot currently be run at the same time.\"\n        )\n\n    return user_config.to_fv3config()\n\n\ndef prepare_config(args):\n    # Get model config with prognostic run updates\n    with open(args.user_config, \"r\") as f:\n        dict_ = yaml.safe_load(f)\n\n    final = to_fv3config(\n        dict_, model_url=args.model_url, diagnostic_ml=args.diagnostic_ml,\n    )\n    fv3config.dump(final, sys.stdout)\n\n\ndef main():\n    logging.basicConfig(level=logging.INFO)\n    parser = _create_arg_parser()\n    args = parser.parse_args()\n    prepare_config(args)",
+              "code_tokens": 635
+            }
+          ],
+          "code_tokens": 635
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3,
+              "start_char": 2969,
+              "end_char": 6320,
+              "code": " physics config\n        initial_conditions: Specification for the initial conditions\n        duration: the duration of each segment. If provided, overrides any\n            settings in ``namelist.coupler_nml``. Must be a valid input to\n            ``pandas.TimeDelta``.  Examples: ``3h``.\n\n    See :py:class:`runtime.config.UserConfig` and :py:class:`FV3Config` for\n    documentation on other allowed attributes\n\n    \"\"\"\n\n    base_version: str = \"v0.5\"\n    initial_conditions: Union[InitialCondition, Any] = \"\"\n    duration: str = \"\"\n    zhao_carr_emulation: emulation.EmulationConfig = emulation.EmulationConfig()\n\n    def _initial_condition_overlay(self):\n        return (\n            self.initial_conditions.overlay\n            if isinstance(self.initial_conditions, InitialCondition)\n            else {\"initial_conditions\": self.initial_conditions}\n        )\n\n    def _to_fv3config_specific(self) -> FV3Config:\n        return FV3Config(\n            namelist=self.namelist,\n            experiment_name=self.experiment_name,\n            data_table=self.data_table,\n            field_table=self.field_table,\n            forcing=self.forcing,\n            orographic_forcing=self.orographic_forcing,\n            gfs_analysis_data=self.gfs_analysis_data,\n        )\n\n    def to_runtime_config(self) -> UserConfig:\n        \"\"\"Extract just the python runtime configurations\"\"\"\n        return instantiate_dataclass_from(UserConfig, self)\n\n    def _physics_timestep(self) -> timedelta:\n        dict_ = dataclasses.asdict(self._to_fv3config_specific())\n        return timedelta(\n            seconds=fv3kube.merge_fv3config_overlays(\n                fv3kube.get_base_fv3config(self.base_version), dict_\n            )[\"namelist\"][\"coupler_nml\"][\"dt_atmos\"]\n        )\n\n    @property\n    def _duration(self) -> Optional[timedelta]:\n        return (\n            pd.to_timedelta(self.duration).to_pytimedelta() if self.duration else None\n        )\n\n    def to_fv3config(self) -> Any:\n        \"\"\"Translate into a fv3config dictionary\"\"\"\n        # overlays (i.e. diffs) requiring only a small number of inputs. In\n        # particular, overlays should not require access to the full configuration\n        # dictionary.\n        config = fv3kube.merge_fv3config_overlays(\n            fv3kube.get_base_fv3config(self.base_version),\n            self._initial_condition_overlay(),\n            SUPPRESS_RANGE_WARNINGS,\n            dataclasses.asdict(self.to_runtime_config()),\n            self._to_fv3config_specific().asdict(),\n            _diag_table_overlay(self.fortran_diagnostics),\n            file_configs_to_namelist_settings(\n                self.fortran_diagnostics, self._physics_timestep()\n            ),\n            {\"zhao_carr_emulation\": dataclasses.asdict(self.zhao_carr_emulation)},\n        )\n        return (\n            fv3config.set_run_duration(config, self._duration)\n            if self._duration\n            else config\n        )\n\n\ndef _create_arg_parser() -> argparse.ArgumentParser:\n\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\n        \"user_config\",\n        type=str,\n        help=\"Path to a config update YAML file specifying the changes from the base\"\n        \"fv3config (e.g. diag_table, runtime,...) for the prognostic run.\",\n    )\n    parser.add_argument(\n        \"--model_url\",\n        type=str,\n        default=None,\n   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 10
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8676,
+              "end_char": 9392,
+              "code": "kit_learn.diagnostic_ml = diagnostic_ml\n\n    if user_config.nudging and user_config.scikit_learn:\n        raise NotImplementedError(\n            \"Nudging and machine learning cannot currently be run at the same time.\"\n        )\n\n    return user_config.to_fv3config()\n\n\ndef prepare_config(args):\n    # Get model config with prognostic run updates\n    with open(args.user_config, \"r\") as f:\n        dict_ = yaml.safe_load(f)\n\n    final = to_fv3config(\n        dict_, model_url=args.model_url, diagnostic_ml=args.diagnostic_ml,\n    )\n    fv3config.dump(final, sys.stdout)\n\n\ndef main():\n    logging.basicConfig(level=logging.INFO)\n    parser = _create_arg_parser()\n    args = parser.parse_args()\n    prepare_config(args)",
+              "code_tokens": 285
+            }
+          ],
+          "code_tokens": 285
+        }
+      }
+    ],
+    "code_tokens_returned": 3305,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "270babc91625dedbe2729c3c5f97207dfca2f56e5f1e5f00e08776c7e2e07fb0",
+        "request_id": "chatcmpl-Ej8L7x2MKRV3HjO18acz2kzVUrXH7",
+        "usage": {
+          "prompt_tokens": 158,
+          "completion_tokens": 15,
+          "total_tokens": 173,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.72e-05,
+        "seconds": 0.7654930829994555,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "5b078a26bbaa88f240b77eb5121c16c83d7395aa5f4f6d7a8273bea903b6cfde",
+        "request_id": "chatcmpl-Ej8L7VrCTfkH24MzHOzO48GViZRUc",
+        "usage": {
+          "prompt_tokens": 895,
+          "completion_tokens": 15,
+          "total_tokens": 910,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000382,
+        "seconds": 0.7397463749985036,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "e712afef3d9c3ce6c9a72e45c479a6651d782739214b427ba1bb6a5e89e4b743",
+        "request_id": "chatcmpl-Ej8L8PxGUZe3k6BXhvI99EDSI9gGN",
+        "usage": {
+          "prompt_tokens": 1358,
+          "completion_tokens": 15,
+          "total_tokens": 1373,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0005672,
+        "seconds": 0.6048030419988208,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "9004f7e889422a660365f95cbb3956ccfff09a5907e5f6c93db713d6ba4cb502",
+        "request_id": "chatcmpl-Ej8L9ihJr5OvqvDTQyRBUNr4SbKLL",
+        "usage": {
+          "prompt_tokens": 2274,
+          "completion_tokens": 15,
+          "total_tokens": 2289,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009336,
+        "seconds": 0.8658802499994636,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "6090d454d93a4d4eb78e99e0c2c788b2e21ddd0af177bbb075c43b84cca369fd",
+        "request_id": "chatcmpl-Ej8LAlsheaosZBSDrEM1ZxBp8Hp64",
+        "usage": {
+          "prompt_tokens": 2542,
+          "completion_tokens": 512,
+          "total_tokens": 3054,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001836,
+        "seconds": 4.289445667000109,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "785990f2445bb18b42bc7d8e91b9b593fdde14fe42abc2929b02eb4029a55b8a",
+        "request_id": "chatcmpl-Ej8LERO7aNk54EPZgupv3YOvAqpeg",
+        "usage": {
+          "prompt_tokens": 1154,
+          "completion_tokens": 852,
+          "total_tokens": 2006,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018248000000000001,
+        "seconds": 6.9434201670010225,
+        "retry_count": 0
+      }
+    ]
+  }
+}

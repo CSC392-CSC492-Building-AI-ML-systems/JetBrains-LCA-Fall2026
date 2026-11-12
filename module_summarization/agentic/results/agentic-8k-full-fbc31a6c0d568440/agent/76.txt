@@ -1,0 +1,121 @@
+Feature Extraction Module
+=========================
+
+Overview
+--------
+
+The feature extraction module provides utilities to extract intermediate activations (features) from PyTorch models by rewriting their computation graphs using the FX toolkit. This allows users to obtain outputs from specified internal nodes of a model, which is useful for tasks such as feature visualization, transfer learning, or debugging.
+
+Key Components
+--------------
+
+- **get_graph_node_names(model, tracer_kwargs=None, suppress_diff_warning=False)**  
+  Traces the given model twice (in training and evaluation modes) and returns the list of node names from each trace. Node names follow a consistent naming convention that helps identify repeated operations and leaf modules.
+
+- **DualGraphModule**  
+  A subclass of `torch.fx.GraphModule` that maintains separate graphs for training and evaluation modes. It switches between these graphs when the module's `.train(mode)` method is called, enabling different behaviors or outputs depending on the mode.
+
+- **create_feature_extractor(model, return_nodes=None, train_return_nodes=None, eval_return_nodes=None, tracer_kwargs=None, suppress_diff_warning=False)**  
+  Creates a new graph module that returns intermediate nodes from the given model as a dictionary mapping user-specified keys to the requested outputs. This is done by rewriting the model's computation graph to output the desired nodes and removing unused nodes and parameters.
+
+Node Naming Conventions
+-----------------------
+
+- Nodes representing repeated applications of the same operation or leaf module receive a postfix `_{counter}` to distinguish them.
+- The model is traced separately in training and evaluation modes, and node names from both traces are returned.
+- For detailed information on node naming conventions, refer to the relevant subheading in the official documentation:  
+  https://pytorch.org/vision/stable/feature_extraction.html#about-node-names
+
+Usage
+-----
+
+### Getting Node Names
+
+```python
+import torchvision
+from torchvision.models.feature_extraction import get_graph_node_names
+
+model = torchvision.models.resnet18()
+train_nodes, eval_nodes = get_graph_node_names(model)
+print("Train mode nodes:", train_nodes)
+print("Eval mode nodes:", eval_nodes)
+```
+
+This function helps identify the names of nodes available for feature extraction.
+
+### Creating a Feature Extractor
+
+```python
+import torch
+import torchvision
+from torchvision.models.feature_extraction import create_feature_extractor
+
+model = torchvision.models.resnet18()
+
+# Extract features from 'layer1' and 'layer3', naming them 'feat1' and 'feat2'
+return_nodes = {'layer1': 'feat1', 'layer3': 'feat2'}
+feature_extractor = create_feature_extractor(model, return_nodes=return_nodes)
+
+input_tensor = torch.rand(1, 3, 224, 224)
+outputs = feature_extractor(input_tensor)
+
+for name, feature in outputs.items():
+    print(f"{name}: {feature.shape}")
+```
+
+Output:
+
+```
+feat1: torch.Size([1, 64, 56, 56])
+feat2: torch.Size([1, 256, 14, 14])
+```
+
+### Handling Non-Tracable Modules or Functions
+
+Some modules or functions may not be FX traceable by default (e.g., Python built-ins like `int`). To handle these cases, you can specify leaf modules or autowrap functions in the tracer arguments:
+
+```python
+def leaf_function(x):
+    # This function would raise an error if traced through
+    return int(x)
+
+class LeafModule(torch.nn.Module):
+    def forward(self, x):
+        int(x.shape[0])  # problematic operation
+        return torch.nn.functional.relu(x + 4)
+
+class MyModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 1, 3)
+        self.leaf_module = LeafModule()
+
+    def forward(self, x):
+        leaf_function(x.shape[0])
+        x = self.conv(x)
+        return self.leaf_module(x)
+
+model = MyModule()
+
+feature_extractor = create_feature_extractor(
+    model,
+    return_nodes=['leaf_module'],
+    tracer_kwargs={
+        'leaf_modules': [LeafModule],
+        'autowrap_functions': [leaf_function]
+    }
+)
+```
+
+This approach prevents tracing through problematic parts by treating them as atomic leaf modules or functions.
+
+Notes
+-----
+
+- The module relies on PyTorch's FX toolkit for graph tracing and rewriting. Not all models are FX traceable out-of-the-box.
+- When specifying return nodes, you can provide either a list or a dictionary mapping node names to output keys.
+- You can specify different return nodes for training and evaluation modes by using `train_return_nodes` and `eval_return_nodes`.
+- The module automatically appends default tracer arguments to user-provided ones to ensure compatibility with torchvision operations.
+
+For more detailed information, please refer to the official PyTorch Vision feature extraction documentation:  
+https://pytorch.org/vision/stable/feature_extraction.html

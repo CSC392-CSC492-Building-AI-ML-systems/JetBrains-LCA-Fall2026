@@ -1,0 +1,161 @@
+Gaussian Process Module
+=======================
+
+Overview
+--------
+
+The Gaussian Process module provides tools for implementing Gaussian Process (GP) models, including various kernel functions used to define covariance structures. Gaussian Processes are powerful non-parametric models used for regression and classification tasks, offering flexible modeling of complex data patterns with uncertainty quantification.
+
+Kernels
+-------
+
+Kernels, also known as covariance functions, define the similarity between data points in the input space and are central to Gaussian Process models. This module includes several kernel implementations, each with specific properties and hyperparameters.
+
+### Exponentiation Kernel
+
+The Exponentiation kernel raises a base kernel to a scalar power :math:`p`, combining them as:
+
+.. math::
+    k_{exp}(X, Y) = k(X, Y)^p
+
+This kernel overrides the `__pow__` magic method, allowing expressions like `RBF() ** 2` to be equivalent to `Exponentiation(RBF(), 2)`.
+
+**Parameters**
+
+- `kernel` : Kernel  
+  The base kernel to be exponentiated.
+
+- `exponent` : float  
+  The exponent applied to the base kernel.
+
+**Example**
+
+```python
+from sklearn.datasets import make_friedman2
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, Exponentiation
+
+X, y = make_friedman2(n_samples=500)
+kernel = RBF(length_scale=1.0)
+exp_kernel = Exponentiation(kernel, 2)
+gpr = GaussianProcessRegressor(kernel=exp_kernel).fit(X, y)
+```
+
+### Rational Quadratic Kernel
+
+The Rational Quadratic kernel is a scale mixture of RBF kernels with different length scales, defined as:
+
+.. math::
+    k(x, x') = \left(1 + \frac{d(x, x')^2}{2 \alpha \ell^2}\right)^{-\alpha}
+
+where :math:`\ell` is the length scale and :math:`\alpha` controls the relative weighting of large-scale and small-scale variations.
+
+**Parameters**
+
+- `length_scale` : float  
+  The length scale of the kernel. Only isotropic (scalar) length scales are supported.
+
+- `alpha` : float  
+  The scale mixture parameter.
+
+- `length_scale_bounds` : tuple, default=(1e-5, 1e5)  
+  Bounds on the length scale parameter for hyperparameter tuning.
+
+- `alpha_bounds` : tuple, default=(1e-5, 1e5)  
+  Bounds on the alpha parameter for hyperparameter tuning.
+
+**Example**
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RationalQuadratic
+
+X, y = load_iris(return_X_y=True)
+kernel = RationalQuadratic(length_scale=1.0, alpha=1.5)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+```
+
+### Pairwise Kernel
+
+The Pairwise Kernel allows the use of any kernel function defined via pairwise metrics. It supports various metrics, including those available in `pairwise.PAIRWISE_KERNEL_FUNCTIONS`, or custom callable functions.
+
+**Parameters**
+
+- `gamma` : float, default=1.0  
+  Kernel coefficient for kernels such as RBF.
+
+- `gamma_bounds` : tuple, default=(1e-5, 1e5)  
+  Bounds on the gamma parameter for hyperparameter tuning.
+
+- `metric` : str or callable, default='linear'  
+  The metric to use when calculating the kernel between instances. If a string, it must be one of the predefined metrics. If callable, it should accept two arrays and return a distance value.
+
+- `pairwise_kernels_kwargs` : dict, default=None  
+  Additional keyword arguments passed to the pairwise kernel function.
+
+**Example**
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import PairwiseKernel
+
+X, y = load_iris(return_X_y=True)
+kernel = PairwiseKernel(metric='rbf')
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+```
+
+Usage Notes
+-----------
+
+- Kernel hyperparameters can be optimized during model fitting. Each kernel exposes hyperparameters with bounds to facilitate this process.
+
+- The `eval_gradient` parameter in kernel calls enables computation of gradients with respect to kernel hyperparameters, which is essential for hyperparameter optimization. Gradient evaluation is only supported when the second argument `Y` is `None`.
+
+- Some kernels support anisotropic length scales (different length scales per feature), while others only support isotropic (single scalar) length scales.
+
+References
+----------
+
+.. [1] David Duvenaud (2014). "The Kernel Cookbook: Advice on Covariance Functions".  
+       <https://www.cs.toronto.edu/~duvenaud/cookbook/>
+
+.. [2] Carl Edward Rasmussen, Christopher K. I. Williams (2006). "Gaussian Processes for Machine Learning". The MIT Press.  
+       <http://www.gaussianprocess.org/gpml/>
+
+Examples
+--------
+
+Classification with Gaussian Process Classifier using RBF kernel:
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+
+X, y = load_iris(return_X_y=True)
+kernel = 1.0 * RBF(length_scale=1.0)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+print(gpc.predict_proba(X[:2, :]))
+```
+
+Regression with Gaussian Process Regressor using Rational Quadratic kernel:
+
+```python
+from sklearn.datasets import make_friedman2
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RationalQuadratic
+
+X, y = make_friedman2(n_samples=500)
+kernel = RationalQuadratic(length_scale=1.0, alpha=1.0)
+gpr = GaussianProcessRegressor(kernel=kernel).fit(X, y)
+```
+
+Further Reading
+---------------
+
+For a comprehensive understanding of Gaussian Processes and kernel methods, consult the references above and the user guide section on kernels (:ref:`User Guide <gp_kernels>`).

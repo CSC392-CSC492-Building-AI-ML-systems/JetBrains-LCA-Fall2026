@@ -1,0 +1,89 @@
+Generate Example for Generalized Additive Models (GAM)
+=======================================================
+
+This example demonstrates how to generate and use spline and smoother components for Generalized Additive Models (GAM) using the provided classes and functions.
+
+Overview
+--------
+
+The code provides implementations of various spline and smoother classes designed for GAMs, including:
+
+- `BSplines`: Additive smooth components using B-Splines.
+- `CyclicCubicSplines`: Additive smooth components using cyclic cubic regression splines.
+- `CubicSplines`: Additive smooth components using cubic splines as described in Wood (2006).
+- `PolynomialSmoother`: Additive polynomial components.
+- `GenericSmoothers`: Generic class for additive smooth components.
+- Utility functions for knot placement and B-spline basis evaluation.
+
+These components can be combined and used within a GAM framework such as `GLMGam` to fit flexible regression models.
+
+Example: Creating and Using B-Spline Basis Functions
+----------------------------------------------------
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from smooth_basis import BSplines
+from generalized_additive_model import GLMGam
+
+# Generate sample data
+np.random.seed(0)
+n_samples = 100
+x = np.linspace(0, 10, n_samples)
+y = np.sin(x) + np.random.normal(scale=0.3, size=n_samples)
+
+# Reshape x to 2D array as required (observations x variables)
+X = x[:, None]
+
+# Define degrees of freedom and degree for splines
+df = [12]  # Number of basis functions for the spline
+degree = [3]  # Cubic splines
+
+# Create B-spline basis smoother
+bspline_smoother = BSplines(X, df=df, degree=degree, include_intercept=True)
+
+# Transform the input data to spline basis design matrix
+X_basis = bspline_smoother.transform(X)
+
+# Fit a GAM model using GLMGam with the spline basis
+model = GLMGam(y, exog=np.ones((n_samples, 1)), smoother=bspline_smoother)
+results = model.fit()
+
+# Predict on new data
+x_new = np.linspace(0, 10, 200)[:, None]
+y_pred = results.predict(exog=np.ones((200, 1)), exog_smooth=bspline_smoother.transform(x_new))
+
+# Plot results
+plt.scatter(x, y, facecolors='none', edgecolors='b', label='Data')
+plt.plot(x_new, y_pred, 'r-', label='GAM fit with B-splines')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.title('GAM Fit Using B-Splines')
+plt.show()
+```
+
+Key Points
+----------
+
+- The `BSplines` class constructs additive smooth components using B-spline basis functions. It supports customization of degrees of freedom, spline degree, knot placement, and constraints.
+- The `transform` method of the smoother classes converts raw input data into the spline basis design matrix suitable for model fitting.
+- The `GLMGam` class (imported from `generalized_additive_model`) can be used to fit a GAM model by specifying the smoother.
+- Knot placement can be controlled via keyword arguments such as `knots`, `spacing`, `lower_bound`, and `upper_bound` when creating spline smoothers.
+- Other spline classes such as `CyclicCubicSplines` and `CubicSplines` provide alternative spline bases for modeling periodic or cubic spline effects.
+- Polynomial smoothers and generic smoothers allow for flexible additive model components beyond splines.
+
+Additional Utilities
+--------------------
+
+- `_equally_spaced_knots` and `_R_compat_quantile` functions assist in knot placement strategies.
+- `_eval_bspline_basis` evaluates B-spline basis functions given knots and degree.
+- `get_knots_bsplines` provides a unified interface to generate knots for B-splines with options for quantile or equal spacing.
+
+References
+----------
+
+- Wood, S.N. (2006). Generalized Additive Models: An Introduction with R. Chapman and Hall/CRC.
+- Patsy spline basis functions and knot placement strategies.
+
+This example and the provided classes enable flexible and powerful modeling of nonlinear relationships in regression settings using GAMs with spline-based smoothers.

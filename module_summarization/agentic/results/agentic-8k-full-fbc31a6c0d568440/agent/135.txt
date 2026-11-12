@@ -1,0 +1,149 @@
+Work with Images and Data Cubes Related to Cherenkov Cameras
+=============================================================
+
+This section provides an overview of how to work with images and data cubes associated with Cherenkov Cameras using the `CameraGeometry` class and related utilities.
+
+Creating and Manipulating Camera Images
+---------------------------------------
+
+The `CameraGeometry` class allows you to create, transform, and analyze images corresponding to the pixel layout of Cherenkov cameras.
+
+### Creating Mock Images
+
+You can generate mock images for testing or simulation purposes:
+
+```python
+image = create_mock_image(camera_geometry)
+```
+
+### Transforming Images Between Representations
+
+Images can be transformed between their native pixel representation and a 2D Cartesian representation. This is useful for visualization or further image processing.
+
+```python
+image_2d = camera_geometry.image_to_cartesian_representation(image)
+image_1d = camera_geometry.image_from_cartesian_representation(image_2d)
+```
+
+Note that converting to a 2D Cartesian representation may introduce extra pixels set to `NaN` to fill the rectangular grid. However, the total sum of pixel values remains consistent:
+
+```python
+assert np.nansum(image) == np.nansum(image_2d)
+assert_allclose(image, image_1d)
+```
+
+### Handling Multiple Images
+
+The transformations also support batches of images, allowing efficient processing of multiple frames simultaneously:
+
+```python
+images = np.array([create_mock_image(camera_geometry, psi=i * 30 * u.deg) for i in range(5)])
+images_2d = camera_geometry.image_to_cartesian_representation(images)
+images_1d = camera_geometry.image_from_cartesian_representation(images_2d)
+
+assert np.nansum(images) == np.nansum(images_2d)
+assert_allclose(images, images_1d)
+```
+
+Pixel Coordinate Transformations
+--------------------------------
+
+The `CameraGeometry` class provides methods to convert between pixel indices and Cartesian coordinates within the camera frame:
+
+- `image_index_to_cartesian_index(pixel_id)` converts a pixel ID to its corresponding row and column in the Cartesian grid.
+- `cartesian_index_to_image_index(row, col)` converts Cartesian grid coordinates back to the pixel ID.
+
+These transformations are consistent and reversible:
+
+```python
+row, col = camera_geometry.image_index_to_cartesian_index(pixel_id)
+assert camera_geometry.cartesian_index_to_image_index(row, col) == pixel_id
+```
+
+Camera Geometry Construction and Properties
+-------------------------------------------
+
+You can construct a `CameraGeometry` instance from scratch by specifying pixel positions, areas, types, and rotations:
+
+```python
+geom = CameraGeometry(
+    name="Unknown",
+    pix_id=np.arange(100),
+    pix_x=x * u.m,
+    pix_y=y * u.m,
+    pix_area=x * u.m**2,
+    pix_type=PixelShape.SQUARE,
+    pix_rotation="10d",
+    cam_rotation="12d",
+)
+```
+
+Alternatively, rectangular dummy cameras can be created easily:
+
+```python
+geom = CameraGeometry.make_rectangular()
+```
+
+The geometry includes attributes such as pixel positions (`pix_x`, `pix_y`), pixel areas (`pix_area`), pixel types (e.g., hexagonal, rectangular), and rotation angles.
+
+Coordinate Frame Transformations
+--------------------------------
+
+`CameraGeometry` supports transformations between different coordinate frames relevant to Cherenkov telescopes:
+
+- `CameraFrame`
+- `EngineeringCameraFrame`
+- `TelescopeFrame`
+- `NominalFrame`
+
+For example, you can transform pixel coordinates from the camera frame to the engineering frame:
+
+```python
+trans_geom = geom.transform_to(EngineeringCameraFrame())
+```
+
+Or transform to a telescope frame defined by a pointing position:
+
+```python
+pointing_position = SkyCoord(alt=70 * u.deg, az=0 * u.deg, frame=AltAz())
+telescope_frame = TelescopeFrame(telescope_pointing=pointing_position)
+geom_tel_frame = geom.transform_to(telescope_frame)
+```
+
+These transformations preserve pixel properties such as area and relative positions, enabling accurate mapping between different reference frames.
+
+Pixel Size and Radius Estimation
+--------------------------------
+
+The pixel width and camera radius can be estimated from pixel positions and areas:
+
+```python
+pixel_width = CameraGeometry.guess_pixel_width(pix_x, pix_y)
+camera_radius = camera_geometry.guess_radius()
+```
+
+These estimates are useful for understanding the camera's spatial resolution and field of view.
+
+Neighbor Pixel Relationships
+----------------------------
+
+The geometry includes neighbor matrices that describe adjacency relationships between pixels. This is essential for image cleaning and analysis algorithms that rely on pixel neighborhoods.
+
+Handling Special Cases
+----------------------
+
+- Single-pixel geometries and empty geometries are supported, with appropriate neighbor matrices.
+- The class raises errors for invalid pixel types or inconsistent inputs, ensuring robustness.
+
+Summary
+-------
+
+The `CameraGeometry` class and its associated methods provide a comprehensive toolkit for working with Cherenkov camera images and data cubes. They enable:
+
+- Creation and manipulation of camera images.
+- Conversion between pixel and Cartesian representations.
+- Coordinate transformations between various telescope and camera frames.
+- Estimation of pixel sizes and camera dimensions.
+- Analysis of pixel neighborhoods.
+
+These capabilities facilitate the processing and analysis of Cherenkov telescope data in a consistent and physically meaningful manner.

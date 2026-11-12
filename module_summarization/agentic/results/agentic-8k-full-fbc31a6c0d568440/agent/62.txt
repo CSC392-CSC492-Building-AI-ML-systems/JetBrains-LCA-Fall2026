@@ -1,0 +1,121 @@
+Visitors
+========
+
+This module provides a framework for traversing and transforming expression structures, typically used within SQL expression trees or similar hierarchical data. It defines a set of visitor classes and traversal functions that allow for flexible and extensible processing of complex object graphs.
+
+Key Concepts
+------------
+
+- **ExternallyTraversible**: An interface representing objects that can be traversed by the visitor system.
+- **Visitor Pattern**: The module implements variations of the visitor pattern to allow operations to be performed on elements of an object structure without modifying the classes on which it operates.
+- **Traversal**: The process of visiting each node in an expression tree or graph, optionally transforming or cloning nodes.
+
+Visitor Classes
+---------------
+
+### ExternalTraversal
+
+The base class for visitor objects that traverse expression structures. It supports chaining multiple visitors so that each visitor in the chain receives visit events in sequence.
+
+- `traverse_single(obj: Visitable, **kw: Any) -> Any`  
+  Calls the appropriate `visit_<name>` method on the visitor chain for a single object.
+
+- `iterate(obj: Optional[ExternallyTraversible]) -> Iterator[ExternallyTraversible]`  
+  Returns an iterator over all elements in the expression structure using breadth-first traversal.
+
+- `traverse(obj: Optional[ExternallyTraversible]) -> Optional[ExternallyTraversible]`  
+  Traverses and visits the given expression structure, invoking visitor methods as appropriate.
+
+- `chain(visitor: ExternalTraversal) -> ExternalTraversal`  
+  Chains an additional visitor onto this visitor, so that the chained visitor receives visit events after this one.
+
+### CloningExternalTraversal
+
+A subclass of `ExternalTraversal` designed for visitors that perform cloning traversal using the `cloned_traverse` function.
+
+- `copy_and_process(list_: List[ExternallyTraversible]) -> List[ExternallyTraversible]`  
+  Applies cloned traversal to a list of elements and returns a new list of cloned elements.
+
+- `traverse(obj: Optional[ExternallyTraversible]) -> Optional[ExternallyTraversible]`  
+  Traverses and visits the expression structure, cloning elements as needed.
+
+### ReplacingExternalTraversal
+
+A subclass of `CloningExternalTraversal` that supports element replacement during traversal using the `replacement_traverse` function.
+
+- `replace(elem: ExternallyTraversible) -> Optional[ExternallyTraversible]`  
+  Called during traversal to optionally replace an element with a new one. Returning `None` means no replacement.
+
+- `traverse(obj: Optional[ExternallyTraversible]) -> Optional[ExternallyTraversible]`  
+  Traverses and visits the expression structure, allowing elements to be replaced during cloning traversal.
+
+Traversal Functions
+-------------------
+
+### iterate(obj: Optional[ExternallyTraversible], opts: Mapping[str, Any] = {}) -> Iterator[ExternallyTraversible]
+
+Performs a breadth-first traversal of the given expression structure, yielding each element. It relies on the `get_children()` method of elements to navigate the structure.
+
+Parameters:
+
+- `obj`: The root expression element to traverse.
+- `opts`: Optional dictionary of iteration options (usually empty).
+
+### traverse_using(iterator: Iterable[ExternallyTraversible], obj: Optional[ExternallyTraversible], visitors: Mapping[str, Callable]) -> Optional[ExternallyTraversible]
+
+Visits the given expression structure using a provided iterator of elements and a dictionary of visitor functions.
+
+Parameters:
+
+- `iterator`: An iterable yielding elements to visit.
+- `obj`: The root expression element.
+- `visitors`: A dictionary mapping visit names to visitor callables.
+
+Returns the original `obj` after visiting.
+
+### traverse(obj: Optional[ExternallyTraversible], opts: Mapping[str, Any], visitors: Mapping[str, Callable]) -> Optional[ExternallyTraversible]
+
+Traverses the expression structure, invoking visitor functions from the provided dictionary on each element.
+
+Parameters:
+
+- `obj`: The root expression element.
+- `opts`: Options for traversal.
+- `visitors`: Dictionary of visitor functions keyed by visit name.
+
+Returns the original or transformed expression structure.
+
+### cloned_traverse(obj: Optional[ExternallyTraversible], opts: Mapping[str, Any], visitors: Mapping[str, Callable]) -> Optional[ExternallyTraversible]
+
+Clones the given expression structure, applying visitor functions to cloned elements. This allows for safe modification of copies without affecting the original structure.
+
+### replacement_traverse(obj: Optional[ExternallyTraversible], opts: Mapping[str, Any], replace: Callable) -> Optional[ExternallyTraversible]
+
+Clones the expression structure while allowing elements to be replaced by a user-supplied replacement function.
+
+Parameters:
+
+- `obj`: The root expression element.
+- `opts`: Options for traversal.
+- `replace`: A callable that receives each element and returns a replacement element or `None` to keep the original.
+
+Usage Patterns
+--------------
+
+- Use **ExternalTraversal** or its subclasses to define visitor classes with `visit_<element_name>` methods to process elements during traversal.
+- Use **iterate()** to obtain a breadth-first iterator over an expression structure.
+- Use **traverse()** or **traverse_using()** to apply visitor functions to elements.
+- Use **cloned_traverse()** or **replacement_traverse()** when you need to clone or replace elements during traversal.
+
+Backwards Compatibility Aliases
+-------------------------------
+
+- `Traversible` is an alias for `Visitable`.
+- `ClauseVisitor` is an alias for `ExternalTraversal`.
+- `CloningVisitor` is an alias for `CloningExternalTraversal`.
+- `ReplacingCloningVisitor` is an alias for `ReplacingExternalTraversal`.
+
+Summary
+-------
+
+This module provides a powerful and flexible visitor framework for traversing, cloning, and transforming complex expression trees. It supports chaining visitors, cloning with modification, and replacement of elements, enabling advanced manipulation of hierarchical data structures in a clean and maintainable way.

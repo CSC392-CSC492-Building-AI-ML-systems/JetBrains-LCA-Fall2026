@@ -1,0 +1,357 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Array API Support\n=================\n\nThis section documents the support for the [Array API standard](https://data-apis.org/array-api/latest/) within the library, including the mechanisms for detecting compliance, wrapping array namespaces, and ensuring compatibility across different array libraries.\n\nOverview\n--------\n\nThe library provides comprehensive support for the Array API standard, enabling interoperability with array libraries that implement the standard interface, such as `numpy.array_api`, `cupy.array_api`, and others. This support includes:\n\n- Detection of Array API compliance for given arrays.\n- Wrapping of array namespaces to provide a consistent API surface.\n- Utilities for array creation, type conversion, and operations that respect the Array API.\n- Testing and validation to ensure correct behavior with compliant array libraries.\n\nNamespace Detection and Compliance\n----------------------------------\n\nThe function `get_namespace` is used to retrieve the array namespace for given arrays and to check whether the arrays are compliant with the Array API standard. When called with an Array API-compliant array, it returns a wrapped namespace object and a flag indicating compliance.\n\nExample usage:\n\n```python\nxp = pytest.importorskip(\"numpy.array_api\")\nX_np = numpy.asarray([[1, 2, 3]])\nX_xp = xp.asarray(X_np)\n\nwith config_context(array_api_dispatch=True):\n    xp_out, is_array_api_compliant = get_namespace(X_xp)\n    assert is_array_api_compliant\n    assert isinstance(xp_out, _ArrayAPIWrapper)\n```\n\nThe wrapper `_ArrayAPIWrapper` ensures that the returned namespace behaves consistently with the Array API, even when wrapping namespaces that may have slight variations.\n\nAdjustable Namespace Wrapper\n----------------------------\n\nFor testing purposes, the class `_AdjustableNameAPITestWrapper` extends `_ArrayAPIWrapper` to allow setting a custom `__name__` attribute on the wrapped namespace. This is useful for simulating different array API namespaces and verifying behavior under various conditions.\n\nArray API Wrapper Features\n--------------------------\n\nThe `_ArrayAPIWrapper` class provides several key features:\n\n- Supports array creation and type conversion methods such as `asarray` and `astype`.\n- Implements array operations like `take` with validation of supported axes and dimensions.\n- Ensures that arrays returned from operations carry the `__array_namespace__` attribute, indicating their compliance with the Array API.\n- Provides fast paths for known namespaces such as `numpy.array_api` to optimize performance.\n\nExample of type conversion:\n\n```python\nnumpy_array_api = pytest.importorskip(\"numpy.array_api\")\nxp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\nxp = _ArrayAPIWrapper(xp_)\n\nX = xp.asarray([[1, 2, 3], [3, 4, 5]], dtype=xp.float64)\nX_converted = xp.astype(X, xp.float32)\nassert X_converted.dtype == xp.float32\n```\n\nArray Operations and Validation\n-------------------------------\n\nThe wrapper supports operations such as `take` with axis validation:\n\n- Only axes 0 and 1 are supported.\n- Only arrays with 1 or 2 dimensions are supported.\n\nInvalid usage raises appropriate exceptions:\n\n```python\nwith pytest.raises(ValueError, match=r\"Only axis in \\(0, 1\\) is supported\"):\n    xp.take(X, xp.asarray([0]), axis=2)\n\nwith pytest.raises(ValueError, match=r\"Only X.ndim in \\(1, 2\\) is supported\"):\n    xp.take(xp.asarray([[[0]]]), xp.asarray([0]), axis=0)\n```\n\nArray Creation with Memory Order\n-------------------------------\n\nThe utility function `_asarray_with_order` respects the `order` parameter for NumPy arrays, allowing creation of arrays with specified memory layout (C-contiguous or Fortran-contiguous). For generic Array API arrays, the `order` parameter is ignored, as memory layout control is not part of the standard.\n\nExample:\n\n```python\nxp = pytest.importorskip(\"numpy\")\nX = xp.asarray([1.2, 3.4, 5.1])\nX_new = _asarray_with_order(X, order=\"F\", xp=xp)\n\nX_new_np = numpy.asarray(X_new)\nassert X_new_np.flags[\"F_CONTIGUOUS\"]\n```\n\nFor generic Array API arrays:\n\n```python\nxp = pytest.importorskip(\"numpy.array_api\")\nxp_ = _AdjustableNameAPITestWrapper(xp, \"wrapped.array_api\")\n\nX = numpy.asarray([[1.2, 3.4, 5.1], [3.4, 5.5, 1.2]], order=\"C\")\nX = xp_.asarray(X)\n\nX_new = _asarray_with_order(X, order=\"F\", xp=xp_)\n\nX_new_np = numpy.asarray(X_new)\nassert X_new_np.flags[\"C_CONTIGUOUS\"]\nassert not X_new_np.flags[\"F_CONTIGUOUS\"]\n```\n\nEstimator Compatibility\n-----------------------\n\nThe library supports converting estimators to work with Array API arrays by converting internal arrays to the target namespace. This ensures that estimators can operate seamlessly with arrays from different compliant libraries.\n\nExample:\n\n```python\nX_np = numpy.asarray([[1.3, 4.5]])\nest = SimpleEstimator().fit(X_np)\n\nnew_est = _estimator_with_converted_arrays(est, lambda array: xp.asarray(array))\nassert hasattr(new_est.X_, \"__array_namespace__\")\n```\n\nReshape Behavior\n---------------\n\nThe `reshape` method in the NumPy API wrapper respects the `copy` parameter and requires the shape argument to be a tuple. It raises a `TypeError` if the shape is not a tuple.\n\nExample:\n\n```python\nxp = _NumPyAPIWrapper()\nX = xp.asarray([[1, 2, 3], [3, 4, 5]])\n\nX_no_copy = xp.reshape(X, (-1,), copy=False)\nassert X_no_copy.base is X\n\nX_copy = xp.reshape(X, (6, 1), copy=True)\nassert X_copy.base is not X.base\n\nwith pytest.raises(TypeError, match=\"shape must be a tuple\"):\n    xp.reshape(X, -1)\n```\n\nSummary\n-------\n\nThe library's Array API support ensures compatibility and interoperability with multiple array libraries adhering to the Array API standard. Through namespace detection, wrapping, and utility functions, it provides a consistent and robust interface for array operations, facilitating the development of portable and efficient numerical code.",
+  "prediction_sha256": "e49b845c7e665816c8eb1c1cb8a67e2dad148d51ad52e5114047154baa48b497",
+  "prompt_sha256": "c0693ce077f0dbb74e6a91599888b62b47bc876188f830eb5116d34e0a4f60e0",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 17750,
+    "completion_tokens": 1416,
+    "total_tokens": 19166
+  },
+  "cost_usd": 0.0093656,
+  "generation_seconds": 12.747975959013274,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array_api"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3613,
+              "start_char": 2828689,
+              "end_char": 2829391,
+              "code": "init__(self, array_namespace, name):\n        super().__init__(array_namespace=array_namespace)\n        self.__name__ = name\n\n\ndef test_array_api_wrapper_astype():\n    \"\"\"Test _ArrayAPIWrapper for ArrayAPIs that is not NumPy.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_converted = xp.astype(X, xp.float32)\n    assert X_converted.dtype == xp.float32\n\n    X_converted = xp.asarray(X, dtype=xp.float32)\n    assert X_converted.dtype == xp.float32\n\n\ndef test_array_api_wrapper_take_for_numpy_api():\n   ",
+              "code_tokens": 300,
+              "score": 21.530314426709
+            },
+            {
+              "chunk_id": 3616,
+              "start_char": 2831088,
+              "end_char": 2831778,
+              "code": " xp.asarray([0]), axis=0)\n\n\n@pytest.mark.parametrize(\"array_api\", [\"numpy\", \"numpy.array_api\"])\ndef test_asarray_with_order(array_api):\n    \"\"\"Test _asarray_with_order passes along order for NumPy arrays.\"\"\"\n    xp = pytest.importorskip(array_api)\n\n    X = xp.asarray([1.2, 3.4, 5.1])\n    X_new = _asarray_with_order(X, order=\"F\", xp=xp)\n\n    X_new_np = numpy.asarray(X_new)\n    assert X_new_np.flags[\"F_CONTIGUOUS\"]\n\n\ndef test_asarray_with_order_ignored():\n    \"\"\"Test _asarray_with_order ignores order for Generic ArrayAPI.\"\"\"\n    xp = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(xp, \"wrapped.array_api\")\n\n    X = numpy.asarray([[1.2, 3.4, 5.1], [3.4, 5",
+              "code_tokens": 300,
+              "score": 21.213581729474
+            },
+            {
+              "chunk_id": 3614,
+              "start_char": 2829523,
+              "end_char": 2830216,
+              "code": " same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1,",
+              "code_tokens": 300,
+              "score": 20.415658367577
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3613
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3613,
+              "start_char": 2828689,
+              "end_char": 2832086,
+              "code": "init__(self, array_namespace, name):\n        super().__init__(array_namespace=array_namespace)\n        self.__name__ = name\n\n\ndef test_array_api_wrapper_astype():\n    \"\"\"Test _ArrayAPIWrapper for ArrayAPIs that is not NumPy.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_converted = xp.astype(X, xp.float32)\n    assert X_converted.dtype == xp.float32\n\n    X_converted = xp.asarray(X, dtype=xp.float32)\n    assert X_converted.dtype == xp.float32\n\n\ndef test_array_api_wrapper_take_for_numpy_api():\n    \"\"\"Test that fast path is called for numpy.array_api.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    # USe the same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1, 2, 3], dtype=xp.float64)\n    X_take = xp.take(X_1d, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X_1d, [1], axis=0))\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([0]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0], axis=0))\n\n    # Check take compared to NumPy's with axis=1\n    X_take = xp.take(X, xp.asarray([0, 2]), axis=1)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0, 2], axis=1))\n\n    with pytest.raises(ValueError, match=r\"Only axis in \\(0, 1\\) is supported\"):\n        xp.take(X, xp.asarray([0]), axis=2)\n\n    with pytest.raises(ValueError, match=r\"Only X.ndim in \\(1, 2\\) is supported\"):\n        xp.take(xp.asarray([[[0]]]), xp.asarray([0]), axis=0)\n\n\n@pytest.mark.parametrize(\"array_api\", [\"numpy\", \"numpy.array_api\"])\ndef test_asarray_with_order(array_api):\n    \"\"\"Test _asarray_with_order passes along order for NumPy arrays.\"\"\"\n    xp = pytest.importorskip(array_api)\n\n    X = xp.asarray([1.2, 3.4, 5.1])\n    X_new = _asarray_with_order(X, order=\"F\", xp=xp)\n\n    X_new_np = numpy.asarray(X_new)\n    assert X_new_np.flags[\"F_CONTIGUOUS\"]\n\n\ndef test_asarray_with_order_ignored():\n    \"\"\"Test _asarray_with_order ignores order for Generic ArrayAPI.\"\"\"\n    xp = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(xp, \"wrapped.array_api\")\n\n    X = numpy.asarray([[1.2, 3.4, 5.1], [3.4, 5.5, 1.2]], order=\"C\")\n    X = xp_.asarray(X)\n\n    X_new = _asarray_with_order(X, order=\"F\", xp=xp_)\n\n    X_new_np = numpy.asarray(X_new)\n    assert X_new_np.flags[\"C_CONTIGUOUS\"]\n    assert not X_new_np.flags[\"F_CONTIGUOUS\"]\n\n\n@skip_if_array_api_compat_not_configured\n@pytest.mark.parametrize(\n    \"library\",",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "_ArrayAPIWrapper"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3622,
+              "start_char": 2835463,
+              "end_char": 2836149,
+              "code": "_api\")\n\n    X_np = numpy.asarray([[1.3, 4.5]])\n    est = SimpleEstimator().fit(X_np)\n\n    new_est = _estimator_with_converted_arrays(est, lambda array: xp.asarray(array))\n    assert hasattr(new_est.X_, \"__array_namespace__\")\n\n\ndef test_reshape_behavior():\n    \"\"\"Check reshape behavior with copy and is strict with non-tuple shape.\"\"\"\n    xp = _NumPyAPIWrapper()\n    X = xp.asarray([[1, 2, 3], [3, 4, 5]])\n\n    X_no_copy = xp.reshape(X, (-1,), copy=False)\n    assert X_no_copy.base is X\n\n    X_copy = xp.reshape(X, (6, 1), copy=True)\n    assert X_copy.base is not X.base\n\n    with pytest.raises(TypeError, match=\"shape must be a tuple\"):\n        xp.reshape(X, -1)\n\n\n@pytest.mark.paramet",
+              "code_tokens": 300,
+              "score": 32.110921468273
+            },
+            {
+              "chunk_id": 3614,
+              "start_char": 2829523,
+              "end_char": 2830216,
+              "code": " same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1,",
+              "code_tokens": 300,
+              "score": 31.477472523494
+            },
+            {
+              "chunk_id": 3613,
+              "start_char": 2828689,
+              "end_char": 2829391,
+              "code": "init__(self, array_namespace, name):\n        super().__init__(array_namespace=array_namespace)\n        self.__name__ = name\n\n\ndef test_array_api_wrapper_astype():\n    \"\"\"Test _ArrayAPIWrapper for ArrayAPIs that is not NumPy.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_converted = xp.astype(X, xp.float32)\n    assert X_converted.dtype == xp.float32\n\n    X_converted = xp.asarray(X, dtype=xp.float32)\n    assert X_converted.dtype == xp.float32\n\n\ndef test_array_api_wrapper_take_for_numpy_api():\n   ",
+              "code_tokens": 300,
+              "score": 28.987243760089
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3614
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3614,
+              "start_char": 2829523,
+              "end_char": 2832670,
+              "code": " same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1, 2, 3], dtype=xp.float64)\n    X_take = xp.take(X_1d, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X_1d, [1], axis=0))\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([0]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0], axis=0))\n\n    # Check take compared to NumPy's with axis=1\n    X_take = xp.take(X, xp.asarray([0, 2]), axis=1)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0, 2], axis=1))\n\n    with pytest.raises(ValueError, match=r\"Only axis in \\(0, 1\\) is supported\"):\n        xp.take(X, xp.asarray([0]), axis=2)\n\n    with pytest.raises(ValueError, match=r\"Only X.ndim in \\(1, 2\\) is supported\"):\n        xp.take(xp.asarray([[[0]]]), xp.asarray([0]), axis=0)\n\n\n@pytest.mark.parametrize(\"array_api\", [\"numpy\", \"numpy.array_api\"])\ndef test_asarray_with_order(array_api):\n    \"\"\"Test _asarray_with_order passes along order for NumPy arrays.\"\"\"\n    xp = pytest.importorskip(array_api)\n\n    X = xp.asarray([1.2, 3.4, 5.1])\n    X_new = _asarray_with_order(X, order=\"F\", xp=xp)\n\n    X_new_np = numpy.asarray(X_new)\n    assert X_new_np.flags[\"F_CONTIGUOUS\"]\n\n\ndef test_asarray_with_order_ignored():\n    \"\"\"Test _asarray_with_order ignores order for Generic ArrayAPI.\"\"\"\n    xp = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(xp, \"wrapped.array_api\")\n\n    X = numpy.asarray([[1.2, 3.4, 5.1], [3.4, 5.5, 1.2]], order=\"C\")\n    X = xp_.asarray(X)\n\n    X_new = _asarray_with_order(X, order=\"F\", xp=xp_)\n\n    X_new_np = numpy.asarray(X_new)\n    assert X_new_np.flags[\"C_CONTIGUOUS\"]\n    assert not X_new_np.flags[\"F_CONTIGUOUS\"]\n\n\n@skip_if_array_api_compat_not_configured\n@pytest.mark.parametrize(\n    \"library\", [\"numpy\", \"numpy.array_api\", \"cupy\", \"cupy.array_api\", \"torch\"]\n)\n@pytest.mark.parametrize(\n    \"X,reduction,expected\",\n    [\n        ([1, 2, numpy.nan], _nanmin, 1),\n        ([1, -2, -numpy.nan], _nanmin, -2),\n        ([numpy.inf, numpy.inf], _nanmin, numpy.inf),\n        (\n            [[1, 2, 3], [numpy.nan, numpy.nan, numpy.nan], [4, 5, 6.0]],\n            partial(_nanmin, axis=0),\n            [1.0, 2.0, 3.0],\n        ),\n        (\n            [[1, 2, 3], [numpy.nan, numpy.nan, numpy.nan], [4, 5, 6.0]],\n            partial(_nanmin, axis=1),\n            [1.0, numpy.nan, 4.0],\n ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "_ArrayAPIWrapper class"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3622,
+              "start_char": 2835463,
+              "end_char": 2836149,
+              "code": "_api\")\n\n    X_np = numpy.asarray([[1.3, 4.5]])\n    est = SimpleEstimator().fit(X_np)\n\n    new_est = _estimator_with_converted_arrays(est, lambda array: xp.asarray(array))\n    assert hasattr(new_est.X_, \"__array_namespace__\")\n\n\ndef test_reshape_behavior():\n    \"\"\"Check reshape behavior with copy and is strict with non-tuple shape.\"\"\"\n    xp = _NumPyAPIWrapper()\n    X = xp.asarray([[1, 2, 3], [3, 4, 5]])\n\n    X_no_copy = xp.reshape(X, (-1,), copy=False)\n    assert X_no_copy.base is X\n\n    X_copy = xp.reshape(X, (6, 1), copy=True)\n    assert X_copy.base is not X.base\n\n    with pytest.raises(TypeError, match=\"shape must be a tuple\"):\n        xp.reshape(X, -1)\n\n\n@pytest.mark.paramet",
+              "code_tokens": 300,
+              "score": 32.110921468273
+            },
+            {
+              "chunk_id": 3614,
+              "start_char": 2829523,
+              "end_char": 2830216,
+              "code": " same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1,",
+              "code_tokens": 300,
+              "score": 31.477472523494
+            },
+            {
+              "chunk_id": 3612,
+              "start_char": 2827863,
+              "end_char": 2828540,
+              "code": ", is_array_api_compliant = get_namespace(X_np)\n        assert is_array_api_compliant\n        assert xp_out is array_api_compat.numpy\n\n\n@skip_if_array_api_compat_not_configured\ndef test_get_namespace_array_api():\n    \"\"\"Test get_namespace for ArrayAPI arrays.\"\"\"\n    xp = pytest.importorskip(\"numpy.array_api\")\n\n    X_np = numpy.asarray([[1, 2, 3]])\n    X_xp = xp.asarray(X_np)\n    with config_context(array_api_dispatch=True):\n        xp_out, is_array_api_compliant = get_namespace(X_xp)\n        assert is_array_api_compliant\n        assert isinstance(xp_out, _ArrayAPIWrapper)\n\n        with pytest.raises(TypeError):\n            xp_out, is_array_api_compliant = get_namespace(",
+              "code_tokens": 300,
+              "score": 29.626522553414
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3612
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3612,
+              "start_char": 2827863,
+              "end_char": 2831340,
+              "code": ", is_array_api_compliant = get_namespace(X_np)\n        assert is_array_api_compliant\n        assert xp_out is array_api_compat.numpy\n\n\n@skip_if_array_api_compat_not_configured\ndef test_get_namespace_array_api():\n    \"\"\"Test get_namespace for ArrayAPI arrays.\"\"\"\n    xp = pytest.importorskip(\"numpy.array_api\")\n\n    X_np = numpy.asarray([[1, 2, 3]])\n    X_xp = xp.asarray(X_np)\n    with config_context(array_api_dispatch=True):\n        xp_out, is_array_api_compliant = get_namespace(X_xp)\n        assert is_array_api_compliant\n        assert isinstance(xp_out, _ArrayAPIWrapper)\n\n        with pytest.raises(TypeError):\n            xp_out, is_array_api_compliant = get_namespace(X_xp, X_np)\n\n\nclass _AdjustableNameAPITestWrapper(_ArrayAPIWrapper):\n    \"\"\"API wrapper that has an adjustable name. Used for testing.\"\"\"\n\n    def __init__(self, array_namespace, name):\n        super().__init__(array_namespace=array_namespace)\n        self.__name__ = name\n\n\ndef test_array_api_wrapper_astype():\n    \"\"\"Test _ArrayAPIWrapper for ArrayAPIs that is not NumPy.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_converted = xp.astype(X, xp.float32)\n    assert X_converted.dtype == xp.float32\n\n    X_converted = xp.asarray(X, dtype=xp.float32)\n    assert X_converted.dtype == xp.float32\n\n\ndef test_array_api_wrapper_take_for_numpy_api():\n    \"\"\"Test that fast path is called for numpy.array_api.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    # USe the same name as numpy.array_api\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [1], axis=0))\n\n\ndef test_array_api_wrapper_take():\n    \"\"\"Test _ArrayAPIWrapper API for take.\"\"\"\n    numpy_array_api = pytest.importorskip(\"numpy.array_api\")\n    xp_ = _AdjustableNameAPITestWrapper(numpy_array_api, \"wrapped_numpy.array_api\")\n    xp = _ArrayAPIWrapper(xp_)\n\n    # Check take compared to NumPy's with axis=0\n    X_1d = xp.asarray([1, 2, 3], dtype=xp.float64)\n    X_take = xp.take(X_1d, xp.asarray([1]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X_1d, [1], axis=0))\n\n    X = xp.asarray(([[1, 2, 3], [3, 4, 5]]), dtype=xp.float64)\n    X_take = xp.take(X, xp.asarray([0]), axis=0)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0], axis=0))\n\n    # Check take compared to NumPy's with axis=1\n    X_take = xp.take(X, xp.asarray([0, 2]), axis=1)\n    assert hasattr(X_take, \"__array_namespace__\")\n    assert_array_equal(X_take, numpy.take(X, [0, 2], axis=1))\n\n    with pytest.raises(ValueError, match=r\"Only axis in \\(0, 1\\) is supported\"):\n        xp.take(X, xp.asarray([0]), axis=2)\n\n    with pytest.raises(ValueError, match=r\"Only X.ndim in \\(1, 2\\) is supported\"):\n        xp.take(xp.asarray([[[0]]]), xp.asarray([0]), axis=0)\n\n\n@pytest.mark.parametrize(\"array_api\", [\"numpy\", \"numpy.array_api\"])\ndef test_asarray_with_order(array_api):\n    \"\"\"Test _asarray_with_order passes along order for NumPy arrays.\"\"\"\n    xp = pytest.importorskip(array_api)\n\n   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 7200,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "aeafd2f2286b03937fe1478a83b2afa19d4a9b83286e60d0719c1bd4d463774f",
+        "request_id": "chatcmpl-Ej9oHNDqhShi0ckjyb8Cp5XaOud2f",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 15,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.6e-05,
+        "seconds": 0.6231570419986383,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "008d8144b2fe1b28aa407d7757e3b395fbe7c0450e7cfb70cd95de5cc0badb0d",
+        "request_id": "chatcmpl-Ej9oHpTAPk36ZXYkw0wGoIm3uH1eS",
+        "usage": {
+          "prompt_tokens": 1029,
+          "completion_tokens": 16,
+          "total_tokens": 1045,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00043720000000000006,
+        "seconds": 0.6388507500014384,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "d9d437f331f6635483744bdb9cef3ccdc5af66c4a8a8b48e653ac2d9bd590125",
+        "request_id": "chatcmpl-Ej9oIgkLzFMQsp3j8CWpSCl44aJLE",
+        "usage": {
+          "prompt_tokens": 2260,
+          "completion_tokens": 17,
+          "total_tokens": 2277,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009312000000000001,
+        "seconds": 0.8300800420038286,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "774cd22c7778c530488fbe860d5ab73a7644830845f921b418bee3a6ca561a58",
+        "request_id": "chatcmpl-Ej9oJO7GkqXdTl7kCusn1MAi0GGOd",
+        "usage": {
+          "prompt_tokens": 3123,
+          "completion_tokens": 16,
+          "total_tokens": 3139,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012748,
+        "seconds": 0.655555874996935,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "dd9cd2fab05baf1ab404eb32867ab3156e9a4baff612c9cb900e1785a0a0063b",
+        "request_id": "chatcmpl-Ej9oJxmdjGxptafrPp5Xs6Is995bi",
+        "usage": {
+          "prompt_tokens": 4333,
+          "completion_tokens": 18,
+          "total_tokens": 4351,
+          "prompt_tokens_details": {
+            "cached_tokens": 2944,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001762,
+        "seconds": 0.8471790420007892,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "69a3b2088c9c0037732893dabadaab1ce93823b0327bc063364e1e7616a744a1",
+        "request_id": "chatcmpl-Ej9oKyqkerEsI8wQwAtIae2PRy07i",
+        "usage": {
+          "prompt_tokens": 5162,
+          "completion_tokens": 16,
+          "total_tokens": 5178,
+          "prompt_tokens_details": {
+            "cached_tokens": 4224,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020904,
+        "seconds": 0.7286262500056182,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "30cc1b8a55b8322643d58f075e8107f8a98a8fec9dcb5a6b3b9bd62c2a8e6edd",
+        "request_id": "chatcmpl-Ej9oLgYRsT08hXW7SCkINGNvmeX8C",
+        "usage": {
+          "prompt_tokens": 1688,
+          "completion_tokens": 1318,
+          "total_tokens": 3006,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.002784,
+        "seconds": 8.424526958006027,
+        "retry_count": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Polys Module Documentation\n==========================\n\nOverview\n--------\n\nThe `polys` module provides advanced polynomial manipulation and root isolation functionalities over various domains including integers, rationals, and algebraic fields. It includes methods for generating minimal polynomials, isolating real and complex roots of polynomials, and handling polynomial factorization and square-free decomposition.\n\nKey Features\n------------\n\nMinimal Polynomial Generation\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n- The module includes functionality to generate minimal polynomials for algebraic numbers such as roots of trigonometric expressions.\n- For example, the roots of the polynomial \\( mp(x) \\) are given by \\(\\sin(\\pi p/q)\\) for \\(p = 1, \\ldots, q - 1\\).\n- Special cases are handled, such as when the numerator of a rational number is 1 and the denominator is 9, returning a specific polynomial:\n  \n  \\[\n  64x^6 - 96x^4 + 36x^2 - 3\n  \\]\n\n- For odd degrees \\(n\\), minimal polynomials are related to Chebyshev polynomials of the first kind, leveraging the identity \\(\\sin(q a) = 0\\).\n\nPolynomial Domain Handling and GCD Computation\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n- Polynomials are normalized to a specified domain, with denominators cleared to ensure integral coefficients.\n- The module supports computation of the greatest common divisor (GCD) of polynomials within the given domain.\n- Zero roots are detected and handled appropriately depending on the interval of interest.\n- Factorization is performed using square-free decomposition and trial division to extract irreducible factors and their multiplicities.\n- Factors are stored in a dictionary mapping each factor to its multiplicities in the input polynomials.\n\nRoot Isolation\n~~~~~~~~~~~~~~\n\n- The module provides methods to isolate both real and complex roots of polynomials.\n- Root isolation supports square-free polynomials as well as non-square-free polynomials, although the latter currently supports only trivial cases.\n- Isolation intervals are computed with optional parameters for precision (`eps`), and bounds (`inf`, `sup`).\n- The isolation process returns sorted intervals for negative, zero, and positive roots, with zero roots handled distinctly when applicable.\n- Complex root isolation complements real root isolation to provide a comprehensive root analysis.\n\nExample usage of root isolation methods:\n\n```python\nreal_roots, complex_roots = ring._isolate_all_roots_sqf(f, eps=1e-6)\n```\n\nPolynomial Decomposition into Real and Imaginary Parts\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n- The module includes functionality to decompose a polynomial with complex coefficients into its real and imaginary parts.\n- Given a polynomial \\( f \\), it returns two bivariate polynomials \\( f_1 \\) and \\( f_2 \\) such that:\n\n  \\[\n  f = f_1 + f_2 \\cdot i\n  \\]\n\n- This is useful for symbolic manipulation and analysis of polynomials over complex domains.\n\nExample:\n\n```python\nR, x = ring('x', ZZ)\nf_real, f_imag = R._real_imag(x**3 + x**2 + x + 1)\n```\n\nError Handling\n--------------\n\n- The module raises `DomainError` when operations such as root isolation are attempted over unsupported domains.\n- NotImplementedError is raised for unsupported polynomial cases, such as non-trivial non-square-free polynomials in root isolation.\n\nSummary\n-------\n\nThe `polys` module is a powerful toolkit for polynomial algebra, focusing on root isolation, factorization, and minimal polynomial generation. It supports a variety of algebraic domains and provides robust methods for handling complex polynomial operations essential in symbolic computation and algebraic number theory.",
+  "prediction_sha256": "0c3ce7305e1f8a62d97cb6ffacc966e8d9d3bc833d2cdda91ba13fa19a8c0f86",
+  "prompt_sha256": "06c0da6a205bb59b24fd8aa4608bcd7d188587aeeadcc1a8fbe457b05455d4de",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 6688,
+    "completion_tokens": 1122,
+    "total_tokens": 7810
+  },
+  "cost_usd": 0.0044704,
+  "generation_seconds": 9.971738083000673,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "polys"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 424,
+              "start_char": 275292,
+              "end_char": 275869,
+              "code": "ationalField and not domain.is_RealAlgebraicField:\n            raise DomainError(f'isolation of real roots not supported over {domain}')\n\n        if (inf is None or inf <= 0) and (sup is None or 0 <= sup):\n            zeros, zero_indices = True, {}\n        else:\n            zeros = False\n\n        polys = [f, g]\n        gcd = new_ring.zero\n\n        for i, p in enumerate(polys):\n            p = p.set_domain(domain)\n            p = p.clear_denoms()[1]\n            (j,), p = p.terms_gcd()\n            polys[i] = p  #.set_domain(domain)\n\n            if zeros and j > 0:\n        ",
+              "code_tokens": 300,
+              "score": 6.771482281928
+            },
+            {
+              "chunk_id": 425,
+              "start_char": 275948,
+              "end_char": 276468,
+              "code": "     polys = [p//gcd for p in polys]\n\n        factors = collections.defaultdict(dict)\n\n        for i, p in enumerate(polys):\n            ni = (i + 1) % 2\n\n            if not p and zeros and ni in zero_indices:\n                zero_indices[i] = zero_indices[ni]\n\n            for f, _ in new_ring.gcd(p, gcd).sqf_list()[1]:\n                k1 = new_ring._trial_division(gcd, [f])[0][1]\n                k2 = new_ring._trial_division(p, [f])[0][1]\n                factors[f] = {i: k1 + k2, ni: k1}\n\n                gcd //= f",
+              "code_tokens": 300,
+              "score": 5.892880617769
+            },
+            {
+              "chunk_id": 136,
+              "start_char": 88894,
+              "end_char": 89432,
+              "code": " # the roots of mp(x) are sin(pi*p/q) for p = 1,..., q - 1\n            a = chebyshevt_poly(n, polys=True).all_coeffs()\n            return Add(*[x**(n - i - 1)*a[n - i] for i in range(n)])\n        if c.numerator == 1:\n            if q == 9:\n                return 64*x**6 - 96*x**4 + 36*x**2 - 3\n\n        if n % 2 == 1:\n            # for a = pi*p/q with q odd, use\n            # sin(q*a) = 0 to see that the minimal polynomial must be\n            # a factor of chebyshevt_poly(n)\n            a = chebyshevt_poly(n, polys=True).all_coeffs()",
+              "code_tokens": 300,
+              "score": 5.535281029031
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 424
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 424,
+              "start_char": 275292,
+              "end_char": 278097,
+              "code": "ationalField and not domain.is_RealAlgebraicField:\n            raise DomainError(f'isolation of real roots not supported over {domain}')\n\n        if (inf is None or inf <= 0) and (sup is None or 0 <= sup):\n            zeros, zero_indices = True, {}\n        else:\n            zeros = False\n\n        polys = [f, g]\n        gcd = new_ring.zero\n\n        for i, p in enumerate(polys):\n            p = p.set_domain(domain)\n            p = p.clear_denoms()[1]\n            (j,), p = p.terms_gcd()\n            polys[i] = p  #.set_domain(domain)\n\n            if zeros and j > 0:\n                zero_indices[i] = j\n\n            gcd = new_ring.gcd(gcd, polys[i])\n\n        polys = [p//gcd for p in polys]\n\n        factors = collections.defaultdict(dict)\n\n        for i, p in enumerate(polys):\n            ni = (i + 1) % 2\n\n            if not p and zeros and ni in zero_indices:\n                zero_indices[i] = zero_indices[ni]\n\n            for f, _ in new_ring.gcd(p, gcd).sqf_list()[1]:\n                k1 = new_ring._trial_division(gcd, [f])[0][1]\n                k2 = new_ring._trial_division(p, [f])[0][1]\n                factors[f] = {i: k1 + k2, ni: k1}\n\n                gcd //= f**k1\n                p //= f**k2\n\n            for f, k in p.sqf_list()[1]:\n                factors[f] = {i: k}\n\n        for f, k in gcd.sqf_list()[1]:\n            factors[f] = {0: k, 1: k}\n\n        I_neg, I_pos = new_ring._real_isolate_and_disjoin(tuple(factors.items()), eps=eps,\n                                                          inf=inf, sup=sup, strict=strict,\n                                                          basis=basis)\n        I_zero = []\n\n        if zeros and zero_indices:\n            if not basis:\n                I_zero = [((domain.zero, domain.zero), zero_indices)]\n            else:\n                I_zero = [((domain.zero, domain.zero), zero_indices, new_ring.gens[0])]\n\n        return sorted(I_neg + I_zero + I_pos)\n\n    def _isolate_all_roots_sqf(self, f, eps=None, inf=None, sup=None, blackbox=False):\n        \"\"\"Isolate real and complex roots of a square-free polynomial ``f``.\"\"\"\n        return (self._isolate_real_roots_sqf(f, eps=eps, inf=inf, sup=sup, blackbox=blackbox),\n                self._isolate_complex_roots_sqf(f, eps=eps, inf=inf, sup=sup, blackbox=blackbox))\n\n    def _isolate_all_roots(self, f, eps=None, inf=None, sup=None):\n        \"\"\"Isolate real and complex roots of a non-square-free polynomial ``f``.\"\"\"\n        domain = self.domain\n\n        if not domain.is_IntegerRing and not domain.is_RationalField:\n            raise DomainError(f'isolation of real and complex roots is not supported over {domain}')\n\n        _, factors = f.sqf_list()\n\n        if len(factors) == 1:\n            (f, k), = factors\n\n            real_part, complex_part = self._isolate_all_roots_sqf(f, e",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 425
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 425,
+              "start_char": 275948,
+              "end_char": 278775,
+              "code": "     polys = [p//gcd for p in polys]\n\n        factors = collections.defaultdict(dict)\n\n        for i, p in enumerate(polys):\n            ni = (i + 1) % 2\n\n            if not p and zeros and ni in zero_indices:\n                zero_indices[i] = zero_indices[ni]\n\n            for f, _ in new_ring.gcd(p, gcd).sqf_list()[1]:\n                k1 = new_ring._trial_division(gcd, [f])[0][1]\n                k2 = new_ring._trial_division(p, [f])[0][1]\n                factors[f] = {i: k1 + k2, ni: k1}\n\n                gcd //= f**k1\n                p //= f**k2\n\n            for f, k in p.sqf_list()[1]:\n                factors[f] = {i: k}\n\n        for f, k in gcd.sqf_list()[1]:\n            factors[f] = {0: k, 1: k}\n\n        I_neg, I_pos = new_ring._real_isolate_and_disjoin(tuple(factors.items()), eps=eps,\n                                                          inf=inf, sup=sup, strict=strict,\n                                                          basis=basis)\n        I_zero = []\n\n        if zeros and zero_indices:\n            if not basis:\n                I_zero = [((domain.zero, domain.zero), zero_indices)]\n            else:\n                I_zero = [((domain.zero, domain.zero), zero_indices, new_ring.gens[0])]\n\n        return sorted(I_neg + I_zero + I_pos)\n\n    def _isolate_all_roots_sqf(self, f, eps=None, inf=None, sup=None, blackbox=False):\n        \"\"\"Isolate real and complex roots of a square-free polynomial ``f``.\"\"\"\n        return (self._isolate_real_roots_sqf(f, eps=eps, inf=inf, sup=sup, blackbox=blackbox),\n                self._isolate_complex_roots_sqf(f, eps=eps, inf=inf, sup=sup, blackbox=blackbox))\n\n    def _isolate_all_roots(self, f, eps=None, inf=None, sup=None):\n        \"\"\"Isolate real and complex roots of a non-square-free polynomial ``f``.\"\"\"\n        domain = self.domain\n\n        if not domain.is_IntegerRing and not domain.is_RationalField:\n            raise DomainError(f'isolation of real and complex roots is not supported over {domain}')\n\n        _, factors = f.sqf_list()\n\n        if len(factors) == 1:\n            (f, k), = factors\n\n            real_part, complex_part = self._isolate_all_roots_sqf(f, eps=eps, inf=inf, sup=sup)\n\n            real_part = [((a, b), k) for (a, b) in real_part]\n            complex_part = [((a, b), k) for (a, b) in complex_part]\n\n            return real_part, complex_part\n        raise NotImplementedError('only trivial square-free polynomials are supported')\n\n    def _real_imag(self, f, _y=Dummy('y')):\n        \"\"\"\n        Return bivariate polynomials ``f1`` and ``f2``, such that ``f = f1 + f2*I``.\n\n        Examples\n        ========\n\n        >>> R, x = ring('x', ZZ)\n\n        >>> R._real_imag(x**3 + x**2 + x + 1)\n        (x**3 + x**2 - 3*x*_y**2 + x - _y**2 + 1, 3*x**2*_y + 2*x*_y - _y**3 + _y)\n\n        >>> R, x = ring('x', QQ.algebraic_field",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "57debd9512caafd08f064111bbd9d8b9ad0757964e6c0c592afb01ce6e34c54c",
+        "request_id": "chatcmpl-Ej8Xy8GGlEJqzkvcykEgJS8oVx9lM",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.9695573749995674,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "592145c49e865503e870b7666dd98d80992dce9176ee36020e1c80dc7c3a991b",
+        "request_id": "chatcmpl-Ej8XzX8y4uFx5at4iVTPRMBvuGg5e",
+        "usage": {
+          "prompt_tokens": 851,
+          "completion_tokens": 15,
+          "total_tokens": 866,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003644,
+        "seconds": 0.7295712910017755,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "9c9781220b4b7b6338bbace4af62e13ec0341ea77f75f3977aa2f7952023bbd7",
+        "request_id": "chatcmpl-Ej8Y0AqofwtbKNmA1V3oPhYVSwxBP",
+        "usage": {
+          "prompt_tokens": 1748,
+          "completion_tokens": 15,
+          "total_tokens": 1763,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007232,
+        "seconds": 0.6951020839987905,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "059e6b75ada91e43991c31177ae15a5ac5970300e9d7b3add6bec59b799f3f71",
+        "request_id": "chatcmpl-Ej8Y1bqWSzrXftEfr7gV8U4qQtPWM",
+        "usage": {
+          "prompt_tokens": 2708,
+          "completion_tokens": 322,
+          "total_tokens": 3030,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015984,
+        "seconds": 2.726867166999,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "7cfeb6c4ea44e4ddeb3f01955b97b2679986fc2c5cb316c5639bbb27b86592cc",
+        "request_id": "chatcmpl-Ej8Y3Yn7eEeRWmvRd4oh4LOhmvWYt",
+        "usage": {
+          "prompt_tokens": 1225,
+          "completion_tokens": 755,
+          "total_tokens": 1980,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001698,
+        "seconds": 4.85064016600154,
+        "retry_count": 0
+      }
+    ]
+  }
+}

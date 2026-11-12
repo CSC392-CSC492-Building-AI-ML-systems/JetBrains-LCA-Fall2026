@@ -1,0 +1,169 @@
+Connect to Remote Data
+======================
+
+This document describes how to connect to and interact with remote data sources using file-like interfaces in Python. The examples and tests demonstrate reading, seeking, and handling errors when accessing files over HTTP and other remote protocols.
+
+Opening Remote Files
+--------------------
+
+Remote files can be opened using the `open_files` function, which supports URLs and remote paths. For example:
+
+.. code-block:: python
+
+    root = "http://localhost:8999/"
+    fn = "example_file"
+    f = open_files(root + fn)[0]
+    with f as file:
+        data = file.read()
+
+This approach allows reading remote files similarly to local files, supporting context management and standard file operations.
+
+Reading and Seeking
+-------------------
+
+Remote file objects support reading with optional length parameters and seeking to arbitrary positions within the file:
+
+- `read(length)` reads up to `length` bytes from the current position.
+- `seek(offset, whence)` moves the file pointer to a new position. `whence` can be:
+  - `0` (default): absolute file positioning.
+  - `1`: seek relative to the current position.
+  - `2`: seek relative to the file's end.
+
+Example usage:
+
+.. code-block:: python
+
+    with open_files(root + fn)[0] as f:
+        data = f.read(10)          # Read first 10 bytes
+        f.seek(0)                 # Seek back to start
+        data2 = f.read(10)         # Read first 10 bytes again
+        f.seek(-10, 2)            # Seek to 10 bytes before end
+        data3 = f.read()           # Read last 10 bytes
+
+The file object maintains a `.loc` attribute indicating the current position in the file.
+
+Handling HTTP Headers
+---------------------
+
+When opening remote files, custom HTTP headers can be passed to the request:
+
+.. code-block:: python
+
+    headers = {"Date": "Wed, 21 Oct 2015 07:28:00 GMT"}
+    f = open_files(root + fn, headers=headers)[0]
+    with f as file:
+        data = file.read()
+
+This is useful for scenarios requiring specific headers for authentication, caching, or other HTTP features.
+
+Block Size and Performance
+--------------------------
+
+The `open_files` function supports a `block_size` parameter to control the size of data chunks fetched from the remote source. Smaller block sizes can reduce memory usage but may increase the number of HTTP requests.
+
+Example:
+
+.. code-block:: python
+
+    f = open_files(root + fn, block_size=2)[0]
+    with f as file:
+        data = file.read()
+
+Note that behavior with block sizes may vary depending on the underlying library version.
+
+Error Handling
+--------------
+
+When accessing remote files, various errors can occur:
+
+- `FileNotFoundError` if the file does not exist.
+- `ConnectionError` if the server is unreachable.
+- `NotImplementedError` if unsupported modes (e.g., write mode) are requested.
+- `ValueError` for invalid operations such as seeking to a negative position.
+
+Example:
+
+.. code-block:: python
+
+    f = open_files("http://localhost:8999/doesnotexist")[0]
+    with pytest.raises(FileNotFoundError):
+        with f as file:
+            file.read()
+
+Multiple Files and Globbing
+---------------------------
+
+Multiple remote files can be opened simultaneously by passing a list of URLs or using glob patterns:
+
+.. code-block:: python
+
+    fs = open_files([root + f for f in files])
+    for f, filename in zip(fs, files):
+        with f as file:
+            data = file.read()
+
+    # Using glob pattern
+    fs = open_files(root + "/*")
+    assert fs[0].path == "http://localhost:8999/a"
+    assert fs[1].path == "http://localhost:8999/b"
+
+Integration with Data Processing Libraries
+-----------------------------------------
+
+Remote data access integrates seamlessly with libraries such as Dask for parallel and distributed data processing.
+
+For example, reading Parquet files from remote URLs:
+
+.. code-block:: python
+
+    import dask.dataframe as dd
+
+    df = dd.read_parquet(
+        [
+            "https://github.com/Parquet/parquet-compatibility/raw/master/"
+            "parquet-testdata/impala/1.1.1-NONE/nation.impala.parquet"
+        ],
+        engine="pyarrow",
+    ).compute()
+
+    assert df.n_nationkey.tolist() == list(range(25))
+
+Similarly, reading CSV files or text data from remote URLs is supported:
+
+.. code-block:: python
+
+    b = dd.read_csv("https://example.com/data.csv")
+    b.compute()
+
+    b = db.read_text([
+        "https://raw.githubusercontent.com/weierophinney/pastebin/master/public/js-src/dojox/data/tests/stores/patterns.csv",
+        "https://en.wikipedia.org",
+    ])
+    b.compute()
+
+Compression Support
+-------------------
+
+Remote files compressed with common formats (gzip, bzip2, etc.) can be read transparently using the compression utilities integrated with the file interface.
+
+Example:
+
+.. code-block:: python
+
+    from io import BytesIO
+    from fsspec.compression import compr
+    from dask.bytes.utils import compress
+
+    data = b"1234" * 1000
+    compressed = compress["gzip"](data)
+
+    b = BytesIO(compressed)
+    g = compr["gzip"](b, mode="rb")
+    data2 = g.read()
+    g.close()
+    assert data == data2
+
+Summary
+-------
+
+Using the `open_files` function and related utilities, remote data can be accessed and manipulated with familiar file-like semantics. This enables seamless integration with data processing workflows, supports error handling, and allows customization through HTTP headers and block sizes.

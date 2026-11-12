@@ -1,0 +1,72 @@
+Event System and ClassManager Documentation
+===========================================
+
+Overview
+--------
+
+This module provides the core event system and class-level state management for SQLAlchemy's instrumentation framework. It defines the `ClassManager` class, which tracks state information and manages event dispatching at the class level, enabling fine-grained control over attribute loading, state updates, and lifecycle events of mapped classes.
+
+Key Components
+--------------
+
+### ClassManager
+
+`ClassManager` is a generic class responsible for managing instrumentation and event dispatching for a particular mapped class. It inherits from `HasMemoized`, `Dict[str, QueryableAttribute[Any]]`, and `EventTarget`, combining memoization capabilities, attribute mapping, and event handling.
+
+#### Attributes
+
+- `dispatch`: An event dispatcher instance that manages event listeners and dispatches events related to the `ClassManager`.
+- `MANAGER_ATTR`: The default attribute name used to store the manager on a class.
+- `STATE_ATTR`: The default attribute name used to store instance state.
+- `expired_attribute_loader`: A callable responsible for loading expired or deferred attributes on instances.
+- `init_method`: Optional custom initialization method for instances.
+- `original_init`: The original `__init__` method of the class before instrumentation.
+- `factory`: Optional factory callable to create new `ClassManager` instances.
+- `declarative_scan`: Weak reference to the mapper configuration used during declarative scanning.
+- `registry`: The registry that tracks all `ClassManager` instances.
+- `class_`: The class being managed.
+- `_bases`: List of `ClassManager` instances corresponding to base classes of `class_`.
+
+#### Initialization
+
+Upon initialization, `ClassManager` collects managers from base classes, merges their state, and sets up event dispatching. It also warns if the managed class defines a `__del__` method, as this can cause memory leaks due to reference cycles.
+
+#### Methods
+
+- `_update_state(finalize=False, mapper=None, registry=None, declarative_scan=None, expired_attribute_loader=None, init_method=None)`: Updates the internal state of the manager, optionally finalizing instrumentation and setting various components such as the mapper, registry, and attribute loader.
+- `_finalize()`: Completes the instrumentation process by setting up necessary hooks and dispatching the `class_instrument` event.
+- `is_mapped`: Property indicating whether the class has been mapped (i.e., has an associated mapper).
+- Memoized attributes such as `_all_key_set`, `_collection_impl_keys`, `_scalar_loader_impls`, and `_loader_impls` provide cached sets of attribute keys and implementations relevant to collections and scalar loaders.
+
+#### Deprecated Attributes
+
+- `deferred_scalar_loader`: Deprecated alias for `expired_attribute_loader`, maintained for backward compatibility with a deprecation warning.
+
+Protocols
+---------
+
+### _ExpiredAttributeLoaderProto
+
+A protocol defining the signature for callables that load expired attributes on instances. Such callables accept an instance state, a set of attribute names to load, and a passive loading flag.
+
+### _ManagerFactory
+
+A protocol defining a callable that takes a class and returns a corresponding `ClassManager` instance.
+
+Event Dispatching
+-----------------
+
+The `ClassManager` integrates with SQLAlchemy's event system via its `dispatch` attribute, which is an event dispatcher specialized for `ClassManager` events. This allows listeners to hook into lifecycle events such as class instrumentation, attribute loading, and state changes.
+
+Usage Notes
+-----------
+
+- The `ClassManager` is central to SQLAlchemy's instrumentation and should generally be interacted with through higher-level APIs.
+- Custom initialization methods can be provided via the `init_method` parameter during state updates.
+- Care should be taken to avoid defining `__del__` methods on mapped classes to prevent memory leaks.
+- The event system allows for extensibility and customization of class behavior during ORM operations.
+
+Summary
+-------
+
+This module encapsulates the mechanisms for managing class-level instrumentation and event dispatching within SQLAlchemy. The `ClassManager` serves as the cornerstone for tracking attribute state, managing lifecycle events, and integrating with the broader event system, enabling powerful and flexible ORM behavior.

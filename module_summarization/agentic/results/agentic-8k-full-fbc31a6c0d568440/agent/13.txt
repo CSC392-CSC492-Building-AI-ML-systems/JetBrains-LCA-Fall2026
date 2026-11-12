@@ -1,0 +1,121 @@
+Understanding Sessions
+======================
+
+Overview
+--------
+
+A **Session** represents a connection to the Ftrack server, managing communication, caching, and event handling. It is the primary interface for interacting with the Ftrack API, allowing users to query, create, update, and delete entities on the server.
+
+Session Initialization
+----------------------
+
+When creating a session, several parameters can be specified:
+
+- **server_url**: The URL of the Ftrack server to connect to. If not provided, the environment variable `FTRACK_SERVER` will be used. This parameter is required.
+
+- **api_key**: The API key used for authentication. If not provided, the environment variable `FTRACK_API_KEY` (or the legacy `FTRACK_APIKEY`) will be used. This parameter is required.
+
+- **api_user**: The username for the API. If not provided, the environment variable `FTRACK_API_USER` will be used.
+
+- **cache**: An instance of a cache implementing the `ftrack_api.cache.Cache` interface, or a callable that returns such a cache when called with the session instance. This cache will be used to store session data locally. If not specified, a default layered cache with a top-level `MemoryCache` is used.
+
+  .. note::
+
+     The session automatically adds the specified cache to a layered cache with a top-level `MemoryCache`. It is generally unnecessary to create a separate memory cache. Modifying or removing this memory cache may cause unexpected behavior.
+
+- **cache_key_maker**: An instance implementing the `ftrack_api.cache.KeyMaker` interface, used to generate keys for cached objects. If not specified, a `StringKeyMaker` is used by default.
+
+- **auto_connect_event_hub**: If `True`, the embedded event hub will automatically connect to the event server, enabling publishing and subscribing to **non-local** events. If `False`, only **local** events can be published or subscribed to until the event hub is manually connected via `EventHub.connect()`.
+
+  .. note::
+
+     The event hub connection occurs in a background thread to improve session startup time. Plugins requiring a connected event hub should explicitly check the connection status. Subscribing to events does not require a connected event hub.
+
+- **schema_cache_path**: Path to a folder for enabling schema caching. If not set, the environment variable `FTRACK_API_SCHEMA_CACHE_PATH` is used. If neither is set, a temporary directory is used. Set to `False` to disable schema caching entirely.
+
+- **plugin_arguments**: An optional dictionary of keyword arguments passed to plugin register functions upon discovery. If a plugin's signature is incompatible with the provided arguments, the discovery mechanism attempts to reduce the arguments to those accepted by the plugin, logging a warning if this occurs.
+
+Session Lifecycle
+-----------------
+
+The session supports context management, allowing usage with Python's `with` statement:
+
+```python
+with Session(...) as session:
+    # Use session here
+```
+
+Upon exiting the context, the session is automatically closed.
+
+Closing a session releases connections to the server, clears any pending operations, and empties the local cache. It is recommended to close sessions properly to ensure cleanup.
+
+Session Properties and Methods
+------------------------------
+
+- **closed**: Boolean property indicating whether the session has been closed.
+
+- **server_information**: Returns information about the connected server, such as its version.
+
+- **server_url**: Returns the URL of the server used for the session.
+
+- **api_user**: Returns the username used for the session.
+
+- **api_key**: Returns the API key used for the session.
+
+- **event_hub**: Returns the event hub associated with the session, used for event publishing and subscribing.
+
+- **_local_cache**: Returns the top-level memory cache used internally.
+
+- **check_server_compatibility()**: Checks if the connected server version is compatible with the API client. Raises a `ServerCompatibilityError` if the server version is unknown or below the minimum required version (3.3.11).
+
+- **close()**: Closes the session, releasing resources and clearing caches. Logs warnings if there are pending operations that have not been persisted.
+
+Event Hub and Events
+--------------------
+
+The session includes an embedded event hub that facilitates event-driven communication. When the session is ready, it publishes a `ftrack.api.session.ready` event with the session instance as data.
+
+The event hub can be connected automatically or manually, depending on the `auto_connect_event_hub` parameter during session initialization.
+
+Operation Recording and Auto-Populate Contexts
+----------------------------------------------
+
+The session supports temporary context managers to modify session behavior:
+
+- **AutoPopulatingContext**: Temporarily changes the session's `auto_populate` setting within a context.
+
+- **OperationRecordingContext**: Temporarily changes the session's `record_operations` setting within a context.
+
+These contexts allow fine-grained control over session behavior during specific operations.
+
+Operation Payload
+-----------------
+
+The `OperationPayload` class represents the payload of an operation sent to the server. It behaves like a mutable mapping (dictionary) and stores operation data.
+
+Review Session Invites
+----------------------
+
+The session provides methods to send invites to review sessions:
+
+- **send_review_session_invite(invitee)**: Sends an invite to a single `ReviewSessionInvitee` instance. The invitee must be committed before sending.
+
+- **send_review_session_invites(invitees)**: Sends invites to a list of `ReviewSessionInvitee` instances. All invitees must be committed.
+
+If the server does not support the `send_review_session_invite` action, a `ServerCompatibilityError` is raised advising to update the server.
+
+Error Handling
+--------------
+
+- If required parameters such as `server_url` or `api_key` are missing, a `TypeError` is raised.
+
+- If the session is closed and a request is attempted, a `ConnectionClosedError` is raised.
+
+- Server compatibility issues raise `ServerCompatibilityError`.
+
+- Server errors during operations raise `ServerError`, with specific handling for unsupported actions.
+
+Summary
+-------
+
+The Session class is a comprehensive interface for interacting with the Ftrack server, managing authentication, caching, event handling, and operation execution. Proper use of sessions, including closing them after use and handling server compatibility, ensures robust and efficient integration with the Ftrack API.

@@ -1,0 +1,288 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "w_ntop — Select top-weighted walkers from bins\n===============================================\n\nDescription\n-----------\n\nThe `w_ntop` command selects walkers from bins based on their weights. It requires an assignment file that maps walkers to bins at each timepoint (see `w_assign --help` for information on generating this file). By default, `w_ntop` selects the highest-weight walkers (hence the name: select the N top-weighted walkers from each bin). Alternatively, it can select the lowest-weight walkers or randomly-selected walkers instead.\n\nOutput Format\n-------------\n\nThe output file (specified with `-o`/`--output`, default: `ntop.h5`) contains the following datasets:\n\n- **`/n_iter`** [iteration]  \n  *(Integer)* Iteration numbers for each entry in other datasets.\n\n- **`/nsegs`** [iteration][bin]  \n  *(Integer)* Number of segments in each bin/state in the given iteration.  \n  This will generally be the same as the number requested with `--count` but may be smaller if the requested number of walkers does not exist.\n\n- **`/seg_ids`** [iteration][bin][segment]  \n  *(Integer)* Segment IDs matching the selected walkers in each iteration for each bin.  \n  For an iteration `n_iter`, only the first `nsegs[n_iter]` entries are valid. For example, the full list of matching segment IDs in bin 0 in the first stored iteration is `seg_ids[0][0][:nsegs[0][0]]`.\n\n- **`/weights`** [iteration][bin][segment]  \n  *(Floating-point)* Weights for each matching segment in `/seg_ids`.\n\nCommand-line Arguments\n----------------------\n\n### Input Options\n\n- `-a`, `--assignments`  \n  Use assignments from the given ASSIGNMENTS file (default: `assign.h5`).\n\n### Selection Options\n\n- `-n`, `--count`  \n  Select COUNT walkers from each iteration for each bin (default: 1).\n\n- `-t`, `--timepoint`  \n  Base selection on the given TIMEPOINT within each iteration. Default is `-1`, which corresponds to the last timepoint.\n\n- Selection mode (mutually exclusive):\n\n  - `--highweight`  \n    Select COUNT highest-weight walkers from each bin (default).\n\n  - `--lowweight`  \n    Select COUNT lowest-weight walkers from each bin.\n\n  - `--random`  \n    Select COUNT walkers randomly from each bin.\n\n### Output Options\n\n- `-o`, `--output`  \n  Write output to OUTPUT file (default: `ntop.h5`).\n\nProgress Indicator\n------------------\n\nThe command provides a progress indicator during execution to show the status of the operation.\n\nUsage Notes\n-----------\n\n- The assignment file must contain bin assignments for walkers at each timepoint.\n- The number of bins is determined from the assignment file.\n- The selection is performed for each iteration in the specified iteration range.\n- The output file is an HDF5 file containing datasets described above, suitable for further analysis or processing.\n\nExample\n-------\n\n```bash\nw_ntop -a assign.h5 -n 3 --highweight -o top_walkers.h5\n```\n\nSelects the top 3 highest-weight walkers from each bin at the last timepoint in each iteration, using assignments from `assign.h5`, and writes the results to `top_walkers.h5`.",
+  "prediction_sha256": "65b60774c2bae70aa9b96a5c9ba6efe81d480e6ab57a937100b65ff0bffd1eb9",
+  "prompt_sha256": "97db4752dfeb48ddd8a5bad1a9c942644570ed6613683fe03ff0d0b25d80cff0",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 11856,
+    "completion_tokens": 806,
+    "total_tokens": 12662
+  },
+  "cost_usd": 0.006032000000000001,
+  "generation_seconds": 9.672237251994375,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "w_ntop"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1124,
+              "code": "import h5py\nimport numpy as np\n\nfrom westpa.tools import WESTTool, WESTDataReader, IterRangeSelection, ProgressIndicatorComponent\n\nimport westpa\nfrom westpa.core import h5io\nfrom westpa.core.data_manager import seg_id_dtype, n_iter_dtype, weight_dtype\nfrom westpa.core.binning import assignments_list_to_table\n\n\nclass WNTopTool(WESTTool):\n    prog = 'w_ntop'\n    description = '''\\\nSelect walkers from bins. An assignment file mapping walkers to\nbins at each timepoint is required (see``w_assign --help`` for further\ninformation on generating this file). By default, high-weight walkers are\nselected (hence the name ``w_ntop``: select the N top-weighted walkers from\neach bin); however, minimum weight walkers and randomly-selected walkers\nmay be selected instead.\n\n\n-----------------------------------------------------------------------------\nOutput format\n-----------------------------------------------------------------------------\n\nThe output file (-o/--output, by default \"ntop.h5\") contains the following\ndatasets:\n\n  ``/n_iter`` [iteration]\n    *(Integer)* Iteration numbers for each entry in other datasets.\n\n  ``/",
+              "code_tokens": 300,
+              "score": 4.691120809815
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 3745,
+              "end_char": 4387,
+              "code": "\n            action='store_const',\n            const='lowweight',\n            help='''Select COUNT lowest-weight walkers from each bin.''',\n        )\n        cgroup.add_argument(\n            '--random',\n            dest='select_what',\n            action='store_const',\n            const='random',\n            help='''Select COUNT walkers randomly from each bin.''',\n        )\n        parser.set_defaults(select_what='highweight')\n\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument('-o', '--output', default='ntop.h5', help='''Write output to OUTPUT (default: %(default)s).''')\n        self.progress.add_",
+              "code_tokens": 300,
+              "score": 1.526557695686
+            }
+          ],
+          "code_tokens": 600
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3935,
+              "code": "import h5py\nimport numpy as np\n\nfrom westpa.tools import WESTTool, WESTDataReader, IterRangeSelection, ProgressIndicatorComponent\n\nimport westpa\nfrom westpa.core import h5io\nfrom westpa.core.data_manager import seg_id_dtype, n_iter_dtype, weight_dtype\nfrom westpa.core.binning import assignments_list_to_table\n\n\nclass WNTopTool(WESTTool):\n    prog = 'w_ntop'\n    description = '''\\\nSelect walkers from bins. An assignment file mapping walkers to\nbins at each timepoint is required (see``w_assign --help`` for further\ninformation on generating this file). By default, high-weight walkers are\nselected (hence the name ``w_ntop``: select the N top-weighted walkers from\neach bin); however, minimum weight walkers and randomly-selected walkers\nmay be selected instead.\n\n\n-----------------------------------------------------------------------------\nOutput format\n-----------------------------------------------------------------------------\n\nThe output file (-o/--output, by default \"ntop.h5\") contains the following\ndatasets:\n\n  ``/n_iter`` [iteration]\n    *(Integer)* Iteration numbers for each entry in other datasets.\n\n  ``/n_segs`` [iteration][bin]\n    *(Integer)* Number of segments in each bin/state in the given iteration.\n    This will generally be the same as the number requested with\n    ``--n/--count`` but may be smaller if the requested number of walkers\n    does not exist.\n\n  ``/seg_ids`` [iteration][bin][segment]\n    *(Integer)* Matching segments in each iteration for each bin.\n    For an iteration ``n_iter``, only the first ``n_iter`` entries are\n    valid. For example, the full list of matching seg_ids in bin 0 in the\n    first stored iteration is ``seg_ids[0][0][:n_segs[0]]``.\n\n  ``/weights`` [iteration][bin][segment]\n    *(Floating-point)* Weights for each matching segment in ``/seg_ids``.\n\n\n-----------------------------------------------------------------------------\nCommand-line arguments\n-----------------------------------------------------------------------------\n'''\n\n    def __init__(self):\n        super().__init__()\n\n        self.data_reader = WESTDataReader()\n        self.iter_range = IterRangeSelection()\n        self.progress = ProgressIndicatorComponent()\n        self.output_file = None\n        self.assignments_filename = None\n        self.output_filename = None\n        self.what = None\n        self.timepoint = None\n        self.count = None\n\n    def add_args(self, parser):\n        self.data_reader.add_args(parser)\n        self.iter_range.add_args(parser)\n\n        igroup = parser.add_argument_group('input options')\n        igroup.add_argument(\n            '-a',\n            '--assignments',\n            default='assign.h5',\n            help='''Use assignments from the given ASSIGNMENTS file (default: %(default)s).''',\n        )\n\n        sgroup = parser.add_argument_group('selection options')\n        sgroup.add_argument(\n            '-n',\n            '--count',\n            type=int,\n            default=1,\n            help='''Select COUNT walkers from each iteration for each bin (default: %(default)s).''',\n        )\n        sgroup.add_argument(\n            '-t',\n            '--timepoint',\n            type=int,\n            default=-1,\n            help='''Base selection on the given TIMEPOINT within each iteration. Default (-1)\n                            corresponds to the last timepoint.''',\n        )\n        cgroup = parser.add_mutually_exclusive_group()\n        cgroup.add_argument(\n            '--highweight',\n            dest='select_what',\n            action='store_const',\n            const='highweight',\n            help='''Select COUNT highest-weight walkers from each bin.''',\n        )\n        cgroup.add_argument(\n            '--lowweight',\n            dest='select_what',\n            action='store_const',\n            const='lowweight',\n            help='''Select COUNT lowest-weight walkers from each bin.''',\n        )\n        cgroup.add_argument(\n           ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 3745,
+              "end_char": 6871,
+              "code": "\n            action='store_const',\n            const='lowweight',\n            help='''Select COUNT lowest-weight walkers from each bin.''',\n        )\n        cgroup.add_argument(\n            '--random',\n            dest='select_what',\n            action='store_const',\n            const='random',\n            help='''Select COUNT walkers randomly from each bin.''',\n        )\n        parser.set_defaults(select_what='highweight')\n\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument('-o', '--output', default='ntop.h5', help='''Write output to OUTPUT (default: %(default)s).''')\n        self.progress.add_args(parser)\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.data_reader.process_args(args)\n        with self.data_reader:\n            self.iter_range.process_args(args)\n        self.what = args.select_what\n        self.output_filename = args.output\n        self.assignments_filename = args.assignments\n        self.count = args.count\n        self.timepoint = args.timepoint\n\n    def go(self):\n        self.data_reader.open('r')\n        assignments_file = h5py.File(self.assignments_filename, mode='r')\n        output_file = h5io.WESTPAH5File(self.output_filename, mode='w')\n        pi = self.progress.indicator\n        count = self.count\n        timepoint = self.timepoint\n\n        nbins = assignments_file.attrs['nbins'] + 1\n        assignments_ds = assignments_file['assignments']\n\n        iter_start, iter_stop = self.iter_range.iter_start, self.iter_range.iter_stop\n        iter_count = iter_stop - iter_start\n        h5io.check_iter_range_least(assignments_ds, iter_start, iter_stop)\n        nsegs = assignments_file['nsegs'][h5io.get_iteration_slice(assignments_file['nsegs'], iter_start, iter_stop)]\n\n        output_file.create_dataset('n_iter', dtype=n_iter_dtype, data=list(range(iter_start, iter_stop)))\n\n        seg_count_ds = output_file.create_dataset('nsegs', dtype=np.uint, shape=(iter_count, nbins))\n        matching_segs_ds = output_file.create_dataset(\n           'seg_ids',\n            shape=(iter_count, nbins, count),\n            dtype=seg_id_dtype,\n            chunks=h5io.calc_chunksize((iter_count, nbins, count), seg_id_dtype),\n            shuffle=True,\n            compression=9,\n        )\n        weights_ds = output_file.create_dataset(\n            'weights',\n            shape=(iter_count, nbins, count),\n            dtype=weight_dtype,\n            chunks=h5io.calc_chunksize((iter_count, nbins, count), weight_dtype),\n            shuffle=True,\n            compression=9,\n        )\n        what = self.what\n\n        with pi:\n            pi.new_operation('Finding matching segments', extent=iter_count)\n            for iiter, n_iter in enumerate(range(iter_start, iter_stop)):\n                assignments = np.require(\n                    assignments_ds[h5io.get_iteration_entry(assignments_ds, n_iter) + np.index_exp[:, timepoint]],\n                    dtype=westpa.core.binning.index_dtype,\n                )\n                all_weights = self.data_reader.get_iter_group(n_iter)['seg_index']['weight']\n\n         ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3600,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "825028bc4b0d2f48b7ef97dffa111b5da6822052e26c5e88043818417d28d573",
+        "request_id": "chatcmpl-Ej9JXLJXoGC0uWnOPpBsu7qkwd3p7",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 16,
+          "total_tokens": 173,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.840000000000001e-05,
+        "seconds": 0.9658308340003714,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "2b6c65cc81c8d8125e155e7bc4b488bd8d5bb4350051200db6b5b863c148bbe2",
+        "request_id": "chatcmpl-Ej9JYPIeery3XLVp2DP6Y4HYqduzO",
+        "usage": {
+          "prompt_tokens": 705,
+          "completion_tokens": 15,
+          "total_tokens": 720,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000306,
+        "seconds": 0.6595965000014985,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "745ee26bf7a6af2c2c4e83aeadaf6d9adfbcdc067fd153c1cb8397862ffd4cb4",
+        "request_id": "chatcmpl-Ej9JZKVaP7MPRWyBwafeD6sKX5sF8",
+        "usage": {
+          "prompt_tokens": 1707,
+          "completion_tokens": 15,
+          "total_tokens": 1722,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007068,
+        "seconds": 0.8497984580026241,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "aac071f5859ce17be800568b7912c7dbe10daeba317fd4db7c11534dc6c0b399",
+        "request_id": "chatcmpl-Ej9Jax2HpqA5Ob26vfUHDiOv2yqeD",
+        "usage": {
+          "prompt_tokens": 2551,
+          "completion_tokens": 15,
+          "total_tokens": 2566,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010444,
+        "seconds": 0.6396444589991006,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "2bc0045d3dd17544b3be217bee866042b4cf48de83619748893307737c45096d",
+        "request_id": "chatcmpl-Ej9Ja3pikLmhccniSzAFIbuluLikw",
+        "usage": {
+          "prompt_tokens": 2587,
+          "completion_tokens": 15,
+          "total_tokens": 2602,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010588,
+        "seconds": 0.6518913749969215,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "17d27020436c0c6a9ef9136b4386ae41324bbce4fe414ac51216fa5bbae3352d",
+        "request_id": "chatcmpl-Ej9JbUj7CM0tOTnuK7bUmbd3hOmdE",
+        "usage": {
+          "prompt_tokens": 2623,
+          "completion_tokens": 15,
+          "total_tokens": 2638,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010732,
+        "seconds": 0.8317940419947263,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "0a8bfa55340872d0aa138f87d437dc50a2e29ebcdc7a3871f9b34e39f9f47aad",
+        "request_id": "chatcmpl-Ej9JcGCEpYqY3qBOjZLl0K1tRGnwF",
+        "usage": {
+          "prompt_tokens": 1526,
+          "completion_tokens": 715,
+          "total_tokens": 2241,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0017544000000000001,
+        "seconds": 5.073681583999132,
+        "retry_count": 0
+      }
+    ]
+  }
+}

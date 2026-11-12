@@ -1,0 +1,93 @@
+filenode — Simulating a Filesystem with PyTables
+===============================================
+
+Overview
+--------
+
+The `filenode` module provides functionality to simulate a filesystem within a PyTables file by storing and retrieving file contents as filenodes. This allows users to embed arbitrary files inside an HDF5 container, enabling hierarchical organization and efficient storage with compression and filters.
+
+Key Functions
+-------------
+
+save_to_filenode(h5file, filename, where, name=None, overwrite=False, title="", filters=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Save a file's contents to a filenode inside a PyTables file.
+
+.. versionadded:: 3.2
+
+**Parameters**
+
+- **h5file**  
+  The PyTables file to be written to; can be either a string giving the file's location or a :class:`File` object. If a file with name *h5file* already exists, it will be opened in mode ``a``.
+
+- **filename**  
+  Path of the file which shall be stored within the PyTables file.
+
+- **where, name**  
+  Location of the filenode where the data shall be stored. If *name* is not given, and *where* is either a :class:`Group` object or a string ending on ``/``, the leaf name will be set to the file name of *filename*. The *name* will be sanitized to adhere to Python's naming conventions; the original filename is preserved in the filenode's *_filename* attribute.
+
+- **overwrite**  
+  Whether or not a possibly existing filenode of the specified name shall be overwritten.
+
+- **title**  
+  A description for this node (sets the ``TITLE`` HDF5 attribute on disk).
+
+- **filters**  
+  An instance of the :class:`Filters` class that provides information about the desired I/O filters to be applied during the life of this object.
+
+**Behavior**
+
+- Checks that the source file is readable.
+- Opens or creates the PyTables file in append mode.
+- Determines the filenode name if not provided.
+- Sanitizes the filenode name to be a valid Python identifier.
+- Checks for existing filenode and handles overwriting.
+- Reads the file contents and writes them into a new filenode.
+- Stores the original filename in the filenode's attributes.
+- Closes the filenode and the PyTables file if it was newly opened.
+
+read_from_filenode(h5file, filename, where, name=None, overwrite=False, create_target=False)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Read a filenode from a PyTables file and write its contents to a file.
+
+.. versionadded:: 3.2
+
+**Parameters**
+
+- **h5file**  
+  The PyTables file to be read from; can be either a string giving the file's location or a :class:`File` object.
+
+- **filename**  
+  Path of the file where the contents of the filenode shall be written to. If *filename* points to a directory or ends with a path separator, the filename will be set to the *_filename* attribute (if present; otherwise the *name*) of the read filenode.
+
+- **where, name**  
+  Location of the filenode where the data shall be read from. If no node *name* can be found at *where*, the first node at *where* whose *_filename* attribute matches *name* will be read.
+
+- **overwrite**  
+  Whether or not a possibly existing file of the specified *filename* shall be overwritten.
+
+- **create_target**  
+  Whether or not the folder hierarchy needed to accommodate the given target *filename* will be created.
+
+**Behavior**
+
+- Opens the PyTables file in read mode.
+- Attempts to locate the specified filenode by name or by matching the *_filename* attribute.
+- Determines the output filename, adjusting if the target is a directory.
+- Checks for existing output file and handles overwriting.
+- Creates target directories if requested.
+- Reads the filenode data and writes it to the output file.
+- Closes the filenode and the PyTables file if it was newly opened.
+
+Usage Notes
+-----------
+
+- Filenodes are stored as extendable arrays (EArrays) within the PyTables file.
+- The original filename is preserved in the filenode's attributes under *_filename*.
+- Filenode names are sanitized to be valid Python identifiers to ensure compatibility.
+- Overwriting existing filenodes or files is controlled via the *overwrite* parameter.
+- The module supports applying compression and other I/O filters through the *filters* parameter when saving files.
+
+This approach enables embedding arbitrary files inside an HDF5 container, effectively simulating a filesystem hierarchy within a PyTables file. It is useful for bundling related data and files together in a single, portable archive with the benefits of HDF5's performance and features.

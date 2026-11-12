@@ -1,0 +1,391 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Scheduling Policies\n===================\n\nDask's distributed scheduler employs various policies to determine the preference of tasks and workers during scheduling. These policies guide the scheduler in selecting which tasks to execute next and which workers to assign them to, optimizing for efficiency, resource utilization, and task priorities.\n\nTask Preference Policies\n------------------------\n\nEach task in the scheduler is associated with a priority attribute, which is generally a tuple of values used to rank tasks for execution. The priority tuple typically consists of two elements:\n\n1. **Submission Time**: The first and dominant element corresponds to when the task was submitted. Tasks submitted earlier generally take precedence over later ones.\n\n2. **Client-Determined Priority**: The second element is determined by the client and allows prioritization within a large task graph. This can be used to emphasize tasks on the critical path or those that help release many dependencies quickly.\n\nThis ranking mechanism ensures that tasks critical to the overall computation or those submitted earlier are favored during scheduling.\n\nTask Dependencies and States\n----------------------------\n\nTasks maintain several sets that track their dependencies and dependents:\n\n- **dependencies**: The set of tasks that the current task depends on for execution. Only tasks still alive are included. A task can only execute once all its dependencies have completed successfully and their results are available on at least one worker.\n\n- **dependents**: The set of tasks that depend on the current task. This is the reverse mapping of `dependencies`.\n\n- **waiting_on**: A subset of `dependencies` representing tasks that the current task is still waiting to complete before it can execute. As dependencies finish, they are removed from this set.\n\n- **waiters**: A subset of `dependents` representing tasks that require the current task to remain alive. As dependents finish, they are removed from this set.\n\n- **who_wants**: The set of clients that want the result of this task to remain alive. This is the reverse mapping of `ClientState.wants_what`.\n\n- **who_has**: The set of workers that currently hold the result of this task in memory. This set is non-empty only if the task is in the \"memory\" state.\n\nAdditionally, tasks track whether they have lost dependencies (e.g., if a dependency was forgotten for memory reasons) via the `has_lost_dependencies` flag. Tasks with lost dependencies cannot proceed to processing.\n\nWorker Preference Policies\n--------------------------\n\nThe scheduler also manages worker states and employs policies to retire or close workers gracefully based on workload and resource management considerations. For example, the `RetireWorker` policy is used to retire workers by transitioning their status to `closing_gracefully` and coordinating the shutdown process to avoid race conditions.\n\nAdaptive scheduling mechanisms use workload metrics such as the number of running tasks and memory usage to determine the desired number of workers dynamically. The `adaptive_target` method computes this target based on a specified desired computation duration, helping the scheduler scale resources up or down accordingly.\n\nRetry and Failure Handling\n--------------------------\n\nTasks have a `retries` attribute indicating how many times they can be retried upon failure. If a task fails during execution:\n\n- If `retries` is zero, the task is marked as \"erred\".\n\n- If `retries` is greater than zero, it is decremented, and the task execution is attempted again.\n\nThis mechanism ensures robustness in the face of transient failures.\n\nSummary\n-------\n\nDask's scheduling policies combine task priority ranking, dependency tracking, worker state management, and adaptive resource scaling to efficiently orchestrate distributed computations. These policies ensure that critical tasks are prioritized, dependencies are respected, workers are utilized effectively, and the system adapts to changing workloads dynamically.",
+  "prediction_sha256": "247ef17d285cbdcc107549aa818b8e7e93c7d339cccffb33559c262cba7011bf",
+  "prompt_sha256": "389f03d7ed8aef2a47f8053883c54ef10d929c0524c841b5aaa120cc6c961286",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15025,
+    "completion_tokens": 840,
+    "total_tokens": 15865
+  },
+  "cost_usd": 0.007354,
+  "generation_seconds": 12.692306833007024,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "scheduling policies"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 40089,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This",
+              "code_tokens": 300,
+              "score": 9.738457187068
+            },
+            {
+              "chunk_id": 350,
+              "start_char": 254421,
+              "end_char": 254942,
+              "code": " self.workers_to_close(**kwargs)\n                }\n            if not wss:\n                return {}\n\n            stop_amm = False\n            amm: ActiveMemoryManagerExtension | None = self.extensions.get(\"amm\")\n            if not amm or not amm.running:\n                amm = ActiveMemoryManagerExtension(\n                    self, policies=set(), register=False, start=True, interval=2.0\n                )\n                stop_amm = True\n\n            try:\n                coros = []\n                for ws in wss:\n    ",
+              "code_tokens": 300,
+              "score": 5.459570695458
+            },
+            {
+              "chunk_id": 404,
+              "start_char": 292267,
+              "end_char": 292980,
+              "code": "        assert self.idle_since\n                logger.info(\n                    \"Scheduler closing after being idle for %s\",\n                    format_time(self.idle_timeout),\n                )\n                self._ongoing_background_tasks.call_soon(self.close)\n        return self.idle_since\n\n    def adaptive_target(self, target_duration=None):\n        \"\"\"Desired number of workers based on the current workload\n\n        This looks at the current running tasks and memory use, and returns a\n        number of desired workers.  This is often used by adaptive scheduling.\n\n        Parameters\n        ----------\n        target_duration : str\n            A desired duration of time for computations to take.  This",
+              "code_tokens": 300,
+              "score": 4.797681169449
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "Scheduling Policy"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 40089,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This",
+              "code_tokens": 300,
+              "score": 9.123758175904
+            },
+            {
+              "chunk_id": 350,
+              "start_char": 254421,
+              "end_char": 254942,
+              "code": " self.workers_to_close(**kwargs)\n                }\n            if not wss:\n                return {}\n\n            stop_amm = False\n            amm: ActiveMemoryManagerExtension | None = self.extensions.get(\"amm\")\n            if not amm or not amm.running:\n                amm = ActiveMemoryManagerExtension(\n                    self, policies=set(), register=False, start=True, interval=2.0\n                )\n                stop_amm = True\n\n            try:\n                coros = []\n                for ws in wss:\n    ",
+              "code_tokens": 300,
+              "score": 7.220296128121
+            },
+            {
+              "chunk_id": 351,
+              "start_char": 255024,
+              "end_char": 255610,
+              "code": " policy = RetireWorker(ws.address)\n                    amm.add_policy(policy)\n\n                    # Change Worker.status to closing_gracefully. Immediately set\n                    # the same on the scheduler to prevent race conditions.\n                    prev_status = ws.status\n                    self.handle_worker_status_change(\n                        Status.closing_gracefully, ws, stimulus_id\n                    )\n                    # FIXME: We should send a message to the nanny first;\n                    # eventually workers won't be able to close their own nannies.\n     ",
+              "code_tokens": 300,
+              "score": 7.199481334295
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 45
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 43711,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This\n    #: is tracked by progressively draining the :attr:`waiting_on` set.\n    dependencies: set[TaskState]\n\n    #: The set of tasks which depend on this task.  Only tasks still alive are listed in\n    #: this set. This is the reverse mapping of :attr:`dependencies`.\n    dependents: set[TaskState]\n\n    #: Whether any of the dependencies of this task has been forgotten. For memory\n    #: consumption reasons, forgotten tasks are not kept in memory even though they may\n    #: have dependent tasks.  When a task is forgotten, therefore, each of its\n    #: dependents has their :attr:`has_lost_dependencies` attribute set to ``True``.\n    #:\n    #: If :attr:`has_lost_dependencies` is true, this task cannot go into the\n    #: \"processing\" state anymore.\n    has_lost_dependencies: bool\n\n    #: The set of tasks this task is waiting on *before* it can be executed. This is\n    #: always a subset of :attr:`dependencies`.  Each time one of the dependencies has\n    #: finished processing, it is removed from the :attr:`waiting_on` set.\n    #:\n    #: Once :attr:`waiting_on` becomes empty, this task can move from the \"waiting\"\n    #: state to the \"processing\" state (unless one of the dependencies errored out, in\n    #: which case this task is instead marked \"erred\").\n    waiting_on: set[TaskState]\n\n    #: The set of tasks which need this task to remain alive.  This is always a subset\n    #: of :attr:`dependents`.  Each time one of the dependents has finished processing,\n    #: it is removed from the :attr:`waiters` set.\n    #:\n    #: Once both :attr:`waiters` and :attr:`who_wants` become empty, this task can be\n    #: released (if it has a non-empty :attr:`run_spec`) or forgotten (otherwise) by the\n    #: scheduler, and by any workers in :attr:`who_has`.\n    #:\n    #: .. note::\n    #:    Counter-intuitively, :attr:`waiting_on` and :attr:`waiters` are not reverse\n    #:    mappings of each other.\n    waiters: set[TaskState]\n\n    #: The set of clients who want the result of this task to remain alive.\n    #: This is the reverse mapping of :attr:`ClientState.wants_what`.\n    #:\n    #: When a client submits a graph to the scheduler it also specifies which output\n    #: tasks it desires, such that their results are not released from memory.\n    #:\n    #: Once a task has finished executing (i.e. moves into the \"memory\" or \"erred\"\n    #: state), the clients in :attr:`who_wants` are notified.\n    #:\n    #: Once both :attr:`waiters` and :attr:`who_wants` become empty, this task can be\n    #: released (if it has a non-empty :attr:`run_spec`) or forgotten (otherwise) by the\n    #: scheduler, and by any workers in :attr:`who_has`.\n    who_wants: set[ClientState]\n\n    #: The set of workers who have this task's result in memory. It is non-empty iff the\n    #: task is in the \"memory\" state.  There can be more than one worker in this set if,\n    #: for example, :meth:`Client.scatter` or :meth:`Client.replicate` was used.\n    #:\n    #: This is the reverse mapping of :attr:`WorkerState.has_what`.\n    who_has: set[WorkerState]\n\n    #: If this task is in the \"processing\" state, which worker is currently processing\n    #: it. This attribute is kept in sync with :attr:`WorkerState.processing`.\n    processing_on: WorkerState | None\n\n    #: The number of times this task can automatically be retried in case of failure.\n    #: If a task fails executing (the worker returns with an error), its :attr:`retries`\n    #: attribute is checked. If it is equal to 0, the task is marked \"erred\". If it is\n    #: greater than 0, the :attr:`retries` attribute is decremented and execution is\n    #: attempted again.\n   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "scheduling policy tasks workers"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 40089,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This",
+              "code_tokens": 300,
+              "score": 10.652240194244
+            },
+            {
+              "chunk_id": 354,
+              "start_char": 256765,
+              "end_char": 257404,
+              "code": ".log_event(\"all\", {\"action\": \"retire-workers\", \"workers\": workers_info})\n        self.log_event(list(workers_info), {\"action\": \"retired\"})\n\n        return workers_info\n\n    async def _track_retire_worker(\n        self,\n        ws: WorkerState,\n        policy: RetireWorker,\n        prev_status: Status,\n        close: bool,\n        remove: bool,\n        stimulus_id: str,\n    ) -> tuple:  # tuple[str | None, dict]\n        while not policy.done():\n            # Sleep 0.01s when there are 4 tasks or less\n            # Sleep 0.5s when there are 200 or more\n            poll_interval = max(0.01, min(0.5, len(ws.has_what) / 400))\n          ",
+              "code_tokens": 300,
+              "score": 8.823036779172
+            },
+            {
+              "chunk_id": 350,
+              "start_char": 254421,
+              "end_char": 254942,
+              "code": " self.workers_to_close(**kwargs)\n                }\n            if not wss:\n                return {}\n\n            stop_amm = False\n            amm: ActiveMemoryManagerExtension | None = self.extensions.get(\"amm\")\n            if not amm or not amm.running:\n                amm = ActiveMemoryManagerExtension(\n                    self, policies=set(), register=False, start=True, interval=2.0\n                )\n                stop_amm = True\n\n            try:\n                coros = []\n                for ws in wss:\n    ",
+              "code_tokens": 300,
+              "score": 8.182304126527
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "scheduling policy preference tasks workers"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 40089,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This",
+              "code_tokens": 300,
+              "score": 10.652240194244
+            },
+            {
+              "chunk_id": 354,
+              "start_char": 256765,
+              "end_char": 257404,
+              "code": ".log_event(\"all\", {\"action\": \"retire-workers\", \"workers\": workers_info})\n        self.log_event(list(workers_info), {\"action\": \"retired\"})\n\n        return workers_info\n\n    async def _track_retire_worker(\n        self,\n        ws: WorkerState,\n        policy: RetireWorker,\n        prev_status: Status,\n        close: bool,\n        remove: bool,\n        stimulus_id: str,\n    ) -> tuple:  # tuple[str | None, dict]\n        while not policy.done():\n            # Sleep 0.01s when there are 4 tasks or less\n            # Sleep 0.5s when there are 200 or more\n            poll_interval = max(0.01, min(0.5, len(ws.has_what) / 400))\n          ",
+              "code_tokens": 300,
+              "score": 8.823036779172
+            },
+            {
+              "chunk_id": 350,
+              "start_char": 254421,
+              "end_char": 254942,
+              "code": " self.workers_to_close(**kwargs)\n                }\n            if not wss:\n                return {}\n\n            stop_amm = False\n            amm: ActiveMemoryManagerExtension | None = self.extensions.get(\"amm\")\n            if not amm or not amm.running:\n                amm = ActiveMemoryManagerExtension(\n                    self, policies=set(), register=False, start=True, interval=2.0\n                )\n                stop_amm = True\n\n            try:\n                coros = []\n                for ws in wss:\n    ",
+              "code_tokens": 300,
+              "score": 8.182304126527
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "SchedulingPolicy"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 45,
+              "start_char": 39033,
+              "end_char": 40089,
+              "code": " considered for execution.\n    #:\n    #: This ranking is generally a 2-item tuple.  The first (and dominant) item\n    #: corresponds to when it was submitted.  Generally, earlier tasks take precedence.\n    #: The second item is determined by the client, and is a way to prioritize tasks\n    #: within a large graph that may be important, such as if they are on the critical\n    #: path, or good to run in order to release many dependencies.  This is explained\n    #: further in :doc:`Scheduling Policy <scheduling-policies>`.\n    priority: tuple[float, ...] | None\n\n    # Attribute underlying the state property\n    _state: TaskStateState\n\n    #: The set of tasks this task depends on for proper execution. Only tasks still\n    #: alive are listed in this set. If, for whatever reason, this task also depends on\n    #: a forgotten task, the :attr:`has_lost_dependencies` flag is set.\n    #:\n    #: A task can only be executed once all its dependencies have already been\n    #: successfully executed and have their result stored on at least one worker. This",
+              "code_tokens": 300,
+              "score": 9.123758175904
+            },
+            {
+              "chunk_id": 350,
+              "start_char": 254421,
+              "end_char": 254942,
+              "code": " self.workers_to_close(**kwargs)\n                }\n            if not wss:\n                return {}\n\n            stop_amm = False\n            amm: ActiveMemoryManagerExtension | None = self.extensions.get(\"amm\")\n            if not amm or not amm.running:\n                amm = ActiveMemoryManagerExtension(\n                    self, policies=set(), register=False, start=True, interval=2.0\n                )\n                stop_amm = True\n\n            try:\n                coros = []\n                for ws in wss:\n    ",
+              "code_tokens": 300,
+              "score": 7.220296128121
+            },
+            {
+              "chunk_id": 351,
+              "start_char": 255024,
+              "end_char": 255610,
+              "code": " policy = RetireWorker(ws.address)\n                    amm.add_policy(policy)\n\n                    # Change Worker.status to closing_gracefully. Immediately set\n                    # the same on the scheduler to prevent race conditions.\n                    prev_status = ws.status\n                    self.handle_worker_status_change(\n                        Status.closing_gracefully, ws, stimulus_id\n                    )\n                    # FIXME: We should send a message to the nanny first;\n                    # eventually workers won't be able to close their own nannies.\n     ",
+              "code_tokens": 300,
+              "score": 7.199481334295
+            }
+          ],
+          "code_tokens": 900
+        }
+      }
+    ],
+    "code_tokens_returned": 6000,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "8c7ceed8150140fbb12e01bcd0664ef68492f025f3764a4002a9f314cdc1fec5",
+        "request_id": "chatcmpl-Ej9lvO29HjE2PGOIIp21Qr9XrqFo5",
+        "usage": {
+          "prompt_tokens": 177,
+          "completion_tokens": 16,
+          "total_tokens": 193,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9.640000000000001e-05,
+        "seconds": 0.6667342920045485,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "0b1d89fa0f8496d8053755414873c08f5ac7cf871c7965678ac4bf2d8938372b",
+        "request_id": "chatcmpl-Ej9lwof9xQFWqjMVXVHuJMF5FOVnd",
+        "usage": {
+          "prompt_tokens": 869,
+          "completion_tokens": 15,
+          "total_tokens": 884,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00037160000000000003,
+        "seconds": 0.7336122920023627,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "4dc8444d3709aac5baf8ffd6d2eb9c54a9654633fe5fd04954593563c58b363f",
+        "request_id": "chatcmpl-Ej9lycMdjZwWE8DCf8RZfM5UfAEg2",
+        "usage": {
+          "prompt_tokens": 1521,
+          "completion_tokens": 15,
+          "total_tokens": 1536,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006324,
+        "seconds": 2.091965874999005,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "db12d7bfc1f7109e9fcdf430f05c637e7e3154b22abb56122b63046453137070",
+        "request_id": "chatcmpl-Ej9lzlt3uMWTMYXaRUS4j2wP2Yy10",
+        "usage": {
+          "prompt_tokens": 2821,
+          "completion_tokens": 18,
+          "total_tokens": 2839,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0011572,
+        "seconds": 0.6793862500053365,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "e89ba825d99181c978c1dc0bdb0dc70faa41a046873cc1a07199996c505810b7",
+        "request_id": "chatcmpl-Ej9lzUKV3hs2STcOcPwMw16nXbONF",
+        "usage": {
+          "prompt_tokens": 3558,
+          "completion_tokens": 19,
+          "total_tokens": 3577,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014536000000000002,
+        "seconds": 1.144720790995052,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "c5be666f8e5f0a06fb49cf245f3e1a0de8dbd91d11337c26c6dc1fc58331c00b",
+        "request_id": "chatcmpl-Ej9m0CKKQsNX0ospFW8EJlIizwMqK",
+        "usage": {
+          "prompt_tokens": 4296,
+          "completion_tokens": 15,
+          "total_tokens": 4311,
+          "prompt_tokens_details": {
+            "cached_tokens": 2688,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0017424,
+        "seconds": 0.6727023749990622,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "160d0484091ff8824ecb8d5ceea6edab1fed97f8feb9fb06879103457d923e8c",
+        "request_id": "chatcmpl-Ej9m3viHOKAQTihnsjoOYeVVKiONu",
+        "usage": {
+          "prompt_tokens": 1783,
+          "completion_tokens": 742,
+          "total_tokens": 2525,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0019004,
+        "seconds": 6.703184958001657,
+        "retry_count": 0
+      }
+    ]
+  }
+}

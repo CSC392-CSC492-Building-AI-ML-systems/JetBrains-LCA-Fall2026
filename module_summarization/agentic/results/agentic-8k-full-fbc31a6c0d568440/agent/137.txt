@@ -1,0 +1,112 @@
+ImPACT: Image Pixel-wise fit for Atmospheric Cherenkov Telescopes
+==================================================================
+
+Overview
+--------
+
+ImPACT (Image Pixel-wise fit for Atmospheric Cherenkov Telescopes) is a Monte Carlo template-based image fitting method designed for reconstructing the properties of atmospheric showers detected by Cherenkov telescopes. This method performs a maximum likelihood fit comparing observed camera images to a library of predicted image templates, enabling precise estimation of the shower axis, energy, and height of shower maximum.
+
+The ImPACT reconstruction technique is computationally intensive and therefore uses fixed units internally to optimize performance:
+
+- Angular units are in radians
+- Distance units are in metres
+- Energy units are in TeV
+
+References
+----------
+
+- Parsons & Hinton, Astroparticle Physics 56 (2014), pp. 26-34 [parsons14]
+
+Key Features
+------------
+
+- Uses a library of image templates for different telescope types to predict expected camera images.
+- Performs maximum likelihood fitting to reconstruct shower parameters.
+- Incorporates priors on energy and shower maximum depth to guide the fit.
+- Supports multiple telescope camera types including LSTCam, NectarCam, FlashCam, and CHEC.
+- Accounts for pedestal noise and single photoelectron distribution widths in likelihood calculations.
+- Provides flexibility to include or exclude time gradient information in the fit.
+- Converts between different coordinate frames (Horizon, Ground, Tilted Ground, Nominal) for accurate geometry handling.
+- Uses atmospheric profile functions to convert height above ground to depth of shower maximum.
+
+Usage
+-----
+
+### Initialization
+
+Create an instance of the `ImPACTReconstructor` class, specifying optional parameters such as the root directory for templates, minimiser choice, prior settings, template scaling, and whether to use time gradient information:
+
+```python
+reconstructor = ImPACTReconstructor(
+    root_dir=".",
+    minimiser="minuit",
+    prior="",
+    template_scale=1.0,
+    xmax_offset=0,
+    use_time_gradient=False,
+)
+```
+
+### Template Initialization
+
+Before processing events, initialize the image templates for the telescope type:
+
+```python
+reconstructor.initialise_templates(tel_type)
+```
+
+### Prediction and Fitting
+
+To reconstruct shower parameters, use the `predict` method with seed values for shower geometry and energy:
+
+```python
+reconstructed_shower, reconstructed_energy = reconstructor.predict(shower_seed, energy_seed)
+```
+
+- `shower_seed`: Initial guess of shower geometry (e.g., direction, core position).
+- `energy_seed`: Initial guess of shower energy.
+
+The method performs a maximum likelihood fit to find the best shower parameters matching the observed images.
+
+Internal Details
+----------------
+
+- **Pedestal Noise and SPE Widths:** The likelihood calculation incorporates pedestal noise widths specific to each camera type, hardcoded as:
+
+  | Camera Type | Pedestal Width (p.e.) |
+  |-------------|----------------------|
+  | LSTCam      | 2.8                  |
+  | NectarCam   | 2.3                  |
+  | FlashCam    | 2.3                  |
+  | CHEC        | 0.5                  |
+  | DUMMY       | 0                    |
+
+  The single photoelectron (SPE) distribution width is fixed at 0.5 p.e.
+
+- **Atmospheric Profiles:** Atmospheric depth and altitude profiles are obtained from CORSIKA simulations for the Paranal site, enabling conversion between height above ground and atmospheric depth.
+
+- **Coordinate Frames:** The reconstruction uses several coordinate frames:
+
+  - **Nominal Frame:** Defined relative to the array pointing direction.
+  - **Horizon Frame (AltAz):** Standard astronomical altitude-azimuth frame.
+  - **Ground Frame:** Cartesian coordinates on the ground plane.
+  - **Tilted Ground Frame:** Ground frame rotated to align with the array pointing direction.
+
+- **Priors:** Priors on energy and shower maximum depth are applied to constrain the fit:
+
+  - Energy prior favors a power-law distribution.
+  - Shower maximum prior is based on expected depth as a function of energy.
+
+- **Likelihood Minimisation:** The fit is performed using a minimiser (default "minuit") that adjusts parameters to maximize the likelihood of the observed images given the templates.
+
+Notes
+-----
+
+- The method currently does not use Astropy units internally for performance reasons; all inputs and outputs are expected in the fixed units described above.
+- The template files are stored in compressed formats and loaded as needed.
+- The implementation supports resetting internal interpolators between events to avoid contamination from previous fits.
+
+Conclusion
+----------
+
+ImPACT provides a robust and precise method for reconstructing atmospheric shower parameters from Cherenkov telescope images by leveraging detailed Monte Carlo image templates and maximum likelihood fitting. Its design balances computational efficiency with physical accuracy, making it suitable for high-precision gamma-ray astronomy analyses.

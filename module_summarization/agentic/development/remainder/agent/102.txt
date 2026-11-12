@@ -1,0 +1,106 @@
+Generate Documentation for autowrap Module
+===========================================
+
+Overview
+--------
+
+The `autowrap` module provides functionality to automatically generate and compile numerical functions from Diofant expressions. It supports wrapping expressions into callable functions in various programming languages and backends, facilitating efficient numerical evaluation.
+
+Key Features
+------------
+
+- **Automatic Wrapping of Expressions**: Convert Diofant expressions into compiled functions callable from Python.
+- **Helper Functions Support**: Allows specifying helper routines that the main expression depends on.
+- **Binary Function Generation**: Create Diofant function objects with compiled binary implementations.
+- **Ufuncify Support**: Generate NumPy universal functions (ufuncs) from Diofant expressions for element-wise operations on arrays.
+
+Usage
+-----
+
+### autowrap(expr, args=(), backend=None, language=None, helpers=(), flags=None, tempdir=None, verbose=False)
+
+Wraps a Diofant expression `expr` into a compiled function.
+
+- **Parameters**:
+  - `expr`: Diofant expression to be wrapped.
+  - `args`: Iterable of arguments for the function.
+  - `backend`: Backend to use for code generation and compilation.
+  - `language`: Programming language for the generated code.
+  - `helpers`: Iterable of helper routines required by the main expression. Each helper should be a tuple `(function_name, diofant_expression, arguments)`.
+  - `flags`: Compilation flags.
+  - `tempdir`: Temporary directory for generated files.
+  - `verbose`: Enable verbose output.
+
+- **Returns**: A callable compiled function corresponding to the expression.
+
+- **Details**:
+  - Helper functions must be specified in the `helpers` iterable. Autowrap ensures that the compiled main expression links to these helper routines.
+  - Each helper tuple must include the function name, the Diofant expression it implements, and the argument sequence.
+  - The function handles missing output arguments by appending them to the argument list if necessary.
+
+- **Example**:
+
+  ```python
+  >>> expr = ((x - y + z)**13).expand()
+  >>> binary_func = autowrap(expr)
+  >>> binary_func(1, 4, 2)
+  -1.0
+  ```
+
+### binary_function(symfunc, expr, **kwargs)
+
+Creates a Diofant function object with a compiled binary implementation of the given expression.
+
+- **Parameters**:
+  - `symfunc`: Name of the symbolic function.
+  - `expr`: Diofant expression representing the function implementation.
+  - `**kwargs`: Additional keyword arguments passed to `autowrap`.
+
+- **Returns**: A Diofant `UndefinedFunction` object with the compiled implementation attached.
+
+- **Details**:
+  - Automates the process of wrapping the expression and associating it with a Diofant function.
+  - Requires `f2py` and `gfortran` executables and `numpy` module for compilation and linking.
+
+- **Example**:
+
+  ```python
+  >>> expr = ((x - y)**25).expand()
+  >>> f = binary_function('f', expr)
+  >>> type(f)
+  <class 'diofant.core.function.UndefinedFunction'>
+  >>> 2*f(x, y)
+  2*f(x, y)
+  >>> f(x, y).evalf(2, subs={x: 1, y: 2})
+  -1.0
+  ```
+
+Ufuncify Support
+----------------
+
+The module includes templates and classes to generate NumPy ufuncs from Diofant expressions, enabling efficient element-wise operations on arrays.
+
+- **Templates**:
+  - `_ufunc_top`, `_ufunc_body`, `_ufunc_bottom`: C code templates for ufunc implementation.
+  - `_ufunc_init_form`: Template for ufunc initialization in the Python module.
+  - `_ufunc_setup`: Setup script template for building the ufunc extension module.
+
+- **UfuncifyCodeWrapper**:
+  - A specialized `CodeWrapper` subclass for building and wrapping ufuncs.
+  - Uses `setup.py` with setuptools to compile the extension module in place.
+
+Implementation Details
+----------------------
+
+- The main expression and helper routines are compiled separately and linked together.
+- Helper routines are specified as tuples `(function_name, diofant_expression, arguments)` and are processed to generate callable functions.
+- The code generation backend and language can be inferred or explicitly specified.
+- Compilation flags and temporary directories can be customized.
+- The module handles argument list errors by appending missing output arguments automatically.
+- The `binary_function` utility simplifies creating Diofant functions with compiled implementations.
+- Ufunc generation leverages NumPy C API and setuptools for building extension modules.
+
+Summary
+-------
+
+The `autowrap` module streamlines the process of converting symbolic Diofant expressions into efficient, compiled numerical functions. It supports complex expressions with helper routines, provides utilities for creating Diofant function objects with compiled binaries, and enables generation of NumPy ufuncs for high-performance array computations. This makes it a powerful tool for bridging symbolic mathematics and numerical computation in Python.

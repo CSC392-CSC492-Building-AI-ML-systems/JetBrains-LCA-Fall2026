@@ -1,0 +1,67 @@
+Less Frequently Used FITS Data Structures
+=========================================
+
+This section provides documentation on some of the less frequently used data structures encountered in FITS (Flexible Image Transport System) files. While the most common FITS data structures include Primary HDUs and Image HDUs, there are additional specialized structures that are useful in particular contexts.
+
+Column Definitions and Table HDUs
+---------------------------------
+
+FITS supports table data structures through the use of columns, which are defined using `Column` or `ColDefs` objects. These columns can be used to create binary or ASCII tables within FITS files.
+
+- **Columns Parameter**  
+  The `columns` parameter accepts a sequence of `Column` or `ColDefs`-like objects. It can also accept objects with a column-like structure from which a `ColDefs` can be instantiated. Examples include existing `BinTableHDU` or `TableHDU` objects, or a `numpy.recarray`.
+
+- **Data Initialization**  
+  If the columns have data arrays attached, that data may be used to initialize the new table. Otherwise, the input columns serve as a template for creating a new table with the requested number of rows.
+
+- **Header Parameter**  
+  An optional `Header` object can be provided to instantiate the new HDU. Header keywords specifically related to defining the table structure can be included here.
+
+Handling of TDIM and TFORM Keywords
+-----------------------------------
+
+In FITS binary tables, the `TDIMn` keyword specifies the dimensionality of the data in the nth column, while the `TFORMn` keyword specifies the data format and repeat count.
+
+- Normally, the product of the dimensions listed in a `TDIMn` keyword must be less than or equal to the repeat count in the corresponding `TFORMn` keyword.
+- If the product is less than the repeat count, the trailing bytes are treated as unspecified fill values.
+- This allows for some flexibility in defining array columns where the actual data may not fill the entire allocated space.
+
+Card Objects and Keyword Handling
+--------------------------------
+
+FITS headers consist of cards, each representing a keyword-value-comment triplet.
+
+- **Card Construction**  
+  The `Card` constructor validates its inputs and raises exceptions on illegal arguments, such as invalid data structures or incorrect types.
+
+- **Keyword Length**  
+  Long card keywords are allowed but will generate a warning to alert the user.
+
+- **Illegal Characters**  
+  Keywords containing illegal characters are not permitted and will raise warnings or errors.
+
+File Modes and HDUList Behavior
+-------------------------------
+
+When working with FITS files, the mode in which the file is opened affects how changes to the HDUList are handled.
+
+- **Append Mode**  
+  Opening a file in append mode allows adding new HDUs but does not permit modifying existing ones.
+
+- **Update Mode**  
+  Opening a file in update mode allows in-place modifications to existing HDUs, provided the changes do not alter the size structure of the HDUList. Changes are written back to the original file upon calling `flush()` or closing the file.
+
+- **Structural Changes**  
+  If changes affect the size structure (e.g., adding or deleting HDUs, expanding or reducing headers beyond their original size), the file may need to be rewritten or handled differently to accommodate these changes.
+
+Data Access and Header Retrieval
+--------------------------------
+
+- The `getdata` function retrieves data from a specified HDU within a FITS file, optionally returning the header as well.
+- Additional keyword arguments can be passed to `astropy.io.fits.open` to control file opening behavior.
+- The function handles file modes and ensures proper closing of files after data retrieval.
+
+Summary
+-------
+
+While the primary FITS data structures cover most use cases, understanding these less frequently used structures and behaviors is important for advanced FITS file manipulation and interpretation. Proper handling of column definitions, table HDUs, card keywords, and file modes ensures robust and flexible FITS file operations.

@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Managers\n========\n\nThis module provides a set of classes designed to manage Ethereum transactions and requests, including synchronous and asynchronous request handling, transaction nonce management, and transaction signing using different strategies.\n\nManagerWrapper\n--------------\n\n`ManagerWrapper` is a wrapper class that delegates calls to an underlying manager instance. It exposes properties and methods to interact with the wrapped manager, including:\n\n- `provider`: Property to get the current provider from the wrapped manager.\n- `pending_requests`: Property to get the pending requests from the wrapped manager.\n- `setProvider(provider)`: Method to set the provider on the wrapped manager.\n- `request_blocking(*args, **kwargs)`: Delegates a blocking request to the wrapped manager.\n- `request_async(*args, **kwargs)`: Delegates an asynchronous request to the wrapped manager.\n- `receive_blocking(*args, **kwargs)`: Delegates receiving a blocking response.\n- `receive_async(*args, **kwargs)`: Delegates receiving an asynchronous response.\n\nBaseSendRawTransactionMixin\n----------------------------\n\n`BaseSendRawTransactionMixin` extends `ManagerWrapper` and adds functionality for managing raw Ethereum transactions, including tracking known transactions and nonces per address.\n\nKey attributes:\n- `_known_transactions`: A dictionary mapping addresses to sets of known transaction hashes.\n- `_known_nonces`: A dictionary mapping addresses to sets of known nonces.\n\nKey methods:\n- `_get_nonces_and_cleanup(addr, chain_nonce)`: Retrieves and cleans up known nonces and transactions for an address based on the current chain nonce.\n- `get_chain_nonce(addr)`: Retrieves the current nonce for an address from the blockchain (pending state).\n- `get_nonce(addr)`: Returns the next nonce to use for a transaction from the address, considering both chain nonce and tracked nonces.\n- `get_transaction_signature(serialized_txn)`: Abstract method to be implemented by subclasses to provide transaction signatures.\n- `sign_and_serialize_transaction(transaction)`: Serializes and signs a transaction, adding the signature to the serialized transaction.\n\nDelegatedSigningManager\n-----------------------\n\n`DelegatedSigningManager` inherits from `BaseSendRawTransactionMixin` and delegates signing operations to another signing manager.\n\nInitialization:\n- Requires a `signing_manager` keyword argument which handles the actual signing.\n\nKey methods:\n- `get_chain_nonce(addr)`: Returns the maximum nonce between the signing manager and the wrapped manager for the given address.\n- `get_transaction_signature(transaction)`: Serializes the transaction, obtains a hash to sign via `web3_sha3`, and requests the signature from the signing manager using `eth_sign`.\n\nPrivateKeySigningManager\n------------------------\n\n`PrivateKeySigningManager` inherits from `BaseSendRawTransactionMixin` and provides transaction signing using local private keys.\n\nInitialization:\n- Requires the `bitcoin` and `secp256k1` packages to be installed.\n- Accepts a dictionary of private keys via the `keys` keyword argument.\n\nKey methods:\n- `register_private_key(key)`: Registers a private key and associates it with the corresponding Ethereum address.\n- `sign_and_serialize_transaction(transaction)`: Signs the transaction locally using the registered private key for the transaction's `from` address. It constructs a `Transaction` object, signs it, and returns the RLP-encoded signed transaction.\n\nExceptions\n----------\n\n- `NotImplementedError` is raised in `receive_async` method of the base manager class and in `get_transaction_signature` method of `BaseSendRawTransactionMixin` to indicate that subclasses must implement these methods.\n- `ImportError` is raised by `PrivateKeySigningManager` if required dependencies are missing.\n- `KeyError` is raised by `PrivateKeySigningManager` if no private key is registered for the transaction sender address.\n\nUsage Summary\n-------------\n\nThese classes provide a flexible framework for managing Ethereum transactions, including sending raw transactions, managing nonces to avoid transaction conflicts, and signing transactions either by delegating to another manager or using local private keys. The `ManagerWrapper` class allows easy extension or modification of manager behavior by wrapping existing manager instances.",
+  "prediction_sha256": "ae27c6cee2a293b5251b3de93d1afa31c7b5217274d544ddb3c80c9a8fa29602",
+  "prompt_sha256": "544c7d576a5de82d83465050ccb612a2319470ff0660e106dc598bf0de1b2dee",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 6332,
+    "completion_tokens": 1381,
+    "total_tokens": 7713
+  },
+  "cost_usd": 0.004742400000000001,
+  "generation_seconds": 12.510662124004739,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "class Manager"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 9,
+              "start_char": 7063,
+              "end_char": 7678,
+              "code": "     self._known_transactions[to_address(txn['from'])].add(result)\n                if 'nonce' in txn:\n                    self._known_nonces[to_address(txn['from'])].add(\n                        to_decimal(txn['nonce'])\n                    )\n        return result\n\n\nclass DelegatedSigningManager(BaseSendRawTransactionMixin):\n    def __init__(self, *args, **kwargs):\n        self.signing_manager = kwargs.pop('signing_manager')\n        super(DelegatedSigningManager, self).__init__(*args, **kwargs)\n\n    def get_chain_nonce(self, addr):\n        signer_nonce = to_decimal(self.signing_manager.request_blocking(\n     ",
+              "code_tokens": 300,
+              "score": 2.490012298182
+            },
+            {
+              "chunk_id": 2,
+              "start_char": 1669,
+              "end_char": 2446,
+              "code": "      if timeout is not None:\n                timeout = gevent.Timeout(timeout).start()\n            response_raw = request.get(timeout=timeout)\n\n        response = json.loads(response_raw)\n\n        if \"error\" in response:\n            raise ValueError(response[\"error\"])\n\n        return response['result']\n\n    def receive_async(self, request_id, *args, **kwargs):\n        raise NotImplementedError(\"Callback pattern not implemented\")\n\n\nclass ManagerWrapper(object):\n    def __init__(self, wrapped_manager):\n        self.wrapped_manager = wrapped_manager\n\n    @property\n    def provider(self):\n        return self.wrapped_manager.provider\n\n    @property\n    def pending_requests(self):\n        return self.wrapped_manager.pending_requests\n\n    def setProvider(self, provider):\n ",
+              "code_tokens": 300,
+              "score": 2.437888490122
+            },
+            {
+              "chunk_id": 10,
+              "start_char": 7768,
+              "end_char": 8373,
+              "code": "_nonce = to_decimal(self.wrapped_manager.request_blocking(\n            'eth_getTransactionCount',\n            [addr, 'pending']\n        ))\n        return max(signer_nonce, wrapped_nonce)\n\n    def get_transaction_signature(self, transaction):\n        serialized_txn = serialize_transaction(transaction)\n        hash_to_sign = self.signing_manager.request_blocking(\n            'web3_sha3', [encode_hex(serialized_txn)],\n        )\n        signature_hex = self.signing_manager.request_blocking(\n            'eth_sign',\n            [\n                transaction['from'],\n                hash_to_sign,\n        ",
+              "code_tokens": 300,
+              "score": 2.338963683848
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 9
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 9,
+              "start_char": 7063,
+              "end_char": 9823,
+              "code": "     self._known_transactions[to_address(txn['from'])].add(result)\n                if 'nonce' in txn:\n                    self._known_nonces[to_address(txn['from'])].add(\n                        to_decimal(txn['nonce'])\n                    )\n        return result\n\n\nclass DelegatedSigningManager(BaseSendRawTransactionMixin):\n    def __init__(self, *args, **kwargs):\n        self.signing_manager = kwargs.pop('signing_manager')\n        super(DelegatedSigningManager, self).__init__(*args, **kwargs)\n\n    def get_chain_nonce(self, addr):\n        signer_nonce = to_decimal(self.signing_manager.request_blocking(\n            'eth_getTransactionCount',\n            [addr, 'pending']\n        ))\n        wrapped_nonce = to_decimal(self.wrapped_manager.request_blocking(\n            'eth_getTransactionCount',\n            [addr, 'pending']\n        ))\n        return max(signer_nonce, wrapped_nonce)\n\n    def get_transaction_signature(self, transaction):\n        serialized_txn = serialize_transaction(transaction)\n        hash_to_sign = self.signing_manager.request_blocking(\n            'web3_sha3', [encode_hex(serialized_txn)],\n        )\n        signature_hex = self.signing_manager.request_blocking(\n            'eth_sign',\n            [\n                transaction['from'],\n                hash_to_sign,\n            ],\n        )\n        signature = decode_hex(signature_hex)\n        return signature\n\n\nclass PrivateKeySigningManager(BaseSendRawTransactionMixin):\n    def __init__(self, *args, **kwargs):\n        if not is_bitcoin_available():\n            raise ImportError(\n                \"In order to use the `PrivateKeySigningManager` the \"\n                \"`bitcoin` and `secp256k1` packages must be installed.\"\n            )\n        self.keys = kwargs.pop('keys', {})\n        super(PrivateKeySigningManager, self).__init__(*args, **kwargs)\n\n    def register_private_key(self, key):\n        from bitcoin import privtopub\n        address = to_address(sha3(privtopub(key)[1:])[-40:])\n        self.keys[address] = key\n\n    def sign_and_serialize_transaction(self, transaction):\n        txn_from = to_address(transaction['from'])\n        if txn_from not in self.keys:\n            raise KeyError(\"No signing key registered for from address: {0}\".format(txn_from))\n        transaction = Transaction(\n            nonce=to_decimal(transaction['nonce']),\n            gasprice=to_decimal(transaction['gasPrice']),\n            startgas=to_decimal(transaction['gas']),\n            to=transaction['to'],\n            value=to_decimal(transaction['value']),\n            data=decode_hex(transaction['data']),\n        )\n        transaction.sign(self.keys[txn_from])\n        assert to_address(transaction.sender) == txn_from\n        return rlp.encode(transaction, Transaction)",
+              "code_tokens": 1293
+            }
+          ],
+          "code_tokens": 1293
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 2
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 1669,
+              "end_char": 5052,
+              "code": "      if timeout is not None:\n                timeout = gevent.Timeout(timeout).start()\n            response_raw = request.get(timeout=timeout)\n\n        response = json.loads(response_raw)\n\n        if \"error\" in response:\n            raise ValueError(response[\"error\"])\n\n        return response['result']\n\n    def receive_async(self, request_id, *args, **kwargs):\n        raise NotImplementedError(\"Callback pattern not implemented\")\n\n\nclass ManagerWrapper(object):\n    def __init__(self, wrapped_manager):\n        self.wrapped_manager = wrapped_manager\n\n    @property\n    def provider(self):\n        return self.wrapped_manager.provider\n\n    @property\n    def pending_requests(self):\n        return self.wrapped_manager.pending_requests\n\n    def setProvider(self, provider):\n        self.wrapped_manager.provider = provider\n\n    def request_blocking(self, *args, **kwargs):\n        return self.wrapped_manager.request_blocking(*args, **kwargs)\n\n    def request_async(self, *args, **kwargs):\n        return self.wrapped_manager.request_async(*args, **kwargs)\n\n    def receive_blocking(self, *args, **kwargs):\n        return self.wrapped_manager.receive_blocking(*args, **kwargs)\n\n    def receive_async(self, *args, **kwargs):\n        return self.wrapped_manager.receive_async(*args, **kwargs)\n\n\nclass BaseSendRawTransactionMixin(ManagerWrapper):\n    _known_transactions = None\n    _known_nonces = None\n\n    def __init__(self, *args, **kwargs):\n        self._known_transactions = collections.defaultdict(set)\n        self._known_nonces = collections.defaultdict(set)\n        super(BaseSendRawTransactionMixin, self).__init__(*args, **kwargs)\n\n    def _get_nonces_and_cleanup(self, addr, chain_nonce):\n        all_txns = {\n            txn_hash: self.request_blocking(\n                'eth_getTransactionByHash',\n                [txn_hash],\n            ) for txn_hash in self._known_transactions[addr]\n        }\n        for txn_hash, txn in all_txns.items():\n            if txn is None:\n                continue\n            txn_nonce = to_decimal(txn['nonce'])\n            if txn_nonce < chain_nonce:\n                self._known_transactions[addr].discard(txn_hash)\n            else:\n                yield txn_nonce\n\n        all_known_nonces = tuple(self._known_nonces[addr])\n        for nonce in all_known_nonces:\n            if nonce < chain_nonce:\n                self._known_nonces[addr].discard(nonce)\n            else:\n                yield nonce\n\n    def get_chain_nonce(self, addr):\n        chain_nonce = to_decimal(self.request_blocking(\n            'eth_getTransactionCount',\n            [addr, 'pending']\n        ))\n        return chain_nonce\n\n    def get_nonce(self, addr):\n        chain_nonce = self.get_chain_nonce(addr)\n        tracked_txn_nonces = tuple(self._get_nonces_and_cleanup(addr, chain_nonce))\n        nonce = max(0, chain_nonce, *tracked_txn_nonces)\n        if nonce == 0 and not tracked_txn_nonces:\n            return -1\n        else:\n            return nonce\n\n    def get_transaction_signature(self, serialized_txn):\n        raise NotImplementedError(\"Must be implemented by subclasses\")\n\n    def sign_and_serialize_transaction(self, transaction):\n        serialized_txn = serialize_transaction(transaction)\n        signature = self.get_transaction_signature(transaction)\n        signed_transaction = add_signature_to_transaction(\n            serialized_txn,",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 3693,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "4157b4a4035a3d3f782eb55e76117db25a8b563d38a15caccc55b60c427ea182",
+        "request_id": "chatcmpl-Ej8MYob0xAdYJ14EHKQWe9bGUpjha",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.837935750001634,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "f2ed5f4e97f77e6130a8ccd88ee2becd40917d8a1101938135ee0a16d8666654",
+        "request_id": "chatcmpl-Ej8MZBJ1bdLlZtDYw5XwTHh8CzzYY",
+        "usage": {
+          "prompt_tokens": 811,
+          "completion_tokens": 15,
+          "total_tokens": 826,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003484,
+        "seconds": 0.8722339580017433,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "49f656deaa89827d9845bdb5466a75f17bcfbf2c4b15a1f91ae1c3290d0f0841",
+        "request_id": "chatcmpl-Ej8MZ06iBIU9kKolNuUqFAEJvk9Sm",
+        "usage": {
+          "prompt_tokens": 1558,
+          "completion_tokens": 15,
+          "total_tokens": 1573,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006472,
+        "seconds": 0.7116827499994542,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "c45bd23d7a23b2306398795fd99b073e7f34de2cf12d497a32595030362e1413",
+        "request_id": "chatcmpl-Ej8MahPL4ThiJnOoOQHoMVoGxAA7T",
+        "usage": {
+          "prompt_tokens": 2453,
+          "completion_tokens": 512,
+          "total_tokens": 2965,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018004000000000002,
+        "seconds": 3.967903708002268,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "8fff44ef82879550f9d2771ec8fba6d5a87c4a29b58f2c5cf604265c85244641",
+        "request_id": "chatcmpl-Ej8MeM4QqfOqNy1HzORHwASBdH4tE",
+        "usage": {
+          "prompt_tokens": 1354,
+          "completion_tokens": 824,
+          "total_tokens": 2178,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00186,
+        "seconds": 6.120905957999639,
+        "retry_count": 0
+      }
+    ]
+  }
+}

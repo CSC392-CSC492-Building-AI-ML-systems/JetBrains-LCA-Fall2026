@@ -1,0 +1,295 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "w_select — Select dynamics segments matching criteria\n=======================================================\n\nDescription\n-----------\n\nThe `w_select` command selects dynamics segments from WESTPA simulation data that match user-defined criteria. Selection is performed using a user-provided predicate function. By default, only segments matching the predicate are stored in the output. If the `-a` / `--include-ancestors` option is specified, matching segments and all their ancestor segments are included in the output.\n\nPredicate Function\n------------------\n\nSegments are selected based on a predicate function, which must be a callable with the signature:\n\n```\npredicate(n_iter, iter_group)\n```\n\n- `n_iter` is the iteration number (integer).\n- `iter_group` is the HDF5 group corresponding to that iteration.\n\nThe function should return a sequence (e.g., list or array) of segment IDs (`seg_id`) that match the predicate for the given iteration.\n\nThe predicate can be inverted by specifying the `-v` / `--invert` command-line option, which selects segments *not* matching the predicate.\n\nOutput Format\n-------------\n\nThe output is written to an HDF5 file (default: `select.h5`) containing the following datasets:\n\n- `/n_iter` [iteration]  \n  *(Integer)* Iteration numbers corresponding to each entry in the other datasets.\n\n- `/n_segs` [iteration]  \n  *(Integer)* Number of segments matching the predicate (or its inversion) in each iteration.\n\n- `/seg_ids` [iteration][segment]  \n  *(Integer)* Segment IDs matching the predicate for each iteration. For iteration `i`, only the first `n_segs[i]` entries are valid.\n\n- `/weights` [iteration][segment]  \n  *(Floating-point)* Weights associated with each matching segment in `/seg_ids`.\n\nCommand-Line Arguments\n----------------------\n\nSelection Options:\n\n- `-p`, `--predicate-function MODULE.FUNCTION`  \n  Specify the predicate function to use for matching segments. The function should be importable by Python and accept `(n_iter, iter_group)` as arguments, returning a sequence of matching segment IDs.\n\n- `-v`, `--invert`  \n  Invert the predicate, selecting segments that do *not* match the predicate.\n\n- `-a`, `--include-ancestors`  \n  Include ancestor segments of matched segments in the output.\n\nOutput Options:\n\n- `-o`, `--output OUTPUT`  \n  Write the selected segments to the specified output file. Default is `select.h5`.\n\nOther Options:\n\n- Iteration range selection and progress reporting options are also available (see `--help`).\n\nUsage Example\n-------------\n\n```bash\nw_select -p mymodule.my_predicate -o selected_segments.h5\n```\n\nThis command selects segments matching the predicate function `my_predicate` defined in `mymodule` and writes the results to `selected_segments.h5`.\n\nIf you want to include ancestors of matched segments:\n\n```bash\nw_select -p mymodule.my_predicate -a -o selected_with_ancestors.h5\n```\n\nIf you want to invert the predicate (select segments *not* matching):\n\n```bash\nw_select -p mymodule.my_predicate -v -o inverted_selection.h5\n```\n\nNotes\n-----\n\n- The predicate function must be accessible in the Python path or current directory.\n- The command reads WESTPA simulation data and requires access to the WESTPA HDF5 files.\n- The output file is compressed and chunked for efficient storage.\n\nFor more details on iteration selection and progress options, run:\n\n```bash\nw_select --help\n```\n\n---\n\n`w_select` is part of the WESTPA toolkit for weighted ensemble simulations and analysis.",
+  "prediction_sha256": "be916e6fb1671e4ffe32213f39181f2f72f8b8aed4f9023820e889b0300d2bce",
+  "prompt_sha256": "b4f3b56237f6237801e5ff6222f7ff88613ce7fa061c6ac1c1cfcf8f794cb5cf",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12607,
+    "completion_tokens": 1344,
+    "total_tokens": 13951
+  },
+  "cost_usd": 0.0071932,
+  "generation_seconds": 14.017542957990372,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 5,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "w_select"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 917,
+              "end_char": 2223,
+              "code": ", dtype=seg_id_dtype, count=len(matching_ids)))\n        return n_iter, matchvec\n\n\nclass WSelectTool(WESTParallelTool):\n    prog = 'w_select'\n    description = '''\\\nSelect dynamics segments matching various criteria. This requires a\nuser-provided prediate function. By default, only matching segments are\nstored. If the -a/--include-ancestors option is given, then matching segments\nand their ancestors will be stored.\n\n\n-----------------------------------------------------------------------------\nPredicate function\n-----------------------------------------------------------------------------\n\nSegments are selected based on a predicate function, which must be callable\nas ``predicate(n_iter, iter_group)`` and return a collection of segment IDs\nmatching the predicate in that iteration.\n\nThe predicate may be inverted by specifying the -v/--invert command-line\nargument.\n\n\n-----------------------------------------------------------------------------\nOutput format\n-----------------------------------------------------------------------------\n\nThe output file (-o/--output, by default \"select.h5\") contains the following\ndatasets:\n\n  ``/n_iter`` [iteration]\n    *(Integer)* Iteration numbers for each entry in other datasets.\n\n  ``/n_segs`` [iteration]\n    *(Integer)* Number of segment IDs matching the",
+              "code_tokens": 300,
+              "score": 3.763195962324
+            },
+            {
+              "chunk_id": 12,
+              "start_char": 9339,
+              "end_char": 9715,
+              "code": "_index']['parent_id'][sorted(matching_ids)]\n                        from_previous.update(parent_id for parent_id in parent_ids if parent_id >= 0)  # filter initial states\n                        del parent_ids\n                    del matching_ids\n                    pi.progress += 1\n\n\ndef entry_point():\n    WSelectTool().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+              "code_tokens": 186,
+              "score": 1.444784365596
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 4172,
+              "end_char": 4900,
+              "code": " of matched segments in output.'''\n        )\n\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument('-o', '--output', default='select.h5', help='''Write output to OUTPUT (default: %(default)s).''')\n        self.progress.add_args(parser)\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.data_reader.process_args(args)\n        with self.data_reader:\n            self.iter_range.process_args(args)\n\n        predicate = get_object(args.predicate_function, path=['.'])\n        if not callable(predicate):\n            raise TypeError('predicate object {!r} is not callable'.format(predicate))\n        self.predicate = predicate\n        self.invert = bool(args",
+              "code_tokens": 300,
+              "score": 1.040369178671
+            }
+          ],
+          "code_tokens": 786
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 917,
+              "end_char": 5242,
+              "code": ", dtype=seg_id_dtype, count=len(matching_ids)))\n        return n_iter, matchvec\n\n\nclass WSelectTool(WESTParallelTool):\n    prog = 'w_select'\n    description = '''\\\nSelect dynamics segments matching various criteria. This requires a\nuser-provided prediate function. By default, only matching segments are\nstored. If the -a/--include-ancestors option is given, then matching segments\nand their ancestors will be stored.\n\n\n-----------------------------------------------------------------------------\nPredicate function\n-----------------------------------------------------------------------------\n\nSegments are selected based on a predicate function, which must be callable\nas ``predicate(n_iter, iter_group)`` and return a collection of segment IDs\nmatching the predicate in that iteration.\n\nThe predicate may be inverted by specifying the -v/--invert command-line\nargument.\n\n\n-----------------------------------------------------------------------------\nOutput format\n-----------------------------------------------------------------------------\n\nThe output file (-o/--output, by default \"select.h5\") contains the following\ndatasets:\n\n  ``/n_iter`` [iteration]\n    *(Integer)* Iteration numbers for each entry in other datasets.\n\n  ``/n_segs`` [iteration]\n    *(Integer)* Number of segment IDs matching the predicate (or inverted\n    predicate, if -v/--invert is specified) in the given iteration.\n\n  ``/seg_ids`` [iteration][segment]\n    *(Integer)* Matching segments in each iteration. For an iteration\n    ``n_iter``, only the first ``n_iter`` entries are valid. For example,\n    the full list of matching seg_ids in the first stored iteration is\n    ``seg_ids[0][:n_segs[0]]``.\n\n  ``/weights`` [iteration][segment]\n    *(Floating-point)* Weights for each matching segment in ``/seg_ids``.\n\n\n-----------------------------------------------------------------------------\nCommand-line arguments\n-----------------------------------------------------------------------------\n'''\n\n    def __init__(self):\n        super().__init__()\n\n        self.data_reader = WESTDataReader()\n        self.iter_range = IterRangeSelection()\n        self.progress = ProgressIndicatorComponent()\n        self.output_file = None\n        self.output_filename = None\n        self.predicate = None\n        self.invert = False\n        self.include_ancestors = False\n\n    def add_args(self, parser):\n        self.data_reader.add_args(parser)\n        self.iter_range.add_args(parser)\n\n        sgroup = parser.add_argument_group('selection options')\n        sgroup.add_argument(\n            '-p',\n            '--predicate-function',\n            metavar='MODULE.FUNCTION',\n            help='''Use the given predicate function to match segments. This function\n                             should take an iteration number and the HDF5 group corresponding to that\n                             iteration and return a sequence of seg_ids matching the predicate, as in\n                             ``match_predicate(n_iter, iter_group)``.''',\n        )\n        sgroup.add_argument('-v', '--invert', dest='invert', action='store_true', help='''Invert the match predicate.''')\n        sgroup.add_argument(\n            '-a', '--include-ancestors', action='store_true', help='''Include ancestors of matched segments in output.'''\n        )\n\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument('-o', '--output', default='select.h5', help='''Write output to OUTPUT (default: %(default)s).''')\n        self.progress.add_args(parser)\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.data_reader.process_args(args)\n        with self.data_reader:\n            self.iter_range.process_args(args)\n\n        predicate = get_object(args.predicate_function, path=['.'])\n        if not callable(predicate):\n            raise TypeError('predicate object {!r} is not callable'.format(predicate))\n        self.predicate = predicate\n        self.invert = bool(args.invert)\n        self.include_ancestors = bool(args.include_ancestors)\n        self.output_filename = args.output\n\n    def go(self):\n        self.data_reader.open('r')\n        output_file = h5io.WESTPAH5File(self.output_filename, mode='w')\n        pi = self.progress.indicator\n\n        iter_start, iter_stop = self.iter_range.iter_start, self",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 4172,
+              "end_char": 7159,
+              "code": " of matched segments in output.'''\n        )\n\n        ogroup = parser.add_argument_group('output options')\n        ogroup.add_argument('-o', '--output', default='select.h5', help='''Write output to OUTPUT (default: %(default)s).''')\n        self.progress.add_args(parser)\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.data_reader.process_args(args)\n        with self.data_reader:\n            self.iter_range.process_args(args)\n\n        predicate = get_object(args.predicate_function, path=['.'])\n        if not callable(predicate):\n            raise TypeError('predicate object {!r} is not callable'.format(predicate))\n        self.predicate = predicate\n        self.invert = bool(args.invert)\n        self.include_ancestors = bool(args.include_ancestors)\n        self.output_filename = args.output\n\n    def go(self):\n        self.data_reader.open('r')\n        output_file = h5io.WESTPAH5File(self.output_filename, mode='w')\n        pi = self.progress.indicator\n\n        iter_start, iter_stop = self.iter_range.iter_start, self.iter_range.iter_stop\n        iter_count = iter_stop - iter_start\n\n        output_file.create_dataset('n_iter', dtype=n_iter_dtype, data=list(range(iter_start, iter_stop)))\n        current_seg_count = 0\n        seg_count_ds = output_file.create_dataset('n_segs', dtype=np.uint, shape=(iter_count,))\n        matching_segs_ds = output_file.create_dataset(\n           'seg_ids',\n            shape=(iter_count, 0),\n            maxshape=(iter_count, None),\n            dtype=seg_id_dtype,\n            chunks=h5io.calc_chunksize((iter_count, 1000000), seg_id_dtype),\n            shuffle=True,\n            compression=9,\n        )\n        weights_ds = output_file.create_dataset(\n            'weights',\n            shape=(iter_count, 0),\n            maxshape=(iter_count, None),\n            dtype=weight_dtype,\n            chunks=h5io.calc_chunksize((iter_count, 1000000), weight_dtype),\n            shuffle=True,\n            compression=9,\n        )\n\n        with pi:\n            pi.new_operation('Finding matching segments', extent=iter_count)\n            #             futures = set()\n            #             for n_iter in xrange(iter_start,iter_stop):\n            #                 futures.add(self.work_manager.submit(_find_matching_segments,\n            #                                                      args=(self.data_reader.we_h5filename,n_iter,self.predicate,self.invert)))\n\n            #             for future in self.work_manager.as_completed(futures):\n            for future in self.work_manager.submit_as_completed(\n                (\n                    (_find_matching_segments, (self.data_reader.we_h5filename, n_iter, self.predicate, self.invert), {})\n                    for n_iter in range(iter_start, iter_stop)\n                ),\n                self.max_queue_len,\n            ):\n                n_iter, matching_ids = future.get_result()\n                n_matches = len(matching_ids)\n\n        ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 12
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 12,
+              "start_char": 9339,
+              "end_char": 9715,
+              "code": "_index']['parent_id'][sorted(matching_ids)]\n                        from_previous.update(parent_id for parent_id in parent_ids if parent_id >= 0)  # filter initial states\n                        del parent_ids\n                    del matching_ids\n                    pi.progress += 1\n\n\ndef entry_point():\n    WSelectTool().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+              "code_tokens": 186
+            }
+          ],
+          "code_tokens": 186
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3972,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "40b1c94ab7ab3178b04d5bc90a74544d7a3ccaad6f134ffc1a80af7901f346ff",
+        "request_id": "chatcmpl-Ej9chQaraNRRe04N8QJzZ2Bq0bXxm",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 15,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.6e-05,
+        "seconds": 1.1388667920036823,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "e0acb38df6737b9d711644f2d9f9818aaf61bc8abd542c883b3cf8ac113599ae",
+        "request_id": "chatcmpl-Ej9ciDerGeZZXPdACJEeqAlzgnWNd",
+        "usage": {
+          "prompt_tokens": 851,
+          "completion_tokens": 15,
+          "total_tokens": 866,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003644,
+        "seconds": 0.6224261659954209,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "70cce39eb5f13087795647454f69ec17d05aacfdc2c5cad7222da16e4187ab04",
+        "request_id": "chatcmpl-Ej9cjuChTu7RPkmrU2VI6Xde3mlNx",
+        "usage": {
+          "prompt_tokens": 1881,
+          "completion_tokens": 15,
+          "total_tokens": 1896,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007764000000000001,
+        "seconds": 0.7222027499956312,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "6e4c9e3c0c307a68126a2fafb15bf871d6e3bf2ecc5af464193cd85718e403fa",
+        "request_id": "chatcmpl-Ej9ckzBTxWcTljcvDEGc9VXPbilQD",
+        "usage": {
+          "prompt_tokens": 2660,
+          "completion_tokens": 15,
+          "total_tokens": 2675,
+          "prompt_tokens_details": {
+            "cached_tokens": 1664,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001088,
+        "seconds": 0.8435746670002118,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "fd5cd1b4bd60ff5770fd4d1d1258a8763ef39e263c6b57cacd5e05014625d7b4",
+        "request_id": "chatcmpl-Ej9ckJcdWEmkZ2yFJX32KQvGquKf3",
+        "usage": {
+          "prompt_tokens": 2821,
+          "completion_tokens": 15,
+          "total_tokens": 2836,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0011524,
+        "seconds": 0.6574878329993226,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "8676e3ee8c4165d27605d56698cc93414eb721139833d0b022d87e9820c687d8",
+        "request_id": "chatcmpl-Ej9cmpM5NfSGc0aJTJtEPItUx16Ks",
+        "usage": {
+          "prompt_tokens": 2857,
+          "completion_tokens": 512,
+          "total_tokens": 3369,
+          "prompt_tokens_details": {
+            "cached_tokens": 2688,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001962,
+        "seconds": 4.925042666000081,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "7376ea2f02c9a6b504c66639f4ed9ffc6dc3b103f85cd77b377cb4867eb3cbe7",
+        "request_id": "chatcmpl-Ej9cqw1fXy39SPxG7GD559ixT9HeD",
+        "usage": {
+          "prompt_tokens": 1382,
+          "completion_tokens": 757,
+          "total_tokens": 2139,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001764,
+        "seconds": 5.107942083996022,
+        "retry_count": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,105 @@
+Image Extraction
+================
+
+This document provides an overview of various image extraction algorithms implemented for processing Cherenkov telescope camera waveforms. These extractors convert raw waveform data into calibrated image parameters such as charge and peak time, which are essential for further analysis.
+
+SlidingWindowMaxSum
+------------------
+
+The `SlidingWindowMaxSum` extractor integrates the signal over a sliding window of fixed width, maximizing the sum of consecutive slices within the waveform.
+
+- **window_width**: Defines the width of the integration window (default: 7 samples).
+- **apply_integration_correction**: Whether to apply a correction factor to the integrated charge to account for the finite window size (default: True).
+
+The extractor calculates a correction factor per telescope and gain channel by analyzing the reference pulse shape. This correction ensures that the extracted charge corresponds to the total pulse integral for a noise-less unit pulse.
+
+Usage:
+- The waveform is scanned with a sliding window of size `window_width`.
+- The window position that yields the maximum sum is selected.
+- The charge is integrated over this window.
+- If enabled, the charge is corrected using the precomputed correction factor.
+- The peak time is estimated corresponding to the window position.
+
+NeighborPeakWindowSum
+--------------------
+
+This extractor sums the waveform in a window centered around the peak position defined by the waveforms of neighboring pixels.
+
+- **window_width**: Width of the integration window (default: 7 samples).
+- **window_shift**: Shift of the integration window relative to the peak index (default: 3 samples).
+- **local_weight**: Weight of the local pixel in determining the peak position (0 means peak is defined by neighbors only, 1 means local pixel counts equally with neighbors).
+
+The integration window is positioned based on the peak found in neighboring pixels, allowing for improved timing and charge estimation by leveraging spatial correlations.
+
+BaselineSubtractedNeighborPeakWindowSum
+---------------------------------------
+
+An extension of the `NeighborPeakWindowSum` extractor that first subtracts the baseline from the waveforms before performing the integration.
+
+- **baseline_start**: Start sample index for baseline estimation (default: 0).
+- **baseline_end**: End sample index for baseline estimation (default: 10).
+
+This baseline subtraction improves the accuracy of the charge integration by removing DC offsets and low-frequency noise.
+
+TwoPassWindowSum
+----------------
+
+The `TwoPassWindowSum` extractor performs a two-step integration of the waveform, incorporating a time-gradient linear fit to refine the charge and timing estimation.
+
+Key features:
+
+1. **First pass**: A 3-sample sliding window is used to find the maximum sum in the waveform. This window is then extended to 5 samples for integration. The peak time is computed as a charge-weighted average of sample indices.
+2. **Image cleaning**: A preliminary tail-cut cleaning is applied with configurable thresholds to identify core pixels.
+3. **Second pass**: A linear fit of pulse time versus distance along the major image axis is performed. For non-core pixels, the waveform is integrated again in a fixed 5-sample window centered at the predicted time from the fit.
+4. **Core pixels**: Core pixels retain the first pass integration results.
+
+Parameters:
+
+- **core_threshold**: Picture threshold for tail-cut cleaning, configurable per telescope type.
+- **disable_second_pass**: Option to disable the second pass for debugging.
+- **apply_integration_correction**: Whether to apply integration window correction.
+- **invalid_pixel_handler_type**: Specifies the handler for invalid pixels during the first pass.
+
+This method is based on the approach described in [1] and implemented in the CTA-MARS analysis pipeline [2].
+
+References:
+
+- [1] J. Holder et al., Astroparticle Physics, 25, 6, 391 (2006)
+- [2] CTA-MARS analysis pipeline documentation: https://forge.in2p3.fr/projects/step-by-step-reference-mars-analysis/wiki
+
+FlashCamExtractor
+-----------------
+
+The `FlashCamExtractor` is optimized for the FlashCam camera and applies advanced signal preprocessing steps before integration.
+
+Features:
+
+- **Upsampling**: Waveforms are upsampled (default factor: 4) to achieve finer time resolution (1 ns sampling).
+- **Pole-zero deconvolution**: Applied to recover the original impulse shape and narrow the pulse.
+- **Neighbor-based peak definition**: Integration window is centered around the peak defined by neighboring pixels.
+- **Clipping**: Soft clipping of pixel contributions to neighbor sums to reduce afterpulse effects.
+- **Leading edge timing**: Optionally calculates the leading edge time instead of the peak time.
+
+Parameters:
+
+- **upsampling**: Upsampling factor for waveforms.
+- **window_width**: Width of the integration window.
+- **window_shift**: Shift of the integration window relative to the peak index.
+- **apply_integration_correction**: Whether to apply integration window correction.
+- **local_weight**: Weight of the local pixel in neighbor peak calculation.
+- **effective_time_profile_std**: Assumed standard deviation of the Cherenkov time profile for gain correction.
+- **neighbour_sum_clipping**: Clipping level for neighbor sum contributions.
+- **leading_edge_timing**: Enable leading edge time calculation.
+- **leading_edge_rel_descend_limit**: Fraction of peak value used to define the integration range for leading edge timing.
+
+The extractor uses statistical models and deconvolution parameters tailored to the FlashCam hardware and signal characteristics.
+
+General Notes
+-------------
+
+- All extractors return a `DL1CameraContainer` object containing the extracted image (charge), peak time, and validity flags.
+- Integration window corrections are applied to compensate for partial pulse integration due to finite window sizes.
+- Invalid or broken pixels can be handled using configurable handlers to improve robustness.
+- Parameters are typically configurable per telescope and gain channel to accommodate hardware differences.
+
+These extraction methods form the basis for converting raw camera waveforms into calibrated images suitable for subsequent event reconstruction and analysis in Cherenkov telescope data processing pipelines.

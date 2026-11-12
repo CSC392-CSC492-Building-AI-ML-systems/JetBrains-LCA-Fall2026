@@ -1,0 +1,145 @@
+How to Generate Pydantic Models from Tortoise Models
+=====================================================
+
+This document explains how to generate Pydantic models from Tortoise ORM models using the utilities provided in `tortoise.contrib.pydantic`. This allows you to leverage Pydantic's powerful data validation and serialization features seamlessly with your Tortoise models.
+
+PydanticMeta Configuration
+--------------------------
+
+The `PydanticMeta` class is used to configure metadata for generating Pydantic models from Tortoise models. You can define this inner class inside your Tortoise model to customize the behavior of the generated Pydantic model.
+
+Example usage:
+
+.. code-block:: python3
+
+    class Foo(Model):
+        # Your Tortoise model fields here
+        ...
+
+        class PydanticMeta:
+            exclude = ("foo", "baa")          # Fields to exclude from the Pydantic model
+            computed = ("count_peanuts", )    # Computed fields to include
+
+Attributes of `PydanticMeta`:
+
+- **include** (`Tuple[str, ...]`): If not empty, only the fields listed here will be included in the Pydantic model.
+- **exclude** (`Tuple[str, ...]`): Fields listed here will be excluded from the Pydantic model.
+- **computed** (`Tuple[str, ...]`): Computed fields to include in the Pydantic model.
+- **backward_relations** (`bool`): Whether to include backward relations without annotations. Not recommended as it can result in large data.
+- **max_recursion** (`int`): Maximum recursion depth allowed when generating nested models.
+- **allow_cycles** (`bool`): Allow cycles in recursion. Use with caution as this can produce very large data structures.
+- **exclude_raw_fields** (`bool`): Whether to exclude raw fields (those with `_id` suffixes) of relations.
+- **sort_alphabetically** (`bool`): Sort fields alphabetically in the generated model. Defaults to `False` (preserves declaration order).
+
+Generating Pydantic Models
+--------------------------
+
+Use the function `pydantic_model_creator` to generate a Pydantic model class from a Tortoise model class.
+
+Signature:
+
+.. code-block:: python3
+
+    pydantic_model_creator(
+        cls: Type[Model],
+        *,
+        name: Optional[str] = None,
+        exclude: Tuple[str, ...] = (),
+        include: Tuple[str, ...] = (),
+        computed: Tuple[str, ...] = (),
+        allow_cycles: Optional[bool] = None,
+        sort_alphabetically: Optional[bool] = None,
+        _stack: tuple = (),
+        exclude_readonly: bool = False,
+    ) -> Type[PydanticModel]
+
+Parameters:
+
+- **cls**: The Tortoise model class to generate the Pydantic model from.
+- **name**: Optional name for the generated Pydantic model class.
+- **exclude**: Fields to exclude from the generated model.
+- **include**: Fields to include exclusively.
+- **computed**: Computed fields to include.
+- **allow_cycles**: Whether to allow cyclic references in nested models.
+- **sort_alphabetically**: Whether to sort fields alphabetically.
+- **exclude_readonly**: Whether to exclude read-only fields.
+
+Example:
+
+.. code-block:: python3
+
+    from tortoise.contrib.pydantic import pydantic_model_creator
+
+    User_Pydantic = pydantic_model_creator(User, name="User")
+
+This will create a Pydantic model class `User_Pydantic` corresponding to the Tortoise `User` model.
+
+PydanticModel Base Class
+------------------------
+
+The generated Pydantic models inherit from `PydanticModel`, which extends Pydantic's `BaseModel` with additional support for Tortoise ORM.
+
+Features:
+
+- **ORM mode enabled**: Allows creating Pydantic models from ORM objects.
+- **Automatic conversion** of computed fields and relation fields (e.g., ManyToMany relations are converted to lists).
+- **Async methods** to create Pydantic models from Tortoise ORM instances or querysets, with automatic prefetching of related fields.
+
+Key methods:
+
+- `from_tortoise_orm(cls, obj: Model) -> PydanticModel`  
+  Asynchronously creates a Pydantic model instance from a Tortoise model instance, automatically prefetching related fields.
+
+- `from_queryset_single(cls, queryset: QuerySetSingle) -> PydanticModel`  
+  Asynchronously creates a Pydantic model instance from a single-object queryset, with prefetching.
+
+- `from_queryset(cls, queryset: QuerySet) -> List[PydanticModel]`  
+  Asynchronously creates a list of Pydantic model instances from a queryset, with prefetching.
+
+Example usage:
+
+.. code-block:: python3
+
+    user_obj = await User.get(id=1)
+    user_pydantic = await User_Pydantic.from_tortoise_orm(user_obj)
+
+    users = await User.all()
+    users_pydantic = await User_Pydantic.from_queryset(User.all())
+
+PydanticListModel
+-----------------
+
+`PydanticListModel` is a helper base class for Pydantic models representing lists of Tortoise models.
+
+It provides:
+
+- An async method `from_queryset(cls, queryset: QuerySet) -> PydanticListModel` to create a Pydantic list model from a queryset.
+
+Usage:
+
+.. code-block:: python3
+
+    class UserListModel(PydanticListModel):
+        __root__: List[User_Pydantic]
+
+    users_list = await UserListModel.from_queryset(User.all())
+
+Notes on Recursion and Cycles
+-----------------------------
+
+When generating nested Pydantic models for related fields, recursion depth and cycles can occur. The `PydanticMeta` options `max_recursion` and `allow_cycles` help control this behavior.
+
+- By default, recursion is limited to a depth of 3.
+- Cycles are disallowed by default to prevent infinite recursion.
+- Use `allow_cycles=True` with caution and combine with `exclude` or `include` to limit fields.
+
+Summary
+-------
+
+- Define `PydanticMeta` inside your Tortoise models to customize Pydantic model generation.
+- Use `pydantic_model_creator` to generate Pydantic models from Tortoise models.
+- Use the async methods on `PydanticModel` to create Pydantic instances from ORM objects or querysets with automatic relation prefetching.
+- Control recursion and cycles with `PydanticMeta` options.
+- Use `PydanticListModel` for list representations.
+
+This integration provides a powerful and convenient way to serialize and validate your Tortoise ORM models using Pydantic.

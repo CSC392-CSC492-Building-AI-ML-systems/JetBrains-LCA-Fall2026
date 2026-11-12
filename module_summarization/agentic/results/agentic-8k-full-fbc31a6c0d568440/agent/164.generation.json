@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Conditions in PyTables\n======================\n\nPyTables supports querying tables using conditions, which are expressions that select rows based on specified criteria. These conditions are written as strings representing boolean expressions involving table columns and variables.\n\nOverview\n--------\n\nA condition is a string expression that can reference columns of a table and other variables. PyTables compiles these conditions into efficient functions using the Numexpr library, enabling fast evaluation and the use of indexes when available.\n\nThe main method to query rows using conditions is the `Table.where()` method, which returns an iterator over rows fulfilling the condition.\n\nCondition Variables\n-------------------\n\nThe variables used in a condition expression correspond to columns in the table or other user-defined variables. By default, all top-level, non-nested columns with identifier-like names are available as variables in the condition.\n\nYou can provide a mapping `condvars` to the `where()` method to define or override the variables used in the condition. Variables in `condvars` should be either `Column` instances of the table or other values convertible to arrays.\n\nIf `condvars` is not provided or is `None`, PyTables attempts to find variables in the current local and global namespace. This behavior is mainly intended for interactive use and can be disabled by passing an explicit (possibly empty) mapping.\n\nUsing Indexes in Conditions\n----------------------------\n\nWhen possible, PyTables uses indexes on columns to speed up condition evaluation. The system detects which columns in the condition have usable indexes and compiles the condition accordingly.\n\nThe method `Table.will_query_use_indexing(condition, condvars=None)` can be used to determine which columns' indexes will be used for a given condition. It returns a frozenset of column path names whose indexes are usable, or an empty set if no indexes will be used.\n\nIt is recommended to write conditions placing indexed columns as left and outermost in the expression to maximize performance.\n\nCondition Compilation\n---------------------\n\nConditions are compiled internally into `CompiledCondition` instances. This compilation involves:\n\n- Parsing the condition string into an expression tree.\n- Extracting variable names and their types.\n- Identifying columns with usable indexes.\n- Creating a Numexpr function object for efficient evaluation.\n\nThe compiled condition contains:\n\n- `function`: the Numexpr function object.\n- `parameters`: the list of parameter names in order.\n- `index_variables`: the set of variables corresponding to indexed columns.\n- `index_expression`: the part of the condition expression that can use indexes.\n\nExample Usage of `where()`\n--------------------------\n\n```python\npassvalues = [row['col3'] for row in\n              table.where('(col1 > 0) & (col2 <= 20)', step=5)\n              if your_function(row['col2'])]\nprint(\"Values that pass the cuts:\", passvalues)\n```\n\nThis example iterates over rows where `col1` is greater than 0 and `col2` is less than or equal to 20, stepping every 5 rows, and applies an additional Python function filter.\n\nImportant Notes\n---------------\n\n- Expressions such as chained comparisons (`0 < c1 <= 1`) do not work as expected; use explicit boolean operators instead.\n- All variables used in the condition must have their Numexpr types specified.\n- When the condition includes string literals, special care is needed to ensure correct evaluation.\n- While iterating over rows with `where()`, avoid modifying the table (e.g., appending or removing rows) to prevent unexpected errors.\n\nError Handling\n--------------\n\nIf a condition does not have a boolean type, a `TypeError` is raised.\n\nIf the condition does not involve any columns, a `ValueError` is raised indicating that no columns take part in the condition.\n\nAdvanced Usage\n--------------\n\nThe function `call_on_recarr(func, params, recarr, param2arg=None, **kwargs)` can be used internally to call a compiled condition function over a record array, mapping parameters to arguments and extracting nested fields as needed.\n\nSummary\n-------\n\n- Conditions are boolean expressions used to select rows in PyTables tables.\n- They can reference columns and other variables.\n- Conditions are compiled for efficient evaluation using Numexpr.\n- Indexed columns in conditions speed up queries.\n- Use `Table.where()` to iterate over rows fulfilling a condition.\n- Provide `condvars` to define variables used in conditions explicitly.\n- Avoid modifying tables during iteration with `where()`.\n\nFor more details, see the `Table.where()` method and the `conditions` module in PyTables.",
+  "prediction_sha256": "cbcae88435fb4f8d016ae038d8e139d2fabed0ac75d6bcf29937bc1695190797",
+  "prompt_sha256": "aca9e5fac60f3d68be718af6f3b388056c490563cd5cc5e9e9603979f20eb9d9",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12462,
+    "completion_tokens": 1481,
+    "total_tokens": 13943
+  },
+  "cost_usd": 0.0073544,
+  "generation_seconds": 12.95751283300342,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "condition"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 546,
+              "start_char": 424555,
+              "end_char": 425440,
+              "code": " `condition` and extract usable index conditions.\n\n        This method returns an instance of ``CompiledCondition``.  See\n        the ``compile_condition()`` function in the ``conditions``\n        module for more information about the compilation process.\n\n        This method makes use of the condition cache when possible.\n\n        \"\"\"\n\n        # Look up the condition in the condition cache.\n        condcache = self._condition_cache\n        condkey = self._get_condition_key(condition, condvars)\n        compiled = condcache.get(condkey)\n        if compiled:\n            return compiled.with_replaced_vars(condvars)  # bingo!\n\n        # Bad luck, the condition must be parsed and compiled.\n        # Fortunately, the key provides some valuable information. ;)\n        (condition, colnames, varnames, colpaths, vartypes) = condkey\n\n        # Extract more information from referenced",
+              "code_tokens": 300,
+              "score": 7.025959552411
+            },
+            {
+              "chunk_id": 548,
+              "start_char": 426363,
+              "end_char": 427197,
+              "code": "colnames)):\n            raise ValueError(\"there are no columns taking part \"\n                             \"in condition ``%s``\" % (condition,))\n\n        # Store the compiled condition in the cache and return it.\n        condcache[condkey] = compiled\n        return compiled.with_replaced_vars(condvars)\n\n    def will_query_use_indexing(self, condition, condvars=None):\n        \"\"\"Will a query for the condition use indexing?\n\n        The meaning of the condition and *condvars* arguments is the same as in\n        the :meth:`Table.where` method. If condition can use indexing, this\n        method returns a frozenset with the path names of the columns whose\n        index is usable. Otherwise, it returns an empty list.\n\n        This method is mainly intended for testing. Keep in mind that changing\n        the set of indexed columns",
+              "code_tokens": 300,
+              "score": 6.781061288375
+            },
+            {
+              "chunk_id": 918,
+              "start_char": 698728,
+              "end_char": 699607,
+              "code": "    `indexedcols`.  The part of `condition` having usable indexes is\n    returned as a compiled condition in a `CompiledCondition` container.\n\n    Expressions such as '0 < c1 <= 1' do not work as expected.  The\n    Numexpr types of *all* variables must be given in the `typemap`\n    mapping.  The ``function`` of the resulting `CompiledCondition`\n    instance is a Numexpr function object, and the ``parameters`` list\n    indicates the order of its parameters.\n\n    \"\"\"\n\n    # Get the expression tree and extract index conditions.\n    expr = ne.necompiler.stringToExpression(condition, typemap, {})\n    if expr.astKind != 'bool':\n        raise TypeError(\"condition ``%s`` does not have a boolean type\"\n                        % condition)\n    idxexprs = _get_idx_expr(expr, indexedcols)\n    # Post-process the answer\n    if isinstance(idxexprs, list):\n        # Simple expression",
+              "code_tokens": 300,
+              "score": 6.618488051917
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 546
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 546,
+              "start_char": 424555,
+              "end_char": 428699,
+              "code": " `condition` and extract usable index conditions.\n\n        This method returns an instance of ``CompiledCondition``.  See\n        the ``compile_condition()`` function in the ``conditions``\n        module for more information about the compilation process.\n\n        This method makes use of the condition cache when possible.\n\n        \"\"\"\n\n        # Look up the condition in the condition cache.\n        condcache = self._condition_cache\n        condkey = self._get_condition_key(condition, condvars)\n        compiled = condcache.get(condkey)\n        if compiled:\n            return compiled.with_replaced_vars(condvars)  # bingo!\n\n        # Bad luck, the condition must be parsed and compiled.\n        # Fortunately, the key provides some valuable information. ;)\n        (condition, colnames, varnames, colpaths, vartypes) = condkey\n\n        # Extract more information from referenced columns.\n\n        # start with normal variables\n        typemap = dict(list(zip(varnames, vartypes)))\n        indexedcols = []\n        for colname in colnames:\n            col = condvars[colname]\n\n            # Extract types from *all* the given variables.\n            coltype = col.dtype.type\n            typemap[colname] = _nxtype_from_nptype[coltype]\n\n            # Get the set of columns with usable indexes.\n            if (self._enabled_indexing_in_queries  # no in-kernel searches\n                    and self.colindexed[col.pathname] and not col.index.dirty):\n                indexedcols.append(colname)\n\n        indexedcols = frozenset(indexedcols)\n        # Now let ``compile_condition()`` do the Numexpr-related job.\n        compiled = compile_condition(condition, typemap, indexedcols)\n\n        # Check that there actually are columns in the condition.\n        if not set(compiled.parameters).intersection(set(colnames)):\n            raise ValueError(\"there are no columns taking part \"\n                             \"in condition ``%s``\" % (condition,))\n\n        # Store the compiled condition in the cache and return it.\n        condcache[condkey] = compiled\n        return compiled.with_replaced_vars(condvars)\n\n    def will_query_use_indexing(self, condition, condvars=None):\n        \"\"\"Will a query for the condition use indexing?\n\n        The meaning of the condition and *condvars* arguments is the same as in\n        the :meth:`Table.where` method. If condition can use indexing, this\n        method returns a frozenset with the path names of the columns whose\n        index is usable. Otherwise, it returns an empty list.\n\n        This method is mainly intended for testing. Keep in mind that changing\n        the set of indexed columns or their dirtiness may make this method\n        return different values for the same arguments at different times.\n\n        \"\"\"\n\n        # Compile the condition and extract usable index conditions.\n        condvars = self._required_expr_vars(condition, condvars, depth=2)\n        compiled = self._compile_condition(condition, condvars)\n        # Return the columns in indexed expressions\n        idxcols = [condvars[var].pathname for var in compiled.index_variables]\n        return frozenset(idxcols)\n\n    def where(self, condition, condvars=None,\n              start=None, stop=None, step=None):\n        r\"\"\"Iterate over values fulfilling a condition.\n\n        This method returns a Row iterator (see :ref:`RowClassDescr`) which\n        only selects rows in the table that satisfy the given condition (an\n        expression-like string).\n\n        The condvars mapping may be used to define the variable names appearing\n        in the condition. condvars should consist of identifier-like strings\n        pointing to Column (see :ref:`ColumnClassDescr`) instances *of this\n        table*, or to other values (which will be converted to arrays). A\n        default set of condition variables is provided where each top-level,\n        non-nested column with an identifier-like name appears. Variables in\n        condvars override the default ones.\n\n        When condvars is not provided or None, the current local and global\n        namespace is sought instead of condvars. The previous mechanism is\n    ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 548
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 548,
+              "start_char": 426363,
+              "end_char": 430578,
+              "code": "colnames)):\n            raise ValueError(\"there are no columns taking part \"\n                             \"in condition ``%s``\" % (condition,))\n\n        # Store the compiled condition in the cache and return it.\n        condcache[condkey] = compiled\n        return compiled.with_replaced_vars(condvars)\n\n    def will_query_use_indexing(self, condition, condvars=None):\n        \"\"\"Will a query for the condition use indexing?\n\n        The meaning of the condition and *condvars* arguments is the same as in\n        the :meth:`Table.where` method. If condition can use indexing, this\n        method returns a frozenset with the path names of the columns whose\n        index is usable. Otherwise, it returns an empty list.\n\n        This method is mainly intended for testing. Keep in mind that changing\n        the set of indexed columns or their dirtiness may make this method\n        return different values for the same arguments at different times.\n\n        \"\"\"\n\n        # Compile the condition and extract usable index conditions.\n        condvars = self._required_expr_vars(condition, condvars, depth=2)\n        compiled = self._compile_condition(condition, condvars)\n        # Return the columns in indexed expressions\n        idxcols = [condvars[var].pathname for var in compiled.index_variables]\n        return frozenset(idxcols)\n\n    def where(self, condition, condvars=None,\n              start=None, stop=None, step=None):\n        r\"\"\"Iterate over values fulfilling a condition.\n\n        This method returns a Row iterator (see :ref:`RowClassDescr`) which\n        only selects rows in the table that satisfy the given condition (an\n        expression-like string).\n\n        The condvars mapping may be used to define the variable names appearing\n        in the condition. condvars should consist of identifier-like strings\n        pointing to Column (see :ref:`ColumnClassDescr`) instances *of this\n        table*, or to other values (which will be converted to arrays). A\n        default set of condition variables is provided where each top-level,\n        non-nested column with an identifier-like name appears. Variables in\n        condvars override the default ones.\n\n        When condvars is not provided or None, the current local and global\n        namespace is sought instead of condvars. The previous mechanism is\n        mostly intended for interactive usage. To disable it, just specify a\n        (maybe empty) mapping as condvars.\n\n        If a range is supplied (by setting some of the start, stop or step\n        parameters), only the rows in that range and fulfilling the condition\n        are used. The meaning of the start, stop and step parameters is the\n        same as for Python slices.\n\n        When possible, indexed columns participating in the condition will be\n        used to speed up the search. It is recommended that you place the\n        indexed columns as left and out in the condition as possible. Anyway,\n        this method has always better performance than regular Python\n        selections on the table.\n\n        You can mix this method with regular Python selections in order to\n        support even more complex queries. It is strongly recommended that you\n        pass the most restrictive condition as the parameter to this method if\n        you want to achieve maximum performance.\n\n        .. warning::\n\n            When in the middle of a table row iterator, you should not\n            use methods that can change the number of rows in the table\n            (like :meth:`Table.append` or :meth:`Table.remove_rows`) or\n            unexpected errors will happen.\n\n        Examples\n        --------\n\n        ::\n\n            passvalues = [ row['col3'] for row in\n                           table.where('(col1 > 0) & (col2 <= 20)', step=5)\n                           if your_function(row['col2']) ]\n            print(\"Values that pass the cuts:\", passvalues)\n\n        .. note::\n\n            A special care should be taken when the query condition includes\n            string literals.\n\n            Let's assume that the table ``table`` has the following\n            structure::\n\n                class Record(IsDescription):\n                    col1 = StringCol(4)  #",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 918
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 918,
+              "start_char": 698728,
+              "end_char": 702776,
+              "code": "    `indexedcols`.  The part of `condition` having usable indexes is\n    returned as a compiled condition in a `CompiledCondition` container.\n\n    Expressions such as '0 < c1 <= 1' do not work as expected.  The\n    Numexpr types of *all* variables must be given in the `typemap`\n    mapping.  The ``function`` of the resulting `CompiledCondition`\n    instance is a Numexpr function object, and the ``parameters`` list\n    indicates the order of its parameters.\n\n    \"\"\"\n\n    # Get the expression tree and extract index conditions.\n    expr = ne.necompiler.stringToExpression(condition, typemap, {})\n    if expr.astKind != 'bool':\n        raise TypeError(\"condition ``%s`` does not have a boolean type\"\n                        % condition)\n    idxexprs = _get_idx_expr(expr, indexedcols)\n    # Post-process the answer\n    if isinstance(idxexprs, list):\n        # Simple expression\n        strexpr = ['e0']\n    else:\n        # Complex expression\n        idxexprs, strexpr = idxexprs\n    # Get rid of the unneccessary list wrapper for strexpr\n    strexpr = strexpr[0]\n\n    # Get the variable names used in the condition.\n    # At the same time, build its signature.\n    varnames = _get_variable_names(expr)\n    signature = [(var, typemap[var]) for var in varnames]\n    try:\n        # See the comments in `numexpr.evaluate()` for the\n        # reasons of inserting copy operators for unaligned,\n        # *unidimensional* arrays.\n        func = ne.necompiler.NumExpr(expr, signature)\n    except NotImplementedError as nie:\n        # Try to make this Numexpr error less cryptic.\n        raise _unsupported_operation_error(nie)\n\n    _, ex_uses_vml = ne.necompiler.getExprNames(condition, {})\n    kwargs = {'ex_uses_vml': ex_uses_vml}\n\n    params = varnames\n    # This is more comfortable to handle about than a tuple.\n    return CompiledCondition(func, params, idxexprs, strexpr, **kwargs)\n\n\ndef call_on_recarr(func, params, recarr, param2arg=None, **kwargs):\n    \"\"\"Call `func` with `params` over `recarr`.\n\n    The `param2arg` function, when specified, is used to get an argument\n    given a parameter name; otherwise, the parameter itself is used as\n    an argument.  When the argument is a `Column` object, the proper\n    column from `recarr` is used as its value.\n\n    \"\"\"\n\n    args = []\n    for param in params:\n        if param2arg:\n            arg = param2arg(param)\n        else:\n            arg = param\n        if hasattr(arg, 'pathname'):  # looks like a column\n            arg = get_nested_field(recarr, arg.pathname)\n        args.append(arg)\n    return func(*args, **kwargs)\n\n\n########################################################################\n#\n# License: BSD\n# Created: June 17, 2005\n# Author:  Francesc Alted - faltet@pytables.com\n#\n# $Id$\n#\n########################################################################\n\n\"\"\"Here is where Table and Row extension types live.\n\nClasses (type extensions):\n\n    Table\n    Row\n\nFunctions:\n\nMisc variables:\n\n\"\"\"\nimport math\nimport sys\nimport numpy as np\nfrom time import time\n\nfrom .description import Col\nfrom .exceptions import HDF5ExtError\nfrom .conditions import call_on_recarr\nfrom .utilsextension import (get_nested_field, atom_from_hdf5_type,\n  create_nested_type, hdf5_to_np_ext_type, create_nested_type, platform_byteorder,\n  pttype_to_hdf5, pt_special_kinds, npext_prefixes_to_ptkinds, hdf5_class_to_string,\n  H5T_STD_I64)\nfrom .utils import SizeType\n\nfrom .utilsextension cimport get_native_type, cstr_to_pystr\n\n# numpy functions & objects\nfrom .hdf5extension cimport Leaf\nfrom cpython cimport PyErr_Clear\nfrom libc.stdio cimport snprintf\nfrom libc.stdlib cimport malloc, free\nfrom libc.stdint cimport int32_t\nfrom libc.string cimport memcpy, strdup, strcmp, strlen\nfrom numpy cimport (import_array, ndarray, npy_intp, PyArray_GETITEM,\n  PyArray_SETITEM, PyArray_BYTES, PyArray_DATA, PyArray_NDIM, PyArray_STRIDE)\nfrom .definitions cimport (hid_t, herr_t, hsize_t, haddr_t, htri_t, hbool_t,\n  H5F_ACC_RDONLY, H5P_DEFAULT, H5D_CHUNKED, H5T_DIR_DEFAULT,\n  H5F_SCOPE_LOCAL, H5F_SCOPE_GL",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "f901a307039eb6b41a5940ea1b3b0b215bd553a26e785b591e52ac0e25c3a305",
+        "request_id": "chatcmpl-Ej9fy2mbkKKiVpX8SpURs6XsThxpm",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 14,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.52e-05,
+        "seconds": 0.6426345829968341,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "4b380ef154463b92904aa3f8441c4519bbf9346d7fcafcc1229e903a3b38fbc3",
+        "request_id": "chatcmpl-Ej9fzohBtS71fpJGAqq2pnnIIQrkZ",
+        "usage": {
+          "prompt_tokens": 944,
+          "completion_tokens": 15,
+          "total_tokens": 959,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004016,
+        "seconds": 0.6528293340015807,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "d126139b3a82775da4b4da0d82533b1e9a1bebfd303b08f86b0f52390a49c73e",
+        "request_id": "chatcmpl-Ej9fzDiZb1ZhLMzbpSnIBfKbrywc4",
+        "usage": {
+          "prompt_tokens": 1946,
+          "completion_tokens": 15,
+          "total_tokens": 1961,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008024000000000001,
+        "seconds": 0.6645982910049497,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "10a8cf891503442277da237046d808e137abd94d5f0a5708fdd0573f469d0db8",
+        "request_id": "chatcmpl-Ej9g0owbha8isGcotrihEzZlKirgq",
+        "usage": {
+          "prompt_tokens": 2942,
+          "completion_tokens": 15,
+          "total_tokens": 2957,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012008,
+        "seconds": 0.7287929160011117,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "f7c332313e197ef597572d9b8ee6726de58f44710b63a1e3d78841cacb01a22d",
+        "request_id": "chatcmpl-Ej9g1CM303xcsxc0YWstu6LdBMHc7",
+        "usage": {
+          "prompt_tokens": 4150,
+          "completion_tokens": 512,
+          "total_tokens": 4662,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0024792,
+        "seconds": 3.7228716669997084,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "e9375446c777d9a768ce640f26412d7048da9ab8ff9adf228596314e98c24c0d",
+        "request_id": "chatcmpl-Ej9g4dVjkHRqpMA2FTkVJVNsDpflH",
+        "usage": {
+          "prompt_tokens": 2323,
+          "completion_tokens": 910,
+          "total_tokens": 3233,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0023851999999999996,
+        "seconds": 6.545786041999236,
+        "retry_count": 0
+      }
+    ]
+  }
+}

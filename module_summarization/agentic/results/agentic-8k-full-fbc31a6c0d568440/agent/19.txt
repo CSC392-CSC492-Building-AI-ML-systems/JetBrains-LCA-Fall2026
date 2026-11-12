@@ -1,0 +1,83 @@
+w_crawl — Crawl a weighted ensemble dataset by iteration
+=========================================================
+
+Description
+-----------
+
+The `w_crawl` command allows you to crawl through a weighted ensemble dataset, executing a specified function for each iteration. This tool is useful for postprocessing trajectories, cleaning up datasets, or performing any operation that can be expressed as "do X for iteration N, then do something with the result."
+
+Tasks are parallelized by iteration, enabling efficient processing of large datasets. Note that no guarantees are made about the order in which iterations are evaluated.
+
+Usage
+-----
+
+```
+w_crawl [OPTIONS] TASK_CALLABLE
+```
+
+Command-line Options
+--------------------
+
+The command supports several options to control its behavior:
+
+**Data Reader and Iteration Range Options**
+
+These options control which dataset is read and which iterations are processed. They are provided by the underlying WESTDataReader and IterRangeSelection components.
+
+**Task Options**
+
+- `-c`, `--crawler-instance`  
+  Specify a crawler instance to coordinate the calculation. This should be given as `module.instance` referring to an instance of the `WESTPACrawler` class.  
+  This option is required only if you need to perform initialization, finalization, or processing of task results beyond the default behavior.
+
+- `TASK_CALLABLE` (positional argument)  
+  Specify the task function to run on each iteration. This should be given as `module.function`. This callable will be executed for each iteration and must accept two arguments: the iteration number and the iteration group data. This argument is required.
+
+**Progress Indicator Options**
+
+Options to control the display of progress information during execution.
+
+Functionality
+-------------
+
+- **Initialization**  
+  If a crawler instance is provided, its `initialize(iter_start, iter_stop)` method is called before processing begins.
+
+- **Task Execution**  
+  For each iteration in the specified range, the task callable is executed remotely with the iteration number and iteration group data as arguments. Tasks are dispatched in parallel.
+
+- **Result Processing**  
+  After each task completes, if a crawler instance is provided, its `process_iter_result(n_iter, result)` method is called with the iteration number and the task result.
+
+- **Finalization**  
+  After all iterations have been processed, if a crawler instance is provided, its `finalize()` method is called.
+
+Example
+-------
+
+To run a task function `my_module.my_task` on iterations 0 through 99 of a dataset:
+
+```
+w_crawl -i west.h5 -r 0:100 my_module.my_task
+```
+
+To use a custom crawler instance `my_module.my_crawler` for initialization and result processing:
+
+```
+w_crawl -i west.h5 -r 0:100 -c my_module.my_crawler my_module.my_task
+```
+
+Notes
+-----
+
+- The task callable must be a function that accepts two arguments: the iteration number and the iteration group data object.
+- The crawler instance must be an instance of the `WESTPACrawler` class or a subclass thereof, implementing any needed initialization, finalization, or result processing logic.
+- The order of iteration processing is not guaranteed due to parallel execution.
+
+See Also
+--------
+
+- `WESTPACrawler` — Base class for implementing custom crawling behavior.
+- `WESTDataReader` — For dataset reading options.
+- `IterRangeSelection` — For selecting iteration ranges.
+- `ProgressIndicatorComponent` — For progress display options.

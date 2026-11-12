@@ -1,0 +1,374 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Mitogen How It Works\n====================\n\nOverview\n--------\nMitogen is a lightweight, high-performance Python library designed to simplify and accelerate the execution of remote code and inter-process communication. It achieves this by creating isolated execution contexts, called ExternalContexts, which communicate efficiently over multiplexed channels. This document provides an overview of how Mitogen works internally, explaining its core components and mechanisms.\n\nCore Concepts\n-------------\n- **ExternalContext**: Represents an isolated execution environment, typically a remote process or container, where Python code can be executed. Each ExternalContext runs its own event loop and manages communication with other contexts.\n\n- **Router**: The central message dispatcher that routes messages between contexts. It manages connections, message queues, and dispatches incoming messages to the appropriate handlers.\n\n- **Importer**: A custom import hook that intercepts Python module imports to enable transparent remote module loading and caching.\n\n- **Broker**: Handles the low-level I/O multiplexing and scheduling of message transmission and reception.\n\n- **Call Function Mechanism**: Mitogen supports remote function invocation via a special message type (`CALL_FUNCTION`), allowing functions to be called in remote contexts with automatic argument serialization and result retrieval.\n\nDecorators for Context-Aware Functions\n--------------------------------------\nMitogen provides decorators to simplify writing functions that interact with the Mitogen runtime:\n\n- `@takes_econtext`: Marks a function or method to automatically receive an `econtext` keyword argument, which references the active `ExternalContext` in which the function is invoked. This is useful for functions that need to interact with the execution context.\n\n- `@takes_router`: Marks a function or method to automatically receive a `router` keyword argument, referencing the active `Router` instance. This allows functions to access routing and messaging capabilities.\n\nThese decorators are meaningful only when functions are invoked remotely via Mitogen's `CALL_FUNCTION` mechanism. When called directly, the `econtext` or `router` arguments must be passed explicitly.\n\nImport Management and Security\n------------------------------\nMitogen uses a custom `Importer` to manage module imports across contexts. It supports whitelisting and blacklisting of packages to control which modules can be imported remotely:\n\n- **Whitelisting**: If any packages are whitelisted, only those packages are allowed to be imported remotely.\n\n- **Blacklisting**: Packages on the blacklist are explicitly disallowed.\n\nIf a package appears on both lists, it is treated as blacklisted. This mechanism helps maintain security and control over remote code execution.\n\nFile Descriptor Management\n--------------------------\nMitogen carefully manages file descriptors to ensure robust communication and resource handling:\n\n- `set_cloexec(fd)`: Marks a file descriptor to be automatically closed during an `execve` system call, preventing descriptor leakage to child processes.\n\n- `set_nonblock(fd)`: Sets a file descriptor to non-blocking mode, so I/O operations do not block the thread and raise `EAGAIN` errors instead.\n\n- `set_block(fd)`: Reverts a file descriptor to blocking mode.\n\nThese utilities help Mitogen maintain responsive and reliable I/O operations across contexts.\n\nRobust I/O Operations\n---------------------\nMitogen wraps I/O operations with the `io_op` function, which handles common transient errors and disconnection signals gracefully:\n\n- Automatically retries system calls interrupted by signals (`EINTR`).\n\n- Detects disconnection events on TTYs (`EIO`), sockets (`ECONNRESET`), and pipes (`EPIPE`).\n\n- Returns a tuple `(result, disconnect_reason)` where `disconnect_reason` is an exception instance if a disconnection was detected, or `None` otherwise.\n\nThis approach ensures that Mitogen can recover from or cleanly handle communication failures.\n\nContext Initialization and Setup\n--------------------------------\nWhen an `ExternalContext` starts, it performs several setup steps:\n\n1. **Nullify Standard I/O**: Replaces standard input/output/error with `/dev/null` to avoid interference and ensure clean communication channels.\n\n2. **Preserve TTY File Descriptors**: Keeps a duplicate of the standard error file descriptor if it is a TTY, preventing premature closure and SIGHUP signals during privilege escalation or process replacement.\n\n3. **Setup Logging**: Initializes logging streams for stdout and stderr, redirecting them through Mitogen's broker for remote capture and display.\n\n4. **Setup Importer**: Installs the custom importer into `sys.meta_path` to intercept module imports.\n\n5. **Setup Package Namespace**: Creates a synthetic `mitogen` package in `sys.modules` to provide access to core Mitogen modules and metadata.\n\n6. **Configure Globals**: Sets global variables such as `mitogen.is_master`, `mitogen.context_id`, and parent context IDs to track the execution environment.\n\n7. **Start Event Loop**: Runs the main dispatcher loop to process incoming messages, execute remote calls, and manage communication.\n\nMessage Dispatch and Handling\n-----------------------------\nMitogen's router continuously receives messages and dispatches them based on their type:\n\n- Messages from the master context trigger service pool initialization.\n\n- Function call messages (`CALL_FUNCTION`) are dispatched to the appropriate handler, with results sent back to the caller.\n\n- Errors during no-reply function calls are logged for debugging.\n\nThis message-driven architecture enables asynchronous, multiplexed communication between multiple contexts.\n\nConclusion\n----------\nMitogen's design leverages Python's dynamic features, custom import hooks, and robust I/O handling to provide a powerful framework for remote code execution and inter-process communication. By isolating execution contexts, managing imports securely, and providing transparent remote function invocation, Mitogen simplifies complex distributed programming tasks while maintaining high performance and reliability.\n\nFor more detailed information, refer to the Mitogen API documentation and source code.",
+  "prediction_sha256": "34b6df522a9cc62062d2d6c8a91ba504c146b1ae7d06c007cbb0a9c3239005dc",
+  "prompt_sha256": "bec5e110868f2d7fccd25f78f8bf1b975fcd67e38f2f31754e40f55149f1b1b7",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15295,
+    "completion_tokens": 1250,
+    "total_tokens": 16545
+  },
+  "cost_usd": 0.008118,
+  "generation_seconds": 14.036048540998308,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 176,
+              "start_char": 140172,
+              "end_char": 140800,
+              "code": "        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ ='mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modu",
+              "code_tokens": 286,
+              "score": 1.6754730362
+            },
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 141086,
+              "code": "togen.__package__ ='mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['",
+              "code_tokens": 300,
+              "score": 1.662600013114
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 13440,
+              "end_char": 14353,
+              "code": " for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in. The",
+              "code_tokens": 300,
+              "score": 1.402980357194
+            }
+          ],
+          "code_tokens": 886
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen core"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 141086,
+              "code": "togen.__package__ ='mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['",
+              "code_tokens": 300,
+              "score": 4.411760931083
+            },
+            {
+              "chunk_id": 176,
+              "start_char": 140172,
+              "end_char": 140800,
+              "code": "        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ ='mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modu",
+              "code_tokens": 286,
+              "score": 4.389401323777
+            },
+            {
+              "chunk_id": 50,
+              "start_char": 41867,
+              "end_char": 42514,
+              "code": "itelist = list(whitelist) or ['']\n        self.blacklist = list(blacklist) + self.ALWAYS_BLACKLIST\n\n        # Preserve copies of the original server-supplied whitelist/blacklist\n        # for later use by children.\n        self.master_whitelist = self.whitelist[:]\n        self.master_blacklist = self.blacklist[:]\n\n        # Presence of an entry in this map indicates in-flight GET_MODULE.\n        self._callbacks = {}\n        self._cache = {}\n        if core_src:\n            self._update_linecache('x/mitogen/core.py', core_src)\n            self._cache['mitogen.core'] = (\n               'mitogen.core',\n                None,\n                'x",
+              "code_tokens": 300,
+              "score": 4.313583586155
+            }
+          ],
+          "code_tokens": 886
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 177
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 143632,
+              "code": "togen.__package__ ='mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd!= stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_fp(self):\n        \"\"\"\n        #481: when stderr is a TTY due to being started via tty_create_child()\n        or hybrid_tty_create_child(), and some privilege escalation tool like\n        prehistoric versions of sudo exec this process over the top of itself,\n        there is nothing left to keep the slave PTY open after we replace our\n        stdio. Therefore if stderr is a TTY, keep around a permanent dup() to\n        avoid receiving SIGHUP.\n        \"\"\"\n        try:\n            if os.isatty(2):\n                self.reserve_tty_fp = os.fdopen(os.dup(2), 'r+b', 0)\n                set_cloexec(self.reserve_tty_fp.fileno())\n        except OSError:\n            pass\n\n    def _setup_stdio(self):\n        self._preserve_tty_fp()\n        # When sys.stdout was opened by the runtime, overwriting it will not\n        # close FD 1. However when forking from a child that previously used\n        # fdopen(), overwriting it /will/ close FD 1. So we must swallow the\n        # close before IoLogger overwrites FD 1, otherwise its new FD 1 will be\n        # clobbered. Additionally, stdout must be replaced with /dev/null prior\n        # to stdout.close(), since if block buffering was active in the parent,\n        # any pre-fork buffered data will be flushed on close(), corrupting the\n        # connection to the parent.\n        self._nullify_stdio()\n        sys.stdout.close()\n        self._nullify_stdio()\n\n        self.loggers = []\n        for name, fd in (('stdout', 1), ('stderr', 2)):\n            log = IoLoggerProtocol.build_stream(name, fd)\n            self.broker.start_receive(log)\n            self.loggers.append(log)\n\n        # Reopen with line buffering.\n        sys.stdout = os.fdopen(1, 'w', 1)\n\n    def main(self):\n        self._setup_master()\n        try:\n            try:\n                self._setup_logging()\n                self._setup_importer()\n                self._reap_first_stage()\n                if self.config.get('setup_package', True):\n                    self._setup_package()\n                self._setup_globals()\n               ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen core ExternalContext Router"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 175,
+              "start_char": 139623,
+              "end_char": 140084,
+              "code": ")\n                try:\n                    core_src = fp.read()\n                    # Strip \"ExternalContext.main()\" call from last line.\n                    core_src = b('\\n').join(core_src.splitlines()[:-1])\n                finally:\n                    fp.close()\n            else:\n                core_src = None\n\n            importer = Importer(\n                self.router,\n                self.parent,\n                core_src,\n                self.config",
+              "code_tokens": 300,
+              "score": 13.662197928307
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 13440,
+              "end_char": 14353,
+              "code": " for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in. The",
+              "code_tokens": 300,
+              "score": 13.149216205763
+            },
+            {
+              "chunk_id": 183,
+              "start_char": 144658,
+              "end_char": 145191,
+              "code": "  self.stream.transmit_side.write(b('MITO002\\n'))\n                self.broker._py24_25_compat()\n                self.log_handler.uncork()\n                self.dispatcher.run()\n                _v and LOG.debug('ExternalContext.main() normal exit')\n            except KeyboardInterrupt:\n                LOG.debug('KeyboardInterrupt received, exiting gracefully.')\n            except BaseException:\n                LOG.exception('ExternalContext.main() crashed')\n                raise\n        finally:\n            self.broker.shutdown()",
+              "code_tokens": 269,
+              "score": 11.523853471398
+            }
+          ],
+          "code_tokens": 869
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 14
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 14,
+              "start_char": 13440,
+              "end_char": 17460,
+              "code": " for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in. The decorator is\n    only meaningful when the function is invoked via :data:`CALL_FUNCTION\n    <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `router` must still be passed to it\n    explicitly.\n    \"\"\"\n    func.mitogen_takes_router = True\n    return func\n\n\ndef is_blacklisted_import(importer, fullname):\n    \"\"\"\n    Return :data:`True` if `fullname` is part of a blacklisted package, or if\n    any packages have been whitelisted and `fullname` is not part of one.\n\n    NB:\n      - If a package is on both lists, then it is treated as blacklisted.\n      - If any package is whitelisted, then all non-whitelisted packages are\n        treated as blacklisted.\n    \"\"\"\n    return ((not any(fullname.startswith(s) for s in importer.whitelist)) or\n                (any(fullname.startswith(s) for s in importer.blacklist)))\n\n\ndef set_cloexec(fd):\n    \"\"\"\n    Set the file descriptor `fd` to automatically close on :func:`os.execve`.\n    This has no effect on file descriptors inherited across :func:`os.fork`,\n    they must be explicitly closed through some other means, such as\n    :func:`mitogen.fork.on_fork`.\n    \"\"\"\n    flags = fcntl.fcntl(fd, fcntl.F_GETFD)\n    assert fd > 2, 'fd %r <= 2' % (fd,)\n    fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)\n\n\ndef set_nonblock(fd):\n    \"\"\"\n    Set the file descriptor `fd` to non-blocking mode. For most underlying file\n    types, this causes :func:`os.read` or :func:`os.write` to raise\n    :class:`OSError` with :data:`errno.EAGAIN` rather than block the thread\n    when the underlying kernel buffer is exhausted.\n    \"\"\"\n    flags = fcntl.fcntl(fd, fcntl.F_GETFL)\n    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)\n\n\ndef set_block(fd):\n    \"\"\"\n    Inverse of :func:`set_nonblock`, i.e. cause `fd` to block the thread when\n    the underlying kernel buffer is exhausted.\n    \"\"\"\n    flags = fcntl.fcntl(fd, fcntl.F_GETFL)\n    fcntl.fcntl(fd, fcntl.F_SETFL, flags & ~os.O_NONBLOCK)\n\n\ndef io_op(func, *args):\n    \"\"\"\n    Wrap `func(*args)` that may raise :class:`select.error`, :class:`IOError`,\n    or :class:`OSError`, trapping UNIX error codes relating to disconnection\n    and retry events in various subsystems:\n\n    * When a signal is delivered to the process on Python 2, system call retry\n      is signalled through :data:`errno.EINTR`. The invocation is automatically\n      restarted.\n    * When performing IO against a TTY, disconnection of the remote end is\n      signalled by :data:`errno.EIO`.\n    * When performing IO against a socket, disconnection of the remote end is\n      signalled by :data:`errno.ECONNRESET`.\n    * When performing IO against a pipe, disconnection of the remote end is\n      signalled by :data:`errno.EPIPE`.\n\n    :returns:\n        Tuple of `(return_value, disconnect_reason)`, where `return_value` is\n        the return value of `func(*args)`, and `disconnected` is an exception\n        instance when disconnection was detected, otherwise :data:`None`.\n    \"\"\"\n    while True:\n        try:\n            return func(*args), None\n        except (select.error, OSError, IOError):\n            e",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "ExternalContext"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 183,
+              "start_char": 144658,
+              "end_char": 145191,
+              "code": "  self.stream.transmit_side.write(b('MITO002\\n'))\n                self.broker._py24_25_compat()\n                self.log_handler.uncork()\n                self.dispatcher.run()\n                _v and LOG.debug('ExternalContext.main() normal exit')\n            except KeyboardInterrupt:\n                LOG.debug('KeyboardInterrupt received, exiting gracefully.')\n            except BaseException:\n                LOG.exception('ExternalContext.main() crashed')\n                raise\n        finally:\n            self.broker.shutdown()",
+              "code_tokens": 269,
+              "score": 11.523853471398
+            },
+            {
+              "chunk_id": 175,
+              "start_char": 139623,
+              "end_char": 140084,
+              "code": ")\n                try:\n                    core_src = fp.read()\n                    # Strip \"ExternalContext.main()\" call from last line.\n                    core_src = b('\\n').join(core_src.splitlines()[:-1])\n                finally:\n                    fp.close()\n            else:\n                core_src = None\n\n            importer = Importer(\n                self.router,\n                self.parent,\n                core_src,\n                self.config",
+              "code_tokens": 300,
+              "score": 8.638564318513
+            },
+            {
+              "chunk_id": 168,
+              "start_char": 134383,
+              "end_char": 134954,
+              "code": "  if msg.src_id == mitogen.context_id:\n                    self._init_service_pool()\n                continue\n\n            chain_id, ret = self._dispatch_one(msg)\n            _v and LOG.debug('%r: %r -> %r', self, msg, ret)\n            if msg.reply_to:\n                msg.reply(ret)\n            elif isinstance(ret, CallError) and chain_id is None:\n                LOG.error('No-reply function call failed: %s', ret)\n\n    def run(self):\n        if self.econtext.config.get('on_start'):\n            self.econtext.config['on_start'](self.econtext)\n\n        _profile_hook('",
+              "code_tokens": 300,
+              "score": 8.463047103251
+            }
+          ],
+          "code_tokens": 869
+        }
+      }
+    ],
+    "code_tokens_returned": 6510,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "634d557c09f9be87234b835a756a3630c9d7f73e7182a3431a10083c748df34f",
+        "request_id": "chatcmpl-Ej8Kg9pyZ4cMluoqi0Ake00RK9lHz",
+        "usage": {
+          "prompt_tokens": 159,
+          "completion_tokens": 15,
+          "total_tokens": 174,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.759999999999999e-05,
+        "seconds": 0.7479523750007502,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "522730c561731e291d2cdc061e78a25f24f8f97993364b602c58cf38cb48441b",
+        "request_id": "chatcmpl-Ej8KhNI60LZ1mT4WKiT9mVi7diVci",
+        "usage": {
+          "prompt_tokens": 937,
+          "completion_tokens": 16,
+          "total_tokens": 953,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040040000000000003,
+        "seconds": 0.7501716660008242,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "c34a3d3ef3ac750b76305f2a5650f0cf4053379179d53f453850eaf7cfc958fd",
+        "request_id": "chatcmpl-Ej8Ki8CClsEf9Thb8XpidjuEcVNJs",
+        "usage": {
+          "prompt_tokens": 1639,
+          "completion_tokens": 15,
+          "total_tokens": 1654,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006796,
+        "seconds": 0.7131038749976142,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "318ad01db4e58dd79ea9aef609d22d35762fecff5b3ef1579a56fbc5c591da54",
+        "request_id": "chatcmpl-Ej8KjyHCBIutBkl8gihkMczPxnjpk",
+        "usage": {
+          "prompt_tokens": 2567,
+          "completion_tokens": 19,
+          "total_tokens": 2586,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010572000000000001,
+        "seconds": 1.7891890409991902,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "532721794c729e1e3eeaa5eac83e3189794011954ede78ec020a2e898ea0fa57",
+        "request_id": "chatcmpl-Ej8KklkxW15zwkcv0Ue2Yti20HBFU",
+        "usage": {
+          "prompt_tokens": 3191,
+          "completion_tokens": 15,
+          "total_tokens": 3206,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0013004000000000002,
+        "seconds": 0.8746202500005893,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "c7bec8388fc40ec5c568ba0b9818afff9888a3c6d8979138976cacf5924473eb",
+        "request_id": "chatcmpl-Ej8Kl0ob3Z3a0EyfhiA7Q5fKhoQuN",
+        "usage": {
+          "prompt_tokens": 4415,
+          "completion_tokens": 15,
+          "total_tokens": 4430,
+          "prompt_tokens_details": {
+            "cached_tokens": 3072,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00179,
+        "seconds": 1.0129552920006972,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "e71ab41451ac32fc207e3726549910599a3df0e320653e5e7120ef8d589b5f1f",
+        "request_id": "chatcmpl-Ej8KmLNtinIr9BAMewyBYIYOikdAy",
+        "usage": {
+          "prompt_tokens": 2387,
+          "completion_tokens": 1155,
+          "total_tokens": 3542,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0028028000000000003,
+        "seconds": 8.148056041998643,
+        "retry_count": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,97 @@
+Probability Calibration
+=======================
+
+Probability calibration, also known as reliability calibration, is a technique used to assess and visualize how well the predicted probabilities of a binary classifier reflect the true likelihood of an event. A well-calibrated model outputs probabilities that correspond closely to the actual frequencies of the positive class.
+
+Calibration Curve (Reliability Diagram)
+---------------------------------------
+
+A calibration curve plots the average predicted probability for each bin against the fraction of positive samples in that bin. This visualization helps to understand whether the predicted probabilities are overconfident, underconfident, or well-calibrated.
+
+The curve is constructed by dividing the range of predicted probabilities into bins and computing, for each bin:
+
+- **Fraction of positives (`prob_true`)**: The proportion of samples in the bin that belong to the positive class.
+- **Mean predicted probability (`prob_pred`)**: The average predicted probability for the positive class in the bin.
+
+If the model is perfectly calibrated, the points lie on the diagonal line where the predicted probability equals the true fraction of positives.
+
+CalibrationDisplay Class
+------------------------
+
+The `CalibrationDisplay` class provides a convenient way to visualize calibration curves. It supports creating plots from either an estimator or from true labels and predicted probabilities.
+
+### Parameters
+
+- `prob_true` (ndarray of shape (n_bins,)): The fraction of positive samples in each bin.
+- `prob_pred` (ndarray of shape (n_bins,)): The mean predicted probability in each bin.
+- `y_prob` (ndarray of shape (n_samples,)): The predicted probabilities for the positive class.
+- `estimator_name` (str, optional): Name of the estimator to display in the plot legend.
+- `pos_label` (int, float, bool, or str, optional): The positive class label. By default, the second class in `estimator.classes_` is used.
+
+### Attributes
+
+- `line_`: The matplotlib Artist representing the calibration curve.
+- `ax_`: The matplotlib Axes object containing the plot.
+- `figure_`: The matplotlib Figure object containing the plot.
+
+### Methods
+
+- `plot(ax=None, name=None, ref_line=True, **kwargs)`: Plots the calibration curve. Additional keyword arguments are passed to `matplotlib.pyplot.plot`. The `ref_line` parameter controls whether a reference diagonal line indicating perfect calibration is shown.
+
+### Class Methods
+
+- `from_estimator(estimator, X, y, *, n_bins=5, strategy='uniform', pos_label=None, name=None, ref_line=True, ax=None, **kwargs)`: Creates a calibration plot from an estimator and data.
+- `from_predictions(y_true, y_prob, *, n_bins=5, strategy='uniform', pos_label=None, name=None, ref_line=True, ax=None, **kwargs)`: Creates a calibration plot from true labels and predicted probabilities.
+
+Calibration Curve Computation
+-----------------------------
+
+The calibration curve is computed by binning predicted probabilities and calculating the fraction of positives and mean predicted probabilities in each bin. Two binning strategies are supported:
+
+- **Uniform**: Bins have equal width over the interval [0, 1].
+- **Quantile**: Bins contain approximately the same number of samples.
+
+The number of bins (`n_bins`) controls the granularity of the calibration curve. More bins provide finer resolution but require more data to be reliable.
+
+Example Usage
+-------------
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import calibration_curve, CalibrationDisplay
+import matplotlib.pyplot as plt
+
+# Generate synthetic data
+X, y = make_classification(random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+# Train a logistic regression classifier
+clf = LogisticRegression(random_state=0)
+clf.fit(X_train, y_train)
+
+# Predict probabilities on test set
+y_prob = clf.predict_proba(X_test)[:, 1]
+
+# Compute calibration curve
+prob_true, prob_pred = calibration_curve(y_test, y_prob, n_bins=10)
+
+# Create and plot calibration display
+disp = CalibrationDisplay(prob_true, prob_pred, y_prob)
+disp.plot()
+plt.show()
+```
+
+References
+----------
+
+- See the :ref:`User Guide <calibration>` for more details on probability calibration.
+- For additional visualization tools, refer to the :ref:`visualizations` section of the documentation.
+
+Related Functions and Classes
+-----------------------------
+
+- `calibration_curve`: Compute true and predicted probabilities for calibration curves.
+- `CalibrationDisplay.from_predictions`: Plot calibration curve using true labels and predicted probabilities.
+- `CalibrationDisplay.from_estimator`: Plot calibration curve using an estimator and data.

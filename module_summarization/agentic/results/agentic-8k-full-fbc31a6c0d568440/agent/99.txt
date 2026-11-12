@@ -1,0 +1,108 @@
+Filters Module
+==============
+
+This module provides functionality for constructing and managing Ethereum event filters using the `web3` library and `gevent` for asynchronous event handling.
+
+Functions
+---------
+
+construct_event_filter_params(event_abi, contract_address=None, argument_filters=None, topics=None, fromBlock=None, toBlock=None, address=None)
+    Constructs filter parameters for an Ethereum event filter based on the event ABI and optional filtering criteria.
+
+    Parameters:
+        event_abi (dict): The ABI of the event to filter.
+        contract_address (str or list, optional): The address or list of addresses of the contract(s) to filter.
+        argument_filters (dict, optional): Filters on event arguments.
+        topics (list, optional): Additional topics to include in the filter.
+        fromBlock (int or str, optional): The block number or block identifier to start filtering from.
+        toBlock (int or str, optional): The block number or block identifier to stop filtering at.
+        address (str or list, optional): Additional address or list of addresses to include in the filter.
+
+    Returns:
+        tuple: A tuple containing:
+            - data_filters_set (list): A set of data filters constructed from the event ABI and argument filters.
+            - filter_params (dict): A dictionary of filter parameters suitable for use with `web3.eth.filter`.
+
+Classes
+-------
+
+Filter(gevent.Greenlet)
+    Base class for Ethereum filters that run asynchronously using `gevent`.
+
+    Attributes:
+        callbacks (list): List of callback functions to be called when new filter entries are detected.
+        running (bool): Indicates if the filter is currently running.
+        stopped (bool): Indicates if the filter has been stopped.
+        poll_interval (float or None): Time interval in seconds between polling for new events. If None, a random interval is used.
+
+    Methods:
+        __init__(web3, filter_id)
+            Initializes the filter with a `web3` instance and a filter ID.
+
+        __str__()
+            Returns a string representation of the filter.
+
+        _run()
+            Internal method that runs the filter loop, polling for new events and invoking callbacks.
+
+        format_entry(entry)
+            Hook method to format an event entry before passing it to callbacks. Default implementation returns the entry unchanged.
+
+        is_valid_entry(entry)
+            Hook method to validate an event entry before passing it to callbacks. Default implementation always returns True.
+
+        watch(*callbacks)
+            Starts watching the filter and registers callback functions to be called on new events.
+
+        stop_watching(timeout=0)
+            Stops watching the filter, uninstalls it from `web3`, and waits for the greenlet to finish.
+
+BlockFilter(Filter)
+    A filter subclass for monitoring new blocks on the Ethereum blockchain.
+
+TransactionFilter(Filter)
+    A filter subclass for monitoring new transactions on the Ethereum blockchain.
+
+LogFilter(Filter)
+    A filter subclass for monitoring log events emitted by contracts.
+
+    Attributes:
+        data_filter_set (list): A set of data filters applied to log entries.
+        data_filter_set_regex (re.Pattern): Compiled regex pattern for filtering log data.
+        log_entry_formatter (callable or None): Optional formatter function for log entries.
+
+    Methods:
+        __init__(*args, **kwargs)
+            Initializes the LogFilter. Accepts `log_entry_formatter` and `data_filter_set` as keyword arguments.
+
+        get(only_changes=True)
+            Retrieves log entries from the filter. Raises an error if the filter is actively watching.
+
+Utility Functions
+-----------------
+
+construct_data_filter_regex(data_filter_set)
+    Constructs a compiled regular expression pattern to filter log data entries based on a set of data filters.
+
+    Parameters:
+        data_filter_set (list): A list of data filters, where each filter is a list of hex strings or None.
+
+    Returns:
+        re.Pattern: A compiled regex pattern matching the specified data filters.
+
+Constants
+---------
+
+ZERO_32BYTES (str)
+    A regex pattern string matching 64 hexadecimal characters, representing 32 bytes of zero or any data.
+
+Usage Overview
+--------------
+
+- Use `construct_event_filter_params` to create filter parameters for Ethereum event filters.
+- Instantiate filter objects (`BlockFilter`, `TransactionFilter`, `LogFilter`) with a `web3` instance and filter ID.
+- Use the `watch` method on filter instances to start asynchronous monitoring of blockchain events.
+- Register callback functions with `watch` to handle new events.
+- Stop filters with `stop_watching` when monitoring is no longer needed.
+
+This module leverages `gevent` greenlets to provide non-blocking, asynchronous event filtering and handling for Ethereum blockchain data.
