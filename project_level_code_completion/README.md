@@ -54,6 +54,13 @@ poetry run python -m eval.analyze_arms --base data/code_generation/artifacts/pyt
 `rag=F` is the final design, `rag=v1` the untuned BM25 design; `split=dev|heldout` selects the development or the
 held-out part of the dataset.
 
+### Planner agent on top of RAG (E5)
+[`agent/`](agent/) holds an agent that searches the repository and edits the RAG context before the model writes the line
+(`arm=agent agent=append`; shard a long run with `shard_index`/`shard_count`, continue an interrupted one with `resume=true`).
+On `medium_context` with CodeLlama-7B at N = 1,753 it scores 1.2 points below RAG F and 9.8 above `path_distance`, at about 7x the
+tokens. Its results, the comparison arms, figures and how to reproduce them: [`rag_results/agent/`](rag_results/agent/README.md);
+report text: [`rag_results/report_drafts/E5_agent.md`](rag_results/report_drafts/E5_agent.md).
+
 ### Suported datasets:
 * All configurations of [`JetBrains-Research/lca-project-level-code-completion`](https://huggingface.co/datasets/JetBrains-Research/lca-project-level-code-completion):
    * `small_context`
