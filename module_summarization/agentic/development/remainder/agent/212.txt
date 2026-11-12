@@ -1,0 +1,132 @@
+Linear Mixed Effects Models
+============================
+
+Overview
+--------
+
+Linear mixed effects models are regression models designed for dependent data. They allow estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.
+
+The `MixedLM` class fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.
+
+Model Specification
+-------------------
+
+The data are partitioned into disjoint groups. For group *i*, the probability model is:
+
+.. math::
+
+   Y = X \\beta + Z \\gamma + \\epsilon
+
+where:
+
+- *n_i* is the number of observations in group *i*.
+- *Y* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).
+- *X* is an *n_i \\times k_{fe}* design matrix for the fixed effects (called `exog` in `MixedLM`).
+- *\\beta* is a *k_{fe}*-dimensional vector of fixed effects parameters (called `fe_params` in `MixedLM`).
+- *Z* is a design matrix for the random effects with *n_i* rows (called `exog_re` in `MixedLM`). The number of columns in *Z* can vary by group.
+- *\\gamma* is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of *\\gamma* (called `cov_re` in `MixedLM`) is common to all groups. The remaining elements of *\\gamma* are variance components. Each group receives its own independent realization of *\\gamma*.
+- *\\epsilon* is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance *\\sigma^2*. The *\\epsilon* values are independent both within and between groups.
+
+All of *Y*, *X*, and *Z* must be fully observed. The parameters *\\beta*, *\\Psi* (covariance matrix of random effects), and *\\sigma^2* are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors *\\gamma* and *\\epsilon* are random and define the probability model.
+
+The marginal mean structure is:
+
+.. math::
+
+   E[Y | X, Z] = X \\beta
+
+If only the mean structure is of interest, generalized estimating equations (GEE) provide an alternative to linear mixed models.
+
+Random Effects
+--------------
+
+Two types of random effects are supported:
+
+1. **Standard random effects**: These are correlated with each other arbitrarily. Every group has the same number (*k_{re}*) of standard random effects, with the same joint distribution but independent realizations across groups.
+
+2. **Variance components**: These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.
+
+Parameterizations
+-----------------
+
+Three parameterizations are used in different contexts:
+
+- **User parameterization**: The covariance of the response is
+
+  .. math::
+
+     \\mathrm{cov}(Y) = \\sigma^2 I + Z \\Psi Z'
+
+  This is the main parameterization visible to the user.
+
+- **Profile parameterization**: The covariance is expressed as
+
+  .. math::
+
+     \\mathrm{cov}(Y) = I + Z \\Psi_1 Z'
+
+  where \\( \\Psi_1 = \\Psi / \\sigma^2 \\). This parameterization is used for the profile likelihood maximization.
+
+- **Square root parameterization**: The Cholesky factor of \\( \\Psi_1 \\) is used instead of \\( \\Psi \\) directly. This is hidden from the user.
+
+All three parameterizations can be packed into a vector by concatenating the fixed effects parameters (`fe_params`), the lower triangle or Cholesky square root of the random effects covariance matrix, and the variance components parameters. When unpacking, it is important to square or reflect the dependence structure depending on the parameterization.
+
+Estimation and Inference
+------------------------
+
+The parameters *\\beta*, *\\Psi*, and *\\sigma^2* are estimated using ML or REML methods. The likelihood, gradient, and Hessian calculations closely follow Lindstrom and Bates (1988), adapted to support variance components.
+
+Two score methods are implemented:
+
+- One computes the score with respect to the elements of the random effects covariance matrix (used for inference after maximum likelihood estimation).
+- The other computes the score with respect to the parameters of the Cholesky square root of the random effects covariance matrix (used for optimization).
+
+Numerical optimization uses generalized least squares (GLS) to avoid explicitly optimizing over the fixed effects parameters. The likelihood optimized is profiled over both the scale parameter and the fixed effects.
+
+References
+----------
+
+- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed-effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.
+
+- http://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf
+
+Additional User-Oriented Resources:
+
+- http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf
+
+- http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf
+
+Notation Summary
+----------------
+
+- `cov_re` (\\( \\Psi \\)) is the random effects covariance matrix.
+- `scale` (\\( \\sigma^2 \\)) is the scalar error variance.
+- For a single group, the marginal covariance matrix of the response given covariates is:
+
+  .. math::
+
+     \\sigma^2 I + Z \\Psi Z'
+
+- `vcomp` is a vector of variance parameters corresponding to variance components. Its length depends on the number of variance components specified in the model.
+
+Attributes of MixedLMResults
+----------------------------
+
+The results of fitting a linear mixed effects model are contained in the `MixedLMResults` class, which inherits from `statsmodels.LikelihoodModelResults`. Important attributes include:
+
+- `model`: The `MixedLM` model instance used for fitting.
+- `params`: A packed parameter vector for the profile parameterization. The first `k_fe` elements are fixed effects coefficients; the remaining elements are variance parameters divided by `scale`.
+- `fe_params`: The estimated fixed effects coefficients.
+- `cov_re`: The estimated random effects covariance matrix.
+- `bse_fe`: Standard errors of the fixed effects coefficients.
+- `bse_re`: Standard errors of the random effects covariance matrix and variance components.
+
+Simulation from the Model
+-------------------------
+
+The `get_distribution` class can be used to simulate data from a fitted mixed linear model. Given parameters, scale, and fixed effect covariates, it generates simulated response vectors incorporating fixed effects, random effects, variance components, and residual variance.
+
+Summary
+-------
+
+Linear mixed effects models provide a flexible framework for modeling data with complex dependence structures, incorporating both fixed and random effects. The `MixedLM` class and its associated results classes implement these models efficiently, supporting estimation, inference, and simulation.
