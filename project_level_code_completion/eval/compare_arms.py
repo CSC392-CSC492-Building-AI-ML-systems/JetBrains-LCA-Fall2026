@@ -23,7 +23,8 @@ from agent.llm import LocalChatModel
 from agent.provider import make_agent_provider_factory
 from agent.tools import Limits
 from composers.composer_registry import COMPOSERS
-from eval.line_generators import GeneratorConfig, dev_indices, evaluate_generation, heldout_indices, subset_indices
+from eval.line_generators import (GeneratorConfig, dev_indices, evaluate_generation, heldout_indices, shard_indices,
+                                  subset_indices)
 from eval.proxy_metrics import targeted_lines
 from eval.preprocess import preprocess
 from eval.preprocessors import load_datapoints
@@ -57,6 +58,14 @@ def validate(cfg: DictConfig) -> None:
         raise ValueError(f"split must be all, dev or heldout, got {cfg.split!r}")
     if cfg.split != 'all' and cfg.limit_datapoints is not None:
         raise ValueError("limit_datapoints cannot be combined with split=dev/heldout (use dev_size)")
+    shard_index, shard_count = cfg.get('shard_index'), cfg.get('shard_count')  # absent in older configs
+    if (shard_index is None) != (shard_count is None):
+        raise ValueError("shard_index and shard_count go together")
+    if shard_count is not None:
+        if shard_count < 1 or not 0 <= shard_index < shard_count:
+            raise ValueError(f"need 0 <= shard_index < shard_count, got {shard_index!r} of {shard_count!r}")
+        if cfg.split != 'all' or cfg.limit_datapoints is not None:
+            raise ValueError("shards split the whole dataset: use split=all and no limit_datapoints")
     cap = cfg.get('context_cap')  # absent in older configs
     if cap is not None:
         if cap < 1:
@@ -69,7 +78,10 @@ def validate(cfg: DictConfig) -> None:
 
 def datapoint_selection(cfg: DictConfig) -> dict:
     """dev = `dev_size` evenly spaced datapoints plus `dev_extra` more; heldout = all the others;
-    all = everything (or `limit_datapoints`)."""
+    all = everything (or `limit_datapoints`); with shard_index/shard_count, every shard_count-th datapoint from
+    shard_index (saved `datapoint_idx` is then the position inside the shard; `merge_shards.py` restores the original)."""
+    if cfg.get('shard_count') is not None:
+        return {'select': partial(shard_indices, shard_index=cfg.shard_index, shard_count=cfg.shard_count)}
     if cfg.split == 'dev':
         return {'select': partial(dev_indices, dev_size=cfg.dev_size, dev_extra=cfg.dev_extra)}
     if cfg.split == 'heldout':
@@ -193,6 +205,7 @@ def run_arm(cfg: DictConfig):
                'limit_datapoints': cfg.limit_datapoints,
                'split': cfg.split, 'dev_size': cfg.dev_size, 'dev_extra': cfg.dev_extra, 'lines': cfg.lines,
                'static_mode': cfg.static_mode,
+               'shard_index': cfg.get('shard_index'), 'shard_count': cfg.get('shard_count'),
                'code': git_state(), 'wall_seconds': wall_seconds, 'cost': cost,
                'scores': scores, 'em_difference_vs_zero': em_diff, 'line_counts': line_counts}
     (arm_dir / 'summary.json').write_text(json.dumps(summary, indent=4))

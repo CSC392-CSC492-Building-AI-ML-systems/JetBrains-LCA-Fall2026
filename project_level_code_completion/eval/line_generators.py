@@ -300,6 +300,13 @@ def heldout_indices(n_items: int, dev_size: int, dev_extra: int = 0) -> list[int
     return [i for i in range(n_items) if i not in dev]
 
 
+def shard_indices(n_items: int, shard_index: int, shard_count: int) -> list[int]:
+    """Datapoints `shard_index`, `shard_index + shard_count`, ... : the shards are disjoint and together cover every
+    datapoint, so one arm can be split over several machines and merged afterwards (`merge_shards.py`). Interleaved on
+    purpose: datapoints differ a lot in the number of lines, and neighbours are often from the same repository."""
+    return [i for i in range(n_items) if i % shard_count == shard_index]
+
+
 def select_subset(items: list, limit: Optional[int], heldout_of: Optional[int] = None) -> list:
     """`limit` evenly spaced items. With `heldout_of=N`, first drop the N evenly spaced items that
     `select_subset(items, N)` would return, so the two selections are disjoint and together cover everything."""
