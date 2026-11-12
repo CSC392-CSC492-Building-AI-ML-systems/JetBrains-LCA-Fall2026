@@ -29,6 +29,9 @@ All from `project_level_code_completion/` with the project's python (the analysi
 ```
 python rag_results/scripts/analyze_e5_full.py     # -> rag_results/reports/E5/e5_full_analysis.md (reads E5_full/arms, runs from a clean clone)
 python rag_results/scripts/make_e5_figures.py     # -> rag_results/figures/E5/ (3 figures + table)
+python rag_results/scripts/analyze_agent_split.py # -> rag_results/reports/E5/agent_failure_split.md (agent vs RAG F, uses the failure_split.jsonl.gz files in E5_full/arms)
+# the failure split itself (CPU, about 7 minutes; replays the planner from its logged actions, run from a directory with the tree-sitter grammar clone):
+python -m eval.failure_split --base rag_results/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 # rebuild the merged arm from the shards (what `e5_agent_full` is):
 python rag_results/scripts/merge_shards.py OUT_DIR rag_results/agent/E5_full/shards/c6_s{0,1,2,3,4,5}
 python rag_results/scripts/planner_probe.py check <unzipped e4_F_N1753 folder> OUT_DIR   # unchanged lines must match RAG F (5,957 of 5,958 do)
