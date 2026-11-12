@@ -67,6 +67,22 @@ the logged one on 8,673 of 8,676 lines). A wrong line is a *retrieval miss* if a
 - **Most broken lines did not lose a name.** Of the 136 lines only RAG F gets right (among those the planner changed), 63 had their names visible in both prompts, 53 need nothing from other files, and only 20 became retrieval misses. The 34 lines only the agent gets right split 22 / 11 / 1 the same way.
 - **Reading, not a test:** extra code placed in the context perturbs a writer that already had a good context. The screen is lexical, and we did not run an ablation (for example adding random chunks) that would test this cause.
 
+## What the edits look like (examples and numbers)
+
+`rag_results/reports/E5/agent_examples.md` has random examples of each kind of change (fixed seed, 3 per kind, all 7 filled misses): code before
+the line, the truth, both predictions, the needed names missing from each prompt, the planner's searches, and what it added and displaced.
+
+- **An addition is in practice a swap.** With the context budget fixed at N = 1,753 tokens the prompt is almost always full: on 2,704 of the 2,718
+  lines the planner changed, at least one of RAG F's chunks is gone (727 lines lose one, 1,844 lose two, 133 lose three to six). The agent
+  swaps the lowest-ranked RAG F chunks for what the planner picked, often a larger module-level or function chunk (median 17 lines, mean 73,
+  against median 25 and mean 34 for RAG F's chunks).
+- **Typical break.** The planner searches for a word from the prefix (sometimes a generic one, such as `os` or `logger`), adds the chunk it finds,
+  and the writer then produces a plausible line that differs from the truth, for example a `channel.send(...)` line where the file does `elif find['type']==2:`.
+- **The filled misses are weak wins.** Of RAG F's 171 retrieval misses the agent filled 7 and got 1 right; three of the seven are real cross-file names
+  (`create_task`, `ConversationMessage`, `FederationDescendant`) and the rest are generic words. The lexical screen counts any identifier defined anywhere in the
+  repository as a needed name, so some "misses" are false alarms.
+- **Not tested:** giving the planner extra budget so that it adds without displacing. That changes the context size, which E4 already measured.
+
 ## What this does and does not show
 
 - It shows that this setup, a 7B planner with a small tool budget that may only add context, does not improve on a well-tuned retrieval

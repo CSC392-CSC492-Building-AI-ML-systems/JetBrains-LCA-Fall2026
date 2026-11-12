@@ -22,6 +22,11 @@ and decide what to show the writer do better? E5 tests the simplest fair version
 | **Same protocol as the benchmark and E4** | All 224 medium datapoints, all 8,676 lines, context budget N = 1,753 tokens, greedy decoding, at most 100 new tokens, seed 42, exact match; paired bootstrap over datapoints (10,000 resamples, 95% interval). Predictions and the list of analyses were fixed before any shard ran. |
 | **Run in 6 shards on rented GPUs, merged afterwards** | One run would take about a day; shards make a crash cost hours, not a day, and let several machines work at once. Merging is tested to be equivalent to one run. |
 
+**Note on "add-only".** With the context budget fixed (as in every arm) the prompt is almost always full, so in practice an addition swaps out the
+one or two lowest-ranked RAG F chunks: on 2,704 of the 2,718 changed lines at least one RAG F chunk is no longer in the prompt. "Add-only" describes
+what the planner may request; "swap" describes what happens. Giving the agent extra budget would add without displacing, but it would change the
+context size, a variable E4 already measured, so it is not part of the fair comparison at N = 1,753.
+
 ## Result in one paragraph
 
 Agent EM 0.513 against 0.525 for RAG F: -1.24 points, 95% CI [-1.81, -0.72] (a small, real loss; under 0.5 counts as a tie by our rule),

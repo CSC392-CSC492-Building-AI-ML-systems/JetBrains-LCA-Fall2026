@@ -30,6 +30,9 @@ All from `project_level_code_completion/` with the project's python (the analysi
 python rag_results/scripts/analyze_e5_full.py     # -> rag_results/reports/E5/e5_full_analysis.md (reads E5_full/arms, runs from a clean clone)
 python rag_results/scripts/make_e5_figures.py     # -> rag_results/figures/E5/ (3 figures + table)
 python rag_results/scripts/analyze_agent_split.py # -> rag_results/reports/E5/agent_failure_split.md (agent vs RAG F, uses the failure_split.jsonl.gz files in E5_full/arms)
+python rag_results/scripts/agent_change_stats.py  # -> rag_results/reports/E5/agent_change_stats.txt (what the planner adds and displaces)
+# random examples of each kind of change (CPU, needs the dataset and the tree-sitter clone; run from the directory that has the clone):
+python rag_results/scripts/make_agent_examples.py # -> rag_results/reports/E5/agent_examples.md
 # the failure split itself (CPU, about 7 minutes; replays the planner from its logged actions, run from a directory with the tree-sitter grammar clone):
 python -m eval.failure_split --base rag_results/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 # rebuild the merged arm from the shards (what `e5_agent_full` is):
