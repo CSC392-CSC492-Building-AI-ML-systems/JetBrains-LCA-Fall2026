@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 
 from agent.loop import LLMReply, plan, task_message
-from agent.tools import Limits, RepoTools
+from agent.tools import DenseSearch, Limits, RepoTools
 from data_classes.datapoint_base import DatapointBase
 from rag.builder import RagContextBuilder, crop_prefix
 
@@ -55,7 +55,7 @@ def fit_additions(builder: RagContextBuilder, kept: list, added: list, prefix: s
 def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int, llm: Callable[[list], LLMReply],
                                 rag_options: Optional[dict] = None, limits: Limits = Limits(),
                                 planner_prefix_tokens: int = 1500, max_listed_files: int = 100, extension: str = "",
-                                lang_sep: str = "", meta_sep: str = "METASEP\n"):
+                                lang_sep: str = "", meta_sep: str = "METASEP\n", search_embedder=None):
     """Return `factory(datapoint) -> provider` for `evaluate_generation`, like `make_rag_provider_factory`.
 
     `rag_options` are the options RAG would run with (`rag=F` plus `context_cap` as `max_context_tokens`). For each
@@ -71,6 +71,9 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
         raise ValueError("the planner agent needs order=best_last")
     continuation_lines = options.get("continuation_lines", 0)
     max_context_tokens = options.get("max_context_tokens")
+    if limits.search_mode == "hybrid" and search_embedder is None:
+        raise ValueError("search_mode=hybrid needs a search_embedder")
+    adds_only = limits.edit_mode in ("append", "swap")  # the default chunks keep their rank; additions go last
 
     def factory(datapoint: DatapointBase):
         files = datapoint.get_context()
@@ -82,10 +85,11 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
                                     fine_window=builder_options.get("fine_window", 10),
                                     fine_stride=builder_options.get("fine_stride", 5))
         listed = sorted(builder.file_lines, key=lambda p: (-builder._path_proximity(p), p))[:max_listed_files]
+        dense_ranker = DenseSearch(builder, search_embedder) if search_embedder is not None else None
 
         def provider(dp: DatapointBase, line_num: int):
             default = builder.context_for(dp.get_prefix(line_num), budget=budget, **options)
-            tools = RepoTools(builder, limits, count_tokens)
+            tools = RepoTools(builder, limits, count_tokens, dense_ranker)
             task = task_message(completion_path, crop_prefix(default.prefix, planner_prefix_tokens, count_tokens),
                                 listed, tools.seed_view(default.chunks))
             planned = plan(task, tools, llm, limits)
@@ -93,7 +97,7 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
             if not fallback:
                 final = tools.apply_edit(default.chunks, planned.add, planned.drop)
                 if [id(c) for c in final] != [id(c) for c in default.chunks]:
-                    if limits.edit_mode == "append":
+                    if adds_only:
                         n_kept = sum(1 for c in final if any(c is d for d in default.chunks))
                         fitted = fit_additions(builder, final[:n_kept], final[n_kept:], default.prefix, budget,
                                                count_tokens, max_context_tokens, continuation_lines, limits.max_evict)
@@ -102,7 +106,7 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
                         edited, edited_used = assemble_context(builder, final, default.prefix, budget, count_tokens,
                                                                max_context_tokens, continuation_lines)
                     # dropping every chunk is a valid choice: an empty context; in append mode nothing is ever dropped
-                    if edited_used or not final or limits.edit_mode == "append":
+                    if edited_used or not final or adds_only:
                         # an edit whose additions do not fit can leave exactly the RAG context: that is no change
                         changed = [id(c) for c in edited_used] != [id(c) for c in default.chunks]
                         context, used = (edited, edited_used) if changed else (default.context, default.chunks)

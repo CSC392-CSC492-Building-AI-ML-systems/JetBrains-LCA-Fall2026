@@ -181,12 +181,17 @@ def run_arm(cfg: DictConfig):
             rag_options['max_context_tokens'] = context_cap
         planner = LocalChatModel(cfg.agent.planner_model, max_new_tokens=cfg.agent.planner_max_new_tokens,
                                  dtype=cfg.agent.planner_dtype, device=cfg.params.eval_params['device'])
+        search_embedder = None
+        if cfg.agent.get('search_embedder'):  # dense ranking for the hybrid search tool (loaded on first use)
+            from rag.dense import DenseEmbedder
+            search_embedder = DenseEmbedder(cfg.agent.search_embedder, pooling=cfg.agent.get('search_pooling', 'cls'),
+                                            cache_dir=cfg.agent.get('search_cache'))
         kwargs['context_provider_factory'] = make_agent_provider_factory(
             lambda text: len(tokenizer(text, add_special_tokens=False)['input_ids']), budget, planner,
             rag_options=rag_options, limits=Limits(**OmegaConf.to_container(cfg.agent.limits)),
             planner_prefix_tokens=cfg.agent.planner_prefix_tokens, max_listed_files=cfg.agent.max_listed_files,
             extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
-            meta_sep=cfg.composers_config.meta_info_sep_symbol,
+            meta_sep=cfg.composers_config.meta_info_sep_symbol, search_embedder=search_embedder,
         )
 
     if torch.cuda.is_available():

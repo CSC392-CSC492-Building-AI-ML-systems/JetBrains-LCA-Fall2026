@@ -3,7 +3,7 @@ import unittest
 from agent.llm import ReplayModel, ScriptedLLM
 from agent.loop import parse_action, plan, task_message
 from agent.provider import assemble_context, make_agent_provider_factory
-from agent.tools import Limits, RepoTools, json_text
+from agent.tools import DenseSearch, Limits, RepoTools, json_text
 from data_classes.datapoint_base import DatapointBase
 from rag.builder import RagContextBuilder
 from rag.provider import make_rag_provider_factory
@@ -412,6 +412,205 @@ class AppendModeTests(unittest.TestCase):
     def test_the_planner_actions_are_recorded(self):
         _, _, info = self.provider([search(), submit()])(make_datapoint(), 2)
         self.assertEqual([a["action"] for a in info["actions"]], ["search_code", "submit_context"])
+
+
+PY_FILES = {
+    "app/target.py": "alpha_func beta_func\nlast line",
+    "app/a.py": "def helper(x):\n    return x\n\n\nclass Thing:\n    def run(self):\n        return helper(1)\n",
+    "app/sub/b.py": "from app.a import helper\n\nvalue = helper(3)\nother = helper(4)\n",
+    "lib/c.py": "def unrelated():\n    return helper_not_this\n\nresult = helper(5)\n",
+    "lib/notes.txt": "helper is mentioned here but this is not python",
+}
+
+
+class FakeEmbedder:
+    """Deterministic stand-in for rag.dense.DenseEmbedder: a text's vector is a one-hot of its first word's length."""
+    calls = 0
+
+    def _vector(self, text):
+        import numpy as np
+        vector = np.zeros(16, dtype=np.float32)
+        vector[len(text.split()[0]) % 16 if text.split() else 0] = 1.0
+        return vector
+
+    def embed_chunks(self, texts):
+        FakeEmbedder.calls += 1
+        import numpy as np
+        return np.stack([self._vector(t.split("\n", 1)[-1]) for t in texts])
+
+    def embed_query(self, text):
+        return self._vector(text)
+
+
+class NewToolTests(unittest.TestCase):
+    """The v3 tools (RAG_EXPERIMENT_LOG 8.93): find_usages, file_outline, duplicate searches, hybrid search."""
+
+    def tools(self, files=None, completion="app/target.py", dense=None, **limits):
+        builder = make_builder(files or PY_FILES, completion)
+        return RepoTools(builder, Limits(edit_mode="swap", **limits), count, dense), builder
+
+    def test_find_usages_skips_definitions_imports_and_other_languages(self):
+        tools, _ = self.tools()
+        result = tools.find_usages("helper")["results"]
+        self.assertEqual([r["path"] for r in result], ["app/a.py", "app/sub/b.py", "lib/c.py"])  # nearest first, one per file
+        self.assertIn("return helper(1)", result[0]["text"])  # not the `def helper` line
+        self.assertIn("value = helper(3)", result[1]["text"])  # not the import line
+        self.assertNotIn("lib/notes.txt", [r["path"] for r in result])
+
+    def test_find_usages_needs_an_identifier_and_reports_no_usage(self):
+        tools, _ = self.tools()
+        self.assertIn("error", tools.find_usages("a b"))
+        self.assertIn("error", tools.find_usages("never_used_anywhere"))
+        self.assertEqual(len(tools.find_usages("helper")["results"]), 3)
+        self.assertIn("error", tools.find_usages("Thing.run()"))  # reduced to `run`, which is only defined, never used
+
+    def test_usage_results_are_citable_as_ranges(self):
+        tools, _ = self.tools()
+        first = tools.find_usages("helper")["results"][0]
+        item = {k: first[k] for k in ("path", "start_line", "end_line")}
+        self.assertEqual(len(tools.resolve_items([item])), 1)
+
+    def test_file_outline_lists_definitions_with_line_numbers(self):
+        tools, _ = self.tools()
+        outline = tools.file_outline("app/a.py")
+        self.assertEqual(outline["definitions"], ["1: def helper(x):", "5: class Thing:", "6: def run(self):"])
+        self.assertIn("error", tools.file_outline("app/target.py"))  # the file being completed is not available
+        self.assertIn("error", tools.file_outline("nope.py"))
+
+    def test_the_new_tools_exist_only_in_swap_mode(self):
+        builder = make_builder(PY_FILES, "app/target.py")
+        for mode in ("front", "append"):
+            tools = RepoTools(builder, Limits(edit_mode=mode), count)
+            self.assertIn("error", tools.execute({"action": "find_usages", "name": "helper"}))
+            self.assertIn("error", tools.execute({"action": "file_outline", "path": "app/a.py"}))
+        tools = RepoTools(builder, Limits(edit_mode="swap"), count)
+        self.assertIn("results", tools.execute({"action": "find_usages", "name": "helper"}))
+
+    def test_repeated_searches_are_answered_with_a_note_only_when_dedupe_is_on(self):
+        tools, _ = self.tools(dedupe_searches=True)
+        self.assertIn("results", tools.search_code("alpha_func"))
+        self.assertIn("note", tools.search_code("  ALPHA_func "))  # same words, case and spacing ignored
+        self.assertIn("results", tools.search_code("beta_func"))
+        self.assertIn("results", tools.find_usages("helper"))
+        self.assertIn("note", tools.find_usages("helper"))
+        plain, _ = self.tools()
+        self.assertIn("results", plain.search_code("alpha_func"))
+        self.assertIn("results", plain.search_code("alpha_func"))
+
+    def test_hybrid_search_adds_what_the_dense_ranking_finds(self):
+        files = {"app/target.txt": "x", "lib/words.txt": "unrelated words only", "lib/other.txt": "different content here"}
+        builder = make_builder(files)
+        wanted = next(i for i, c in enumerate(builder.chunks) if c.path == "lib/other.txt")
+        bm25_only = RepoTools(builder, Limits(edit_mode="swap", search_results=2), count).search_code("zzz_no_such_word")
+        self.assertEqual(bm25_only["results"], [])  # BM25 finds nothing for a word that occurs nowhere
+        tools = RepoTools(builder, Limits(edit_mode="swap", search_mode="hybrid", search_results=2), count,
+                          dense_ranker=lambda query: [wanted] + [i for i in range(len(builder.chunks)) if i != wanted])
+        results = tools.search_code("zzz_no_such_word")["results"]
+        self.assertEqual(results[0]["path"], "lib/other.txt")
+
+    def test_hybrid_needs_a_dense_ranker(self):
+        builder = make_builder()
+        with self.assertRaises(ValueError):
+            RepoTools(builder, Limits(search_mode="hybrid"), count)
+        with self.assertRaises(ValueError):
+            make_agent_provider_factory(count, 1000, ScriptedLLM([submit()]), rag_options=RAG_OPTIONS,
+                                        limits=Limits(edit_mode="swap", search_mode="hybrid"), lang_sep=LANG, meta_sep=META)
+        with self.assertRaises(ValueError):
+            RepoTools(builder, Limits(search_mode="semantic"), count)
+
+    def test_dense_search_embeds_the_chunks_once_and_only_when_used(self):
+        builder = make_builder()
+        FakeEmbedder.calls = 0
+        dense = DenseSearch(builder, FakeEmbedder())
+        self.assertEqual(FakeEmbedder.calls, 0)
+        ranking = dense("alpha")
+        self.assertEqual(sorted(ranking), list(range(len(builder.chunks))))  # a full ranking of every chunk
+        dense("beta")
+        self.assertEqual(FakeEmbedder.calls, 1)
+
+
+class SwapModeTests(unittest.TestCase):
+    """Planner v3 edit (RAG_EXPERIMENT_LOG 8.93): additions after RAG's ranking, the planner names what to give up."""
+    PREFIX = "\n".join(TARGET.split("\n")[:2])
+    C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
+
+    def provider(self, replies, rag_options=None, embedder=None, **limits):
+        llm = ScriptedLLM(replies)
+        factory = make_agent_provider_factory(count, 1000, llm, rag_options=rag_options or RAG_OPTIONS,
+                                              limits=Limits(edit_mode="swap", **limits), lang_sep=LANG, meta_sep=META,
+                                              search_embedder=embedder)
+        return factory(make_datapoint()), llm
+
+    def default(self):
+        return make_builder().context_for(self.PREFIX, budget=1000, **RAG_OPTIONS).chunks
+
+    def default_ids(self):
+        builder = make_builder()
+        return [builder.chunks.index(c) for c in self.default()]
+
+    def rag_info(self, options=None):
+        factory = make_rag_provider_factory(count, 1000, lang_sep=LANG, meta_sep=META, **(options or RAG_OPTIONS))
+        return factory(make_datapoint())(make_datapoint(), 2)
+
+    def test_the_prompt_is_the_swap_prompt(self):
+        provider, llm = self.provider([submit()])
+        provider(make_datapoint(), 2)
+        system = llm.calls[0][0]["content"]
+        self.assertIn("find_usages", system)
+        self.assertIn("file_outline", system)
+        self.assertIn("If you are not sure, change\nnothing", system)
+
+    def test_adding_with_a_named_eviction_gives_up_exactly_that_chunk(self):
+        ids = self.default_ids()
+        provider, _ = self.provider([submit([self.C], drop=[ids[0]])])
+        _, _, info = provider(make_datapoint(), 2)
+        default = self.rag_info()[2]
+        self.assertTrue(info["changed"])
+        self.assertEqual(info["paths"][-1], "lib/c.txt")
+        self.assertEqual(info["lines"][:-1], default["lines"][1:])  # the first default chunk is gone, the rest keep their order
+
+    def test_a_drop_without_an_addition_changes_nothing(self):
+        ids = self.default_ids()
+        provider, _ = self.provider([submit(drop=ids[:2])])
+        prompt, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(prompt, self.rag_info()[0])
+        self.assertEqual((info["changed"], info["fallback"]), (False, False))
+
+    def test_at_most_max_evict_chunks_are_given_up(self):
+        ids = self.default_ids()
+        self.assertEqual(len(ids), 2)  # this fixture's default context
+        for max_evict, expected in ((1, len(ids)), (2, len(ids) - 1)):  # one in and one out; two out and one in
+            provider, _ = self.provider([submit([self.C], drop=ids)], max_evict=max_evict)
+            _, _, info = provider(make_datapoint(), 2)
+            self.assertEqual(len(info["paths"]), expected, max_evict)
+
+    def test_ids_that_are_not_default_chunks_are_ignored(self):
+        provider, _ = self.provider([submit([self.C], drop=[10 ** 6, "x", -1])])
+        _, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(info["paths"][:-1], self.rag_info()[2]["paths"])
+
+    def test_without_a_named_eviction_the_lowest_ranked_make_room_as_in_append_mode(self):
+        builder = make_builder()
+        default = self.default()
+        cap = sum(count(builder._format(c, 0) + LANG) for c in default)
+        options = {**RAG_OPTIONS, "max_context_tokens": cap}
+        provider, _ = self.provider([submit([self.C])], options)
+        prompt, _, info = provider(make_datapoint(), 2)
+        self.assertTrue(info["changed"])
+        self.assertEqual(info["paths"][-1], "lib/c.txt")
+        self.assertLessEqual(count(prompt), 1000)
+
+    def test_the_hybrid_search_runs_through_the_provider_and_is_replayable(self):
+        provider, _ = self.provider([search("alpha_func"), submit([self.C])], embedder=FakeEmbedder(), search_mode="hybrid")
+        _, _, info = provider(make_datapoint(), 2)
+        replay = ReplayModel()
+        replay.load(info["actions"])
+        factory = make_agent_provider_factory(count, 1000, replay, rag_options=RAG_OPTIONS, lang_sep=LANG, meta_sep=META,
+                                              limits=Limits(edit_mode="swap", search_mode="hybrid"), search_embedder=FakeEmbedder())
+        replayed = factory(make_datapoint())(make_datapoint(), 2)[2]
+        self.assertTrue(replay.finished)
+        for key in ("paths", "lines", "kinds", "changed"):
+            self.assertEqual(replayed[key], info[key], key)
 
 
 class ReplayTests(unittest.TestCase):
