@@ -27,6 +27,25 @@ one or two lowest-ranked RAG F chunks: on 2,704 of the 2,718 changed lines at le
 what the planner may request; "swap" describes what happens. Giving the agent extra budget would add without displacing, but it would change the
 context size, a variable E4 already measured, so it is not part of the fair comparison at N = 1,753.
 
+## Limits on the agent (set in `eval/config/agent/append.yaml`, fixed before the full run, not tuned afterwards)
+
+| limit | value |
+|---|---|
+| tool calls before the planner must submit | 5 (a forced submit follows; ignoring it abandons the line to RAG's prompt) |
+| unusable (non-JSON) replies tolerated | 2, then the line falls back to RAG's prompt |
+| planner reply length | at most 200 new tokens |
+| file prefix the planner sees | the last 1,500 tokens (the writer still gets the whole prefix) |
+| files listed to the planner | the 100 nearest to the file being completed |
+| search results per search | 5; a tool result is cut to 1,200 tokens; a default chunk is shown to the planner cut to 300 tokens |
+| lines per `read_file` or per added range | at most 80 |
+| items per `submit_context` | at most 8 requested, **at most 2 are added**, and at most 2 default chunks may be evicted for room |
+| context budget for repository code | the same N = 1,753 tokens as every other arm |
+
+How often the limits mattered (over the 8,676 lines): the planner used the full 5 tool calls on 59.6% of lines (so the cap binds in most
+cases) and exactly 1 call on 33.5%; it asked to add nothing on 34.4% of lines and asked for more than 2 additions on about 12% (only 2 were kept).
+It almost never used `read_file` (62 of about 30,200 tool calls; `search_code` 29,129, `find_definition` 997). A larger tool budget or longer
+searches would be a different experiment; none of the limits was varied, so we cannot say which one matters.
+
 ## Result in one paragraph
 
 Agent EM 0.513 against 0.525 for RAG F: -1.24 points, 95% CI [-1.81, -0.72] (a small, real loss; under 0.5 counts as a tie by our rule),
