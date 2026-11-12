@@ -1,0 +1,97 @@
+File Objects
+============
+
+The File Objects in h5py provide a low-level interface to HDF5 file identifiers, encapsulated by the `ObjectID` base class and its subclasses. These objects represent HDF5 identifiers and manage their lifecycle, ensuring proper reference counting and validity checks.
+
+Overview
+--------
+
+The core class for file-related identifiers is `ObjectID`, which represents an HDF5 identifier (`hid_t`). It manages the underlying HDF5 resource through reference counting and provides mechanisms to prevent "zombie" identifiers—identifiers that refer to closed or invalid HDF5 objects.
+
+Key Features of `ObjectID`:
+- **Identifier Management:** Holds the HDF5 identifier and manages its validity.
+- **Locking:** Supports a locking mechanism to prevent premature closure of critical objects.
+- **Registry:** Maintains a global registry of live `ObjectID` instances to track and invalidate stale identifiers.
+- **Thread Safety:** Uses a recursive lock (`FastRLock`) to serialize access to the low-level HDF5 API, ensuring thread safety.
+- **Reference Counting:** Automatically increments and decrements HDF5 reference counts to manage object lifetimes.
+- **Hashing and Comparison:** Implements hashing and equality comparison based on the HDF5 object's file and object numbers.
+
+Attributes
+----------
+
+- `id` (readonly): The HDF5 identifier (`hid_t`) associated with the object.
+- `locked` (int): Indicates whether the object is locked from being closed.
+- `fileno` (property): Returns a tuple identifying the file number associated with the object.
+- `valid` (property): Indicates whether the HDF5 identifier is currently valid.
+
+Methods
+-------
+
+- `close()`: Closes the HDF5 identifier, releasing the underlying resource. Subclasses may override this to handle nonlocal effects.
+- `_close()`: Internal method to manually close the object and decrement the reference count.
+- `__copy__()`: Creates a new reference to the same HDF5 object, incrementing the reference count.
+- `__richcmp__(other, how)`: Implements equality and inequality comparisons based on HDF5 identifiers.
+- `__hash__()`: Computes a hash based on the file and object numbers of the HDF5 object.
+
+Registry and Zombie Identifier Handling
+---------------------------------------
+
+HDF5 identifiers can be reused immediately after being closed, which can lead to "zombie" identifiers—Python objects that refer to invalid or different HDF5 objects than originally intended. To mitigate this:
+
+- A global registry tracks all live `ObjectID` instances using weak references.
+- The function `nonlocal_close()` scans the registry to find and invalidate stale identifiers by setting their `id` to 0.
+- This function is called explicitly during file closure to ensure no stale identifiers remain.
+- The locking mechanism ensures that only one thread manipulates identifiers at a time, preventing race conditions.
+
+Thread Safety and Locking
+-------------------------
+
+- The module uses a recursive lock (`FastRLock`) named `phil` to serialize access to the low-level HDF5 API.
+- The decorator `with_phil` is provided to wrap functions that require thread-safe access.
+- This locking strategy prevents concurrent access issues, especially when the Python Global Interpreter Lock (GIL) is released during native calls.
+
+Type Identifiers
+----------------
+
+Several subclasses of `ObjectID` represent specific HDF5 type identifiers:
+
+- `TypeID`: Base class for HDF5 datatype identifiers.
+- `TypeArrayID`, `TypeOpaqueID`, `TypeStringID`, `TypeVlenID`, `TypeTimeID`, `TypeBitfieldID`, `TypeReferenceID`: Specialized type identifiers for various HDF5 datatype categories.
+- `TypeAtomicID`: Base class for atomic numeric types.
+- `TypeIntegerID`, `TypeFloatID`: Numeric atomic types.
+- `TypeCompositeID`: Base class for composite types.
+- `TypeEnumID`, `TypeCompoundID`: Enum and compound types.
+
+Attributes and methods specific to these classes provide additional functionality for handling HDF5 datatypes.
+
+Attributes
+----------
+
+- `AttrID`: Represents HDF5 attribute identifiers, subclassing `ObjectID`.
+
+Dimension Scale Interface
+-------------------------
+
+The low-level HDF5 Dimension Scale interface is exposed through functions that operate on dataset identifiers (`DatasetID`), which are also subclasses of `ObjectID`. These functions allow:
+
+- Setting a dataset as a dimension scale (`set_scale`).
+- Checking if a dataset is a dimension scale (`is_scale`).
+- Attaching and detaching scales to datasets (`attach_scale`, `detach_scale`).
+- Querying the number of scales attached to a dataset (`get_num_scales`).
+- Setting and getting labels on scales (`set_label`, `get_label`).
+- Retrieving the name of a scale (`get_scale_name`).
+- Iterating over scales attached to a dataset dimension (`iterate`).
+
+These functions are thread-safe and use the locking decorator to ensure serialized access.
+
+Error Handling
+--------------
+
+The module includes mechanisms to detect and handle HDF5 errors, mapping them to Python exceptions where appropriate. Reference counting issues and invalid identifier usage generate warnings to alert users of potential problems.
+
+Summary
+-------
+
+File Objects in h5py provide a robust, thread-safe, and efficient interface to HDF5 file and datatype identifiers. They manage the lifecycle of HDF5 resources, prevent invalid usage through a global registry and locking, and expose specialized subclasses for different HDF5 object types. The dimension scale interface extends this functionality to support HDF5's dimension scale features.
+
+For detailed usage, refer to the h5py documentation and the API reference for the `ObjectID` class and its subclasses.

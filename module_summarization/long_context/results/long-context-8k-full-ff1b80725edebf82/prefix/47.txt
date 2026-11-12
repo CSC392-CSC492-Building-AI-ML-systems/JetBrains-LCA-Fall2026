@@ -1,0 +1,151 @@
+Contingency Tables Module
+=========================
+
+Overview
+--------
+
+This module provides methods for analyzing two-way contingency tables, which are frequency tables for observations cross-classified with respect to two categorical variables. It includes classes and functions to perform various statistical tests and compute measures of association for contingency tables of different shapes and sizes.
+
+Main Classes
+------------
+
+- **Table**  
+  Implements methods applicable to any two-way contingency table.  
+  Features include tests for nominal and ordinal association, calculation of marginal and joint probabilities, residuals, odds ratios, and fitted values under independence.
+
+- **SquareTable**  
+  Extends `Table` with methods specific to square contingency tables (where the row and column categories are the same).  
+  Provides tests for symmetry of the joint distribution and homogeneity of marginal distributions.
+
+- **Table2x2**  
+  Specialized methods for 2x2 contingency tables (not fully shown in the provided code).
+
+- **StratifiedTable**  
+  Methods for collections of 2x2 contingency tables (not fully shown in the provided code).
+
+Additional Functions
+--------------------
+
+- Functions for conducting McNemar's test and Cochran's Q test (not shown in the provided code).
+
+Usage Notes
+-----------
+
+- The inference procedures assume that observed units are independent and identically distributed.
+- When using `SquareTable` with a pandas DataFrame, the table is automatically converted to a square form by extending row and column indices and filling missing cells with zeros.
+- Zero cell counts can be shifted by adding 0.5 to all cells to avoid issues in some calculations (controlled by the `shift_zeros` parameter).
+
+Detailed Class Descriptions
+---------------------------
+
+Table
+^^^^^
+
+Represents a general two-way contingency table.
+
+**Initialization Parameters:**
+
+- `table` : array_like  
+  The contingency table data.
+
+- `shift_zeros` : bool, optional (default=True)  
+  If True and any cell count is zero, adds 0.5 to all values in the table.
+
+**Key Methods:**
+
+- `from_data(data, shift_zeros=True)`  
+  Class method to construct a `Table` from raw data by creating a contingency table from the first two columns.
+
+- `test_nominal_association()`  
+  Performs a chi-square test for independence treating rows and columns as nominal categorical variables. Returns a result object with test statistic, degrees of freedom, and p-value.
+
+- `test_ordinal_association(row_scores=None, col_scores=None)`  
+  Performs a linear-by-linear association test for ordinal variables using optional numeric scores for rows and columns. Returns test statistic, null mean and standard deviation, z-score, and p-value.
+
+**Properties:**
+
+- `marginal_probabilities`  
+  Returns estimated marginal probability distributions for rows and columns.
+
+- `independence_probabilities`  
+  Returns fitted joint probabilities under the assumption of independence.
+
+- `fittedvalues`  
+  Returns expected cell counts under independence.
+
+- `resid_pearson`  
+  Pearson residuals under independence.
+
+- `standardized_resids`  
+  Standardized residuals under independence.
+
+- `chi2_contribs`  
+  Contributions of each cell to the chi-square test statistic.
+
+- `local_log_oddsratios` and `local_oddsratios`  
+  Local log odds ratios and odds ratios computed for contiguous 2x2 sub-tables.
+
+- `cumulative_log_oddsratios` and `cumulative_oddsratios`  
+  Cumulative log odds ratios and odds ratios computed by collapsing cells to form 2x2 tables.
+
+SquareTable
+^^^^^^^^^^^
+
+Extends `Table` for square contingency tables where rows and columns represent the same categories.
+
+**Initialization Parameters:**
+
+- `table` : array_like or pandas DataFrame  
+  The square contingency table. If a DataFrame is provided, it is converted to a square form.
+
+- `shift_zeros` : bool, optional (default=True)  
+  If True and any cell count is zero, adds 0.5 to all values.
+
+**Key Methods:**
+
+- `symmetry(method="bowker")`  
+  Tests the null hypothesis that the joint distribution is symmetric around the main diagonal (i.e., \( p_{i,j} = p_{j,i} \) for all i, j).  
+  Returns a result object with chi-square statistic, degrees of freedom, and p-value.  
+  Currently, only the "bowker" method is supported.
+
+- `homogeneity(method="stuart_maxwell")`  
+  Tests whether the row and column marginal distributions are equal.  
+  Supports two methods: "stuart_maxwell" and "bhapkar" for covariance estimation.  
+  Returns a result object with chi-square statistic, degrees of freedom, and p-value.  
+  For 2x2 tables, this test is equivalent to McNemar's test.
+
+- `summary(alpha=0.05, float_format="%.3f")`  
+  Produces a summary of the analysis including test results and confidence intervals (method details incomplete in provided code).
+
+Helper Functions and Classes
+----------------------------
+
+- `_make_df_square(table)`  
+  Converts a pandas DataFrame contingency table into a square form by extending row and column indices and filling missing cells with zeros.
+
+- `_Bunch`  
+  A simple container class used to store and display test results and statistics.
+
+References
+----------
+
+- Definitions of residuals and related statistics:  
+  https://onlinecourses.science.psu.edu/stat504/node/86
+
+- For symmetry and homogeneity tests, see SAS documentation and R's `mcnemar.test` for related methods.
+
+See Also
+--------
+
+- `statsmodels.graphics.mosaicplot.mosaic`  
+- `scipy.stats.chi2_contingency`  
+- McNemar's test and Cochran's Q test functions (not shown here)
+
+Notes
+-----
+
+- The statistical inference assumes independent and identically distributed observations classified by two categorical variables.
+- Some tests rely on asymptotic chi-square distributions; caution is advised with small sample sizes.
+- Zero counts can be adjusted by adding 0.5 to avoid computational issues in odds ratio and residual calculations.
+
+This module is a comprehensive toolkit for analyzing two-way contingency tables, supporting a variety of table shapes and providing both descriptive and inferential statistics.

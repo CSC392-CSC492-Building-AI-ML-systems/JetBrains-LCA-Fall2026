@@ -1,0 +1,101 @@
+Managing Memory
+===============
+
+In distributed computing with Dask, managing memory efficiently is crucial to ensure smooth execution and resource utilization. This section provides an overview of how memory is managed through the use of Futures and their internal states, as well as mechanisms to track, release, and handle computation results.
+
+Futures
+-------
+
+A **Future** represents a remotely running computation and acts as a local proxy to a result running on a remote worker. Users interact with Future objects to manage and track computations within a distributed cluster.
+
+### Creating and Using Futures
+
+Futures are typically created by submitting tasks to a Dask `Client`. For example:
+
+```python
+my_future = client.submit(add, 1, 2)
+```
+
+Once created, a Future can be queried for its status, result, exception, or traceback.
+
+### Future Attributes and Methods
+
+- **status**: Returns the current status of the Future, such as `"pending"`, `"finished"`, `"error"`, or `"cancelled"`.
+
+- **done()**: Returns `True` if the computation has completed (successfully or otherwise).
+
+- **result(timeout=None)**: Waits for the computation to complete and returns the result. Raises a `TimeoutError` if the timeout is exceeded.
+
+- **exception(timeout=None)**: Returns the exception raised by the computation if it failed.
+
+- **traceback(timeout=None)**: Returns the traceback object associated with a failed computation.
+
+- **cancel()**: Cancels the computation request.
+
+- **retry()**: Retries the computation if it has failed.
+
+- **add_done_callback(fn)**: Registers a callback function to be called when the Future completes, regardless of success or failure.
+
+- **release()**: Releases the Future's reference to the remote data, allowing memory to be freed on the worker.
+
+### Reference Counting and Memory Management
+
+Each Future maintains a reference count on the remote data it represents. When a Future is created or bound to a client, the reference count is incremented. Calling `release()` or deleting the Future decrements the reference count, signaling that the client no longer needs the data. When no clients hold references to a piece of data, the worker can safely free the associated memory.
+
+FutureState
+-----------
+
+The internal state of a Future is managed by the `FutureState` class, which tracks the status, type, exception, and traceback of the computation.
+
+### Status Values
+
+- `"pending"`: The computation is still running or waiting to run.
+
+- `"finished"`: The computation completed successfully.
+
+- `"error"`: The computation raised an exception.
+
+- `"cancelled"`: The computation was cancelled.
+
+- `"lost"`: The computation or data was lost (e.g., due to worker failure).
+
+### Synchronization
+
+`FutureState` uses an asyncio event to signal when the computation has completed or changed state. This allows asynchronous waiting on the Future's completion.
+
+### Methods
+
+- **cancel()**: Marks the Future as cancelled and sets the event.
+
+- **finish(type=None)**: Marks the Future as finished and sets the event. Optionally records the result type.
+
+- **set_error(exception, traceback)**: Marks the Future as errored, storing the exception and traceback, and sets the event.
+
+- **done()**: Returns `True` if the Future has completed.
+
+- **wait(timeout=None)**: Asynchronously waits for the Future to complete, with an optional timeout.
+
+Memory Lifecycle and Cleanup
+----------------------------
+
+- When a Future is no longer needed, calling `release()` or deleting the Future object informs the client to decrement the reference count on the remote data.
+
+- The client communicates with the scheduler and workers to manage the lifecycle of data, ensuring that memory is freed when no longer referenced.
+
+- Callbacks registered via `add_done_callback` are executed in a separate thread to avoid blocking the main event loop.
+
+Best Practices
+--------------
+
+- Always release Futures when they are no longer needed to free up memory on workers.
+
+- Use `cancel()` to stop computations that are no longer required.
+
+- Handle exceptions and tracebacks from Futures to debug failed computations.
+
+- Use callbacks to trigger actions upon completion of computations without blocking.
+
+Summary
+-------
+
+Dask's memory management revolves around the concept of Futures, which encapsulate remote computations and their results. Through reference counting, asynchronous state management, and explicit release mechanisms, Dask ensures efficient use of memory resources in distributed environments. Proper use of Futures and their lifecycle methods is essential for effective memory management in distributed applications.

@@ -1,0 +1,88 @@
+Executing notebooks
+===================
+
+The `ExecutePreprocessor` class provides functionality to execute all the code cells in a Jupyter notebook, updating the notebook outputs in-place. This preprocessor is part of the nbconvert preprocessors and integrates closely with the `nbclient` library to manage notebook execution.
+
+ExecutePreprocessor
+-------------------
+
+The `ExecutePreprocessor` inherits from both `Preprocessor` and `NotebookClient` to maintain compatibility with traitlets and nbclient's execution model.
+
+### Initialization
+
+```python
+ExecutePreprocessor(**kwargs)
+```
+
+- `nb` (optional): A `NotebookNode` object representing the notebook to execute.
+- Additional keyword arguments are passed to both `Preprocessor` and `NotebookClient`.
+
+### Methods
+
+#### preprocess(nb, resources=None, km=None)
+
+Executes each code cell in the notebook.
+
+- **Parameters:**
+  - `nb` (`NotebookNode`): The notebook to execute. This notebook is modified in-place.
+  - `resources` (dict, optional): Additional resources used during processing. For example, passing `{'metadata': {'path': run_path}}` sets the execution path.
+  - `km` (`KernelManager`, optional): An optional kernel manager. If not provided, a new kernel manager will be created.
+
+- **Returns:**
+  - `nb` (`NotebookNode`): The executed notebook with updated outputs.
+  - `resources` (dict): Additional resources used in the conversion process.
+
+- **Details:**
+  The method initializes the notebook client, resets execution trackers, and sets up the kernel. It waits for the kernel info reply to update the notebook metadata with language information. Then, it iterates over each cell, executing code cells and updating their outputs. Finally, it sets widget metadata if applicable.
+
+#### preprocess_cell(cell, resources, index)
+
+Executes a single cell.
+
+- **Parameters:**
+  - `cell` (`NotebookNode`): The notebook cell to execute.
+  - `resources` (dict): Additional resources used during processing.
+  - `index` (int): The index of the cell in the notebook.
+
+- **Returns:**
+  - `cell` (`NotebookNode`): The executed cell with updated outputs.
+  - `resources` (dict): Updated resources.
+
+- **Details:**
+  This method executes the given cell and stores the execution history. It can be overridden to customize cell execution behavior.
+
+Deprecated Function
+-------------------
+
+### executenb(*args, **kwargs)
+
+This function is deprecated and was moved to `nbclient.execute`. It is retained for backwards compatibility and issues a `FutureWarning` advising users to import directly from `nbclient`.
+
+Usage Example
+-------------
+
+```python
+from nbconvert.preprocessors import ExecutePreprocessor
+from nbformat import read, write
+
+with open("notebook.ipynb") as f:
+    nb = read(f, as_version=4)
+
+ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
+nb, resources = ep.preprocess(nb, {'metadata': {'path': './'}})
+
+with open("executed_notebook.ipynb", 'w') as f:
+    write(nb, f)
+```
+
+This example reads a notebook, executes all its code cells, and writes the executed notebook back to disk.
+
+Notes
+-----
+
+- The execution modifies the notebook in-place.
+- Kernel management is handled internally, but a custom `KernelManager` can be provided.
+- Execution errors raise `CellExecutionError` exceptions.
+- The notebook metadata is updated with the kernel language information after execution.
+
+This preprocessor is essential for workflows that require running notebooks programmatically, such as automated report generation or testing notebooks.

@@ -1,0 +1,63 @@
+Scheduling Policies
+===================
+
+Dask's distributed scheduler employs a set of sophisticated policies to determine the preference of tasks and workers during task scheduling and execution. These policies are designed to optimize resource utilization, minimize data movement, and improve overall cluster efficiency.
+
+Task Preference Policies
+------------------------
+
+The scheduler maintains detailed state information about each task, including its current status, dependencies, and resource requirements. Tasks transition through various states such as `waiting`, `queued`, `processing`, `memory`, and `erred`. The scheduler uses these states to prioritize task execution and manage dependencies effectively.
+
+Key considerations in task preference include:
+
+- **Data Locality:** Tasks are preferentially scheduled on workers that already hold the required input data in memory, reducing data transfer overhead.
+- **Resource Constraints:** Tasks that require specific resources (e.g., GPUs) are scheduled only on workers that have those resources available.
+- **Task Dependencies:** Tasks are scheduled only when their dependencies have been satisfied, ensuring correct execution order.
+- **Client Preferences:** The scheduler tracks client requests and attempts to keep results in memory for clients that want to retrieve them, balancing memory usage and client responsiveness.
+
+Worker Preference Policies
+--------------------------
+
+Workers are selected based on their current state, resource availability, and historical performance metrics. The scheduler maintains a comprehensive `WorkerState` for each worker, including:
+
+- **CPU Threads (`nthreads`):** Number of available CPU threads.
+- **Memory Limits and Usage:** Total memory available and current memory consumption, including managed and unmanaged memory.
+- **Resource Availability:** Abstract resources such as GPUs or other specialized hardware.
+- **Task Load:** Number of tasks currently processing or queued on the worker.
+- **Network Metrics:** Bandwidth and latency measurements to optimize data transfer.
+- **Worker Status:** Health and connectivity status to avoid scheduling on unresponsive or overloaded workers.
+
+The scheduler uses these metrics to:
+
+- **Balance Load:** Distribute tasks evenly across workers to prevent bottlenecks.
+- **Optimize Memory Usage:** Avoid scheduling tasks on workers nearing memory limits.
+- **Respect Resource Constraints:** Ensure tasks are assigned only to workers with sufficient resources.
+- **Leverage Work Stealing:** Idle workers may steal tasks from busy workers to improve throughput.
+
+Memory Management and Scheduling
+--------------------------------
+
+Memory usage is a critical factor in scheduling decisions. The scheduler tracks memory at multiple levels:
+
+- **Managed Memory:** Memory used by tasks currently held in RAM or spilled to disk.
+- **Unmanaged Memory:** Memory used by the Python interpreter, global variables, and other overhead.
+- **Optimistic Memory:** A heuristic combining managed memory and stable unmanaged memory to estimate long-term memory usage.
+
+These metrics inform scheduling policies to prevent memory exhaustion and to trigger spilling or task eviction when necessary.
+
+Extensions and Plugins
+----------------------
+
+Dask's scheduler supports various extensions that enhance scheduling policies, including:
+
+- **Active Memory Manager:** Dynamically manages memory usage and task eviction.
+- **Work Stealing:** Enables dynamic redistribution of tasks among workers.
+- **Shuffle Scheduler Plugin:** Optimizes shuffle operations in distributed computations.
+- **Semaphore and Lock Extensions:** Manage concurrency and resource locking.
+
+These extensions integrate with the core scheduling policies to provide a flexible and adaptive scheduling environment.
+
+Summary
+-------
+
+Dask's distributed scheduler combines detailed task and worker state tracking with adaptive policies to efficiently schedule tasks across a cluster. By considering data locality, resource constraints, memory usage, and dynamic workload balancing, the scheduler aims to maximize performance and resource utilization while maintaining robustness and responsiveness.

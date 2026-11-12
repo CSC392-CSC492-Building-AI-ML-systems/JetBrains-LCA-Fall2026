@@ -1,0 +1,145 @@
+Using Review Sessions
+=====================
+
+Overview
+--------
+
+A review session provides an isolated context for interacting with an ftrack server. It manages authentication, caching, event handling, and entity lifecycle, allowing users to perform operations such as creating, modifying, and deleting entities, as well as managing event subscriptions and server communication.
+
+Creating a Session
+------------------
+
+To create a review session, instantiate the `Session` class with the appropriate parameters:
+
+- **server_url**: URL of the ftrack server, including port number. If not provided, the environment variable `FTRACK_SERVER` will be used.
+- **api_key**: API key for authentication. If not provided, the environment variable `FTRACK_API_KEY` will be used.
+- **api_user**: Username for the API user. If not provided, the environment variable `FTRACK_API_USER` or the current system user will be used.
+- **auto_populate**: If `True` (default), entity attributes will be automatically fetched from the server when accessed.
+- **plugin_paths**: List of paths to search for plugins. Defaults to the environment variable `FTRACK_EVENT_PLUGIN_PATH`.
+- **cache**: Cache instance or callable to provide caching for the session.
+- **cache_key_maker**: Key maker instance for generating cache keys.
+- **auto_connect_event_hub**: If `True`, the event hub will automatically connect to the event server in a background thread.
+- **schema_cache_path**: Path to cache schema information. If not set, defaults to environment variable `FTRACK_API_SCHEMA_CACHE_PATH` or a temporary directory.
+- **plugin_arguments**: Optional dictionary of keyword arguments to pass to plugin register functions.
+
+Example:
+
+```python
+from ftrack_api import Session
+
+session = Session(
+    server_url='https://ftrack.example.com',
+    api_key='your_api_key',
+    api_user='your_username',
+    auto_populate=True,
+    auto_connect_event_hub=True
+)
+```
+
+Session Lifecycle
+-----------------
+
+### Context Manager Support
+
+The session supports usage as a context manager, ensuring proper cleanup:
+
+```python
+with Session(...) as session:
+    # Use session here
+    pass
+# Session is automatically closed here
+```
+
+### Closing a Session
+
+To explicitly close a session and release resources:
+
+```python
+session.close()
+```
+
+Closing a session clears any pending operations, clears the local cache, closes connections, and disconnects the event hub.
+
+### Resetting a Session
+
+Resetting clears local state, including pending operations and cache, and reconfigures session aspects dependent on cache:
+
+```python
+session.reset()
+```
+
+Note that previously attached entities remain in memory but should not be used after reset.
+
+Entity Management
+-----------------
+
+### Creating Entities
+
+Create new entities of a specified type with optional initial data:
+
+```python
+entity = session.create('Task', data={'name': 'Review Task'})
+```
+
+The created entity is automatically merged into the session.
+
+### Tracking Entity States
+
+The session provides properties to access entities based on their local state:
+
+- `session.created`: List of newly created entities.
+- `session.modified`: List of locally modified entities.
+- `session.deleted`: List of deleted entities.
+
+These lists help track changes before committing them to the server.
+
+Operation Recording and Auto-Populating
+---------------------------------------
+
+### Temporarily Disabling Auto-Populate
+
+To temporarily disable automatic fetching of entity attributes:
+
+```python
+with session.auto_populating(False):
+    # Access entity attributes without auto-fetching
+    print(entity['name'])
+```
+
+### Temporarily Disabling Operation Recording
+
+To temporarily disable recording of operations (useful for making changes without persisting them):
+
+```python
+with session.operation_recording(False):
+    entity['name'] = 'Change not recorded'
+```
+
+Event Hub
+---------
+
+The session includes an event hub for publishing and subscribing to events.
+
+- If `auto_connect_event_hub` is enabled, the event hub connects automatically in a background thread.
+- Subscribing to events does not require a connected event hub.
+- Plugins can interact with the event hub for custom event handling.
+
+Server Compatibility
+--------------------
+
+The session checks server compatibility upon initialization. It requires a minimum server version (default is 3.3.11) and raises an error if the server version is incompatible.
+
+Schema Caching
+--------------
+
+Schema caching can be enabled by specifying a path via `schema_cache_path` or the environment variable `FTRACK_API_SCHEMA_CACHE_PATH`. This improves performance by caching schema information locally.
+
+Plugins
+-------
+
+Plugins can be discovered and loaded from specified paths. Plugin arguments can be passed during session initialization to customize plugin behavior.
+
+Summary
+-------
+
+Using a review session allows for efficient and isolated interaction with an ftrack server, managing authentication, caching, event handling, and entity lifecycle. It supports context management, operation recording control, and event subscriptions, making it a powerful tool for managing review workflows programmatically.

@@ -1,0 +1,176 @@
+# Fleur Input/Output Parsers Documentation
+
+This document provides an overview of the Fleur input/output parsers implemented in the `masci-tools` package. These parsers facilitate the extraction and interpretation of various components from Fleur XML files, enabling easy versioning, reuse, and integration with other tools.
+
+---
+
+## Overview
+
+The Fleur parsers are designed to work with Fleur XML input and output files, extracting key information such as calculation modes, k-points, lattice parameters, species information, and input parameters. The parsers handle different schema versions and provide utilities to interpret the XML content in a structured and consistent manner.
+
+---
+
+## Key Functions
+
+### `get_fleur_modes(xmltree, schema_dict, logger=None)`
+
+Determines the calculation modes of Fleur for a given XML file. Calculation modes influence the produced files or output in the `out.xml` files.
+
+**Parameters:**
+- `xmltree`: An XML tree representing the Fleur XML file.
+- `schema_dict`: Schema dictionary corresponding to the file version of the XML tree.
+- `logger`: Optional logger object for logging warnings or errors.
+
+**Returns:**
+- A dictionary containing extracted calculation modes, including:
+  - `jspin`: Number of spins considered.
+  - `noco`: Whether the calculation is non-collinear.
+  - `soc`: Whether spin-orbit coupling is included.
+  - `relax`: Whether the calculation is a structure relaxation.
+  - `spex`: Special mode for GW/Spex calculations.
+  - `force_theorem`: Whether a Force theorem calculation is performed.
+  - `film`: Whether the structure is a film system.
+  - `ldau`: Whether LDA+U is included.
+  - `dos`: Whether it is a density of states calculation.
+  - `band`: Whether it is a bandstructure calculation.
+  - `bz_integration`: Method of integration over the Brillouin zone.
+  - `greensf`: Whether a Greens function calculation is included.
+  - `ldahia`: Whether LDA+HIA is included.
+  - `cf_coeff`: Whether crystal field coefficients are included.
+  - `plot`: Whether plotting is enabled.
+
+---
+
+### `get_nkpts(xmltree, schema_dict, logger=None)`
+
+Retrieves the number of k-points used in the calculation specified in the given Fleur XML file.
+
+**Parameters:**
+- `xmltree`: An XML tree representing the Fleur XML file.
+- `schema_dict`: Schema dictionary corresponding to the file version of the XML tree.
+- `logger`: Optional logger object for logging warnings or errors.
+
+**Returns:**
+- Integer representing the number of k-points.
+
+**Notes:**
+- For versions before Max5, only `kPointList` or `kPointCount` tags are supported.
+- `kPointCount` may not always correspond exactly to the number of k-points; a warning is issued if used.
+
+**Version Specific Implementation:**
+- For schema versions up to `0.31` (Max4 or older), a specialized version `get_nkpts_max4` is used to handle differences in XML structure.
+
+---
+
+### `get_cell(xmltree, schema_dict, logger=None, convert_to_angstroem=True)`
+
+Extracts the Bravais lattice matrix and periodic boundary conditions from the Fleur XML file.
+
+**Parameters:**
+- `xmltree`: An XML tree representing the Fleur XML file.
+- `schema_dict`: Schema dictionary corresponding to the file version of the XML tree.
+- `logger`: Optional logger object for logging warnings or errors.
+- `convert_to_angstroem`: If `True`, converts the lattice vectors to Angstrom units.
+
+**Returns:**
+- A tuple containing:
+  - A NumPy array representing the Bravais lattice matrix.
+  - A tuple of booleans indicating periodic boundary conditions in each spatial direction.
+
+**Notes:**
+- Only explicit Bravais matrix definitions are supported.
+- Old inputs using `latnam` definitions are not supported.
+- Supports both bulk and film lattice definitions.
+
+---
+
+### `_get_species_info(xmltree, schema_dict, logger=None)`
+
+Retrieves species identifiers and related information from the Fleur XML file.
+
+**Parameters:**
+- `xmltree`: An XML tree representing the Fleur XML file.
+- `schema_dict`: Schema dictionary corresponding to the file version of the XML tree.
+- `logger`: Optional logger object for logging warnings or errors.
+
+**Returns:**
+- A dictionary mapping species names to dictionaries containing:
+  - `element`: The chemical element symbol.
+  - `normed_name`: Normalized species name with appended numerical ID if applicable.
+  - `magnetic_moment`: Magnetic moment calculated from state occupations (if spins = 2).
+  - `id`: Numerical identifier extracted or assigned to the species.
+
+**Notes:**
+- Ensures consistent species information between parameter and structure data extraction.
+- Assigns unique numerical IDs to species lacking explicit IDs.
+
+---
+
+### `get_parameterdata(xmltree, schema_dict, inpgen_ready=True, write_ids=True, extract_econfig=False, allow_special_los=True, logger=None)`
+
+Extracts a dictionary of parameters from the Fleur input XML file that can be used to recreate the input using `inpgen`.
+
+**Parameters:**
+- `xmltree`: An XML tree representing the Fleur XML file.
+- `schema_dict`: Schema dictionary corresponding to the file version of the XML tree.
+- `inpgen_ready`: If `True`, returns a dictionary formatted for direct use with `inpgen`.
+- `write_ids`: If `True`, atom IDs are included in the atom namelists.
+- `extract_econfig`: If `True`, extracts electron configuration information.
+- `allow_special_los`: Allows special local orbitals if `True`.
+- `logger`: Optional logger object for logging warnings or errors.
+
+**Returns:**
+- A dictionary containing all parameters needed to set up a new Fleur input file equivalent to the original.
+
+**Notes:**
+- Converts Fleur local orbitals and electron configurations to inpgen-compatible formats.
+- Parses and filters input parameters, ensuring compatibility with `inpgen`.
+
+---
+
+## Additional Notes
+
+- The parsers rely on the `FleurXMLContext` context manager to handle XML tree traversal and schema validation.
+- The parsers support multiple schema versions and adapt behavior accordingly.
+- Warnings are issued when potentially ambiguous or deprecated XML tags are encountered.
+- The parsers integrate with other modules such as `fleur_schema`, `common_functions`, and utility converters for comprehensive data extraction.
+
+---
+
+## Usage Example
+
+```python
+from lxml import etree
+from masci_tools.io.parsers.fleur_parser import get_fleur_modes, get_nkpts, get_cell, get_parameterdata
+from masci_tools.io.parsers.fleur_schema import get_schema_dict
+
+# Load XML file
+xmltree = etree.parse('inp.xml')
+
+# Get schema dictionary for the input file version
+schema_dict = get_schema_dict(xmltree)
+
+# Extract calculation modes
+modes = get_fleur_modes(xmltree, schema_dict)
+
+# Get number of k-points
+nkpts = get_nkpts(xmltree, schema_dict)
+
+# Get lattice cell and periodic boundary conditions
+cell, pbc = get_cell(xmltree, schema_dict)
+
+# Extract input parameters for inpgen
+params = get_parameterdata(xmltree, schema_dict)
+```
+
+---
+
+## License and Source
+
+- The Fleur parsers are part of the `masci-tools` package.
+- Source code is hosted on GitHub: [https://github.com/judftteam/masci-tools](https://github.com/judftteam/masci-tools)
+- For license details, refer to the `LICENSE.txt` file in the repository.
+
+---
+
+This documentation provides a concise reference for developers and users working with Fleur input/output files and the `masci-tools` Fleur parsers.

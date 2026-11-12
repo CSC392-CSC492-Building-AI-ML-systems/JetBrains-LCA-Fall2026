@@ -1,0 +1,99 @@
+w_crawl Command
+===============
+
+Overview
+--------
+
+The `w_crawl` command is a tool for crawling through a weighted ensemble dataset, executing a specified function for each iteration. It is designed to facilitate postprocessing of trajectories, cleanup of datasets, or any other operation that can be expressed as "perform task X for iteration N, then handle the result." Tasks are parallelized by iteration, allowing efficient processing of large datasets. Note that no guarantees are made about the order in which iterations are evaluated.
+
+This command is part of the WESTPA toolkit and leverages parallel execution to speed up iteration-wise processing.
+
+Functionality
+-------------
+
+- Executes a user-specified callable on each iteration of the dataset.
+- Supports optional coordination via a crawler instance that can handle initialization, per-iteration result processing, and finalization.
+- Provides progress indication during execution.
+- Allows selection of iteration ranges to process.
+- Parallelizes tasks by iteration for efficient execution.
+
+Usage
+-----
+
+```bash
+w_crawl [OPTIONS] TASK_CALLABLE
+```
+
+Where `TASK_CALLABLE` is a Python callable specified as `module.function` that will be run on each iteration.
+
+Command-Line Options
+--------------------
+
+The command supports several options grouped as follows:
+
+### Data Reader Options
+
+Options to specify the dataset and how to read it. These are inherited from the WESTDataReader component.
+
+### Iteration Range Selection
+
+Options to specify the range of iterations to process. These are inherited from the IterRangeSelection component.
+
+### Task Options
+
+- `-c`, `--crawler-instance`  
+  Specify a crawler instance as `module.instance` that implements the `WESTPACrawler` interface.  
+  This instance coordinates the crawling process and is required only if you need to perform initialization before processing iterations, handle results after each iteration, or finalize after all iterations are processed.
+
+- `TASK_CALLABLE` (positional argument)  
+  The callable to run on each iteration, specified as `module.function`. This is required.
+
+### Progress Indicator Options
+
+Options to control the display of progress during execution.
+
+Crawler Interface
+-----------------
+
+The crawler instance, if specified, must implement the following interface (derived from `WESTPACrawler`):
+
+- `initialize(iter_start, iter_stop)`  
+  Called once before processing iterations to perform any setup.
+
+- `process_iter_result(n_iter, result)`  
+  Called after each iteration's task completes, with the iteration number and the result returned by the task callable.
+
+- `finalize()`  
+  Called once after all iterations have been processed to perform any cleanup.
+
+If no crawler instance is specified, a default `WESTPACrawler` with empty implementations is used.
+
+Example
+-------
+
+Run a task function `my_module.my_task` on iterations 0 through 99:
+
+```bash
+w_crawl -i 0 -I 100 my_module.my_task
+```
+
+Use a custom crawler instance `my_crawler.CrawlerInstance` to coordinate the process:
+
+```bash
+w_crawl -c my_crawler.CrawlerInstance my_module.my_task
+```
+
+Notes
+-----
+
+- The task callable receives two arguments: the iteration number and the iteration group data manager object for that iteration.
+- The command opens the dataset in read-only mode during processing.
+- Tasks are dispatched and results processed asynchronously; iteration order is not guaranteed.
+- The progress indicator provides feedback on the current operation and overall progress.
+
+See Also
+--------
+
+- WESTPA documentation: https://westpa.github.io/
+- `WESTPACrawler` class for implementing custom crawling behavior
+- `w_traj` and other WESTPA tools for trajectory analysis and processing

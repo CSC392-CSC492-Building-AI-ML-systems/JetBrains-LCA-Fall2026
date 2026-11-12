@@ -1,0 +1,121 @@
+w_fluxanl — Flux Analysis Tool for WESTPA Data
+==============================================
+
+Synopsis
+--------
+
+```
+w_fluxanl [OPTIONS]
+```
+
+Description
+-----------
+
+`w_fluxanl` is a command-line tool designed to extract fluxes into predefined target states from WESTPA simulation data, compute averages, and construct confidence intervals. It employs Monte Carlo block bootstrapping to properly account for correlated and potentially non-Gaussian statistical errors in flux measurements.
+
+This tool processes WESTPA HDF5 data files, analyzing recycling fluxes between states over a specified range of iterations. It supports both legacy and current WESTPA file formats, automatically adapting its extraction method accordingly.
+
+All non-graphical output, including terminal messages and HDF5 results, assumes that the propagation/resampling period (denoted as ``tau``) is unity. To convert results to physical units, divide all flux values by the true value of ``tau`` and multiply all correlation lengths by the true ``tau``.
+
+Features
+--------
+
+- Extraction of flux data from WESTPA HDF5 files, supporting multiple file versions.
+- Calculation of mean fluxes and confidence intervals using Monte Carlo block bootstrapping.
+- Estimation of flux autocorrelation functions to assess statistical correlation lengths.
+- Optional calculation of time evolution of flux confidence intervals.
+- Output of detailed results and intermediate data to an HDF5 file for further analysis.
+
+Options
+-------
+
+### Data Selection
+
+These options control which WESTPA data is analyzed.
+
+- Options inherited from `WESTDataReader` and `IterRangeSelection` allow specification of the input data source and iteration ranges.
+
+### Output Options
+
+- `-o, --output OUTPUT`  
+  Specify the output HDF5 file to store intermediate data and analysis results.  
+  **Default:** `fluxanl.h5`
+
+### Calculation Options
+
+- `--disable-bootstrap, -db`  
+  Disable Monte Carlo block bootstrapping. By default, bootstrapping is enabled.
+
+- `--disable-correl, -dc`  
+  Disable correlation analysis of the flux data.
+
+- `-a, --alpha ALPHA`  
+  Set the significance level for confidence interval calculation.  
+  Calculates a (1 - ALPHA) confidence interval on the average flux.  
+  **Default:** 0.05
+
+- `--autocorrel-alpha ACALPHA`  
+  Set the significance level for autocorrelation evaluation of the flux.  
+  If not specified, defaults to the value of ALPHA.  
+  Note: Very small values may fail to detect autocorrelation in noisy data.
+
+- `-N, --nsets NSETS`  
+  Number of bootstrap samples to use. If not specified, a default based on ALPHA is chosen.
+
+- `--evol`  
+  Enable calculation of the time evolution of flux confidence intervals. This is computationally expensive.
+
+- `--evol-step ESTEP`  
+  Calculate time evolution of flux confidence intervals every ESTEP iterations.  
+  **Default:** 1
+
+Description of Output
+---------------------
+
+The tool writes results to an HDF5 file (default `fluxanl.h5`) containing:
+
+- A group `target_flux` with subgroups for each target state analyzed.
+- Per-iteration flux values, counts, and iteration numbers.
+- Flux autocorrelation datasets for each target.
+- Summary datasets with mean fluxes, confidence intervals, standard errors, and correlation lengths.
+- Optional datasets describing the evolution of flux confidence intervals over time.
+
+All flux values are reported in units of inverse ``tau`` (i.e., per propagation/resampling period), and correlation lengths are reported in units of ``tau``.
+
+Usage Notes
+-----------
+
+- The tool automatically detects the WESTPA HDF5 file version and uses the appropriate method to extract recycling flux data.
+- Monte Carlo block bootstrapping accounts for statistical correlations and non-Gaussian distributions in flux measurements, providing robust confidence intervals.
+- The autocorrelation analysis helps determine the effective correlation length of the flux time series, which informs the statistical uncertainty estimation.
+- The time evolution option (`--evol`) allows users to observe how flux confidence intervals develop as more iterations are included, useful for convergence analysis.
+
+Deprecation Notice
+------------------
+
+**Warning:** `w_fluxanl` is deprecated. Users are encouraged to use the `w_assign` and `w_direct` tools for flux and rate analysis in WESTPA going forward.
+
+Example
+-------
+
+Calculate fluxes and confidence intervals for iterations 1 through 100, storing results in `flux_results.h5`:
+
+```
+w_fluxanl -o flux_results.h5 --alpha 0.05 --nsets 1000
+```
+
+Calculate fluxes with time evolution of confidence intervals every 5 iterations:
+
+```
+w_fluxanl --evol --evol-step 5
+```
+
+See Also
+--------
+
+- `w_assign` — Assignment analysis tool for WESTPA.
+- `w_direct` — Direct rate calculation tool for WESTPA.
+
+---
+
+For more detailed information on options inherited from `WESTDataReader` and `IterRangeSelection`, consult their respective documentation.

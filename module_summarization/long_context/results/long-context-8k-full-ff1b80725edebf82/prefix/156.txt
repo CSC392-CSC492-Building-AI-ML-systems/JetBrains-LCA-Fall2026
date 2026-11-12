@@ -1,0 +1,94 @@
+How Mitogen Works
+=================
+
+Mitogen is a Python library designed to facilitate the creation and management of distributed and parallel execution environments. It achieves this by providing a lightweight, efficient, and flexible framework for remote procedure calls, context management, and inter-process communication.
+
+Core Concepts
+-------------
+
+### Contexts and Channels
+
+Mitogen operates by creating *contexts*, which represent execution environments that can be local or remote. Each context communicates with others through *channels*, which are bidirectional communication links. These channels enable sending and receiving messages, remote function calls, and module loading.
+
+### Message Routing
+
+Mitogen uses a message routing system to deliver messages between contexts. Each message contains routing information, including source and destination context IDs. The router manages these routes and ensures messages are forwarded correctly. Special message types and constants, such as `IS_DEAD`, signal disconnections or routing failures.
+
+### Serialization and Data Types
+
+To facilitate communication, Mitogen serializes data using Python's `pickle` module, with custom subclasses like `Blob` and `Secret` to handle binary data and sensitive information securely. The `Kwargs` class ensures compatibility of keyword arguments across Python versions by coercing keys to appropriate string types.
+
+### Error Handling
+
+Mitogen defines a hierarchy of exceptions to handle various error conditions:
+
+- `Error`: Base class for all Mitogen exceptions.
+- `CallError`: Raised when a remote function call fails, including traceback information.
+- `ChannelError`: Raised when a communication channel is closed or dies.
+- `StreamError` and `TimeoutError`: Raised for stream establishment failures and timeouts.
+
+### Threading and Concurrency
+
+Mitogen uses Python's threading module to manage concurrent operations. It provides compatibility layers for different Python versions and environments, ensuring consistent behavior across platforms.
+
+### IO Operations and Non-blocking IO
+
+Mitogen performs IO operations on file descriptors with careful handling of system-level errors and signals. Functions like `set_nonblock` and `set_block` control blocking behavior on file descriptors to optimize performance and responsiveness.
+
+### Logging and Debugging
+
+Mitogen includes advanced logging capabilities, such as the `PidfulStreamHandler`, which manages log files per process and handles forks gracefully. Debug logging can be enabled to provide detailed runtime information.
+
+### Profiling Support
+
+Mitogen supports profiling of function calls using Python's `cProfile` module. Profiling can be enabled to collect performance statistics, which are saved to files for analysis.
+
+### Import Management
+
+Mitogen manages module imports carefully to avoid deadlocks and ensure compatibility. It supports blacklisting and whitelisting of packages to control which modules can be imported in remote contexts.
+
+How It Works in Practice
+------------------------
+
+1. **Bootstrap and Initialization**  
+   When a new context is created, Mitogen sends a minimal bootstrap implementation to it. This bootstrap code initializes the context's environment and prepares it for communication.
+
+2. **Remote Procedure Calls**  
+   Functions can be called remotely using the `CALL_FUNCTION` message type. Decorators like `takes_econtext` and `takes_router` allow functions to receive context or router objects automatically when invoked remotely.
+
+3. **Module Loading and Execution**  
+   Mitogen can load Python modules remotely using the `LOAD_MODULE` message type. This enables execution of arbitrary code in remote contexts without prior installation.
+
+4. **Message Handling and Routing**  
+   Messages are routed through the `Router` object, which manages handlers and routes. Handlers can enforce policies such as requiring messages to originate from parent contexts.
+
+5. **Error Propagation**  
+   Errors occurring in remote contexts are serialized and propagated back to the caller as `CallError` exceptions, including traceback information for debugging.
+
+6. **Resource Management**  
+   File descriptors used for communication are configured with flags like `FD_CLOEXEC` to ensure they are closed on exec calls, preventing resource leaks.
+
+7. **Compatibility and Portability**  
+   Mitogen includes compatibility layers for different Python versions and platforms, including workarounds for Windows Subsystem for Linux (WSL) and Python 2.4/2.5.
+
+Performance Considerations
+--------------------------
+
+- **Chunk Size**  
+  Mitogen uses a default chunk size of 128 KiB for IO operations, balancing throughput and memory usage. This size is chosen to optimize socket buffer utilization and reduce CPU overhead.
+
+- **Non-blocking IO**  
+  Non-blocking IO is used to prevent threads from blocking on socket operations, improving concurrency and responsiveness.
+
+- **Profiling and Debugging**  
+  Profiling hooks and detailed logging can be enabled to diagnose performance bottlenecks and trace execution flow.
+
+Security and Policy
+-------------------
+
+Mitogen enforces import policies through blacklists and whitelists to restrict which modules can be imported remotely. It also verifies message origins to ensure that only authorized contexts can send certain messages, enhancing security in distributed environments.
+
+Summary
+-------
+
+Mitogen provides a robust framework for distributed Python execution by combining efficient message routing, remote procedure calls, and context management. Its design emphasizes compatibility, performance, and security, making it suitable for complex orchestration tasks and parallel execution scenarios.

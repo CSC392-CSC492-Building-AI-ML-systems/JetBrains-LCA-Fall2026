@@ -1,0 +1,78 @@
+SANS to SESANS Conversion
+=========================
+
+This document provides an overview of the conversion process between Small-Angle Neutron Scattering (SANS) models and Spin-Echo Small-Angle Neutron Scattering (SESANS) models, including relevant mathematical transformations and considerations for parameter handling.
+
+Overview
+--------
+
+SANS and SESANS are complementary neutron scattering techniques used to probe the structure of materials at the nanoscale. While SANS measures the scattering intensity as a function of scattering vector, SESANS encodes structural information in the spin-echo polarization as a function of spin-echo length.
+
+Converting models between SANS and SESANS involves mathematical transformations that relate the scattering intensity profiles to the SESANS correlation functions. This conversion requires careful handling of model parameters, including scaling factors and scattering length densities (SLDs).
+
+Mathematical Foundations
+------------------------
+
+### Guyou Projection for Coordinate Transformation
+
+The Guyou projection is used to transform angular coordinates (latitude and longitude) into planar coordinates suitable for SESANS data representation. The transformation involves elliptic integrals and Jacobi elliptic functions.
+
+- **Forward Transform**: Converts latitude-longitude coordinates \((\lambda, \phi)\) to planar coordinates \((x, y)\).
+- **Inverse Transform**: Converts planar coordinates \((x, y)\) back to latitude-longitude \((\lambda, \phi)\).
+
+These transformations utilize special functions such as:
+
+- Jacobi elliptic functions: \(\mathrm{sn}(u|m), \mathrm{cn}(u|m), \mathrm{dn}(u|m)\)
+- Incomplete elliptic integrals of the first kind: \(F(\phi|m)\)
+- Complex elliptic integrals \(F(\phi + i \psi | m)\)
+
+The implementation uses the `scipy.special` elliptic functions for numerical evaluation.
+
+### Elliptic Functions and Integrals
+
+The elliptic functions and integrals are central to the Guyou projection and SESANS transformations:
+
+- `ellipticJ(u, m)`: Computes \(\mathrm{sn}(u|m), \mathrm{cn}(u|m), \mathrm{dn}(u|m)\) and the amplitude \(\phi\).
+- `ellipticFi(phi, psi, m)`: Computes the complex elliptic integral \(F(\phi + i \psi | m)\).
+- `ellipticJi(u, v, m)`: Computes Jacobi elliptic functions for complex arguments \(u + i v\).
+
+These functions enable the mapping between spherical and planar coordinate systems required for SESANS data interpretation.
+
+Parameter Handling in Model Conversion
+--------------------------------------
+
+When converting models between SANS and SESANS, parameter consistency and scaling are critical:
+
+- **Scale and Background Parameters**: Some models may lack explicit `scale` or `background` parameters in their SasView versions. These models are listed in `MODELS_WITHOUT_SCALE` and `MODELS_WITHOUT_BACKGROUND` respectively. Care must be taken to handle these cases during conversion.
+  
+- **Scattering Length Density (SLD) Parameters**: Parameters representing SLD or magnetic moments (e.g., those starting with `M0:`) require special treatment. The function `_is_sld` identifies such parameters to apply appropriate scaling.
+
+- **Parameter Rescaling**: The function `_rescale_sld` rescales all SLD parameters by a given factor (e.g., \(10^6\) for forward conversion, \(10^{-6}\) for backward conversion) to maintain numerical stability and consistency.
+
+- **Polydispersity Parameters**: Polydispersity information uses a naming convention that may differ between new and old model styles. The conversion process maps these accordingly using the `PD_DOT` translation table.
+
+- **Translation Tables**: The `_get_translation_table` function retrieves parameter translation mappings between different model versions to ensure compatibility during conversion.
+
+Usage Notes
+-----------
+
+- The conversion routines rely on accurate loading of model information and parameter definitions.
+- Special mathematical functions are implemented using `numpy` and `scipy` for efficiency and precision.
+- The Guyou projection functions include plotting utilities (`plot_grid`) to visualize the coordinate transformations.
+- The conversion process is designed to be extensible to accommodate new models and parameter conventions.
+
+References
+----------
+
+- Abramowitz, M., & Stegun, I. A. (Eds.). (1965). Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables. Dover Publications.
+- SciPy Special Functions Documentation: https://docs.scipy.org/doc/scipy/reference/special.html
+- SasView Model Conversion Utilities
+
+License
+-------
+
+The mathematical functions and transformations are adapted from open-source implementations with appropriate copyright and licensing notices. See source code headers for details.
+
+---
+
+This documentation serves as a guide for developers and users involved in converting SANS models to SESANS representations, ensuring accurate and consistent interpretation of neutron scattering data across techniques.

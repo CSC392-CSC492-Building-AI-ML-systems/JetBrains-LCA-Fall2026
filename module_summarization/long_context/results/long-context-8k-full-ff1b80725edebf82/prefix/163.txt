@@ -1,0 +1,79 @@
+Tensor Attributes
+=================
+
+In the OneFlow MLIR dialect, tensor attributes are used to describe the properties and metadata of tensors within operations. These attributes provide essential information for the compiler and runtime to correctly interpret and optimize tensor computations.
+
+Common Tensor Attributes
+------------------------
+
+- **shape**  
+  Specifies the dimensions of the tensor. It is typically represented as a list or vector of integers indicating the size of each dimension.  
+  Example:  
+  ```mlir
+  {shape = [2, 3, 4]}
+  ```
+
+- **dtype**  
+  Indicates the data type of the tensor elements. This corresponds to the data types defined in OneFlow such as float32, int64, etc.  
+  Example:  
+  ```mlir
+  {dtype = "float32"}
+  ```
+
+- **device**  
+  Specifies the device on which the tensor resides or should be allocated. This can include CPU, GPU, or other accelerator types.  
+  Example:  
+  ```mlir
+  {device = "cuda:0"}
+  ```
+
+- **parallel**  
+  Represents the parallel distribution signature of the tensor, describing how the tensor is partitioned or replicated across multiple devices or processes. This attribute is implemented as an MLIR dialect attribute and uses SBP (Split, Broadcast, Partial) semantics.  
+  Examples:  
+  - 1D SBP:  
+    ```mlir
+    {parallel = #sbp.parallel<[#sbp.S<0>] -> [#sbp.S<0>]>}
+    ```  
+  - Multiple inputs and outputs 1D SBP:  
+    ```mlir
+    {parallel = #sbp.parallel<[#sbp.S<0>, #sbp.S<0>] -> [#sbp.S<0>]>}
+    ```  
+  - 2D SBP (e.g., for matmul):  
+    ```mlir
+    {parallel = #sbp.parallel<[[#sbp.S<0>, #sbp.P], #sbp.S<0>] -> [#sbp.S<0>]>}
+    ```
+
+- **requires_grad**  
+  A boolean attribute indicating whether the tensor requires gradient computation for automatic differentiation.
+
+- **layout**  
+  Describes the memory layout or format of the tensor, such as contiguous, channels-last, or other specialized layouts.
+
+Usage and Principles
+--------------------
+
+- Tensor attributes are attached to operations or values to provide detailed metadata necessary for compilation, optimization, and execution.
+- The **parallel** attribute is orthogonal to device placement information, meaning that while they may be related in some passes, they represent distinct concepts: parallelism strategy vs. physical device location.
+- Attributes should follow the conventions and paradigms of MLIR and LLVM to ensure compatibility and maintainability.
+- Proper use of tensor attributes enables advanced optimizations such as memory reuse, distributed computation, and kernel fusion.
+
+Examples
+--------
+
+A OneFlow operation with tensor attributes might look like:
+
+```mlir
+%0 = "oneflow.relu"(%input) {
+  shape = [64, 128],
+  dtype = "float32",
+  device = "cuda:0",
+  parallel = #sbp.parallel<[#sbp.S<0>] -> [#sbp.S<0>]>
+} : (tensor<64x128xf32>) -> tensor<64x128xf32>
+```
+
+Here, the tensor `%0` has a shape of 64 by 128, data type float32, is located on CUDA device 0, and has a parallel distribution signature indicating split along the first dimension.
+
+Summary
+-------
+
+Tensor attributes in OneFlow MLIR dialect provide a rich set of metadata to describe tensor properties, enabling efficient compilation and execution of machine learning workloads. Understanding and correctly using these attributes is essential for developers working with OneFlow IR and its associated tooling.

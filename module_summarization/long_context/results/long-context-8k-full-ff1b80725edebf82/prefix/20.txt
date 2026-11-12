@@ -1,0 +1,217 @@
+w_direct command
+================
+
+Overview
+--------
+
+The `w_direct` command provides tools for calculating state-to-state kinetics, fluxes, and state probabilities by tracing trajectories in weighted ensemble simulations. It requires bin assignment files (usually `assign.h5`) that include trajectory labeling and macrostate definitions.
+
+This command supports multiple subcommands to perform different stages of analysis, including initialization of kinetics data, calculation of average rates and fluxes, and computation of state and color probabilities.
+
+Subcommands
+-----------
+
+- **init**  
+  Calculate state-to-state rates and transition event durations by tracing trajectories.  
+  This subcommand generates a kinetics data file (default: `direct.h5`) containing raw flux and event duration data.  
+  Requires a bin assignment file with trajectory labeling.  
+  See `w_direct init --help` for detailed options.
+
+- **kinetics**  
+  Generate average rates and flux values from weighted ensemble data by tracing.  
+  Processes the kinetics data file (default: `direct.h5`) and bin assignments to compute average rates, fluxes, and confidence intervals.  
+  Supports calculation of evolution of these quantities over iteration windows.  
+  See `w_direct kinetics --help` for detailed options.
+
+- **probs**  
+  Calculate average populations and associated errors in state and color populations from weighted ensemble data.  
+  Requires bin assignments including macrostate definitions.  
+  Supports calculation of population evolution over iteration windows.  
+  See `w_direct probs --help` for detailed options.
+
+- **all**  
+  Runs the full suite of analyses: initialization, kinetics averaging, and state probability calculations.  
+  Requires bin assignments including macrostate definitions.  
+  See `w_direct all --help` for detailed options.
+
+- **average**  
+  Convenience subcommand to run kinetics averaging and state probability calculations.  
+  Requires bin assignments including macrostate definitions.  
+  See `w_direct average --help` for detailed options.
+
+Output Files and Datasets
+-------------------------
+
+The primary output file for `w_direct` commands is typically `direct.h5`. This file contains datasets with fluxes, rates, populations, and associated statistical information.
+
+### Output of `w_direct init`
+
+- `/conditional_fluxes` [iteration][state][state]  
+  Floating-point macrostate-to-macrostate fluxes (not normalized by initial macrostate population).
+
+- `/conditional_arrivals` [iteration][stateA][stateB]  
+  Integer counts of trajectories arriving at stateB given departure from stateA.
+
+- `/total_fluxes` [iteration][state]  
+  Floating-point total flux into each macrostate.
+
+- `/arrivals` [iteration][state]  
+  Integer counts of trajectories arriving at each state.
+
+- `/duration_count` [iteration]  
+  Integer number of event durations recorded per iteration.
+
+- `/durations` [iteration][event duration] (structured)  
+  Event durations for transitions ending during each iteration, with fields:  
+  - `istate`: initial state of transition  
+  - `fstate`: final state of transition  
+  - `duration`: duration of transition (in units of tau)  
+  - `weight`: trajectory weight at end of transition (not normalized)
+
+### Output of `w_direct kinetics` and `w_direct average`
+
+- `/avg_rates` [state,state] (structured)  
+  State-to-state rates averaged over the selected iteration window.
+
+- `/avg_total_fluxes` [state] (structured)  
+  Total fluxes into each state averaged over the selected iteration window.
+
+- `/avg_conditional_fluxes` [state,state] (structured)  
+  State-to-state fluxes averaged over the selected iteration window.
+
+- `/rate_evolution` [window][state][state] (structured)  
+  State-to-state rates over iteration windows of varying width.
+
+- `/target_flux_evolution` [window][state] (structured)  
+  Total flux into macrostates over iteration windows.
+
+- `/conditional_flux_evolution` [window,state,state] (structured)  
+  State-to-state fluxes over iteration windows.
+
+### Output of `w_direct probs` and `w_direct average`
+
+- `/avg_state_probs` [state] (structured)  
+  Average population of each state over the selected iteration window.
+
+- `/avg_color_probs` [state] (structured)  
+  Average population of each ensemble (color) over the selected iteration window.
+
+- `/state_pop_evolution` [window][state] (structured)  
+  State populations over iteration windows.
+
+- `/color_prob_evolution` [window][state] (structured)  
+  Ensemble populations over iteration windows.
+
+Dataset Structure
+-----------------
+
+Each structured dataset contains the following fields:
+
+- `iter_start` (Integer)  
+  Iteration at which the averaging window begins (inclusive).
+
+- `iter_stop` (Integer)  
+  Iteration at which the averaging window ends (exclusive).
+
+- `expected` (Floating-point)  
+  Expected (mean) value of the observable within the window, in units of inverse tau.
+
+- `ci_lbound` (Floating-point)  
+  Lower bound of the confidence interval.
+
+- `ci_ubound` (Floating-point)  
+  Upper bound of the confidence interval.
+
+- `stderr` (Floating-point)  
+  Standard error of the mean.
+
+- `corr_len` (Integer)  
+  Correlation length of the observable within the window, in units of tau.
+
+Each dataset is also stamped with attributes:
+
+- `mcbs_alpha` (Floating-point)  
+  Alpha value for confidence intervals (e.g., 0.05 for 95% confidence).
+
+- `mcbs_nsets` (Integer)  
+  Number of bootstrap data sets used.
+
+- `mcbs_acalpha` (Floating-point)  
+  Alpha value for determining correlation lengths.
+
+Usage Notes
+-----------
+
+- The `w_direct init` subcommand must be run first to generate the raw kinetics data file (`direct.h5`).
+
+- Subsequent subcommands (`kinetics`, `probs`, `average`, `all`) operate on this kinetics file and the bin assignments file.
+
+- The fluxes stored in the kinetics file are not normalized by initial macrostate populations; normalization and error estimation are performed by the averaging subcommands.
+
+- Confidence intervals and correlation lengths are estimated using bootstrap methods with configurable parameters.
+
+- The command supports calculation of evolution of observables over iteration windows, allowing analysis of convergence and time-dependence.
+
+Command-line Options
+--------------------
+
+Each subcommand supports its own set of command-line options. Common options include:
+
+- `-o`, `--output`  
+  Specify the output file name (default: `direct.h5`).
+
+- `--start-iter`  
+  Starting iteration for analysis.
+
+- `--stop-iter`  
+  Stopping iteration for analysis.
+
+- `--step-iter`  
+  Step size for iteration windows.
+
+- `--evolution-mode`  
+  Mode for evolution calculations (`cumulative` or `blocked`).
+
+- Options controlling bootstrap confidence intervals, such as `mcbs_alpha`, `mcbs_nsets`, and `mcbs_acalpha`.
+
+For detailed options, run:
+
+```bash
+w_direct <subcommand> --help
+```
+
+Examples
+--------
+
+Initialize kinetics data:
+
+```bash
+w_direct init -o direct.h5 -a assign.h5 --start-iter 0 --stop-iter 100
+```
+
+Calculate average rates and fluxes:
+
+```bash
+w_direct kinetics -o direct.h5 -a assign.h5 --start-iter 0 --stop-iter 100
+```
+
+Calculate state and color probabilities:
+
+```bash
+w_direct probs -o direct.h5 -a assign.h5 --start-iter 0 --stop-iter 100
+```
+
+Run the full analysis suite:
+
+```bash
+w_direct all -o direct.h5 -a assign.h5 --start-iter 0 --stop-iter 100
+```
+
+License and Citation
+--------------------
+
+Please refer to the WESTPA documentation and publications for citation guidelines when using `w_direct` in your research.
+
+---
+
+For more information, see the individual subcommand help pages or the WESTPA user guide.

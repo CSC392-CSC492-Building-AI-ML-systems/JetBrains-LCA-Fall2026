@@ -1,0 +1,201 @@
+Duration Module
+===============
+
+This module provides classes and functions for estimation and inference of survival and cumulative incidence functions, primarily for right-censored data. It includes implementations of the Kaplan-Meier estimator and cumulative incidence function estimation, with support for frequency weights, left truncation, and adjustment for dependent censoring using covariates.
+
+Functions
+---------
+
+.. autofunction:: _calc_survfunc_right
+   :noindex:
+
+    Calculate the survival function and its standard error for a single group using right-censored data.
+
+.. autofunction:: _calc_incidence_right
+   :noindex:
+
+    Calculate the cumulative incidence function and its standard error for competing risks data with right censoring.
+
+.. autofunction:: _checkargs
+   :noindex:
+
+    Validate input arguments for time, status, entry, frequency weights, and covariates.
+
+Classes
+--------
+
+CumIncidenceRight
+~~~~~~~~~~~~~~~~~
+
+Estimation and inference for a cumulative incidence function in the presence of competing risks and right censoring.
+
+The cumulative incidence function for cause j is defined as:
+
+.. math::
+
+    I(t, j) = P(T \leq t \text{ and } J=j)
+
+where :math:`J` indicates the event type.
+
+Only right censoring is supported. If frequency weights are provided, the point estimate is returned without a standard error.
+
+**Parameters**
+
+- **time** : array_like  
+  An array of times (censoring times or event times).
+
+- **status** : array_like  
+  Status indicator where values >= 1 indicate the event type at time t, and 0 indicates censoring.
+
+- **title** : string, optional  
+  Optional title used for plots and summary output.
+
+- **freq_weights** : array_like, optional  
+  Optional frequency weights.
+
+- **exog** : array_like, optional  
+  Optional covariates used to adjust for dependent censoring.
+
+- **bw_factor** : float, optional  
+  Bandwidth multiplier for kernel-based estimation, used only if `exog` is provided.
+
+- **dimred** : boolean, optional  
+  If True, proportional hazards regression models reduce `exog` to two columns for kernel weighting.
+
+**Attributes**
+
+- **times** : array_like  
+  Distinct times at which the cumulative incidence rates are estimated.
+
+- **cinc** : list of arrays  
+  Estimated cumulative incidence rates for each event type.
+
+- **cinc_se** : list of arrays or None  
+  Standard errors for the cumulative incidence estimates; not available when `exog` or frequency weights are provided.
+
+**Notes**
+
+When `exog` is provided, a local estimate of the cumulative incidence rate is computed around each point and averaged to produce a marginal estimate that accounts for dependent censoring conditional on covariates.
+
+References:
+
+- The Stata stcompet procedure: http://www.stata-journal.com/sjpdf.html?articlenum=st0059  
+- Dinse, G. E. and M. G. Larson (1986). A note on semi-Markov models for partially censored data. Biometrika 73: 379-386.  
+- Marubini, E. and M. G. Valsecchi (1995). Analysing Survival Data from Clinical Trials and Observational Studies. John Wiley & Sons.  
+- Zeng, D. (2004). Estimating marginal survival function by adjusting for dependent censoring using many covariates. Annals of Statistics 32:4. https://arxiv.org/pdf/math/0409180.pdf
+
+SurvfuncRight
+~~~~~~~~~~~~~
+
+Estimation and inference for a survival function with right-censored data.
+
+The survival function :math:`S(t) = P(T > t)` represents the probability that the event time :math:`T` exceeds time :math:`t`.
+
+Currently, only right censoring is supported.
+
+**Parameters**
+
+- **time** : array_like  
+  An array of times (censoring or event times).
+
+- **status** : array_like  
+  Status indicator where 1 denotes an event occurrence and 0 denotes censoring.
+
+- **entry** : array_like, optional  
+  Entry times for left truncation; subjects are not at risk before their entry time.
+
+- **title** : string, optional  
+  Optional title used for plots and summary output.
+
+- **freq_weights** : array_like, optional  
+  Optional frequency weights.
+
+- **exog** : array_like, optional  
+  Optional covariates used to adjust for dependent censoring.
+
+- **bw_factor** : float, optional  
+  Bandwidth multiplier for kernel-based estimation, used only if `exog` is provided.
+
+**Attributes**
+
+- **surv_prob** : array_like  
+  Estimated survival probabilities at each time point.
+
+- **surv_prob_se** : array_like or None  
+  Standard errors of the survival probabilities; not available if `exog` is provided.
+
+- **surv_times** : array_like  
+  Times at which the survival function changes.
+
+- **n_risk** : array_like or None  
+  Number of subjects at risk just before each time point; not available if `exog` is provided.
+
+- **n_events** : array_like or None  
+  Number of events occurring at each time point; not available if `exog` is provided.
+
+**Methods**
+
+- **plot(ax=None)**  
+  Plot the estimated survival function. Returns a matplotlib figure.
+
+- **quantile(p)**  
+  Estimate the quantile corresponding to survival probability `p`.
+
+- **quantile_ci(p, alpha=0.05, method='cloglog')**  
+  Compute confidence intervals for survival quantiles using various transformation methods.
+
+- **summary()**  
+  Return a pandas DataFrame summarizing the survival function estimates, standard errors, number at risk, and number of events.
+
+- **simultaneous_cb(alpha=0.05, method='hw', transform='log')**  
+  Compute simultaneous confidence bands for the survival function using the Hall-Wellner method.
+
+**Notes**
+
+If `exog` is None, the Kaplan-Meier estimator is used. If `exog` is provided, a local estimate of the marginal survival function is computed and averaged to adjust for dependent censoring conditional on covariates.
+
+References:
+
+- Zeng, D. (2004). Estimating marginal survival function by adjusting for dependent censoring using many covariates. Annals of Statistics 32:4. https://arxiv.org/pdf/math/0409180.pdf
+
+Usage Examples
+--------------
+
+Estimating a survival function:
+
+.. code-block:: python
+
+    import numpy as np
+    from duration import SurvfuncRight
+
+    time = np.array([5, 6, 6, 2, 4])
+    status = np.array([1, 0, 1, 1, 0])
+    sf = SurvfuncRight(time, status)
+    print(sf.summary())
+    sf.plot()
+
+Estimating cumulative incidence functions:
+
+.. code-block:: python
+
+    import numpy as np
+    from duration import CumIncidenceRight
+
+    time = np.array([5, 6, 6, 2, 4])
+    status = np.array([1, 2, 1, 0, 2])
+    ci = CumIncidenceRight(time, status)
+    print(ci.cinc)
+
+Notes on Kernel-Based Estimation
+-------------------------------
+
+When covariates (`exog`) are provided, kernel-based methods are used to estimate survival and cumulative incidence functions that adjust for dependent censoring. Bandwidth selection and kernel functions can be controlled via parameters.
+
+Error Handling
+--------------
+
+Input validation is performed to ensure consistency of array lengths and logical correctness of entry and event times. Errors are raised for invalid inputs such as mismatched lengths or entry times occurring after event times.
+
+---
+
+This module is intended for use in survival analysis and competing risks settings, providing flexible and robust estimation tools for right-censored data.

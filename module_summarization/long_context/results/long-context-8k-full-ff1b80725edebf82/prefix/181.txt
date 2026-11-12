@@ -1,0 +1,123 @@
+Dataset Loading Utilities
+=========================
+
+The dataset loading utilities provide functions and classes to fetch and load datasets from OpenML, a popular online repository for machine learning datasets. These utilities handle downloading, caching, parsing, and validating datasets, making it easy to access a wide variety of datasets for machine learning experiments.
+
+Key Features
+------------
+
+- **Fetching datasets from OpenML**: Retrieve datasets by name, version, or ID directly from the OpenML repository.
+- **Caching**: Downloaded datasets are cached locally to avoid repeated downloads and improve efficiency.
+- **Retry mechanisms**: Robust handling of network errors with configurable retries and delays.
+- **Data integrity checks**: MD5 checksum verification ensures the integrity of downloaded files.
+- **Flexible parsing**: Support for different parsers and output formats, including NumPy arrays, pandas DataFrames, and sparse matrices.
+- **Metadata retrieval**: Access dataset descriptions, features, and qualities from OpenML API.
+
+Core Components
+---------------
+
+**1. Fetching and Caching**
+
+- `_open_openml_url(openml_path, data_home, n_retries=3, delay=1.0)`
+
+  Opens a resource from OpenML.org, downloading and caching it locally if a cache directory (`data_home`) is specified. Supports gzip-encoded files and retries on network errors.
+
+- `_get_local_path(openml_path, data_home)`
+
+  Computes the local cache path for a given OpenML resource.
+
+- `_retry_with_clean_cache(openml_path, data_home, no_retry_exception=None)`
+
+  Decorator to retry a function call after cleaning the cache if the first attempt fails.
+
+- `_retry_on_network_error(n_retries=3, delay=1.0, url="")`
+
+  Decorator to retry a function call on network errors, with a delay between retries.
+
+**2. OpenML API Interaction**
+
+- `_get_json_content_from_openml_api(url, error_message, data_home, n_retries=3, delay=1.0)`
+
+  Loads JSON data from an OpenML API endpoint, with caching and error handling.
+
+- `_get_data_info_by_name(name, version, data_home, n_retries=3, delay=1.0)`
+
+  Retrieves dataset metadata by dataset name and version, supporting the special `"active"` version to get the latest active dataset.
+
+- `_get_data_description_by_id(data_id, data_home, n_retries=3, delay=1.0)`
+
+  Fetches detailed dataset description by OpenML dataset ID.
+
+- `_get_data_features(data_id, data_home, n_retries=3, delay=1.0)`
+
+  Retrieves feature metadata for a dataset by its OpenML ID.
+
+- `_get_data_qualities(data_id, data_home, n_retries=3, delay=1.0)`
+
+  Retrieves dataset quality metrics from OpenML.
+
+**3. Data Loading and Parsing**
+
+- `_load_arff_response(url, data_home, parser, output_type, openml_columns_info, feature_names_to_select, target_names_to_select, shape, md5_checksum, n_retries=3, delay=1.0, read_csv_kwargs=None)`
+
+  Downloads and loads ARFF data files from OpenML, verifying MD5 checksum for data integrity. Supports multiple parsers (`"liac-arff"` and `"pandas"`) and output types (`"numpy"`, `"pandas"`, `"sparse"`). Allows selection of specific features and target columns.
+
+- `_download_data_to_bunch(url, sparse, data_home, *, as_frame, openml_columns_info, data_columns, target_columns, shape, md5_checksum, n_retries=3, delay=1.0, parser, read_csv_kwargs=None)`
+
+  Downloads ARFF data, loads it into the specified container, and returns a `Bunch` object containing the dataset. Supports caching, retries, and flexible output formats.
+
+**4. Utility Functions**
+
+- `_get_num_samples(data_qualities)`
+
+  Extracts the number of samples (instances) from dataset quality metadata.
+
+- `OpenMLError`
+
+  Custom exception class for OpenML-specific errors, such as HTTP 412 errors indicating generic OpenML errors.
+
+Usage Overview
+--------------
+
+To fetch a dataset from OpenML, the utilities perform the following steps:
+
+1. Query OpenML API to retrieve dataset metadata by name, version, or ID.
+2. Download the dataset file (typically in ARFF format), caching it locally.
+3. Verify the integrity of the downloaded file using MD5 checksum.
+4. Parse the ARFF file using the specified parser and output format.
+5. Return the dataset as NumPy arrays, pandas DataFrames, or sparse matrices, along with metadata.
+
+These utilities abstract away the complexities of interacting with OpenML, handling network issues, caching, and data parsing, enabling users to focus on machine learning tasks.
+
+Example
+-------
+
+```python
+from sklearn.datasets import fetch_openml
+
+# Fetch the "adult" dataset from OpenML, version "active"
+adult = fetch_openml(name="adult", version="active", as_frame=True)
+
+# Access features and target
+X = adult.data
+y = adult.target
+```
+
+This example downloads the "adult" dataset, caches it locally, and loads it as a pandas DataFrame.
+
+Notes
+-----
+
+- Network errors during downloads are automatically retried up to a configurable number of times.
+- If a cached file is corrupted or invalid, it is removed and re-downloaded.
+- The utilities support both Python-native ARFF parsing and pandas-based parsing, with fallback mechanisms for parsing errors.
+- Dataset qualities and features metadata can be accessed for detailed dataset information.
+
+See Also
+--------
+
+- `fetch_openml`: Main function to fetch datasets from OpenML.
+- `Bunch`: Container object used to hold datasets and metadata.
+- OpenML API documentation: https://www.openml.org/api_docs
+
+This documentation covers the internal utilities used for dataset loading from OpenML within the dataset loading module.

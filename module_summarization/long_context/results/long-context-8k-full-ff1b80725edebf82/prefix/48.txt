@@ -1,0 +1,146 @@
+Discrete Models with Zero Inflation
+====================================
+
+Overview
+--------
+
+This module provides implementations of zero-inflated count models, which are useful for modeling count data with an excess number of zeros. The zero-inflated models combine a count model (such as Poisson or Negative Binomial) with a binary model for the zero inflation process, allowing for more flexible modeling of datasets where zeros arise from two different processes.
+
+The main classes provided include:
+
+- `ZeroInflatedPoisson`
+- `ZeroInflatedGeneralizedPoisson`
+- `ZeroInflatedNegativeBinomialP`
+
+These classes extend the generic zero-inflated modeling framework implemented in the `GenericZeroInflated` base class.
+
+GenericZeroInflated Class
+-------------------------
+
+`GenericZeroInflated` is a base class for zero-inflated count models. It models count data with an additional zero-inflation component, which accounts for excess zeros beyond what the count distribution predicts.
+
+Parameters
+~~~~~~~~~~
+
+- `endog` : array_like  
+  The endogenous response variable (count data).
+
+- `exog` : array_like  
+  The exogenous design matrix for the count model.
+
+- `exog_infl` : array_like or None  
+  Explanatory variables for the zero-inflation (binary) model. If None, a constant term is used.
+
+- `offset` : array_like or None  
+  Offset added to the linear predictor with coefficient fixed at 1.
+
+- `exposure` : array_like or None  
+  Log(exposure) is added to the linear predictor with coefficient fixed at 1.
+
+- `inflation` : string, 'logit' or 'probit'  
+  Specifies the link function for the zero-inflation model. Default is 'logit'.
+
+Attributes
+~~~~~~~~~~
+
+- `endog` : array  
+  The endogenous response variable.
+
+- `exog` : array  
+  The exogenous design matrix for the count model.
+
+- `exog_infl` : array  
+  The exogenous design matrix for the zero-inflation model.
+
+- `inflation` : string  
+  The link function used for zero inflation ('logit' or 'probit').
+
+Methods
+~~~~~~~
+
+- `loglike(params)`  
+  Computes the log-likelihood of the zero-inflated model given parameters.
+
+- `loglikeobs(params)`  
+  Computes the log-likelihood contribution for each observation.
+
+- `fit(...)`  
+  Fits the zero-inflated model using maximum likelihood estimation.
+
+- `fit_regularized(...)`  
+  Fits the model with regularization (e.g., L1 penalty).
+
+- `score_obs(params)`  
+  Computes the score (gradient) vector of the log-likelihood for each observation.
+
+- `score(params)`  
+  Computes the overall score vector by summing over observations.
+
+- `hessian(params)`  
+  Computes the Hessian matrix (second derivatives) of the log-likelihood.
+
+- `predict(params, exog=None, exog_infl=None, exposure=None, offset=None, which='mean')`  
+  Predicts the response variable or related quantities based on the fitted model and parameters.
+
+Modeling Details
+----------------
+
+The zero-inflated model assumes that the observed counts arise from a mixture of two processes:
+
+- With probability \( w_i \), the count is zero due to the zero-inflation process.
+- With probability \( 1 - w_i \), the count follows the main count distribution (e.g., Poisson).
+
+The log-likelihood for observation \( i \) is given by:
+
+\[
+\ln L_i = \begin{cases}
+\ln \left( w_i + (1 - w_i) P_{\text{main}}(y_i=0) \right), & y_i = 0 \\
+\ln(1 - w_i) + \ln P_{\text{main}}(y_i), & y_i > 0
+\end{cases}
+\]
+
+where \( w_i \) is the zero-inflation probability modeled by a binary regression (logit or probit), and \( P_{\text{main}} \) is the probability mass function of the main count model.
+
+Zero-Inflation Link Functions
+-----------------------------
+
+- **Logit**: Uses logistic regression for the zero-inflation component.
+- **Probit**: Uses probit regression for the zero-inflation component.
+
+If the probit link is used, numerical approximations are employed for the score and Hessian calculations.
+
+Usage Notes
+-----------
+
+- The exogenous variables for the count model (`exog`) and the zero-inflation model (`exog_infl`) must have the same number of observations.
+- Offsets and exposures can be included to adjust the linear predictors.
+- Regularized fitting supports L1 penalties to perform variable selection or shrinkage.
+- Prediction supports various options including expected counts, probabilities of zero, and linear predictors.
+
+Warnings
+--------
+
+- Convergence warnings may be issued if the optimization does not converge.
+- Perfect separation in the zero-inflation model can cause fitting issues; a callback workaround is implemented.
+
+References
+----------
+
+- Lambert, D. (1992). Zero-inflated Poisson regression, with an application to defects in manufacturing. *Technometrics*, 34(1), 1-14.
+- Ridout, M., Demétrio, C. G. B., & Hinde, J. (1998). Models for count data with many zeros. *International Biometric Conference*.
+
+See Also
+--------
+
+- `statsmodels.discrete.discrete_model.Poisson`
+- `statsmodels.discrete.discrete_model.NegativeBinomialP`
+- `statsmodels.discrete.discrete_model.GeneralizedPoisson`
+
+Module Contents
+---------------
+
+- `ZeroInflatedPoisson` : Zero-inflated Poisson regression model.
+- `ZeroInflatedGeneralizedPoisson` : Zero-inflated Generalized Poisson regression model.
+- `ZeroInflatedNegativeBinomialP` : Zero-inflated Negative Binomial regression model with parameterization P.
+
+This module extends the discrete count modeling framework by incorporating zero-inflation mechanisms, providing flexible tools for count data analysis with excess zeros.

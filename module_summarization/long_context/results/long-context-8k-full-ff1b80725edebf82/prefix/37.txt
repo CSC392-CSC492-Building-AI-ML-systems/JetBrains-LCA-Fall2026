@@ -1,0 +1,114 @@
+w_trace — Trace Individual WEST Trajectories
+============================================
+
+Synopsis
+--------
+
+``w_trace [OPTIONS] N_ITER:SEG_ID [N_ITER:SEG_ID ...]``
+
+Description
+-----------
+
+The `w_trace` command traces individual WEST trajectories specified by iteration and segment identifiers (N_ITER:SEG_ID pairs). For each specified trajectory endpoint, the command reconstructs the full trajectory by tracing each segment back to its initial point. It then emits or calculates various quantities along the trajectory, such as iteration numbers, segment IDs, and user-selected datasets.
+
+Each trajectory is output in order from the initial point up to the specified terminal segment, allowing detailed inspection and analysis of trajectory data.
+
+Output
+------
+
+Output data for each traced trajectory is stored in multiple files and/or HDF5 groups named according to a user-specified pattern. By default, the output pattern is:
+
+``traj_%d_%d``
+
+where the two format specifiers are replaced by the iteration number and segment ID of the terminal segment of the trajectory.
+
+The output includes:
+
+- A text file named ``traj_N_ITER_SEG_ID_trace.txt`` containing a human-readable trace of the trajectory.
+- An HDF5 group within the output file (default: `trajs.h5`) under `/trajectories/traj_N_ITER_SEG_ID/` containing datasets traced along the trajectory.
+
+Datasets
+--------
+
+Users can specify datasets to include in the trace output using the `-d` or `--dataset` option. This option may be given multiple times to include multiple datasets.
+
+The simplest form is:
+
+```
+-d DSNAME
+```
+
+which traces the dataset named `DSNAME` along the trajectory. The dataset is assumed to be stored on a per-iteration basis, with the first dimension corresponding to segment ID and the second dimension corresponding to time points within the segment.
+
+Extended dataset options can be specified as comma-separated key=value pairs following the dataset name:
+
+```
+-d DSNAME[,alias=ALIAS][,index=INDEX][,file=FILE][,slice=SLICE]
+```
+
+Supported options:
+
+- **alias=ALIAS**  
+  Use `ALIAS` as the dataset name in the output instead of the original `DSNAME`. Useful when retrieving multiple slices or differently processed versions of the same dataset.
+
+- **index=INDEX**  
+  Indicates that the dataset is not stored per iteration but as a single dataset indexed by (n_iter, seg_id) pairs. The `INDEX` dataset provides this indexing.
+
+- **file=FILE**  
+  Read the dataset from an alternate HDF5 file `FILE` instead of the main WEST HDF5 file (usually `west.h5`).
+
+- **slice=SLICE**  
+  Retrieve only the specified slice from the dataset to minimize I/O and focus on a subset of the data. The slice should be specified in NumPy indexing syntax, e.g., `[100,...]`.
+
+Examples
+--------
+
+Trace a single trajectory ending at iteration 10, segment 5, outputting default datasets:
+
+```
+w_trace 10:5
+```
+
+Trace multiple trajectories and include the dataset `pcoord` with an alias and slice:
+
+```
+w_trace -d pcoord,alias=pc_slice,slice=[0:50,...] 10:5 12:3
+```
+
+Trace a dataset stored in an auxiliary file with an index dataset:
+
+```
+w_trace -d msd,index=msd_index,file=auxdata.h5 15:7
+```
+
+Options
+-------
+
+- `-d`, `--dataset DSNAME`  
+  Include the named dataset in the trace output. Can be specified multiple times.
+
+- `--output-pattern PATTERN`  
+  Pattern for naming output files and HDF5 groups. Must contain two printf-style format specifiers for iteration and segment ID. Default: `traj_%d_%d`.
+
+- `-o`, `--output FILE`  
+  HDF5 file to store intermediate data and analysis results. Default: `trajs.h5`.
+
+- `N_ITER:SEG_ID`  
+  One or more trajectory endpoints to trace.
+
+Notes
+-----
+
+- The command reconstructs trajectories by following parent segment links backward from the specified endpoint until the initial state is reached.
+
+- Overlapping time points at segment boundaries are handled to produce continuous time series data.
+
+- The command supports reading datasets from auxiliary files and indexed datasets for flexible data organization.
+
+- Output files and groups are created or appended to as needed.
+
+See Also
+--------
+
+- WESTPA documentation on trajectory analysis  
+- Other WESTPA command-line tools for data processing and visualization

@@ -1,0 +1,152 @@
+Filters
+=======
+
+This module provides classes and functions to create and manage filters for Ethereum blockchain events, blocks, transactions, logs, and Whisper messages. Filters allow you to watch for specific events or changes on the blockchain and react to them asynchronously.
+
+Functions
+---------
+
+construct_event_filter_params(event_abi, contract_address=None, argument_filters=None, topics=None, fromBlock=None, toBlock=None, address=None)
+    Constructs filter parameters and data filters for an event based on the event ABI and optional filtering criteria.
+
+    Parameters:
+        event_abi (dict): The ABI of the event to filter.
+        contract_address (str or list, optional): The contract address or addresses to filter.
+        argument_filters (dict, optional): Filters on event arguments.
+        topics (list, optional): Topics to filter on.
+        fromBlock (int or str, optional): The block number or tag to start filtering from.
+        toBlock (int or str, optional): The block number or tag to stop filtering at.
+        address (str or list, optional): Additional address or addresses to filter.
+
+    Returns:
+        tuple: A tuple containing:
+            - data_filters_set (list): A list of data filters constructed from the event ABI and argument filters.
+            - filter_params (dict): A dictionary of filter parameters suitable for use with web3 filter methods.
+
+Classes
+-------
+
+Filter
+------
+
+Base class for all filter types. Inherits from `gevent.Greenlet` to provide asynchronous watching of filter changes.
+
+Attributes:
+    callbacks (list): List of callback functions to be called when filter changes are detected.
+    running (bool): Indicates if the filter is currently running.
+    stopped (bool): Indicates if the filter has been stopped.
+    poll_interval (float or None): Time interval between polling for changes. If None, a random interval is used.
+
+Methods:
+    __init__(web3, filter_id)
+        Initializes the filter with a web3 instance and a filter ID.
+
+    __str__()
+        Returns a string representation of the filter.
+
+    _run()
+        Internal method run by the greenlet to poll for filter changes and invoke callbacks.
+
+    format_entry(entry)
+        Hook method to format entries before passing them to callbacks. Default implementation returns the entry unchanged.
+
+    is_valid_entry(entry)
+        Hook method to filter entries before passing them to callbacks. Default implementation always returns True.
+
+    watch(*callbacks)
+        Starts watching the filter and registers callback functions to be called on new entries.
+
+    stop_watching(timeout=0)
+        Stops watching the filter, uninstalls it from the node, and waits for the greenlet to finish.
+
+BlockFilter(Filter)
+-------------------
+
+Filter subclass for monitoring new blocks on the blockchain.
+
+TransactionFilter(Filter)
+-------------------------
+
+Filter subclass for monitoring new transactions on the blockchain.
+
+LogFilter(Filter)
+-----------------
+
+Filter subclass for monitoring log entries (events) on the blockchain.
+
+Attributes:
+    data_filter_set (list): Set of data filters to apply to log entries.
+    data_filter_set_regex (re.Pattern): Compiled regex pattern constructed from data_filter_set for efficient matching.
+    log_entry_formatter (callable or None): Optional function to format log entries before passing to callbacks.
+
+Methods:
+    __init__(*args, **kwargs)
+        Initializes the LogFilter. Accepts `data_filter_set` and `log_entry_formatter` as keyword arguments.
+
+    get(only_changes=True)
+        Retrieves log entries from the filter.
+
+        Parameters:
+            only_changes (bool): If True, returns only new changes since last poll; otherwise returns all logs.
+
+        Returns:
+            list: Formatted log entries.
+
+    format_entry(entry)
+        Formats a log entry using the `log_entry_formatter` if provided; otherwise returns the entry unchanged.
+
+    set_data_filters(data_filter_set)
+        Sets the data filters and compiles the corresponding regex for filtering log entries.
+
+    is_valid_entry(entry)
+        Checks if a log entry matches the data filters using the compiled regex.
+
+PastLogFilter(LogFilter)
+------------------------
+
+Filter subclass that retrieves past log entries matching the filter once and then stops.
+
+Methods:
+    _run()
+        Retrieves all past logs matching the filter and invokes callbacks once, then stops.
+
+ShhFilter(Filter)
+-----------------
+
+Filter subclass for monitoring Whisper (Shh) messages.
+
+Methods:
+    _run()
+        Polls for new Whisper messages matching the filter and invokes callbacks.
+
+    stop_watching(timeout=0)
+        Stops watching the Whisper filter and uninstalls it.
+
+Constants
+---------
+
+ZERO_32BYTES
+    A regex pattern string matching 32 bytes of hexadecimal characters (64 hex digits). Used internally for constructing data filter regexes.
+
+Helper Functions
+----------------
+
+construct_data_filter_regex(data_filter_set)
+    Constructs a compiled regular expression to match data fields in log entries against a set of data filters.
+
+    Parameters:
+        data_filter_set (list): A list of data filters, where each filter is a list of hex strings or None.
+
+    Returns:
+        re.Pattern: A compiled regex pattern that matches any of the data filters.
+
+Usage Overview
+--------------
+
+- Use `construct_event_filter_params` to build filter parameters and data filters from an event ABI and filtering criteria.
+- Create filter instances (`BlockFilter`, `TransactionFilter`, `LogFilter`, `PastLogFilter`, `ShhFilter`) by providing a web3 instance and a filter ID.
+- Register callback functions with `watch()` to handle new filter entries asynchronously.
+- Stop filters with `stop_watching()` when no longer needed.
+- For log filters, use `set_data_filters()` to specify data filters and `get()` to retrieve log entries manually.
+
+This module leverages `gevent` for asynchronous operation, allowing non-blocking monitoring of blockchain events and messages.

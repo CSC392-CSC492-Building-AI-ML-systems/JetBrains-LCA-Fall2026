@@ -1,0 +1,218 @@
+# Stateless Learning Rate Schedulers
+
+This module provides a collection of **stateless learning rate schedulers** designed to address limitations of PyTorch's built-in schedulers (`torch.optim.lr_scheduler`). The primary goal is to enable schedulers to interface directly with Composer's `time` abstraction, allowing configuration using arbitrary but explicit time units such as epochs, batches, or durations.
+
+---
+
+## Overview
+
+Stateless schedulers are functions or callable classes that compute a learning rate multiplier based solely on the current training state and time, without maintaining internal state. This design allows for more predictable and flexible learning rate schedules that can be scaled or combined easily.
+
+All schedulers in this module return a **multiplier** (denoted as \(\alpha\)) to be applied to the optimizer's initial learning rate \(\eta_i\), such that the effective learning rate at time \(t\) is:
+
+\[
+\eta(t) = \eta_i \times \alpha(t)
+\]
+
+Multiple schedulers can be combined multiplicatively.
+
+---
+
+## Key Concepts
+
+### ComposerScheduler Interface
+
+A `ComposerScheduler` is any callable that accepts the current training `State` and an optional scale schedule ratio (`ssr`) and returns a learning rate multiplier.
+
+```python
+def scheduler(state: State, ssr: float = 1.0) -> float:
+    ...
+```
+
+- **state**: Provides access to the current training timestamp, maximum duration, and other relevant information.
+- **ssr (scale schedule ratio)**: Allows stretching or compressing the schedule in time. The scheduler output with SSR \(\sigma\) at time \(t\) corresponds to the output at time \(t / \sigma\) with SSR 1.0.
+
+Schedulers can be simple functions or callable classes.
+
+---
+
+### Time Conversion
+
+Schedulers accept time parameters as strings (e.g., `"1ep"`, `"500ba"`, `"1dur"`) or `Time` objects. Internally, these are converted to consistent units based on the current training state and SSR.
+
+---
+
+### Compiling to PyTorch Scheduler
+
+The function `compile_composer_scheduler` converts a stateless `ComposerScheduler` into a PyTorch-compatible scheduler (`PyTorchScheduler`) that can be used with standard PyTorch training loops.
+
+---
+
+## Provided Schedulers
+
+### StepScheduler
+
+- **Description**: Decays the learning rate by a factor \(\gamma\) every fixed interval (`step_size`).
+- **Formula**:
+
+\[
+\alpha(t) = \gamma^{\lfloor t / \rho \rfloor}
+\]
+
+where \(\rho\) is the step size.
+
+- **Parameters**:
+  - `step_size` (str or Time): Interval between learning rate decays.
+  - `gamma` (float): Multiplicative decay factor (default 0.1).
+
+---
+
+### MultiStepScheduler
+
+- **Description**: Decays the learning rate by \(\gamma\) at specified milestones.
+- **Formula**:
+
+\[
+\alpha(t) = \gamma^{x}
+\]
+
+where \(x\) is the number of milestones reached by time \(t\).
+
+- **Parameters**:
+  - `milestones` (list of str or Time): Times at which to decay the learning rate.
+  - `gamma` (float): Multiplicative decay factor (default 0.1).
+
+---
+
+### ConstantScheduler
+
+- **Description**: Maintains a fixed learning rate multiplier \(\alpha\) for a specified duration.
+- **Formula**:
+
+\[
+\alpha(t) = \begin{cases}
+\alpha, & t < t_{\max} \\
+1.0, & \text{otherwise}
+\end{cases}
+\]
+
+- **Parameters**:
+  - `alpha` (float): Learning rate multiplier during active period (default 1.0).
+  - `t_max` (str or Time): Duration to maintain the multiplier (default `"1dur"`).
+
+---
+
+### LinearScheduler
+
+- **Description**: Linearly adjusts the learning rate multiplier from `alpha_i` to `alpha_f` over `t_max`.
+- **Formula**:
+
+\[
+\alpha(t) = \alpha_i + (\alpha_f - \alpha_i) \times \tau
+\]
+
+where \(\tau = \frac{t}{t_{\max}}\) clipped to \([0,1]\).
+
+- **Parameters**:
+  - `alpha_i` (float): Initial multiplier (default 1.0).
+  - `alpha_f` (float): Final multiplier (default 0.0).
+  - `t_max` (str or Time): Duration of the schedule (default `"1dur"`).
+
+---
+
+### ExponentialScheduler
+
+- **Description**: Exponentially decays the learning rate by factor \(\gamma\) every `decay_period`.
+- **Formula**:
+
+\[
+\alpha(t) = \gamma^{t / \rho}
+\]
+
+where \(\rho\) is the decay period.
+
+- **Parameters**:
+  - `gamma` (float): Multiplicative decay factor.
+  - `decay_period` (str or Time): Period over which decay occurs (default `"1ep"`).
+
+---
+
+### CosineAnnealingScheduler
+
+- **Description**: Decays the learning rate following the decreasing half of a cosine curve.
+- **Formula**:
+
+\[
+\alpha(t) = \alpha_f + (1 - \alpha_f) \times \frac{1}{2} \left(1 + \cos(\pi \tau)\right)
+\]
+
+where \(\tau = \frac{t}{t_{\max}}\).
+
+- **Parameters**:
+  - `t_max` (str or Time): Duration of the schedule (default `"1dur"`).
+  - `alpha_f` (float): Final multiplier (default 0.0).
+
+---
+
+### CosineAnnealingWarmRestartsScheduler
+
+- **Description**: Cyclic cosine annealing with warm restarts. After each cycle of length \(t_0\), the schedule restarts, with cycle lengths multiplied by `t_mult`.
+- **Formula**:
+
+\[
+\alpha(t) = \alpha_f + (1 - \alpha_f) \times \frac{1}{2} \left(1 + \cos(\pi \tau_i)\right)
+\]
+
+where \(\tau_i\) is the fraction of time elapsed in the current cycle.
+
+- **Parameters**:
+  - `t_0` (str or Time): Length of the first cycle.
+  - `t_mult` (float): Cycle length multiplier for successive cycles (default 1.0).
+  - `alpha_f` (float): Final multiplier (default 0.0).
+
+---
+
+### PolynomialScheduler
+
+- **Description**: Decays the learning rate polynomially based on the fraction of training time left.
+- **Formula**:
+
+\[
+\alpha(t) = \alpha_f + (1 - \alpha_f) \times (1 - \tau)^{\kappa}
+\]
+
+where \(\tau = \frac{t}{t_{\max}}\), \(\kappa\) is the power.
+
+- **Parameters**:
+  - `power` (float): Exponent \(\kappa\).
+  - `t_max` (str or Time): Duration of the schedule (default `"1dur"`).
+  - `alpha_f` (float): Final multiplier (default 0.0).
+
+---
+
+## Usage Example
+
+```python
+from composer.core import State
+from scale_schedule import StepScheduler
+
+# Define a scheduler that decays learning rate by 0.1 every 5 epochs
+scheduler = StepScheduler(step_size="5ep", gamma=0.1)
+
+# During training, call scheduler with current state to get multiplier
+lr_multiplier = scheduler(state)
+```
+
+---
+
+## Notes
+
+- All schedulers return a multiplier, not the absolute learning rate.
+- Schedulers can be combined by multiplying their outputs.
+- The `scale_schedule_ratio` parameter allows dynamic stretching/compression of schedules.
+- Time units supported include epochs (`ep`), batches (`ba`), and durations (`dur`).
+- The module requires the `State` object from Composer to provide current training progress and metadata.
+
+---
+
+This module enables flexible, composable, and time-aware learning rate scheduling for training deep learning models with Composer.

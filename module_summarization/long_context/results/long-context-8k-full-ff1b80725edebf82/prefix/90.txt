@@ -1,0 +1,126 @@
+auto_augment module
+===================
+
+Overview
+--------
+The `auto_augment` module provides implementations of the AutoAugment data augmentation technique as described in the paper "AutoAugment: Learning Augmentation Policies from Data" (https://arxiv.org/abs/1805.09501). This module enables the application of predefined augmentation policies to batches of images or videos, facilitating improved model generalization by augmenting training data with a variety of transformations.
+
+Key Features
+------------
+- Supports multiple predefined augmentation policies tuned for popular datasets such as ImageNet, CIFAR-10, and SVHN.
+- Allows augmentation of images (`HWC` layout) and videos (`FHWC` layout) with `uint8` data type.
+- Supports translation augmentations with configurable absolute or relative maximum shifts.
+- Provides control over interpolation methods and padding fill values for geometric transformations.
+- Enables reproducible augmentations through optional seeding.
+- Modular design allowing easy extension or customization of augmentation policies.
+
+Functions
+---------
+
+auto_augment(data, policy_name='image_net', shape=None, fill_value=128, interp_type=None, max_translate_abs=None, max_translate_rel=None, seed=None) → DataNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies one of the predefined AutoAugment policies to a batch of samples.
+
+Parameters:
+- **data** (`DataNode`): Batch of images or videos to augment. Images must have `HWC` layout; videos must have `FHWC` layout. Data type must be `uint8`.
+- **policy_name** (`str`, optional): Name of the predefined policy to apply. Supported values:
+  - `'image_net'`
+  - `'reduced_image_net'`
+  - `'svhn'`
+  - `'reduced_cifar10'`
+  Defaults to `'image_net'`.
+- **shape** (`DataNode` or `Tuple[int, int]`, optional): Size (height, width) of images or video frames. If provided, translation magnitudes are relative to this shape.
+- **fill_value** (`int`, optional): Padding value used for warp affine transformations (translation, shear, rotate). Defaults to 128. If `None`, border values are clamped.
+- **interp_type** (`types.DALIInterpType`, optional): Interpolation method for warp affine operations. Supported values are `types.INTERP_LINEAR` (default) and `types.INTERP_NN`.
+- **max_translate_abs** (`int` or `(int, int)`, optional): Maximum absolute pixel shift for translation when `shape` is not provided. Defaults to 250 pixels.
+- **max_translate_rel** (`float` or `(float, float)`, optional): Maximum relative shift as a fraction of image/frame size when `shape` is provided. Defaults to 1.0.
+- **seed** (`int`, optional): Seed for random sampling of operations and magnitude negations.
+
+Returns:
+- `DataNode`: Batch of augmented samples.
+
+auto_augment_image_net(data, shape=None, fill_value=128, interp_type=None, max_translate_abs=None, max_translate_rel=None, seed=None) → DataNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Convenience function applying the ImageNet AutoAugment policy.
+
+Equivalent to calling `auto_augment` with `policy_name='image_net'`.
+
+Parameters and return value are the same as `auto_augment`.
+
+apply_auto_augment(policy, data, seed=None, **kwargs) → DataNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies a given AutoAugment policy to a batch of samples.
+
+Parameters:
+- **policy** (`Policy`): A set of augmentation sequences defining the AutoAugment policy.
+- **data** (`DataNode`): Batch of samples to augment.
+- **seed** (`int`, optional): Seed for random sampling.
+- **kwargs**: Additional keyword arguments passed to augmentations (e.g., `shape`, `fill_value`, `interp_type`).
+
+Returns:
+- `DataNode`: Batch of augmented samples.
+
+Raises:
+- Exception if the policy is empty.
+
+get_image_net_policy(use_shape=False, max_translate_abs=None, max_translate_rel=None) → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the ImageNet-tuned AutoAugment policy.
+
+Parameters:
+- **use_shape** (`bool`): If `True`, translation offsets are relative to image/frame shape. If `False`, offsets are bounded by `max_translate_abs`.
+- **max_translate_abs** (`int` or `(int, int)`, optional): Maximum absolute pixel shift for translation when `use_shape=False`. Defaults to 250.
+- **max_translate_rel** (`float` or `(float, float)`, optional): Maximum relative shift for translation when `use_shape=True`. Defaults to 1.0.
+
+Returns:
+- `Policy`: The ImageNet AutoAugment policy.
+
+get_reduced_cifar10_policy(use_shape=False, max_translate_abs=None, max_translate_rel=None) → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the reduced CIFAR-10 AutoAugment policy.
+
+Parameters:
+- **use_shape** (`bool`): If `True`, translation offsets are relative to image/frame shape. If `False`, offsets are bounded by `max_translate_abs`.
+- **max_translate_abs** (`int` or `(int, int)`, optional): Maximum absolute pixel shift for translation when `use_shape=False`. Defaults to 250.
+- **max_translate_rel** (`float` or `(float, float)`, optional): Maximum relative shift for translation when `use_shape=True`. Defaults to 1.0.
+
+Returns:
+- `Policy`: The reduced CIFAR-10 AutoAugment policy.
+
+get_svhn_policy(use_shape=False, max_translate_abs=None, max_translate_rel=None) → Policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the SVHN AutoAugment policy.
+
+Parameters:
+- **use_shape** (`bool`): If `True`, translation offsets are relative to image/frame shape. If `False`, offsets are bounded by `max_translate_abs`.
+- **max_translate_abs** (`int` or `(int, int)`, optional): Maximum absolute pixel shift for translation when `use_shape=False`. Defaults to 250.
+- **max_translate_rel** (`float` or `(float, float)`, optional): Maximum relative shift for translation when `use_shape=True`. Defaults to 1.0.
+
+Returns:
+- `Policy`: The SVHN AutoAugment policy.
+
+Usage Example
+-------------
+```python
+from nvidia.dali.auto_aug import auto_augment
+from nvidia.dali.data_node import DataNode
+
+# Assume `images` is a DataNode containing a batch of images with HWC layout and uint8 type
+augmented_images = auto_augment(images, policy_name='image_net', seed=42)
+```
+
+Notes
+-----
+- The module requires `numpy` to be installed.
+- The augmentation policies consist of sequences of operations such as shear, rotate, color adjustments, solarize, posterize, invert, equalize, and auto contrast.
+- Translation augmentations can be configured to use absolute pixel values or relative fractions of the image/frame size.
+- Some policies do not support translation augmentations; specifying shape-related arguments with these policies will raise an exception.
+
+License
+-------
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.
+
+References
+----------
+- AutoAugment Paper: https://arxiv.org/abs/1805.09501
+- NVIDIA DALI Documentation: https://docs.nvidia.com/deeplearning/dali/user-guide/docs/index.html

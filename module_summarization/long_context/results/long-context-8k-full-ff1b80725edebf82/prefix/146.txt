@@ -1,0 +1,92 @@
+Quick Start
+===========
+
+This document provides a quick overview of how to use the geometric path classes and utilities implemented in the `toppra` module. These classes are essential for defining and manipulating geometric paths required by algorithms in `toppra`.
+
+Geometric Paths
+---------------
+
+Geometric paths represent trajectories parameterized by a path variable. The base class for all geometric paths is `AbstractGeometricPath`. Custom geometric paths should inherit from this class and implement the following:
+
+- `__call__(path_positions, order=0)`: Evaluate the path at given positions. The `order` parameter specifies whether to evaluate position (0), first derivative (1), or second derivative (2).
+- `dof`: Property returning the degrees of freedom of the path.
+- `path_interval`: Property returning the start and end positions of the path.
+- `waypoints`: Optional property returning the path's waypoints if applicable.
+
+Using Geometric Paths
+---------------------
+
+### Creating a Path Interpolator
+
+You can create geometric paths by interpolating waypoints using provided interpolators:
+
+- **SplineInterpolator**: Interpolates waypoints using cubic splines. Supports various boundary conditions such as 'not-a-knot', 'clamped', 'natural', or 'periodic'.
+
+  ```python
+  from toppra import SplineInterpolator
+  import numpy as np
+
+  ss_waypoints = np.array([0.0, 1.0, 2.0, 3.0])
+  waypoints = np.array([[0], [1], [0], [-1]])
+  spline_path = SplineInterpolator(ss_waypoints, waypoints, bc_type='not-a-knot')
+  ```
+
+- **UnivariateSplineInterpolator**: Smooths given waypoints using cubic splines (wrapper over `scipy.UnivariateSpline`).
+
+- **RaveTrajectoryWrapper**: Wraps OpenRAVE trajectories for use as geometric paths (requires OpenRAVE).
+
+### Evaluating a Path
+
+Evaluate the path position, velocity, or acceleration at a given path position `s`:
+
+```python
+position = spline_path(s, order=0)  # position
+velocity = spline_path(s, order=1)  # first derivative
+acceleration = spline_path(s, order=2)  # second derivative
+```
+
+### Accessing Path Properties
+
+```python
+dof = spline_path.dof
+start, end = spline_path.path_interval
+waypoints = spline_path.waypoints  # Returns (positions, waypoints)
+```
+
+Generating Gridpoints for a Path
+--------------------------------
+
+The function `propose_gridpoints` generates gridpoints that sufficiently cover a given geometric path. It adaptively subdivides the path based on curvature and interpolation error to ensure accurate approximation.
+
+```python
+from toppra import propose_gridpoints
+
+gridpoints = propose_gridpoints(spline_path, max_err_threshold=1e-4, max_iteration=100, max_seg_length=0.05)
+```
+
+- `max_err_threshold`: Maximum allowable interpolation error.
+- `max_iteration`: Maximum number of refinement iterations.
+- `max_seg_length`: Maximum length of each segment.
+
+If the function cannot find a suitable gridpoint distribution within the maximum iterations, it raises a `ValueError`.
+
+Integration with OpenRAVE
+-------------------------
+
+If OpenRAVE is available, you can convert a `SplineInterpolator` to an OpenRAVE trajectory using:
+
+```python
+rave_traj = spline_path.compute_rave_trajectory(robot)
+```
+
+where `robot` is an OpenRAVE robot instance.
+
+Summary
+-------
+
+- Define geometric paths by subclassing `AbstractGeometricPath` or using provided interpolators.
+- Evaluate positions, velocities, and accelerations using the `__call__` method.
+- Use `propose_gridpoints` to generate adaptive gridpoints for accurate path representation.
+- Optionally, integrate with OpenRAVE trajectories if OpenRAVE is installed.
+
+This quick start guide covers the essentials to get started with geometric paths in `toppra`. For more detailed usage and advanced features, refer to the full API documentation.

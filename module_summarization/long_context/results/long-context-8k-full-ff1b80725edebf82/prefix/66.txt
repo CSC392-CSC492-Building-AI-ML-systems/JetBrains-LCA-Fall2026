@@ -1,0 +1,112 @@
+Generate tutorial about pipelines
+=================================
+
+The `sklearn.pipeline` module provides utilities to build composite estimators as a chain of transforms and estimators. This allows you to assemble several processing steps into a single object that can be cross-validated and parameter-tuned together.
+
+Overview
+--------
+
+A pipeline sequentially applies a list of transforms and a final estimator. Intermediate steps must be transformers implementing `fit` and `transform` methods, while the final estimator only needs to implement `fit`. This design enables encapsulating the entire workflow from preprocessing to prediction in one object.
+
+Key features of pipelines include:
+
+- Sequential chaining of multiple transformers and a final estimator.
+- Parameter setting for each step using a double underscore (`'__'`) syntax.
+- Ability to replace or remove steps dynamically.
+- Support for caching fitted transformers to speed up repeated computations.
+- Integration with model selection utilities like `GridSearchCV`.
+
+Pipeline Class
+--------------
+
+The core class is `Pipeline`, which is initialized with a list of `(name, transform)` tuples. The last transform must be an estimator.
+
+```python
+from sklearn.pipeline import Pipeline
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svc', SVC())
+])
+```
+
+### Parameters
+
+- **steps**: List of `(name, transform)` tuples. Each transform must implement `fit` and `transform` except the last, which must implement `fit`.
+- **memory**: Optional caching mechanism to store fitted transformers.
+- **verbose**: If `True`, prints elapsed time for each step during fitting.
+
+### Attributes
+
+- **named_steps**: Access steps by name as a dictionary-like object.
+- **classes_**: Class labels if the final estimator is a classifier.
+- **n_features_in_**: Number of features seen during fitting.
+- **feature_names_in_**: Names of features seen during fitting.
+
+Using Pipelines
+---------------
+
+Pipelines behave like standard estimators and can be used in training and prediction:
+
+```python
+pipe.fit(X_train, y_train)
+score = pipe.score(X_test, y_test)
+```
+
+You can set parameters of individual steps using the `'stepname__parameter'` syntax:
+
+```python
+pipe.set_params(svc__C=10)
+```
+
+This flexibility allows for easy hyperparameter tuning and experimentation.
+
+Caching Transformers
+--------------------
+
+By specifying the `memory` parameter, you can cache the fitted transformers to avoid recomputing them during repeated fits:
+
+```python
+pipe = Pipeline(steps, memory='cache_directory')
+```
+
+This is particularly useful when fitting transformers is time-consuming.
+
+Advanced Usage
+--------------
+
+- **Sub-pipelines**: You can slice a pipeline to obtain a sub-pipeline or access individual steps by index or name.
+- **Output configuration**: Use `set_output` to configure the output format of transformers, e.g., to return pandas DataFrames.
+- **Metadata routing**: Supports passing parameters to specific steps during fitting using metadata routing, enabling more flexible parameter management.
+
+Example
+-------
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svc', SVC())
+])
+
+pipe.fit(X_train, y_train)
+print(pipe.score(X_test, y_test))  # Output: 0.88
+
+pipe.set_params(svc__C=10)
+pipe.fit(X_train, y_train)
+print(pipe.score(X_test, y_test))  # Output: 0.76
+```
+
+Further Reading
+---------------
+
+For more detailed examples and advanced usage, refer to the User Guide on pipelines and the examples demonstrating pipeline integration with grid search and other model selection techniques.
+
+.. _pipeline: https://scikit-learn.org/stable/modules/compose.html#pipeline

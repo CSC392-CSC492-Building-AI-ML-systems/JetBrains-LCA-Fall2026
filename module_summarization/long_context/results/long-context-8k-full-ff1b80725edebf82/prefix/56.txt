@@ -1,0 +1,130 @@
+Generalized Linear Mixed Models with Bayesian Inference
+========================================================
+
+Overview
+--------
+
+This module provides tools for Bayesian inference in generalized linear mixed models (GLMMs). It currently supports models with binomial and Poisson families, which do not require additional scale or shape parameters.
+
+Two main estimation approaches are implemented:
+
+- **Laplace approximation** (maximum a posteriori estimation)
+- **Variational Bayes** (mean field approximation to the posterior distribution)
+
+The random effects are modeled as mutually independent Gaussian realizations. The design matrix for random effects (`exog_vc`) encodes these effects, with each column corresponding to an independent random effect realization. Standard deviations of random effects are shared within subsets of columns, identified by the `ident` parameter or constructed automatically when using formulas.
+
+Key Features
+------------
+
+- Supports sparse matrices for random effects design (`exog_vc`), improving efficiency in many applications.
+- Allows flexible specification of variance components through the `ident` array or formula interface.
+- Implements Bayesian priors on fixed effects and variance components, with Gaussian and log-normal distributions respectively.
+- Provides methods for fitting models using both Laplace approximation and variational Bayes.
+- Supports model specification via formulas, enabling convenient construction of fixed and random effects.
+
+Model Specification
+-------------------
+
+The joint density of the data and parameters factorizes as:
+
+.. math::
+
+    p(y | vc, fep) \\, p(vc | vcp) \\, p(vcp) \\, p(fe)
+
+where:
+
+- :math:`y` is the observed data,
+- :math:`fe` are fixed effects parameters,
+- :math:`vc` are random effect realizations,
+- :math:`vcp` are variance component parameters (log standard deviations).
+
+The priors :math:`p(vcp)` and :math:`p(fe)` are Gaussian, with the variance components modeled on the log scale, resulting in log-normal distributions for standard deviations. Random effects :math:`vc` are independent Gaussian variables conditional on variance parameters.
+
+Usage
+-----
+
+### Model Initialization
+
+Models can be initialized directly by providing:
+
+- `endog`: response vector,
+- `exog`: fixed effects design matrix,
+- `exog_vc`: random effects design matrix (sparse or dense),
+- `ident`: integer labels grouping random effects with common variance,
+- `family`: GLM family (e.g., binomial, Poisson),
+- prior standard deviations for variance components (`vcp_p`) and fixed effects (`fe_p`),
+- optional names for parameters.
+
+Alternatively, models can be constructed using formulas for fixed and random effects via the `from_formula` class method, which automatically handles design matrices and variance component grouping.
+
+### Fitting Methods
+
+- **fit_map**: Fits the model using Laplace approximation by maximizing the posterior mode. Supports optimization options and scaling of fixed effects.
+- **fit_vb**: (Not shown in the excerpt but mentioned) Fits the model using variational Bayes approximation.
+
+Example
+-------
+
+Binomial (logistic) random effects model with random intercepts and slopes:
+
+.. code-block:: python
+
+    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    model = BinomialBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+    result = model.fit_vb()
+
+Poisson random effects model with similar structure:
+
+.. code-block:: python
+
+    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    model = PoissonBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+    result = model.fit_vb()
+
+Parameters
+----------
+
+- **endog** : array_like  
+  Response variable vector.
+
+- **exog** : array_like  
+  Covariates for fixed effects.
+
+- **exog_vc** : array_like or sparse matrix  
+  Covariates for random effects.
+
+- **ident** : array_like of int  
+  Labels indicating which random effects share variance components.
+
+- **family** : statsmodels.genmod.families instance  
+  GLM family (e.g., Binomial, Poisson).
+
+- **vcp_p** : float  
+  Prior standard deviation for log standard deviations of random effects.
+
+- **fe_p** : float  
+  Prior standard deviation for fixed effects parameters.
+
+- **fep_names**, **vcp_names**, **vc_names** : list of str, optional  
+  Names for fixed effects, variance components, and random effect realizations.
+
+Notes
+-----
+
+- Random effects are assumed independent Gaussian variables given variance parameters.
+- Variance components are modeled on the log scale with Gaussian priors.
+- Fixed effects have Gaussian priors centered at zero.
+- The Laplace approximation may have convergence issues if prior standard deviations are set too large; a value around 0.5 for `vcp_p` is recommended.
+- Sparse matrices are used internally for efficiency, but temporary dense matrices may be created when using formulas.
+
+References
+----------
+
+- Introduction to generalized linear mixed models:  
+  https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-generalized-linear-mixed-models
+
+- SAS documentation on mixed models:  
+  https://support.sas.com/documentation/cdl/en/statug/63033/HTML/default/viewer.htm#statug_intromix_a0000000215.htm
+
+- An assessment of estimation methods for generalized linear mixed models with binary outcomes:  
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3866838/

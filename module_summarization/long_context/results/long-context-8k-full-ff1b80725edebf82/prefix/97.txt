@@ -1,0 +1,77 @@
+Mitogen: How It Works
+=====================
+
+Overview
+--------
+
+Mitogen is a lightweight, distributed Python framework designed to simplify the execution of code across multiple hosts and processes. It achieves this by creating isolated execution contexts (called *contexts*) that communicate efficiently over network connections or local pipes. Mitogen’s design emphasizes minimal dependencies, high performance, and compatibility with a wide range of Python versions.
+
+Core Concepts
+-------------
+
+- **Context**: An isolated Python execution environment, which can be local or remote. Each context runs independently and communicates with others via message passing.
+- **Router**: The central component responsible for routing messages between contexts. It manages connections, message dispatch, and lifecycle events.
+- **Channel**: A communication link between two contexts, implemented over sockets or pipes.
+- **Stream**: A bidirectional data stream used internally by channels.
+- **Message**: The unit of communication between contexts, encapsulating commands, data, or responses.
+- **Broker**: The event loop that drives IO operations and message dispatch.
+
+How Mitogen Works
+-----------------
+
+1. **Bootstrap and Initialization**
+
+   When a new context is created, Mitogen sends a minimal bootstrap implementation to it. This bootstrap code contains essential functionality required to establish communication and execute commands remotely. The bootstrap is designed to be small and efficient, minimizing startup latency.
+
+2. **Message Passing and Serialization**
+
+   Communication between contexts is performed by sending serialized messages over channels. Mitogen uses Python’s `pickle` module for serialization, with custom subclasses like `Blob` and `Secret` to handle binary data and sensitive information securely.
+
+3. **Channels and Streams**
+
+   Each context communicates with others through channels, which are backed by streams. Streams are configured with a default chunk size (128 KiB) to optimize throughput and reduce CPU overhead. File descriptors used for communication are set to non-blocking mode and marked with the close-on-exec flag to ensure proper resource management.
+
+4. **Routing and Message Handling**
+
+   The Router maintains a mapping of context IDs to channels and handlers. When a message arrives, the Router dispatches it to the appropriate handler based on the message type and destination. Special message types include function calls, module loading, logging forwarding, and routing updates.
+
+5. **Function Calls and Services**
+
+   Mitogen supports remote function invocation via the `CALL_FUNCTION` message type. Functions can be decorated with `@takes_econtext` or `@takes_router` to receive additional context or router information automatically. Errors during remote calls are serialized and propagated back as `CallError` exceptions, including traceback information.
+
+6. **Security and Authority**
+
+   Mitogen enforces message origin policies to prevent unauthorized communication. The `has_parent_authority` function ensures that messages originate from trusted parent contexts or authorized streams. Import restrictions can be applied via blacklists and whitelists to control module loading.
+
+7. **Error Handling and Timeouts**
+
+   Mitogen defines a hierarchy of exceptions such as `Error`, `ChannelError`, `StreamError`, `TimeoutError`, and `LatchError` to represent various failure modes. IO operations are wrapped to handle transient errors like interrupted system calls (`EINTR`) and disconnections (`EIO`, `ECONNRESET`, `EPIPE`) gracefully.
+
+8. **Logging and Debugging**
+
+   Mitogen includes a specialized logging handler (`PidfulStreamHandler`) that manages log files per process, ensuring logs remain consistent even after `fork()` calls. Debug logging can be enabled to provide detailed runtime information, aiding in troubleshooting and performance tuning.
+
+9. **Profiling**
+
+   Profiling support is integrated via hooks that can be enabled to collect CPU usage statistics using Python’s `cProfile` module. Profiling data is saved to files for offline analysis, helping developers optimize distributed code execution.
+
+10. **Compatibility and Portability**
+
+    Mitogen supports a wide range of Python versions (including legacy versions like 2.4 and 2.5) by providing compatibility shims for missing features such as `any()`, `partition()`, and thread naming. It also detects special environments like Windows Subsystem for Linux (WSL) to adjust behavior accordingly.
+
+Usage Summary
+-------------
+
+- Create or connect to remote contexts.
+- Use `Context.call()` to invoke functions remotely.
+- Handle exceptions transparently with `CallError`.
+- Customize message handling and routing policies.
+- Enable debug logging and profiling as needed.
+- Leverage Mitogen’s efficient IO and serialization for scalable distributed execution.
+
+By abstracting the complexities of inter-process and inter-host communication, Mitogen enables Python developers to write distributed applications with minimal boilerplate and maximum performance.
+
+Further Reading
+---------------
+
+For detailed API documentation and advanced usage patterns, please refer to the official Mitogen API reference and examples.

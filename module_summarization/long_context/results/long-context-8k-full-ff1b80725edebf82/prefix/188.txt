@@ -1,0 +1,205 @@
+Kernel Approximation Functions
+==============================
+
+The :mod:`sklearn.kernel_approximation` module provides several functions and classes that approximate the feature mappings corresponding to various kernel functions. These approximations enable scalable kernel methods by transforming the input data into a finite-dimensional feature space where linear methods can be applied efficiently.
+
+Overview
+--------
+
+Kernel methods often rely on implicit mappings of data into high-dimensional feature spaces. Exact computation of these mappings can be computationally expensive or infeasible for large datasets. Kernel approximation techniques provide explicit, low-dimensional feature maps that approximate the kernel function, enabling efficient learning algorithms.
+
+This module includes implementations based on random Fourier features, Count Sketches, and other randomized projections.
+
+Classes
+-------
+
+PolynomialCountSketch
+~~~~~~~~~~~~~~~~~~~~~
+
+Approximate the feature map of the polynomial kernel using Tensor Sketch.
+
+**Kernel approximated:**
+
+.. math::
+
+    K(X, Y) = (\gamma \langle X, Y \rangle + \text{coef0})^{\text{degree}}
+
+**Description:**
+
+PolynomialCountSketch implements Tensor Sketch, which efficiently approximates the polynomial kernel feature map by computing a Count Sketch of the outer product of a vector with itself using Fast Fourier Transforms (FFT). This approach reduces the computational complexity of polynomial kernel expansions.
+
+**Parameters:**
+
+- `gamma` : float, default=1.0  
+  Parameter of the polynomial kernel.
+
+- `degree` : int, default=2  
+  Degree of the polynomial kernel.
+
+- `coef0` : int, default=0  
+  Independent term in the polynomial kernel.
+
+- `n_components` : int, default=100  
+  Dimensionality of the output feature space.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls random number generation for hashing.
+
+**Attributes:**
+
+- `indexHash_` : ndarray of shape (degree, n_features)  
+  Hash indices used for Count Sketch computation.
+
+- `bitHash_` : ndarray of shape (degree, n_features)  
+  Hash signs (+1 or -1) used for Count Sketch computation.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray  
+  Names of features seen during fit (if available).
+
+**Example:**
+
+```python
+from sklearn.kernel_approximation import PolynomialCountSketch
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+ps = PolynomialCountSketch(degree=3, random_state=1)
+X_features = ps.fit_transform(X)
+
+clf = SGDClassifier(max_iter=10, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+RBFSampler
+~~~~~~~~~~
+
+Approximate a Radial Basis Function (RBF) kernel feature map using random Fourier features.
+
+**Kernel approximated:**
+
+.. math::
+
+    K(x, y) = \exp(-\gamma \|x - y\|^2)
+
+**Description:**
+
+RBFSampler implements a variant of Random Kitchen Sinks to approximate the RBF kernel by mapping data into a randomized low-dimensional feature space using Monte Carlo samples drawn from the Fourier transform of the kernel.
+
+**Parameters:**
+
+- `gamma` : 'scale' or float, default=1.0  
+  Kernel coefficient for RBF kernel. If 'scale', uses 1 / (n_features * X.var()).
+
+- `n_components` : int, default=100  
+  Number of Monte Carlo samples per original feature.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls random number generation.
+
+**Attributes:**
+
+- `random_weights_` : ndarray of shape (n_features, n_components)  
+  Random projection directions.
+
+- `random_offset_` : ndarray of shape (n_components,)  
+  Random offsets added to projections.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray  
+  Names of features seen during fit (if available).
+
+**Notes:**
+
+The method is based on the work "Random Features for Large-Scale Kernel Machines" by Rahimi and Recht.
+
+**Example:**
+
+```python
+from sklearn.kernel_approximation import RBFSampler
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+rbf_feature = RBFSampler(gamma=1, random_state=1)
+X_features = rbf_feature.fit_transform(X)
+
+clf = SGDClassifier(max_iter=5, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+SkewedChi2Sampler
+~~~~~~~~~~~~~~~~~
+
+Approximate the feature map for the "skewed chi-squared" kernel.
+
+**Description:**
+
+SkewedChi2Sampler approximates the skewed chi-squared kernel by applying a random Fourier feature map to a logarithmic transformation of the data. The random weights are sampled from a secant hyperbolic distribution.
+
+**Parameters:**
+
+- `skewedness` : float, default=1.0  
+  Skewedness parameter of the kernel.
+
+- `n_components` : int, default=100  
+  Number of Monte Carlo samples per original feature.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls random number generation.
+
+**Attributes:**
+
+- `random_weights_` : ndarray of shape (n_features, n_components)  
+  Random weights sampled from a secant hyperbolic distribution.
+
+- `random_offset_` : ndarray of shape (n_components,)  
+  Random offsets uniformly distributed between 0 and 2π.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray  
+  Names of features seen during fit (if available).
+
+**References:**
+
+Li, F., Ionescu, C., & Sminchisescu, C. "Random Fourier Approximations for Skewed Multiplicative Histogram Kernels."
+
+**Example:**
+
+```python
+from sklearn.kernel_approximation import SkewedChi2Sampler
+from sklearn.linear_model import SGDClassifier
+
+X = [[0, 0], [1, 1], [1, 0], [0, 1]]
+y = [0, 0, 1, 1]
+
+chi2_feature = SkewedChi2Sampler(skewedness=0.01, n_components=10, random_state=0)
+X_features = chi2_feature.fit_transform(X)
+
+clf = SGDClassifier(max_iter=10, tol=1e-3)
+clf.fit(X_features, y)
+print(clf.score(X_features, y))  # Output: 1.0
+```
+
+See Also
+--------
+
+- :class:`sklearn.kernel_approximation.AdditiveChi2Sampler` : Approximate feature map for additive chi-squared kernel.
+- :class:`sklearn.kernel_approximation.Nystroem` : Approximate a kernel map using a subset of the training data.
+- :class:`sklearn.metrics.pairwise.kernel_metrics` : List of built-in kernels.
+
+Module Summary
+--------------
+
+The kernel approximation classes in this module provide scalable alternatives to exact kernel methods by explicitly mapping data into randomized feature spaces that approximate popular kernels such as polynomial, RBF, and skewed chi-squared kernels. These approximations enable the use of linear models to efficiently learn nonlinear patterns in large datasets.

@@ -1,0 +1,76 @@
+w_run command
+=============
+
+Overview
+--------
+The `w_run` command is used to start or continue a WEST simulation. It manages the execution of the simulation by coordinating the simulation manager, system driver, data manager, weighted ensemble (WE) driver, and propagator components. The command supports running the simulation in parallel using various work managers and handles graceful shutdown on interruptions or errors.
+
+Usage
+-----
+```
+w_run [OPTIONS]
+```
+
+Options
+-------
+- `--oneseg`  
+  Only propagate one segment. This option is primarily useful for debugging propagators by limiting the simulation to a single segment.
+
+- Additional options are available through WESTPA's runtime configuration (`westpa.rc`) and the selected work manager environment. These options can be viewed by running `w_run --help`.
+
+Functionality
+-------------
+When executed, `w_run` performs the following steps:
+
+1. **Argument Parsing and Configuration**  
+   Parses command-line arguments, including WESTPA runtime configuration options and work manager-specific arguments. Processes these arguments to configure the simulation environment.
+
+2. **Work Manager Initialization**  
+   Creates and initializes a work manager instance responsible for managing parallel execution and task distribution.
+
+3. **Component Setup**  
+   Loads and configures key simulation components:
+   - Simulation Manager: orchestrates the simulation workflow.
+   - System Driver: interfaces with the underlying system being simulated.
+   - Data Manager: handles data storage and retrieval.
+   - WE Driver: manages weighted ensemble-specific operations.
+   - Propagator: advances the simulation state.
+
+   These components are interconnected by setting appropriate references to the system driver and each other.
+
+4. **Simulation Execution**  
+   Within the context of the work manager:
+   - If running as the master process:
+     - Installs a signal handler for graceful interruption (SIGINT).
+     - Loads any simulation plugins.
+     - Prepares the simulation run.
+     - Executes the simulation run.
+     - Finalizes the simulation after completion.
+     - Handles keyboard interrupts and unexpected exceptions by logging errors and shutting down cleanly.
+   - If running as a worker process:
+     - Executes assigned tasks as directed by the work manager.
+
+Logging and Error Handling
+--------------------------
+- The command uses Python's logging module to record debug information and errors.
+- Interruptions (e.g., Ctrl+C) are caught and handled gracefully, ensuring proper shutdown.
+- Exceptions during the simulation run are logged with detailed traceback information to aid in debugging.
+
+Example
+-------
+To run a simulation with default settings:
+```
+w_run
+```
+
+To run a simulation propagating only one segment (useful for debugging):
+```
+w_run --oneseg
+```
+
+See Also
+--------
+- WESTPA runtime configuration options (`westpa.rc`)
+- Work manager documentation for parallel execution options
+
+This command is a core utility for managing WEST simulations, providing a flexible and robust interface for running complex weighted ensemble simulations.

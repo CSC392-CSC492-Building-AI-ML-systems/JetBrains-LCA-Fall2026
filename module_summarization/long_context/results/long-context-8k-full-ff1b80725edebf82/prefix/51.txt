@@ -1,0 +1,150 @@
+Generate Example for the Exponential Family Distributions Module
+==================================================================
+
+This module provides implementations of one-parameter exponential family distributions commonly used in Generalized Linear Models (GLM). It includes a base class `Family` and specific families such as `Poisson` and `Gaussian`. These classes encapsulate the distribution-specific behavior including link functions, variance functions, deviance calculations, residuals, and log-likelihood computations.
+
+Overview
+--------
+
+The `Family` class serves as the abstract base class for all one-parameter exponential family distributions. It defines the interface and common functionality such as:
+
+- Managing the link function and variance function.
+- Computing starting values for the mean response.
+- Calculating weights for Iteratively Reweighted Least Squares (IRLS).
+- Computing deviance and deviance residuals.
+- Calculating fitted values and linear predictors.
+- Evaluating log-likelihoods and residuals (Anscombe residuals).
+
+Specific families inherit from `Family` and implement distribution-specific methods such as `_resid_dev`, `loglike_obs`, and `resid_anscombe`.
+
+Available Families
+-----------------
+
+### Poisson Family
+
+The `Poisson` class models count data with the Poisson distribution. It uses the log link function by default but also supports identity and square root links.
+
+- **Variance function:** \( \mathrm{Var}(\mu) = \mu \)
+- **Valid domain:** \([0, \infty)\)
+- **Deviance residuals:**
+
+  \[
+  d_i = 2 \left( y_i \log \frac{y_i}{\mu_i} - (y_i - \mu_i) \right)
+  \]
+
+- **Log-likelihood per observation:**
+
+  \[
+  \ell_i = \frac{w_i}{\phi} \left( y_i \log \mu_i - \mu_i - \log \Gamma(y_i + 1) \right)
+  \]
+
+- **Anscombe residuals:**
+
+  \[
+  A_i = \frac{3}{2} \frac{y_i^{2/3} - \mu_i^{2/3}}{\mu_i^{1/6}} \sqrt{w_i}
+  \]
+
+### Gaussian Family
+
+The `Gaussian` class models continuous data with the normal distribution. It uses the identity link function by default but also supports log and inverse power links.
+
+- **Variance function:** Constant variance
+- **Valid domain:** \((-\infty, \infty)\)
+- **Deviance residuals:**
+
+  \[
+  d_i = (y_i - \mu_i)^2
+  \]
+
+- **Log-likelihood per observation:**
+
+  For identity link:
+
+  \[
+  \ell = -\frac{n}{2} \left( \log \mathrm{SSR} + 1 + \log \frac{2\pi}{n} \right)
+  \]
+
+  where
+
+  \[
+  \mathrm{SSR} = \sum_i (y_i - \mu_i)^2
+  \]
+
+  For other links:
+
+  \[
+  \ell_i = -\frac{w_i}{2\phi} \left( (y_i - \mu_i)^2 + \log(2 \pi \phi) \right)
+  \]
+
+Usage Example
+-------------
+
+Below is an example demonstrating how to create a Poisson family instance and use its methods:
+
+```python
+import numpy as np
+from statsmodels.genmod.families import Poisson
+from statsmodels.genmod.families.links import log
+
+# Create a Poisson family with default log link
+poisson_family = Poisson()
+
+# Sample data
+y = np.array([2, 3, 1, 0, 4])
+mu = np.array([1.5, 2.5, 1.0, 0.5, 3.5])
+
+# Compute deviance residuals
+dev_resid = poisson_family.resid_dev(y, mu)
+print("Deviance residuals:", dev_resid)
+
+# Compute weights for IRLS
+weights = poisson_family.weights(mu)
+print("Weights:", weights)
+
+# Compute log-likelihood for each observation
+ll_obs = poisson_family.loglike_obs(y, mu)
+print("Log-likelihood per observation:", ll_obs)
+
+# Compute total deviance
+dev = poisson_family.deviance(y, mu)
+print("Total deviance:", dev)
+```
+
+Similarly, the `Gaussian` family can be instantiated and used:
+
+```python
+from statsmodels.genmod.families import Gaussian
+from statsmodels.genmod.families.links import identity
+
+# Create a Gaussian family with identity link
+gaussian_family = Gaussian()
+
+# Sample data
+y = np.array([1.0, 2.0, 3.0, 4.0])
+mu = np.array([1.1, 1.9, 3.2, 3.8])
+
+# Compute deviance residuals
+dev_resid = gaussian_family.resid_dev(y, mu)
+print("Deviance residuals:", dev_resid)
+
+# Compute log-likelihood per observation
+ll_obs = gaussian_family.loglike_obs(y, mu)
+print("Log-likelihood per observation:", ll_obs)
+```
+
+Notes
+-----
+
+- The `link` parameter in family constructors expects an instance of a link function class (e.g., `log()`, `identity()`), not the class itself.
+- The module supports variance functions and link functions as separate components, allowing flexible combinations.
+- The deviance and residual calculations are essential for model fitting and diagnostics in GLM.
+- Anscombe residuals provide a variance-stabilizing transformation useful for residual analysis.
+
+See Also
+--------
+
+- :ref:`links` — Link functions used in GLM.
+- :ref:`varfuncs` — Variance functions associated with exponential family distributions.
+- `statsmodels.genmod.generalized_linear_model.GLM` — Generalized Linear Model implementation using these families.
+
+This module is a foundational component for fitting and analyzing GLMs with various exponential family distributions.

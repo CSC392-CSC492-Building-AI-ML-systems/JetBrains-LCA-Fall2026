@@ -1,0 +1,99 @@
+w_select — Select dynamics segments matching criteria
+======================================================
+
+Synopsis
+--------
+
+``w_select`` selects dynamics segments from WESTPA simulation data that match user-defined criteria specified by a predicate function. Matching segments can be optionally combined with their ancestor segments and saved to an output file for further analysis.
+
+Description
+-----------
+
+The ``w_select`` command filters segments from WESTPA simulation iterations based on a user-provided predicate function. This predicate function is called for each iteration group and returns the segment IDs that satisfy the selection criteria.
+
+By default, only segments matching the predicate are included in the output. Using the ``-a`` / ``--include-ancestors`` option, the output will also include all ancestor segments of the matched segments, tracing backward through iterations.
+
+The predicate function can be inverted with the ``-v`` / ``--invert`` option to select segments that do *not* match the predicate.
+
+Predicate Function
+------------------
+
+The predicate function must be a callable Python object accessible by module and function name (e.g., ``mymodule.myfunction``). It is called as:
+
+```
+predicate(n_iter, iter_group)
+```
+
+where:
+
+- ``n_iter`` is the iteration number (integer).
+- ``iter_group`` is the HDF5 group corresponding to that iteration, containing segment data.
+
+The function must return a sequence (e.g., list or set) of segment IDs (integers) that satisfy the predicate for that iteration.
+
+Output Format
+-------------
+
+The output is an HDF5 file (default: ``select.h5``) containing datasets describing the selected segments:
+
+- ``/n_iter`` [iteration]  
+  Integer array of iteration numbers corresponding to each entry.
+
+- ``/n_segs`` [iteration]  
+  Integer array giving the number of segments selected in each iteration.
+
+- ``/seg_ids`` [iteration][segment]  
+  2D integer array of segment IDs selected in each iteration. For iteration ``i``, only the first ``n_segs[i]`` entries are valid.
+
+- ``/weights`` [iteration][segment]  
+  2D floating-point array of weights corresponding to each selected segment in ``/seg_ids``.
+
+Command-Line Arguments
+----------------------
+
+Selection options:
+
+- ``-p``, ``--predicate-function`` *MODULE.FUNCTION*  
+  Specify the predicate function used to select segments. The function must be callable as described above.
+
+- ``-v``, ``--invert``  
+  Invert the predicate, selecting segments that do *not* match the predicate.
+
+- ``-a``, ``--include-ancestors``  
+  Include ancestor segments of matched segments in the output.
+
+Output options:
+
+- ``-o``, ``--output`` *OUTPUT*  
+  Write the selection results to the specified output file (default: ``select.h5``).
+
+Additional options for specifying the WESTPA data source and iteration range are available (see ``w_select --help``).
+
+Examples
+--------
+
+Select segments matching a predicate function ``my_predicate`` in module ``my_module`` and save to ``selected_segments.h5``:
+
+```
+w_select -p my_module.my_predicate -o selected_segments.h5
+```
+
+Select segments *not* matching the predicate and include their ancestors:
+
+```
+w_select -p my_module.my_predicate -v -a
+```
+
+See Also
+--------
+
+- ``w_trace`` — Trace segment ancestry  
+- ``w_analyze`` — Analyze WESTPA simulation data
+
+---
+
+For detailed usage and options, run:
+
+```
+w_select --help
+```

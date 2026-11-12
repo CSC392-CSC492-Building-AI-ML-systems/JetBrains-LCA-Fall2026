@@ -1,0 +1,86 @@
+Image Pixel-wise fit for Atmospheric Cherenkov Telescopes (ImPACT)
+====================================================================
+
+Overview
+--------
+
+The ImPACT (Image Pixel-wise fit for Atmospheric Cherenkov Telescopes) reconstruction method is a Monte Carlo template-based image fitting technique designed for the analysis of Cherenkov telescope data. It performs a maximum likelihood fit of the recorded camera images against a library of simulated image templates to reconstruct key shower parameters such as the shower axis, energy, and height of maximum development.
+
+This approach was introduced by Parsons & Hinton (2014) and provides a powerful alternative to traditional Hillas parameter-based reconstruction methods by exploiting detailed pixel-wise information.
+
+Key Features
+------------
+
+- **Template-based fitting:** Uses precomputed image templates generated from Monte Carlo simulations for different telescope types and shower parameters.
+- **Maximum likelihood estimation:** Fits the observed camera images to the templates by maximizing the likelihood, accounting for pixel noise and pedestal distributions.
+- **Multi-parameter reconstruction:** Simultaneously reconstructs shower direction, core position, energy, and depth of shower maximum (Xmax).
+- **Support for multiple telescope types:** Includes templates for various camera types such as LSTCam, NectarCam, FlashCam, and CHEC.
+- **Incorporation of time gradient information:** Optionally uses time gradient templates to improve reconstruction accuracy.
+- **Computational efficiency:** Implements optimizations such as masked arrays and interpolation to handle the computationally intensive fitting process.
+
+Physical Quantities and Units
+-----------------------------
+
+To optimize performance, the ImPACT implementation uses fixed units internally:
+
+- Angular units are expressed in **radians**.
+- Distances are in **metres**.
+- Energies are in **TeV**.
+
+This choice avoids overhead from unit conversions during intensive computations.
+
+Methodology
+-----------
+
+### Template Interpolation
+
+For each telescope type, image templates are loaded and interpolated using the `TemplateNetworkInterpolator`. These templates represent expected pixel amplitudes as functions of shower energy, impact distance, and depth of shower maximum.
+
+Time gradient templates can also be loaded and interpolated to model the expected timing distribution across the camera pixels.
+
+### Shower Maximum Estimation
+
+An initial geometric estimate of the shower maximum depth (Xmax) is obtained by assuming the brightest point in the camera image corresponds to the shower maximum. This estimate uses the displacement between the image centroid and source position, the impact parameter, and the zenith angle of the event.
+
+A simple energy-dependent prior for Xmax is also available based on the expected gamma-ray elongation rate.
+
+### Likelihood Calculation
+
+The likelihood function compares the observed pixel amplitudes with the predicted amplitudes from the interpolated templates. It incorporates:
+
+- Pixel-wise pedestal noise and single photoelectron resolution.
+- Priors on energy and Xmax to guide the fit.
+- Optional time gradient likelihood terms when timing information is used.
+
+The likelihood is minimized over the shower parameters to find the best-fit values.
+
+### Minimization
+
+The fitting procedure supports different minimizers, including Minuit and scipy optimizers, to find the parameter set that maximizes the likelihood.
+
+Applications
+------------
+
+ImPACT is used for reconstructing gamma-ray induced air showers detected by Imaging Atmospheric Cherenkov Telescopes (IACTs). It improves the precision of shower parameter estimation, which is crucial for:
+
+- Accurate gamma-ray source localization.
+- Energy spectrum reconstruction.
+- Background rejection and event classification.
+
+References
+----------
+
+.. [parsons14] Parsons, R. D., & Hinton, J. A. (2014). A Monte Carlo template based analysis for air-Cherenkov arrays. *Astroparticle Physics*, 56, 26-34.
+
+Usage Notes
+-----------
+
+- The method requires precomputed template libraries for each telescope type.
+- Computational demands are higher than traditional Hillas-based methods; thus, efficient implementation and hardware acceleration may be beneficial.
+- The use of priors on energy and Xmax can improve fit stability and accuracy.
+- Timing information can be optionally included to enhance reconstruction performance.
+
+Summary
+-------
+
+ImPACT provides a robust and detailed approach to reconstructing air shower parameters by fitting observed Cherenkov images pixel-wise to Monte Carlo templates. This method leverages the full spatial and temporal information in the camera images, enabling improved accuracy in gamma-ray astronomy analyses.

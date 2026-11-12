@@ -1,0 +1,122 @@
+Generate Documentation for diofant.utilities.codegen
+======================================================
+
+Overview
+--------
+
+The `diofant.utilities.codegen` module provides tools for generating code in multiple programming languages such as C, C++, Fortran77, Fortran90, and Octave/Matlab. It is designed to translate Diofant expressions into compilable routines, supporting complex code generation scenarios beyond simple expression printing.
+
+This module is a work in progress, with several milestones already achieved and others planned for future development.
+
+Key Differences from diofant.printing.ccode
+-------------------------------------------
+
+Unlike the `diofant.printing.ccode` module, which focuses on printing expressions as C code strings, `diofant.utilities.codegen` addresses the broader challenges of code generation:
+
+- **Multiple Files and Headers:** Generates both code and header files as needed, unlike printing routines that produce a single string.
+- **Programming Constructs:** Handles input, output, and input-output arguments, including array contiguity and integration with external libraries.
+- **Multiple Functions in One Routine:** Supports evaluating several Diofant functions in a single routine, sharing intermediate results via common subexpression elimination (CSE).
+- **Constant Evaluation:** Evaluates constant expressions during code generation for efficiency, differing from printing routines.
+
+Basic Assumptions and Architecture
+----------------------------------
+
+- **Routine Data Structure:** A generic `Routine` class describes the evaluation routine, covering features common to supported languages.
+- **CodeGen Classes:** Abstract `CodeGen` classes and their descendants translate `Routine` instances into compilable code for specific languages.
+- **Friendly Functions:** Simplified APIs are provided for common use cases, built on top of the `Routine` and `CodeGen` classes.
+
+Milestones
+----------
+
+Completed milestones (marked with '+') include:
+
+- Initial working version with scalar input arguments generating C code.
+- Friendly functions simplifying the workflow.
+- Support for integer and real numbers as inputs and outputs.
+- Output and input-output arguments.
+- Proper sorting of input/output arguments.
+- Support for contiguous array arguments (NumPy matrices).
+- Generation of `.pyf` files for `f2py` (in the autowrap module).
+- Isolation and pre-evaluation of constants in double precision.
+- Support for Fortran 90 and Octave/Matlab code generation.
+
+Planned features (marked with '-') include:
+
+- Common subexpression elimination.
+- User-defined comments in generated code.
+- Optional extra include lines for special function libraries.
+- Testing with various C compilers and libraries.
+- Support for contiguous and non-contiguous Diofant matrices.
+- Error handling for unsupported expressions.
+- Complex number support and default complex datatypes.
+- Additional header information (date, user, hostname, hash).
+- Support for Fortran 77, C++, Python, and more.
+
+Core Classes and Data Structures
+--------------------------------
+
+### Routine
+
+Represents a generic evaluation routine for a set of expressions. It includes:
+
+- `name`: The routine's name.
+- `arguments`: List of input, output, or input-output arguments.
+- `results`: List of return values.
+- `local_vars`: Local variables defined within the routine.
+- `global_vars`: Variables not passed as arguments.
+
+The `Routine` class ensures that all symbols needed for output are covered by input arguments, local variables, or global variables.
+
+### DataType
+
+Encapsulates datatype strings for different languages (C, Fortran, Python, Octave). For example, an integer datatype might be represented as `'int'` in C and `'INTEGER*4'` in Fortran.
+
+### Variable and Argument Classes
+
+- `Variable`: Represents a typed variable with optional dimensions and precision.
+- `Argument`: Abstract base class for routine arguments.
+- `InputArgument`: Represents input arguments.
+- `OutputArgument`: Represents output arguments initialized within the routine.
+- `InOutArgument`: Represents input-output arguments not initialized within the routine.
+- `Result`: Represents return values from the routine.
+
+### CodeGen
+
+Abstract base class for code generators. It provides methods to create `Routine` objects and translate them into code for specific languages. Subclasses include:
+
+- `CCodeGen`: Generates C code.
+- `FCodeGen`: Generates Fortran code.
+- `OctaveCodeGen`: Generates Octave/Matlab code.
+
+The `CodeGen` class supports common subexpression elimination (CSE) to optimize generated code by identifying and reusing common intermediate expressions.
+
+Usage Workflow
+--------------
+
+1. **Create Expressions:** Define Diofant expressions to be evaluated.
+2. **Create Routine:** Use the `CodeGen.routine()` method or friendly functions to create a `Routine` object describing the function signature and expressions.
+3. **Generate Code:** Use a language-specific `CodeGen` subclass to translate the `Routine` into source code files.
+4. **Compile and Use:** Compile the generated code with appropriate compilers and link with other code as needed.
+
+Example
+-------
+
+```python
+from diofant import symbols, Eq
+from diofant.utilities.codegen import CCodeGen
+
+x, y = symbols('x y')
+expr = Eq(y, x**2 + 1)
+
+codegen = CCodeGen()
+routine = codegen.routine('myfunc', expr, argument_sequence=[x, y])
+code = codegen.write([routine], 'myfunc', 'c')
+print(code)
+```
+
+This example generates C code for a function `myfunc` that computes `y = x^2 + 1`.
+
+Summary
+-------
+
+The `diofant.utilities.codegen` module is a powerful framework for generating efficient, compilable code from symbolic expressions in multiple programming languages. It abstracts the complexities of language-specific code generation and provides a flexible API for both simple and advanced use cases.

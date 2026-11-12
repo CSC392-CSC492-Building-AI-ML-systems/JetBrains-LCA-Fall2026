@@ -1,0 +1,196 @@
+async module
+============
+
+This module provides asynchronous scanning plans for data acquisition using detectors and motors. These plans support various scanning patterns including linear, relative, logarithmic, list-based, and grid scans. They are designed to be used with Bluesky or similar experimental control frameworks.
+
+Functions
+---------
+
+count(detectors, num=1, delay=None, *, per_shot=None, md=None)
+    Take one or more readings from detectors.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    num : int or None, optional
+        Number of readings to take; default is 1. If None, capture data until canceled.
+    delay : iterable or scalar, optional
+        Time delay in seconds between successive readings; default is 0.
+    per_shot : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+        Expected signature:
+            def f(detectors: Iterable[OphydObj]) -> Generator[Msg]
+    md : dict, optional
+        Metadata dictionary.
+
+list_scan(detectors, *args, per_step=None, md=None)
+    Scan over one or more variables in steps simultaneously (inner product).
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    *args :
+        For one dimension, provide motor and list of points:
+            motor, [point1, point2, ...]
+        For multiple dimensions, provide pairs of motors and point lists:
+            motor1, [points...], motor2, [points...], ..., motorN, [points...]
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+        Signature: f(detectors, motor, step) -> plan (generator)
+    md : dict, optional
+        Metadata dictionary.
+
+rel_list_scan(detectors, *args, per_step=None, md=None)
+    Scan over one or more variables in steps relative to current position.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    *args :
+        Patterned as motor and list of relative steps:
+            motor1, [relative_points...], motor2, [relative_points...], ...
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+list_grid_scan(detectors, *args, snake_axes=False, per_step=None, md=None)
+    Scan over a mesh grid; each motor moves independently.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    *args :
+        Patterned as motor and list of positions:
+            motor1, [points...], motor2, [points...], ..., motorN, [points...]
+    snake_axes : bool or iterable, optional
+        Specifies which axes to snake (winding trajectory).
+        False (default) means no snaking.
+        True means snake all axes except the slowest.
+        Iterable specifies which motors to snake.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+rel_list_grid_scan(detectors, *args, snake_axes=False, per_step=None, md=None)
+    Scan over a mesh grid with positions relative to current motor positions.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    *args :
+        Patterned as motor and list of relative positions:
+            motor1, [relative_points...], motor2, [relative_points...], ...
+    snake_axes : bool or iterable, optional
+        Specifies which axes to snake.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+_scan_1d(detectors, motor, start, stop, num, *, per_step=None, md=None)
+    Scan over one variable in equally spaced steps.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    motor : object
+        Any 'settable' object (motor, temperature controller, etc.).
+    start : float
+        Starting position of motor.
+    stop : float
+        Ending position of motor.
+    num : int
+        Number of steps.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+_rel_scan_1d(detectors, motor, start, stop, num, *, per_step=None, md=None)
+    Scan over one variable in equally spaced steps relative to current position.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    motor : object
+        Any 'settable' object (motor, temperature controller, etc.).
+    start : float
+        Starting relative position.
+    stop : float
+        Ending relative position.
+    num : int
+        Number of steps.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+log_scan(detectors, motor, start, stop, num, *, per_step=None, md=None)
+    Scan over one variable in logarithmically spaced steps.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    motor : object
+        Any 'settable' object (motor, temperature controller, etc.).
+    start : float
+        Starting position of motor.
+    stop : float
+        Ending position of motor.
+    num : int
+        Number of steps.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+rel_log_scan(detectors, motor, start, stop, num, *, per_step=None, md=None)
+    Scan over one variable in logarithmically spaced steps relative to current position.
+
+    Parameters
+    ----------
+    detectors : list
+        List of 'readable' detector objects.
+    motor : object
+        Any 'settable' object (motor, temperature controller, etc.).
+    start : float
+        Starting relative position.
+    stop : float
+        Ending relative position.
+    num : int
+        Number of steps.
+    per_step : callable, optional
+        Hook for customizing action of inner loop (messages per step).
+    md : dict, optional
+        Metadata dictionary.
+
+Notes
+-----
+
+- All scanning functions accept a list of detectors and one or more motors or variables to scan.
+- The `per_step` or `per_shot` callable parameters allow customization of the actions performed at each step or shot.
+- Metadata dictionaries (`md`) can be passed to enrich the scan with additional information.
+- Relative scans automatically reset motor positions after completion.
+- Snaking axes in grid scans optimize scanning trajectories by alternating direction on specified axes.
+- The module uses decorators from `preprocessors` to stage devices and manage run lifecycles.
+- The scanning patterns leverage numpy functions such as `linspace` and `logspace` for step generation.
+- The module attempts to use `cytools` for performance but falls back to `toolz` if unavailable.
+
+See Also
+--------
+
+- bluesky.plans.rel_list_scan
+- bluesky.plans.list_grid_scan
+- bluesky.plans.rel_list_grid_scan
+- bluesky.plan_stubs.one_1d_step
+- bluesky.plan_stubs.one_nd_step

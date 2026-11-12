@@ -1,0 +1,113 @@
+Managers
+========
+
+This module provides a set of classes to manage JSON-RPC requests and Ethereum transaction signing and sending workflows. It includes synchronous and asynchronous request handling, transaction nonce management, and support for delegated and private key signing.
+
+RequestManager
+--------------
+
+The `RequestManager` class handles JSON-RPC requests to a given provider.
+
+**Initialization:**
+
+- `RequestManager(provider)`: Initializes with a provider object responsible for making the actual requests.
+
+**Methods:**
+
+- `setProvider(provider)`: Sets or updates the provider.
+- `request_blocking(method, params)`: Makes a synchronous JSON-RPC request using the provider. Raises `ValueError` if the response contains an error.
+- `request_async(method, params)`: Initiates an asynchronous request, returning a unique request ID.
+- `receive_blocking(request_id, timeout=None)`: Waits for the asynchronous request identified by `request_id` to complete, with an optional timeout. Raises `KeyError` if the request ID is unknown, or `ValueError` if the response contains an error.
+- `receive_async(request_id, *args, **kwargs)`: Not implemented; intended for callback-based asynchronous handling.
+
+ManagerWrapper
+--------------
+
+`ManagerWrapper` is a proxy class that wraps another manager instance, forwarding all method calls and property accesses to the wrapped manager. This allows extending or modifying behavior without altering the original manager.
+
+**Initialization:**
+
+- `ManagerWrapper(wrapped_manager)`: Wraps an existing manager instance.
+
+**Properties:**
+
+- `provider`: Accesses the wrapped manager's provider.
+- `pending_requests`: Accesses the wrapped manager's pending requests dictionary.
+
+**Methods:**
+
+All request and provider-related methods (`setProvider`, `request_blocking`, `request_async`, `receive_blocking`, `receive_async`) are forwarded to the wrapped manager.
+
+BaseSendRawTransactionMixin
+---------------------------
+
+This mixin class extends a manager to support sending raw Ethereum transactions with nonce tracking and transaction signing capabilities.
+
+**Initialization:**
+
+- Initializes internal dictionaries to track known transactions and nonces per address.
+
+**Key Methods:**
+
+- `_get_nonces_and_cleanup(addr, chain_nonce)`: Retrieves and cleans up known nonces for an address, removing those below the current chain nonce.
+- `get_chain_nonce(addr)`: Retrieves the current nonce for an address from the blockchain (pending state).
+- `get_nonce(addr)`: Returns the next nonce to use for a transaction from the given address, considering both chain nonce and tracked nonces.
+- `get_transaction_signature(serialized_txn)`: Abstract method to be implemented by subclasses to provide transaction signatures.
+- `sign_and_serialize_transaction(transaction)`: Signs and serializes a transaction using the subclass's signature method.
+- `construct_full_transaction(base_transaction)`: Completes a base transaction dictionary with default values for nonce, gas price, gas limit, value, to, and data fields.
+- `request_blocking(method, params)`: Overrides the request method to intercept transaction sending calls (`eth_sendTransaction`, `eth_sendRawTransaction`, etc.). For `eth_sendTransaction`, it constructs, signs, and sends a raw transaction instead. Tracks sent transactions and nonces internally.
+
+DelegatedSigningManager
+-----------------------
+
+Extends `BaseSendRawTransactionMixin` to delegate transaction signing to an external signing manager.
+
+**Initialization:**
+
+- Requires a `signing_manager` keyword argument, which handles signing requests.
+
+**Key Methods:**
+
+- `get_chain_nonce(addr)`: Returns the maximum nonce between the signing manager and the wrapped manager for the given address.
+- `get_transaction_signature(transaction)`: Serializes the transaction, obtains a hash to sign from the signing manager, and requests the signature via the signing manager's `eth_sign` method.
+
+PrivateKeySigningManager
+------------------------
+
+Extends `BaseSendRawTransactionMixin` to sign transactions locally using registered private keys.
+
+**Initialization:**
+
+- Requires the `bitcoin` and `secp256k1` packages to be installed.
+- Accepts a dictionary of keys via the `keys` keyword argument.
+
+**Key Methods:**
+
+- `register_private_key(key)`: Registers a private key and associates it with its derived Ethereum address.
+- `sign_and_serialize_transaction(transaction)`: Signs the transaction locally using the registered private key corresponding to the transaction's `from` address. Raises `KeyError` if no key is registered for the address.
+
+Exceptions
+----------
+
+- Raises `ValueError` when JSON-RPC responses contain errors.
+- Raises `KeyError` when attempting to receive a response for an unknown asynchronous request or when signing keys are missing.
+- Raises `ImportError` if required dependencies for `PrivateKeySigningManager` are not installed.
+
+Dependencies
+------------
+
+- `gevent` for asynchronous request handling.
+- `rlp` for encoding and decoding Ethereum transactions.
+- `web3.utils` modules for cryptographic and encoding utilities.
+- `bitcoin` and `secp256k1` packages are required for `PrivateKeySigningManager`.
+
+Usage Summary
+-------------
+
+- Use `RequestManager` for basic synchronous and asynchronous JSON-RPC requests.
+- Use `ManagerWrapper` to extend or modify existing manager behavior.
+- Use `BaseSendRawTransactionMixin` to add raw transaction sending capabilities with nonce management.
+- Use `DelegatedSigningManager` to delegate signing to an external manager.
+- Use `PrivateKeySigningManager` to sign transactions locally with private keys.
+
+This modular design allows flexible management of Ethereum JSON-RPC interactions and transaction signing workflows, supporting both local and delegated signing strategies.

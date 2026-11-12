@@ -1,0 +1,150 @@
+Working with Entities
+=====================
+
+Introduction
+------------
+
+The ftrack API provides a powerful and flexible way to interact with entities on an ftrack server through the `Session` class. A session represents an isolated connection to an ftrack server and allows you to create, query, modify, and manage entities such as projects, tasks, assets, and more.
+
+Creating a Session
+------------------
+
+To begin working with entities, you first need to create a `Session` instance. The session requires connection details such as the server URL, API key, and API user. These can be provided explicitly or through environment variables:
+
+```python
+import ftrack_api
+
+session = ftrack_api.Session(
+    server_url='https://your.ftrack.server',
+    api_key='your_api_key',
+    api_user='your_username'
+)
+```
+
+The session manages authentication, caching, event handling, and plugin loading automatically.
+
+Entity Creation
+---------------
+
+Entities can be created using the `create` method of the session:
+
+```python
+entity = session.create('Task', data={
+    'name': 'My New Task',
+    'project': {'id': 'project_id'}
+})
+```
+
+- `entity_type`: The type of entity to create (e.g., `'Task'`, `'Project'`).
+- `data`: Optional dictionary of initial attribute values.
+- `reconstructing`: Internal flag used when reconstructing existing entities.
+
+The created entity is automatically merged into the session cache.
+
+Entity States
+-------------
+
+Entities in the session have states that indicate their lifecycle:
+
+- **Created**: Newly created entities not yet persisted to the server.
+- **Modified**: Entities that have been changed locally.
+- **Deleted**: Entities marked for deletion.
+
+You can access lists of entities by their state using the session properties:
+
+```python
+created_entities = session.created
+modified_entities = session.modified
+deleted_entities = session.deleted
+```
+
+These lists reflect the current local state of entities in the session cache.
+
+Auto-Populating Attributes
+--------------------------
+
+By default, the session auto-populates entity attributes when accessed if they are not already loaded. This behavior can be temporarily disabled using the `auto_populating` context manager:
+
+```python
+with session.auto_populating(False):
+    value = entity['some_attribute']
+```
+
+This is useful to prevent automatic fetching of data from the server in certain scenarios.
+
+Operation Recording
+-------------------
+
+The session records operations performed on entities, which can be controlled using the `operation_recording` context manager:
+
+```python
+with session.operation_recording(False):
+    entity['name'] = 'Change not recorded'
+```
+
+Disabling operation recording temporarily prevents changes from being tracked.
+
+Resetting the Session
+---------------------
+
+You can reset the session to clear all local state, including pending operations and cached entities:
+
+```python
+session.reset()
+```
+
+This clears the local cache and reconfigures session aspects dependent on the cache. Note that entities previously attached to the session remain in memory but should not be used after reset.
+
+Closing the Session
+-------------------
+
+When finished, close the session to clean up resources and connections:
+
+```python
+session.close()
+```
+
+This clears pending operations, clears the cache, and disconnects from the event hub.
+
+Server Compatibility
+--------------------
+
+The session automatically checks the compatibility of the connected server version. It requires a minimum server version (e.g., 3.3.11) and will raise an error if the server is incompatible.
+
+Event Hub
+---------
+
+The session includes an event hub for publishing and subscribing to events. By default, the event hub can be auto-connected in a background thread, allowing asynchronous event handling.
+
+Accessing Entities
+------------------
+
+Entities are accessed and managed through the session cache. The session maintains a layered cache with a top-level in-memory cache to ensure consistent entity instances.
+
+Example Usage
+-------------
+
+```python
+import ftrack_api
+
+with ftrack_api.Session() as session:
+    # Create a new task entity
+    task = session.create('Task', {'name': 'Example Task'})
+
+    # Modify an attribute
+    task['status'] = 'in progress'
+
+    # Access created entities
+    new_entities = session.created
+
+    # Commit changes or perform further operations...
+
+    # Session automatically closed at the end of the with block
+```
+
+Summary
+-------
+
+The `Session` class is the central interface for working with entities in the ftrack API. It manages connection details, authentication, caching, event handling, and plugin integration. Through the session, you can create, modify, query, and manage entities efficiently and reliably.
+
+For detailed information on specific entity types and their attributes, refer to the ftrack API schema and documentation.

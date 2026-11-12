@@ -1,0 +1,195 @@
+Random Projection Transformers
+==============================
+
+Overview
+--------
+
+Random Projections provide a simple and computationally efficient technique to reduce the dimensionality of data. By allowing a controlled amount of accuracy loss (manifested as additional variance), random projections enable faster processing times and smaller model sizes. The key idea is to project high-dimensional data into a lower-dimensional space while approximately preserving the pairwise distances between samples.
+
+The theoretical foundation of random projections is the Johnson-Lindenstrauss lemma, which states that a small set of points in a high-dimensional space can be embedded into a much lower-dimensional Euclidean space such that distances between points are nearly preserved. The embedding map can be chosen as a Lipschitz function, often realized by an orthogonal projection.
+
+More details on the Johnson-Lindenstrauss lemma can be found at:
+https://en.wikipedia.org/wiki/Johnson%E2%80%93Lindenstrauss_lemma
+
+Functions
+---------
+
+johnson_lindenstrauss_min_dim(n_samples, *, eps=0.1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Compute a 'safe' minimum number of components to project data into, ensuring that the distortion of pairwise distances is bounded by a factor of (1 ± eps) with high probability.
+
+Parameters
+^^^^^^^^^^
+
+- **n_samples** : int or array-like of int  
+  Number of samples in the dataset. Must be greater than zero.
+
+- **eps** : float or array-like of floats, default=0.1  
+  Maximum distortion allowed in the embedding, must be in the interval (0, 1).
+
+Returns
+^^^^^^^
+
+- **n_components** : int or ndarray of int  
+  The minimal number of components required to guarantee an eps-embedding.
+
+Raises
+^^^^^^
+
+- ValueError if `eps` is not in (0, 1) or if `n_samples` is not positive.
+
+References
+^^^^^^^^^^
+
+- Johnson-Lindenstrauss lemma: https://en.wikipedia.org/wiki/Johnson%E2%80%93Lindenstrauss_lemma  
+- Dasgupta and Gupta (1999): An elementary proof of the Johnson-Lindenstrauss Lemma.
+
+Random Matrix Generators
+------------------------
+
+_gaussian_random_matrix(n_components, n_features, random_state=None)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generates a dense Gaussian random matrix with entries drawn from a normal distribution N(0, 1/n_components). This matrix is used to perform Gaussian random projection.
+
+Parameters
+^^^^^^^^^^
+
+- **n_components** : int  
+  Target dimensionality.
+
+- **n_features** : int  
+  Original feature dimensionality.
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the random number generator for reproducibility.
+
+Returns
+^^^^^^^
+
+- **components** : ndarray of shape (n_components, n_features)  
+  The generated Gaussian random projection matrix.
+
+_sparse_random_matrix(n_components, n_features, density='auto', random_state=None)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generates a sparse random projection matrix based on the Achlioptas or Ping Li et al. constructions. The matrix entries are mostly zero, with non-zero entries drawn from a scaled symmetric distribution.
+
+Parameters
+^^^^^^^^^^
+
+- **n_components** : int  
+  Target dimensionality.
+
+- **n_features** : int  
+  Original feature dimensionality.
+
+- **density** : float or 'auto', default='auto'  
+  Proportion of non-zero entries in the matrix. If 'auto', set to 1 / sqrt(n_features).
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the random number generator.
+
+Returns
+^^^^^^^
+
+- **components** : ndarray or sparse CSR matrix of shape (n_components, n_features)  
+  The generated sparse random projection matrix.
+
+Classes
+-------
+
+BaseRandomProjection
+~~~~~~~~~~~~~~~~~~~~
+
+Abstract base class for random projection transformers. It provides common functionality such as fitting the random projection matrix, inverse transformation, and validation.
+
+Parameters
+^^^^^^^^^^
+
+- **n_components** : int or 'auto', default='auto'  
+  Target dimensionality of the projection space. If 'auto', it is determined based on the Johnson-Lindenstrauss lemma.
+
+- **eps** : float, default=0.1  
+  Controls the quality of the embedding when `n_components` is 'auto'.
+
+- **compute_inverse_components** : bool, default=False  
+  Whether to compute the pseudo-inverse of the projection matrix for inverse transformations.
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the random number generator.
+
+Methods
+^^^^^^^
+
+- **fit(X, y=None)**  
+  Fits the random projection matrix based on the input data shape.
+
+- **inverse_transform(X)**  
+  Projects data back to the original space using the pseudo-inverse of the projection matrix.
+
+GaussianRandomProjection
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Implements random projection using a dense Gaussian random matrix. The entries of the projection matrix are drawn from a normal distribution N(0, 1 / n_components).
+
+Parameters
+^^^^^^^^^^
+
+- **n_components** : int or 'auto', default='auto'  
+  Dimensionality of the target projection space.
+
+- **eps** : float, default=0.1  
+  Controls the quality of the embedding when `n_components` is 'auto'.
+
+- **compute_inverse_components** : bool, default=False  
+  Whether to compute the pseudo-inverse of the projection matrix.
+
+- **random_state** : int, RandomState instance or None, default=None  
+  Controls the random number generator.
+
+Attributes
+^^^^^^^^^^
+
+- **n_components_** : int  
+  The actual number of components used after fitting.
+
+- **components_** : ndarray of shape (n_components, n_features)  
+  The Gaussian random projection matrix.
+
+- **inverse_components_** : ndarray of shape (n_features, n_components), optional  
+  Pseudo-inverse of the components, computed if `compute_inverse_components=True`.
+
+Examples
+^^^^^^^^
+
+>>> import numpy as np  
+>>> from sklearn.random_projection import GaussianRandomProjection  
+>>> rng = np.random.RandomState(42)  
+>>> X = rng.rand(25, 3000)  
+>>> transformer = GaussianRandomProjection(random_state=rng)  
+>>> X_new = transformer.fit_transform(X)  
+>>> X_new.shape  
+(25, 2759)
+
+See Also
+--------
+
+- SparseRandomProjection : Random projection using sparse matrices.
+
+Notes
+-----
+
+Random projections are particularly useful for high-dimensional data where dimensionality reduction is needed without heavy computational cost. The choice between Gaussian and sparse random projections depends on the trade-off between computational efficiency and embedding quality.
+
+References
+----------
+
+- Achlioptas, D. (2001). Database-friendly random projections.  
+- Li, Ping, Hastie, T., & Church, K. W. (2006). Very Sparse Random Projections.  
+- Johnson, W. B., & Lindenstrauss, J. (1984). Extensions of Lipschitz mappings into a Hilbert space.
+
+---
+
+This module provides tools to efficiently reduce dimensionality while preserving the geometric structure of data, enabling scalable machine learning and data analysis workflows.

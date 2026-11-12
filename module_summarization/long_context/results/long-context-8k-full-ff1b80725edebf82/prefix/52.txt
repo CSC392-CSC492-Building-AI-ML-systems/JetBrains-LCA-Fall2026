@@ -1,0 +1,138 @@
+Generalized Method of Moments (GMM) and Instrumental Variables Two-Stage Least Squares (IV2SLS)
+===============================================================================================
+
+Overview
+--------
+
+This module provides classes and functions for estimation using the Generalized Method of Moments (GMM) and Two-Stage Least Squares (2SLS) instrumental variables regression. It includes implementations of the IV2SLS estimator and a flexible GMM framework that can be subclassed to define custom moment conditions.
+
+Key Features
+------------
+
+- **IV2SLS Estimation**  
+  The `IV2SLS` class implements instrumental variables estimation using the Two-Stage Least Squares method. It supports endogenous regressors and instruments, providing parameter estimates, covariance matrices, and diagnostic tests. The results are returned as instances of `RegressionResultsWrapper` containing `IVRegressionResults`.
+
+- **GMM Framework**  
+  The `GMM` class provides a base for estimation by the Generalized Method of Moments. It is designed to be subclassed where the user defines the moment conditions. The class handles data storage and provides infrastructure for parameter estimation, weighting matrices, and covariance calculations.
+
+- **Diagnostic and Specification Tests**  
+  The module includes specification tests such as Hausman's test (`spec_hausman`) to compare estimators and assess model validity.
+
+- **Robust Covariance Options**  
+  Various options for weighting matrices and covariance estimators are supported, including heteroscedasticity-consistent (HC0), HAC, and others, with flexibility to specify degrees of freedom corrections and centering.
+
+Classes and Functions
+---------------------
+
+### IV2SLS
+
+Instrumental variables estimation using Two-Stage Least Squares.
+
+**Parameters:**
+
+- `endog` : array-like  
+  Endogenous dependent variable (nobs by 1).
+
+- `exog` : array-like  
+  Explanatory variables (nobs by k).
+
+- `instrument` : array-like  
+  Instruments for explanatory variables. Must include all exogenous variables and instruments.
+
+**Notes:**
+
+- All variables in `exog` are instrumented. Variables not to be instrumented must also appear in `instrument`.
+- Degrees of freedom for standard errors use `df_resid = nobs - k_vars`.
+
+**Methods:**
+
+- `fit()`  
+  Estimates the model using 2SLS and returns regression results.
+
+- `predict(params, exog=None)`  
+  Returns predicted values given parameters and exogenous data.
+
+### IVRegressionResults
+
+Results class for IV2SLS estimation, extending `RegressionResults`.
+
+**Additional Methods:**
+
+- `spec_hausman(dof=None)`  
+  Performs Hausman's specification test comparing IV and OLS estimators.
+
+- `summary()`  
+  Provides a detailed summary of regression results including diagnostic statistics.
+
+### GMM
+
+Base class for Generalized Method of Moments estimation.
+
+**Parameters:**
+
+- `endog` : array-like  
+  Endogenous variables.
+
+- `exog` : array-like  
+  Exogenous variables.
+
+- `instrument` : array-like  
+  Instruments.
+
+- `k_moms` : int or None  
+  Number of moment conditions. If None, set to number of instruments.
+
+- `k_params` : int or None  
+  Number of parameters. If None, set to number of exogenous variables.
+
+- Additional keyword arguments for moment condition calculations.
+
+**Notes:**
+
+- The class must be subclassed with user-defined moment conditions (`momcond`).
+- The class stores data but does not directly use it beyond moment conditions.
+- Supports options for weighting matrices and covariance estimation.
+- Some features and options are still under development.
+
+Options for GMM
+---------------
+
+- **Type of GMM:**  
+  - One-step  
+  - Iterated  
+  - Continuously Updating Estimator (CUE) (not fully tested)
+
+- **Weight Matrix Methods:**  
+  - `cov` (HC0 with optional degrees of freedom correction)  
+  - `hac` (Heteroscedasticity and Autocorrelation Consistent)  
+  - `iid` (Independent and identically distributed errors, untested)  
+  - `cluster` (Cluster robust, not yet connected)  
+  - Others from `statsmodels.stats.robust_covariance`
+
+- **Covariance Matrix Estimation:**  
+  Similar options as weight matrix, with an additional flag `has_optimal_weights` indicating if the weighting matrix is optimal (default True).
+
+Known Issues and Limitations
+----------------------------
+
+- Handling of the number of parameters and starting values for parameters requires improvement.
+- Calculation of the optimal weighting matrix may fail numerically in some cases, such as when only one moment condition is available.
+- The GMM class currently does not integrate with regression models for prediction or residual calculations; reuse of regression methods is under consideration.
+- Some diagnostic statistics and tests (e.g., J-test normalization, degrees of freedom in Hausman test) require further validation.
+- The `fitonce` method for GMM is implemented in some subclasses but not yet fully integrated into the base class.
+- Robust covariance options and weighting matrix methods are not fully implemented or tested.
+
+Author and License
+------------------
+
+- Author: Josef Perktold  
+- License: BSD (3-clause)
+
+References
+----------
+
+- Greene, W. H. (5th Edition). Econometric Analysis.  
+- Hansen, L. P. (1982). Large sample properties of generalized method of moments estimators.  
+- Various statistical tests and robust covariance estimators as implemented in `statsmodels`.
+
+This module is part of the `statsmodels` library and builds on its base modeling and regression infrastructure.

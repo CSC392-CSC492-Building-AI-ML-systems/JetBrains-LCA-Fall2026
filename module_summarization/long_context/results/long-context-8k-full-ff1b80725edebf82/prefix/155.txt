@@ -1,0 +1,85 @@
+Getting Started with Mitogen Common Module
+===========================================
+
+Overview
+--------
+This module provides core functionality shared between master and parent processes within the Mitogen framework. It is designed to be sent to any child context that is expected to become a parent, enabling recursive connection capabilities.
+
+Key Features
+------------
+- Creation and management of child processes with flexible stdio configurations.
+- Handling of pseudo-terminals (PTYs) for child processes, including workarounds for platform-specific issues.
+- Utilities for managing terminal settings, such as disabling echo and configuring raw mode.
+- Facilities for creating socket pairs or pipes for inter-process communication, with special handling for SELinux environments.
+- Timer and event management classes for scheduling future events.
+- Compatibility support for multiple Python versions and platforms.
+
+Creating Child Processes
+------------------------
+The module provides several functions to create child processes with different communication setups:
+
+1. **create_child(args, merge_stdio=False, stderr_pipe=False, escalates_privilege=False, preexec_fn=None)**  
+   Creates a child process whose stdin and stdout are connected to a socket or pipe.  
+   - `args`: List of program arguments to execute.  
+   - `merge_stdio`: If `True`, merges stderr into stdout socket. Useful when no TTY should be connected.  
+   - `stderr_pipe`: If `True` and `merge_stdio` is `False`, connects stderr to a separate pipe for debug logs.  
+   - `escalates_privilege`: If `True`, avoids UNIX sockets due to SELinux restrictions.  
+   - `preexec_fn`: Optional function to run in the child process before execution.  
+   Returns a `Process` instance representing the child.
+
+2. **tty_create_child(args)**  
+   Creates a child process connected to a pseudo-terminal (PTY), making the PTY the controlling terminal of the child. This is useful for programs that require a TTY.  
+   - `args`: List of program arguments to execute.  
+   Returns a `Process` instance.
+
+3. **hybrid_tty_create_child(args, escalates_privilege=False)**  
+   Combines socketpair communication for stdin/stdout with a PTY for stderr and controlling TTY. This setup is ideal for programs requiring a TTY for password input (e.g., sudo) while maintaining efficient data transfer.  
+   - `args`: List of program arguments to execute.  
+   - `escalates_privilege`: If `True`, avoids UNIX sockets due to SELinux restrictions.  
+   Returns a `Process` instance.
+
+Terminal Utilities
+------------------
+- **disable_echo(fd)**: Disables local echo on the terminal associated with the given file descriptor.
+- **cfmakeraw(tflags)**: Modifies terminal flags to raw mode, disabling canonical mode and echo.
+- **flags(names)**: Helper to combine termios flag constants by name.
+
+Inter-Process Communication
+---------------------------
+- **create_socketpair(size=None)**: Creates a pair of connected UNIX sockets for bidirectional communication, with configurable buffer size.
+- **create_best_pipe(escalates_privilege=False)**: Creates the best available communication channel (socketpair or pipes) depending on SELinux status and privilege escalation needs.
+
+PTY Handling
+------------
+- **openpty()**: Opens a new pseudo-terminal pair (master and slave), with error handling for Linux-specific issues.
+- **_linux_broken_devpts_openpty()**: Workaround for Linux systems with broken /dev/pts configurations.
+- **_acquire_controlling_tty()**: Sets the controlling terminal for the current process session.
+
+Process Management
+------------------
+- **popen(**kwargs)**: Wrapper around `subprocess.Popen` that ensures any global pre-exec hooks are called in the child process.
+- The module manages a global `_preexec_hook` that can be set to customize child process behavior before execution.
+
+Timers and Event Scheduling
+---------------------------
+- **Timer**: Represents a scheduled future event with a callable function.
+- **TimerList**: Manages a list of cancellable timers efficiently relative to wall clock time.
+
+Configuration and Compatibility
+-------------------------------
+- Detects SELinux status to adjust IPC mechanisms accordingly.
+- Provides compatibility shims for Python 2 and 3 differences.
+- Handles platform-specific quirks, such as Windows Subsystem for Linux (WSL) and Linux PTY ownership issues.
+
+Logging and Debugging
+---------------------
+- Logs warnings when `sys.executable` is unset, defaulting to `/usr/bin/python`.
+- Provides descriptive error messages for PTY creation failures and other critical operations.
+
+Usage Notes
+-----------
+- When creating child processes that may escalate privileges or run under SELinux, prefer using pipes instead of UNIX socketpairs to avoid connection issues.
+- Use `tty_create_child` or `hybrid_tty_create_child` when the child process requires a controlling TTY, such as for interactive password prompts.
+- The module is designed to be imported and used internally by Mitogen components; direct usage requires understanding of Mitogen’s architecture.
+
+This documentation provides a starting point for developers working with Mitogen’s core process and communication utilities. For detailed usage and integration, refer to the broader Mitogen framework documentation.

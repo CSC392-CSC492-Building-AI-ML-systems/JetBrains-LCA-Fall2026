@@ -1,0 +1,93 @@
+Using Custom Attributes
+=======================
+
+ftrack allows you to extend the data model of entities by adding custom attributes. Custom attributes enable you to store additional information on entities beyond the predefined schema, tailoring the system to your specific project or pipeline needs.
+
+Defining Custom Attributes
+--------------------------
+
+Custom attributes are typically defined within the ftrack web interface by administrators or users with the appropriate permissions. Once defined, these attributes become part of the entity schema and can be accessed and manipulated through the API just like standard attributes.
+
+Accessing Custom Attributes
+---------------------------
+
+After a custom attribute has been added to an entity type, you can access it using the standard dictionary-style or attribute-style access on the entity object.
+
+Example:
+
+```python
+# Assume 'session' is an active ftrack_api.Session instance
+task = session.query('Task where id is "12345"').one()
+
+# Access a custom attribute named 'custom_status'
+status = task['custom_status']
+
+# Or using attribute access if supported
+status = task.custom_status
+```
+
+Setting Custom Attributes
+-------------------------
+
+You can set or update the value of a custom attribute on an entity just like any other attribute.
+
+Example:
+
+```python
+task['custom_status'] = 'In Review'
+session.commit()  # Persist changes to the server
+```
+
+Note that changes to entities are recorded as operations and must be committed to persist on the server.
+
+Creating Entities with Custom Attributes
+----------------------------------------
+
+When creating new entities, you can specify custom attributes in the initial data dictionary.
+
+Example:
+
+```python
+new_task = session.create(
+    'Task',
+    data={
+        'name': 'New Task',
+        'custom_status': 'Not Started'
+    }
+)
+session.commit()
+```
+
+Considerations
+--------------
+
+- Custom attributes must be defined in the ftrack server schema before they can be used via the API.
+- Attribute names are case-sensitive and must match exactly as defined.
+- The data type of the custom attribute should be respected when setting values.
+- Accessing an undefined custom attribute will raise a `KeyError`.
+- Use the session’s auto-populate feature to ensure attributes are fetched automatically when accessed.
+
+Advanced Usage
+--------------
+
+You can temporarily disable auto-population of attributes to optimize performance when accessing many entities:
+
+```python
+with session.auto_populating(False):
+    # Access entities without triggering automatic attribute fetching
+    task = session.query('Task where id is "12345"').one()
+    print(task['custom_status'])  # May not be populated yet
+```
+
+Similarly, you can control operation recording to batch changes without immediate recording:
+
+```python
+with session.operation_recording(False):
+    task['custom_status'] = 'Completed'
+    # Changes are not recorded until operation recording is re-enabled
+```
+
+Summary
+-------
+
+Custom attributes provide a flexible way to extend ftrack entities with additional data fields. Using the ftrack API, you can seamlessly access, modify, and create entities with custom attributes, integrating them into your project workflows and automation scripts.

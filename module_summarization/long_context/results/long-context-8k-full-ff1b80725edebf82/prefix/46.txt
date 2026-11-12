@@ -1,0 +1,217 @@
+Storage Module Documentation
+============================
+
+Overview
+--------
+
+This module provides a flexible and extensible storage abstraction layer with implementations for various backends including MongoDB, in-memory storage, and ElasticSearch. It supports asynchronous operations, optimistic concurrency control via versioning, field-level AES encryption, and webhook notifications on data changes.
+
+The module is designed to be used within the ASAB framework and depends on several external libraries such as `pymongo`, `motor`, `aiohttp`, and optionally `cryptography` for encryption support.
+
+Configuration
+-------------
+
+Default configuration parameters are provided under the `asab:storage` section. Example defaults include:
+
+- MongoDB:
+  - `mongodb_uri`: MongoDB connection URI (default: `mongodb://localhost:27017`)
+  - `mongodb_database`: MongoDB database name (default: `asabdb`)
+
+- ElasticSearch:
+  - `elasticsearch_url`: URL(s) of ElasticSearch nodes (default: `http://localhost:9200/`)
+  - `elasticsearch_username`: Username for ElasticSearch authentication
+  - `elasticsearch_password`: Password for ElasticSearch authentication
+  - `elasticsearch_api_key`: API key for ElasticSearch authentication
+  - `refresh`: Index refresh policy (`true`, `false`, or `wait_for`)
+  - `scroll_timeout`: Scroll timeout duration (default: `1m`)
+
+- Storage encryption:
+  - `aes_key`: AES encryption key for field-level encryption (optional)
+
+StorageServiceABC
+-----------------
+
+An abstract base class defining the interface for storage services.
+
+### Key Methods
+
+- `upsertor(collection: str, obj_id=None, version=0) -> UpsertorABC`  
+  Creates an upsertor object for the specified collection. Supports optimistic concurrency control via versioning.  
+  - `collection`: Name of the collection.  
+  - `obj_id`: Object identifier (primary key).  
+  - `version`: Current version of the object to prevent concurrent modification conflicts.
+
+- `async get(collection: str, obj_id, decrypt: bool = None) -> dict`  
+  Retrieves an object by its ID. Supports optional decryption of specified fields.  
+  Raises `KeyError` if the object is not found.
+
+- `async get_by(collection: str, key: str, value, decrypt=None) -> dict`  
+  Retrieves an object by a key-value pair. Supports optional decryption.  
+  Raises `KeyError` if the object is not found.
+
+- `async delete(collection: str, obj_id)`  
+  Deletes an object by its ID. Raises `KeyError` if the object is not found.
+
+### Encryption Support
+
+- `aes_encrypt(raw: bytes, iv: bytes = None) -> bytes`  
+  Encrypts data using AES-CBC with PKCS7-like padding. Requires a configured AES key.
+
+- `aes_decrypt(encrypted: bytes) -> bytes`  
+  Decrypts AES-CBC encrypted data.
+
+- `encryption_enabled() -> bool`  
+  Returns `True` if AES encryption is enabled.
+
+StorageService (MongoDB Implementation)
+---------------------------------------
+
+A concrete implementation of `StorageServiceABC` using MongoDB with asynchronous support via `motor`.
+
+### Features
+
+- Connects to MongoDB using URI and database name from configuration.
+- Supports asynchronous CRUD operations.
+- Provides an upsertor (`MongoDBUpsertor`) for atomic updates with optimistic concurrency control.
+- Supports field-level AES encryption and decryption.
+- Supports webhook notifications on data changes.
+
+### Usage Example
+
+```python
+storage = StorageService(app, "storage")
+obj = await storage.get("users", obj_id)
+upsertor = storage.upsertor("users", obj_id=obj_id, version=obj_version)
+upsertor.set("name", "John Doe")
+await upsertor.execute()
+```
+
+MongoDBUpsertor
+---------------
+
+An implementation of `UpsertorABC` for MongoDB.
+
+### Features
+
+- Supports atomic updates with `$set`, `$inc`, `$push`, and `$unset` operators.
+- Handles optimistic concurrency control via versioning.
+- Raises `DuplicateError` on duplicate key conflicts.
+- Sends webhook notifications after successful upsert operations.
+
+UpsertorABC
+------------
+
+An abstract base class defining the interface for upsertor objects that accumulate changes and commit them atomically.
+
+### Key Methods
+
+- `set(objField, value, encrypt=False, encrypt_iv=None)`  
+  Sets a field value, optionally encrypting it.
+
+- `unset(obj_field)`  
+  Marks a field for removal.
+
+- `increment(field_name, amount=1)` / `decrement(field_name, amount=1)`  
+  Increment or decrement numeric fields.
+
+- `push(field_name, value)` / `pull(field_name, value)`  
+  Append or remove items from list fields.
+
+- `async execute(custom_data: dict = None, event_type: str = None)`  
+  Commits accumulated changes to the storage backend and triggers webhooks.
+
+InMemory Storage Implementation
+-------------------------------
+
+An in-memory storage service implementation primarily for testing or ephemeral data storage.
+
+### Features
+
+- Stores collections as Python dictionaries.
+- Supports asynchronous get, set, and delete operations.
+- Implements an `InMemoryUpsertor` for atomic updates.
+- Does not support `get_by` operation (raises `NotImplementedError`).
+- Supports AES encryption and decryption if configured.
+
+ElasticSearch StorageService (Partial)
+--------------------------------------
+
+A stub for ElasticSearch storage service implementation using `aiohttp`.
+
+### Configuration
+
+- Supports multiple ElasticSearch nodes.
+- Supports authentication via username/password or API key.
+- Supports SSL/TLS configuration.
+
+Encryption
+----------
+
+Field-level encryption is supported via AES-CBC mode with PKCS7-like padding. To enable encryption:
+
+- Specify a non-empty `aes_key` in the `asab:storage` configuration.
+- The module requires the `cryptography` package for encryption support.
+- Encrypted fields are prefixed with a special marker (`b"$aes-cbc$"`).
+
+Webhooks
+--------
+
+Storage services support webhook notifications on data changes:
+
+- Webhook URIs are configured under `asab:storage:changestream:webhook_uri`.
+- Webhook authentication can be configured via `asab:storage:changestream:webhook_auth`.
+- Webhooks are sent asynchronously after successful upsert operations.
+- Payload includes collection name, event type, custom data, and upsertor details.
+
+Error Handling
+--------------
+
+- `KeyError` is raised when requested objects are not found.
+- `DuplicateError` is raised on duplicate key conflicts during upsert operations.
+- Runtime errors are raised for encryption misconfiguration or missing dependencies.
+
+Dependencies
+------------
+
+- `asab` framework
+- `motor` and `pymongo` for MongoDB support
+- `aiohttp` for ElasticSearch HTTP client
+- `cryptography` for AES encryption (optional, required if encryption is enabled)
+- Standard Python libraries: `asyncio`, `datetime`, `hashlib`, `uuid`, `logging`, `http.client`, `json`, `urllib.parse`
+
+Examples
+--------
+
+### MongoDB StorageService Usage
+
+```python
+storage = StorageService(app, "storage")
+
+# Retrieve a document
+doc = await storage.get("mycollection", obj_id)
+
+# Create or update a document using upsertor
+upsertor = storage.upsertor("mycollection", obj_id=doc["_id"], version=doc.get("_v", 0))
+upsertor.set("field1", "value1")
+upsertor.increment("counter")
+await upsertor.execute()
+```
+
+### InMemory StorageService Usage
+
+```python
+storage = StorageService(app, "storage")
+
+# Insert a new document
+upsertor = storage.upsertor("mycollection")
+upsertor.set("field1", "value1")
+obj_id = await upsertor.execute()
+
+# Retrieve the document
+doc = await storage.get("mycollection", obj_id)
+```
+
+License
+-------
+
+This module is part of the ASAB framework and is subject to its licensing terms.
