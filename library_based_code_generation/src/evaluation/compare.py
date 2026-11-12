@@ -18,8 +18,9 @@ def run_comparison(model_name: str = "mistralai/Mistral-7B-Instruct-v0.3", provi
     conditions = [
         ("plain", Base(model_name)),
         ("bm25 (official)", Base(model_name, use_bm25=True)),
+        ("RAG BM25 normalized", RAG(model_name, k=k, mode="bm25")),
         ("dense", RAG(model_name, k=k, mode="dense")),
-        ("hybrid", RAG(model_name, k=k, mode="hybrid")),
+        ("hybrid", RAG(model_name, k=k, mode="hybrid", bm25_tokenizer="official")),
         ("hybrid + normalized tokens", RAG(model_name, k=k, mode="hybrid", bm25_tokenizer="normalized")),
     ]
     rows = []
