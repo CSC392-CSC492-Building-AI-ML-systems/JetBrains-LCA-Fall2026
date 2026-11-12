@@ -4,7 +4,21 @@ import json
 import sqlite3
 
 # Standard synchronous pricing, checked against official model pages 2026-10-22.
-PRICES = {'gpt-3.5-turbo-0125': (.50, 1.50), 'gpt-4.1-mini': (.40, 1.60)}
+GPT41_MINI_SNAPSHOT = 'gpt-4.1-mini-2025-04-14'
+GPT41_MINI_CONTEXT_WINDOW = 1_047_576
+PRICES = {
+    'gpt-3.5-turbo-0125': (.50, 1.50),
+    'gpt-4.1-mini': (.40, 1.60),
+    GPT41_MINI_SNAPSHOT: (.40, 1.60),
+}
+
+
+def input_token_upper_bound(messages, tools=None):
+    # UTF-8 byte bound plus 512 tokens for fixed text-only chat framing.
+    if tools is not None:
+        wire = json.dumps({'messages': messages, 'tools': tools}, ensure_ascii=False)
+        return len(wire.encode('utf-8')) + 512
+    return sum(len(message['content'].encode('utf-8')) for message in messages) + 512
 
 
 class BudgetLedger:
@@ -23,14 +37,12 @@ class BudgetLedger:
         self.cap = cap
         self.db.commit()
 
-    def reserve(self, job, model, messages, max_output):
+    def reserve(self, job, model, messages, max_output, *, tools=None):
         if model not in PRICES:
             raise ValueError('No verified price entry for this model')
         if not isinstance(max_output, int) or not 1 <= max_output <= 2000:
             raise ValueError('Output cap must be an integer from 1 to 2000')
-        # Byte-level model tokens cannot exceed source UTF-8 bytes; allow 512
-        # extra tokens for fixed chat framing. No tools or images are supported.
-        input_bound = sum(len(m['content'].encode('utf-8')) for m in messages) + 512
+        input_bound = input_token_upper_bound(messages, tools)
         input_rate, output_rate = PRICES[model]
         reserve = (input_bound * input_rate + max_output * output_rate) / 1_000_000
         self.db.execute('BEGIN IMMEDIATE')
@@ -49,7 +61,9 @@ class BudgetLedger:
         return reserve
 
     def settle(self, job, usage):
-        row = self.db.execute('SELECT model,charge,state FROM calls WHERE job=?', (job,)).fetchone()
+        row = self.db.execute('SELECT model,charge,state,usage FROM calls WHERE job=?', (job,)).fetchone()
+        if row and row[2] == 'complete' and json.loads(row[3]) == usage:
+            return row[1]
         if not row or row[2] != 'reserved':
             raise ValueError('No open reservation')
         inp, out = usage.get('prompt_tokens'), usage.get('completion_tokens')
