@@ -16,8 +16,14 @@ Example:
     python -m eval.failure_split --base ~/lca_remote/E4/codellama-7b/medium_context/arms \
         --arms e4_F_N1753:rag:1753 e4_pd_N1753:path_distance:1753 e4_F_N12000:rag:12000 e4_pd_N12000:path_distance:12000 \
         --out rag_results/reports/E4/failure_split.jsonl
+
+An arm of kind `agent` (planner agent of RAG_EXPERIMENT_LOG 8.80-8.89) is rebuilt without a GPU by replaying the planner
+actions that the run logged (`agent.llm.ReplayModel`); the tools are deterministic, so the final context comes out as in the run,
+and the output says for how many lines it equals the logged chunk list (the token counts are checked as for every arm):
+    python -m eval.failure_split --base rag_results/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 """
 import argparse
+import gzip
 import json
 import os
 from collections import Counter
@@ -33,14 +39,25 @@ def classify(needed: set, seen_identifiers: set, correct: bool) -> str:
     return "reasoning" if needed <= seen_identifiers else "retrieval"
 
 
-def build_rows(arm: str, kind: str, cap, datapoints, composer_args, encode, decode, max_seq_len, rag_factory, results):
+REPLAY_FIELDS = ("paths", "lines", "kinds", "changed", "fallback")
+
+
+def build_rows(arm: str, kind: str, cap, datapoints, composer_args, encode, decode, max_seq_len, rag_factory, results,
+               agent_factory=None, replay=None):
+    """`kind` = "rag", "agent" (needs `agent_factory` and a `ReplayModel`; the prompt is rebuilt by replaying the planner
+    actions the run logged, and each row says whether the replayed final context equals the logged one) or a composer name."""
     from eval.compare_arms import static_provider_factory
 
     rows = []
     for dp_idx, dp in enumerate(datapoints):
         path = next(iter(dp.get_completion()))
         defined = repo_definitions(dp.get_context(), exclude_path=path)
-        provider = rag_factory(dp) if kind == "rag" else static_provider_factory(kind, composer_args, cap, encode.tokenizer)(dp)
+        if kind == "agent":
+            provider = agent_factory(dp)
+        elif kind == "rag":
+            provider = rag_factory(dp)
+        else:
+            provider = static_provider_factory(kind, composer_args, cap, encode.tokenizer)(dp)
         for line_class, line_nums in dp.completion_lines.items():
             for line_num in line_nums:
                 line = dp.get_line(line_num)
@@ -48,7 +65,13 @@ def build_rows(arm: str, kind: str, cap, datapoints, composer_args, encode, deco
                 result = results.get((dp_idx, line_num, line))
                 if result is None:
                     continue
-                prompt = provider(dp, line_num)[0]
+                replay_ok = None
+                if kind == "agent":
+                    replay.load(result["retrieval"]["actions"])
+                    prompt, _, info = provider(dp, line_num)
+                    replay_ok = replay.finished and all(info[k] == result["retrieval"][k] for k in REPLAY_FIELDS)
+                else:
+                    prompt = provider(dp, line_num)[0]
                 seen = visible_prompt(prompt, encode, decode, max_seq_len)
                 seen_ids = identifiers(seen)
                 correct = result["prediction_line"].strip() == result["ground_truth"].strip()
@@ -58,6 +81,7 @@ def build_rows(arm: str, kind: str, cap, datapoints, composer_args, encode, deco
                     "n_defined_visible": len(needed & definitions(seen)), "correct": correct,
                     "cls": classify(needed, seen_ids, correct),
                     "rebuilt_tokens": len(encode(seen)), "logged_tokens": result["metrics"]["input_tokens"],
+                    **({"replay_matches_logged": replay_ok} if kind == "agent" else {}),
                 })
     return rows
 
@@ -80,6 +104,7 @@ def main():
     parser.add_argument("--base", required=True, help="directory holding the arms' generation_results.jsonl")
     parser.add_argument("--dataset", default="medium")
     parser.add_argument("--rag", nargs="*", default=["prefix_cap=15900"], help="overrides for the rag settings (design F is rag=F)")
+    parser.add_argument("--agent", default="append", help="agent settings preset used by the arms of kind `agent` (eval/config/agent)")
     parser.add_argument("--limit", type=int, help="only the first N datapoints (smoke test)")
     parser.add_argument("--out", help="write per-line rows as JSON lines to this file")
     args = parser.parse_args()
@@ -91,7 +116,8 @@ def main():
     from rag.provider import make_rag_provider_factory
 
     with initialize_config_dir(config_dir=os.path.join(os.path.dirname(__file__), "config"), version_base=None):
-        cfg = compose(config_name="compare_arms", overrides=[f"dataset={args.dataset}", "params=codellama7b", "rag=F"])
+        cfg = compose(config_name="compare_arms", overrides=[f"dataset={args.dataset}", "params=codellama7b", "rag=F",
+                                                             f"agent={args.agent}"])
     budget = cfg.params.inference_params["seq_max_len"] - 100
     tokenizer = AutoTokenizer.from_pretrained(cfg.params.preprocess_params["tokenizer"])
 
@@ -118,14 +144,34 @@ def main():
         rag_factory = make_rag_provider_factory(
             lambda text: len(encode(text)), budget, extension=cfg.composers_config.extension,
             lang_sep=cfg.composers_config.lang_sep_symbol, meta_sep=cfg.composers_config.meta_info_sep_symbol, **rag_settings)
+        agent_factory = replay = None
+        if kind == "agent":
+            from omegaconf import OmegaConf
+
+            from agent.llm import ReplayModel
+            from agent.provider import make_agent_provider_factory
+            from agent.tools import Limits
+
+            replay = ReplayModel()
+            agent_factory = make_agent_provider_factory(
+                lambda text: len(encode(text)), budget, replay, rag_options=dict(rag_settings),
+                limits=Limits(**OmegaConf.to_container(cfg.agent.limits)), planner_prefix_tokens=cfg.agent.planner_prefix_tokens,
+                max_listed_files=cfg.agent.max_listed_files, extension=cfg.composers_config.extension,
+                lang_sep=cfg.composers_config.lang_sep_symbol, meta_sep=cfg.composers_config.meta_info_sep_symbol)
         results = {}
-        with open(os.path.join(os.path.expanduser(args.base), arm, "generation_results.jsonl"), encoding="utf8") as f:
+        folder = os.path.join(os.path.expanduser(args.base), arm)
+        plain = os.path.join(folder, "generation_results.jsonl")
+        with (open(plain, encoding="utf8") if os.path.exists(plain) else gzip.open(plain + ".gz", "rt", encoding="utf8")) as f:
             for line in f:
                 r = json.loads(line)
                 results[(r["datapoint_idx"], r["line_num"], r["ground_truth"])] = r
-        arm_rows = build_rows(arm, kind, cap, data, composer_args, encode, decode, budget, rag_factory, results)
+        arm_rows = build_rows(arm, kind, cap, data, composer_args, encode, decode, budget, rag_factory, results,
+                              agent_factory=agent_factory, replay=replay)
         same = sum(r["rebuilt_tokens"] + 1 == r["logged_tokens"] for r in arm_rows)  # the generator adds the BOS token
         print(f"{arm}: {len(arm_rows)} lines, rebuilt prompt (+ BOS) has the logged token count for {same} ({same / len(arm_rows):.1%})", flush=True)
+        if kind == "agent":
+            ok = sum(r["replay_matches_logged"] for r in arm_rows)
+            print(f"{arm}: the replayed final context equals the logged one (chunks, line ranges, kinds, changed, fallback) for {ok} ({ok / len(arm_rows):.1%})", flush=True)
         rows += arm_rows
     print(summarize(rows))
     if args.out:

@@ -1,4 +1,6 @@
 """Planner backends: a local Hugging Face chat model, and a scripted stand-in for tests and dry runs."""
+import json
+
 from agent.loop import LLMReply
 
 
@@ -12,6 +14,32 @@ class ScriptedLLM:
         self.calls.append(list(messages))
         text = self.replies(messages) if callable(self.replies) else self.replies[min(len(self.calls), len(self.replies)) - 1]
         return LLMReply(text, input_tokens=sum(len(m["content"]) // 4 for m in messages), output_tokens=len(text) // 4)
+
+
+class ReplayModel:
+    """Stand-in planner that repeats what a finished run's planner did, to rebuild its prompts offline (no GPU).
+
+    `load(actions)` takes the `actions` a run logged for one line (one entry per planner reply: the parsed JSON action, or
+    None when the reply was not a valid action); each call then answers with the next one. The tools are deterministic, so
+    the agent loop goes through the same steps and ends with the same context as in the original run."""
+
+    def __init__(self):
+        self.actions, self.position = [], 0
+
+    def load(self, actions):
+        self.actions, self.position = list(actions), 0
+
+    def __call__(self, messages):
+        if self.position >= len(self.actions):
+            raise RuntimeError("replay asked for more planner replies than the run logged")
+        action = self.actions[self.position]
+        self.position += 1
+        return LLMReply(json.dumps(action) if action is not None else "(not a valid action)")
+
+    @property
+    def finished(self) -> bool:
+        """True when every logged reply was used, as it must be if the replay followed the original run."""
+        return self.position == len(self.actions)
 
 
 class LocalChatModel:

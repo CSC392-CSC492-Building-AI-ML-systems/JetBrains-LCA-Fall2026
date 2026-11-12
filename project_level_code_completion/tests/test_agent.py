@@ -1,6 +1,6 @@
 import unittest
 
-from agent.llm import ScriptedLLM
+from agent.llm import ReplayModel, ScriptedLLM
 from agent.loop import parse_action, plan, task_message
 from agent.provider import assemble_context, make_agent_provider_factory
 from agent.tools import Limits, RepoTools, json_text
@@ -412,6 +412,54 @@ class AppendModeTests(unittest.TestCase):
     def test_the_planner_actions_are_recorded(self):
         _, _, info = self.provider([search(), submit()])(make_datapoint(), 2)
         self.assertEqual([a["action"] for a in info["actions"]], ["search_code", "submit_context"])
+
+
+class ReplayTests(unittest.TestCase):
+    """The logged `actions` of a run are enough to rebuild its prompt offline (used by eval/failure_split.py)."""
+    C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
+
+    def run_and_replay(self, replies, **limits):
+        def factory(llm):
+            return make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS,
+                                               limits=Limits(edit_mode="append", **limits), lang_sep=LANG, meta_sep=META)(
+                make_datapoint())
+
+        original = factory(ScriptedLLM(replies))(make_datapoint(), 2)
+        replay = ReplayModel()
+        replay.load(original[2]["actions"])
+        replayed = factory(replay)(make_datapoint(), 2)
+        self.assertTrue(replay.finished)
+        self.assertEqual(replayed[0], original[0])  # the same prompt
+        for key in ("paths", "lines", "kinds", "changed", "fallback", "planner_status", "steps", "tool_calls"):
+            self.assertEqual(replayed[2][key], original[2][key], key)
+        return original[2]
+
+    def test_a_search_and_an_addition_are_replayed_exactly(self):
+        info = self.run_and_replay([search(), submit([self.C])])
+        self.assertTrue(info["changed"])
+
+    def test_submitting_nothing_is_replayed(self):
+        self.assertFalse(self.run_and_replay([submit()])["changed"])
+
+    def test_invalid_replies_are_replayed(self):
+        info = self.run_and_replay(["no json here", submit([self.C])])
+        self.assertEqual(info["planner_status"], "submitted")
+        self.assertIsNone(info["actions"][0])
+
+    def test_giving_up_after_too_many_invalid_replies_is_replayed(self):
+        info = self.run_and_replay(["nope"] * 5)
+        self.assertEqual((info["planner_status"], info["fallback"]), ("invalid_replies", True))
+
+    def test_a_planner_that_ignores_the_forced_submit_is_replayed(self):
+        info = self.run_and_replay([search(), search("beta_func"), search("gamma_func")], tool_calls=1)
+        self.assertEqual((info["planner_status"], info["fallback"]), ("no_submit", True))
+
+    def test_replaying_more_replies_than_were_logged_is_an_error(self):
+        replay = ReplayModel()
+        replay.load([{"action": "submit_context", "add": []}])
+        replay([])
+        with self.assertRaises(RuntimeError):
+            replay([])
 
 
 @unittest.skipUnless(HAS_PARSER, "tree-sitter grammar not available in the working directory")
