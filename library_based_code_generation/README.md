@@ -27,6 +27,33 @@ In order to evaluate models, run the [evaluation script](src/evaluation/evaluate
 The script will generate code with the available models and compute the metrics (`ChrF` and `API Recall`). 
 If the code for the specific model is already available in the `results` directory, the evaluation script will just compute the metrics.
 
+## RAG comparison
+
+Run `python -m src.evaluation.compare` from this directory to compare the same
+generator on plain instructions, the unchanged official BM25 baseline, normalized
+BM25 RAG, dense retrieval, and two hybrid variants. This command makes paid model
+requests for uncached predictions; dense/hybrid arms also use OpenAI embeddings.
+
+RAG retrieves only the supplied `project_defined_elements` API names. It does not
+retrieve repository source, signatures, or documentation. Queries use the task
+instruction; reference code and reference APIs are used only for scoring.
+Normalized BM25 splits camelCase and snake_case identically in queries and names
+and requires no embeddings. Dense and hybrid retrieval remain experimental arms.
+
+Each RAG arm selects up to k unique names (default 20), then packs complete names
+in relevance order into an 8,000-byte UTF-8 evidence budget, skipping names that
+do not fit. This conservatively bounds evidence text tokens for byte-BPE models;
+it is not a full prompt/context-window check. The instruction is preserved. Empty
+candidates add no hints; score ties preserve candidate order. The most recent
+retrieval trace is available as `model.last_retrieval` in memory.
+
+Revised arms write under `rag_v2_*` paths, including tokenizer, hybrid RRF setting,
+k, and evidence budget, to avoid reusing earlier RAG predictions. Metadata records
+the retrieval source and settings. No new benchmark scores are claimed until
+these arms have been evaluated. The official baseline remains unchanged.
+
+Offline checks: `python -m unittest discover -s tests -v`.
+
 ## Reproducible baseline replication
 
 `baseline_replication.py` replicates the BM25 top-20 API-hint baseline with the benchmark's existing prompts, model adapters, code extraction, ChrF, and API Recall metrics. It pins the dataset to the current Hub revision and records source hashes and package versions for each fresh run.
