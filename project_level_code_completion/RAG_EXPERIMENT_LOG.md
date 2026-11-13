@@ -2433,6 +2433,14 @@ v2 changed the context on 166 of 542 lines (30.6 %); 3 lines fell back (invalid 
 **D1 (7B + old tools, `agent=append`, 24 datapoints).** Started on its own at 19:57 (stream A restarted without D4). E5 measured the 7B on 8 of these datapoints during development and on all 224 at the end; D1 gives the same-card paired number on all 24 for the D1 vs D2 planner-size comparison.
 **State.** Credit about $30.5, box $1.494 per hour. The decision about the last revision (v3 without the gate) is with the user.
 
+### 8.102 Last allowed revision (variant 2 of 2): v3 without the gate, arm D6 (2026-11-13, logged before it runs; box lca-E7)
+**Decision.** The user answered "ok" to the question of 8.100 (go for the gate-free v3). Logged and committed before the run starts.
+**What changes.** One setting: `agent.limits.gate=false` on the v3 agent (command-line override of `v3.yaml`, no file change; `ask_missing` is inert without the gate). Everything else is D3: 32B 4-bit planner, hybrid search, `find_usages`, `file_outline`, `imports_view`, swap edit mode, hypothesis-guided prompt `SYSTEM_SWAP`, `tool_calls=6`, same 24 dev datapoints (1,372 lines), same card as D0 to D5. Arm name `e5v3dev_d6`, run as `run_E5v3_dev.sh d6` in a second stream next to D1 (anchor check skipped, as in 8.99). It is variant 2 of 2: no further revision of the v3 agent is allowed; the dev result decides.
+**Why this one.** D3 and D5 are RAG F because the gate rejects almost every proposal (D5: 81 rejected, 4 passed). D2 shows that editing alone (old tools, add-only, 32B) is neutral (1 broken, 2 fixed). D6 asks whether the v3 tools and the swap mode (replace or remove chunks, not only add) give the planner something that D2 lacked once the gate no longer blocks it.
+**Predictions, fixed before D6 has any line.** Changed share 8 to 30 % of lines (D2: 12.6 %; the cautious prompt makes it lower than a free planner, the gate no longer filters). D6 minus D0 between -1.0 and +0.5 points (datapoint mean), probability of >= +0.5 points about 15 %. Broke : fixed worse than D2's 1 : 2 (swap can remove chunks, which add-only cannot), at about 1 : 1. Unchanged lines reproduce D0 exactly.
+**Decision rule.** Unchanged (8.93): full arm only if the point estimate is >= +0.5 points, the lower bound >= -1.0 and broke <= 2 x fixed among changed lines, with D6 as `--candidate d6`. Otherwise stop and report the dev table (D0 to D6) as the result. D1 keeps running to its end.
+**Cost.** About 3 GPU hours with two streams (D3 ran at 8 s per line; D6 may use more tool calls and edit more, so up to 5 hours is possible), $1.494 per hour; credit about $26 at the start, D1 needs about $5 more. Stop rule: if D6 passes 12 hours of wall time or the credit falls under $8, I stop it and report the partial.
+
 ## 10. Standing instructions from the user, and a master index of every step (added 2026-10-14; do not delete)
 
 **Standing instructions (apply to all future work on this project):**

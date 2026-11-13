@@ -7,6 +7,7 @@
 #   d3  32B planner + v3         (agent=v3)                                              the full stronger agent
 #   d4  7B planner + v3 tools    (agent=v3, planner 7B 8-bit)                            tools alone
 #   d5  32B planner + v3, one tool call (agent=v3 agent.limits.tool_calls=1)             does the loop help?
+#   d6  32B planner + v3 without the gate (agent=v3 agent.limits.gate=false), last allowed revision, log 8.102
 # Usage on one machine:  LCA_USD_PER_HOUR=<price> setsid nohup bash run_E5v3_dev.sh <arm> [<arm> ...] > /dev/null 2>&1 &
 #   e.g. run_E5v3_dev.sh d0 d3     (the 32B arms need a GPU with >= 48 GB: the script refuses to start them on less)
 # An interrupted arm is continued (resume=true, up to MAX_TRIES tries); finished arms are skipped.
@@ -40,6 +41,7 @@ arm_overrides() {  # prints the overrides of an arm, or fails
     d3) echo "arm=agent agent=v3 $F" ;;
     d4) echo "arm=agent agent=v3 $F agent.planner_model=$P7 agent.planner_dtype=8bit" ;;
     d5) echo "arm=agent agent=v3 $F agent.limits.tool_calls=1" ;;
+    d6) echo "arm=agent agent=v3 $F agent.limits.gate=false" ;;
     *) return 1 ;;
   esac
 }
@@ -47,7 +49,7 @@ arm_overrides() {  # prints the overrides of an arm, or fails
 for A in "$@"; do
   NAME=e5v3dev_$A
   OV=$(arm_overrides $A) || { echo "unknown arm $A" | tee -a $LOG; exit 1; }
-  case $A in d2|d3|d5) [ "${GPU_MB:-0}" -ge 45000 ] || { echo "arm $A needs a GPU with >= 48 GB (this one has ${GPU_MB} MB)" | tee -a $LOG; exit 1; } ;; esac
+  case $A in d2|d3|d5|d6) [ "${GPU_MB:-0}" -ge 45000 ] || { echo "arm $A needs a GPU with >= 48 GB (this one has ${GPU_MB} MB)" | tee -a $LOG; exit 1; } ;; esac
   for TRY in $(seq 1 $MAX_TRIES); do
     if [ -f "$(summary_path $NAME $M)" ]; then break; fi
     echo "===== $NAME try $TRY start $(date +%T) overrides: $OV =====" | tee -a $LOG

@@ -19,7 +19,7 @@ from analyze_e5_full import dp_means, em, es, load, right, seconds  # noqa: E402
 from eval.analyze_arms import paired_bootstrap  # noqa: E402
 
 NAMES = {"d0": "D0 RAG F", "d1": "D1 7B + old tools", "d2": "D2 32B + old tools", "d3": "D3 32B + v3",
-         "d4": "D4 7B + v3 tools", "d5": "D5 32B + v3, 1 tool call"}
+         "d4": "D4 7B + v3 tools", "d5": "D5 32B + v3, 1 tool call", "d6": "D6 32B + v3, no gate"}
 
 
 def main():
