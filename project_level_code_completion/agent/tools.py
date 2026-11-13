@@ -47,6 +47,7 @@ class Limits:
     # chunk contains and that neither the current context nor the file prefix contains; otherwise the RAG context is kept
     gate: bool = False
     imports_view: bool = False  # show the planner the repository files the code imports, with their top-level definitions
+    ask_missing: bool = False  # revision R1 (8.96): additions without a "missing" name get one reminder before the gate rejects them
 
 
 def covers(outer: Chunk, inner: Chunk) -> bool:

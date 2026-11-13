@@ -615,6 +615,34 @@ class SwapModeTests(unittest.TestCase):
             self.assertEqual((info["gate"], info["changed"], prompt), ("rejected", False, rag_prompt), missing)
             self.assertEqual(info["paths"], self.rag_info()[2]["paths"])
 
+    def with_missing(self, names):
+        return submit([self.C]).replace('"drop":[]', f'"drop":[],"missing":{json_text(names)}')
+
+    def test_ask_missing_reminds_the_planner_once_when_an_addition_names_nothing(self):
+        provider, llm = self.provider([submit([self.C]), self.with_missing(["unrelated"])], gate=True, ask_missing=True)
+        _, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(len(llm.calls), 2)
+        self.assertIn("is empty. Submit again", llm.calls[1][-1]["content"])
+        self.assertEqual((info["gate"], info["changed"], info["steps"], info["tool_calls"]), ("passed", True, 2, 0))
+        self.assertEqual(info["missing"], ["unrelated"])
+
+    def test_ask_missing_asks_only_once_and_the_gate_still_decides(self):
+        provider, llm = self.provider([submit([self.C]), submit([self.C]), self.with_missing(["unrelated"])], gate=True, ask_missing=True)
+        _, _, info = provider(make_datapoint(), 2)
+        self.assertEqual(len(llm.calls), 2)  # the third scripted reply is never requested
+        self.assertEqual((info["gate"], info["changed"]), ("rejected", False))
+
+    def test_ask_missing_does_not_ask_when_nothing_is_added_or_a_name_is_given(self):
+        for reply in (submit(), self.with_missing(["unrelated"])):
+            provider, llm = self.provider([reply], gate=True, ask_missing=True)
+            provider(make_datapoint(), 2)
+            self.assertEqual(len(llm.calls), 1)
+
+    def test_ask_missing_is_off_by_default_so_older_runs_replay_unchanged(self):
+        provider, llm = self.provider([submit([self.C])], gate=True)
+        self.assertEqual(provider(make_datapoint(), 2)[2]["gate"], "rejected")
+        self.assertEqual(len(llm.calls), 1)
+
     def test_the_gate_state_is_recorded_for_every_outcome(self):
         provider, _ = self.provider([submit()], gate=True)
         self.assertEqual(provider(make_datapoint(), 2)[2]["gate"], "none")  # the planner proposed nothing
