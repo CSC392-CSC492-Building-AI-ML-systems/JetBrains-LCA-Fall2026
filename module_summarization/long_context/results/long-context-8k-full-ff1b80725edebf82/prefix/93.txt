@@ -1,0 +1,192 @@
+Structured Arrays Utilities
+===========================
+
+This module provides a collection of utilities to manipulate structured arrays in NumPy. Many of these functions were originally implemented by John Hunter for matplotlib and have been rewritten and extended for convenience.
+
+Overview
+--------
+
+Structured arrays (also known as record arrays) allow you to define complex data types with named fields, including nested structures. This module offers tools to facilitate operations such as merging, dropping, renaming fields, and working with nested field structures.
+
+Key Functions
+-------------
+
+recursive_fill_fields(input, output)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Fill fields in the `output` array with corresponding fields from the `input` array, supporting nested structures.
+
+- **Parameters:**
+  - `input` : ndarray  
+    Input array with data to copy from.
+  - `output` : ndarray  
+    Output array to fill; should be at least as large as `input`.
+
+- **Returns:**  
+  The filled output array.
+
+- **Example:**
+  ```python
+  a = np.array([(1, 10.), (2, 20.)], dtype=[('A', np.int64), ('B', np.float64)])
+  b = np.zeros((3,), dtype=a.dtype)
+  recursive_fill_fields(a, b)
+  # array([(1, 10.), (2, 20.), (0, 0.)], dtype=[('A', '<i8'), ('B', '<f8')])
+  ```
+
+get_names(adtype)
+~~~~~~~~~~~~~~~~~
+Return the field names of a structured dtype as a tuple, preserving nested structure as nested tuples.
+
+- **Parameters:**
+  - `adtype` : dtype  
+    Input structured dtype.
+
+- **Returns:**  
+  Tuple of field names, with nested fields represented as nested tuples.
+
+- **Example:**
+  ```python
+  dt = np.dtype([('a', int), ('b', [('ba', int), ('bb', int)])])
+  get_names(dt)
+  # ('a', ('b', ('ba', 'bb')))
+  ```
+
+get_names_flat(adtype)
+~~~~~~~~~~~~~~~~~~~~~~
+Return a flattened tuple of all field names in a structured dtype, including nested fields.
+
+- **Parameters:**
+  - `adtype` : dtype  
+    Input structured dtype.
+
+- **Returns:**  
+  Tuple of all field names flattened.
+
+- **Example:**
+  ```python
+  dt = np.dtype([('a', int), ('b', [('ba', int), ('bb', int)])])
+  get_names_flat(dt)
+  # ('a', 'b', 'ba', 'bb')
+  ```
+
+flatten_descr(ndtype)
+~~~~~~~~~~~~~~~~~~~~~
+Flatten a structured dtype description into a sequence of (name, dtype) pairs, recursively flattening nested fields.
+
+- **Parameters:**
+  - `ndtype` : dtype  
+    Input structured dtype.
+
+- **Returns:**  
+  Tuple of flattened (field name, dtype) pairs.
+
+- **Example:**
+  ```python
+  dt = np.dtype([('a', '<i4'), ('b', [('ba', '<f8'), ('bb', '<i4')])])
+  flatten_descr(dt)
+  # (('a', dtype('int32')), ('ba', dtype('float64')), ('bb', dtype('int32')))
+  ```
+
+get_fieldstructure(adtype)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Return a dictionary mapping each field name to a list of its parent fields, simplifying access to nested fields.
+
+- **Parameters:**
+  - `adtype` : dtype  
+    Input structured dtype.
+
+- **Returns:**  
+  Dictionary with field names as keys and lists of parent field names as values.
+
+- **Example:**
+  ```python
+  dt = np.dtype([('A', int),
+                 ('B', [('BA', int),
+                        ('BB', [('BBA', int), ('BBB', int)])])])
+  get_fieldstructure(dt)
+  # {'A': [], 'B': [], 'BA': ['B'], 'BB': ['B'], 'BBA': ['B', 'BB'], 'BBB': ['B', 'BB']}
+  ```
+
+merge_arrays(seqarrays, fill_value=-1, flatten=False, usemask=False, asrecarray=False)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Merge multiple arrays field-by-field into a single structured array.
+
+- **Parameters:**
+  - `seqarrays` : sequence of ndarrays  
+    Sequence of arrays to merge.
+  - `fill_value` : scalar, optional  
+    Value used to pad shorter arrays.
+  - `flatten` : bool, optional  
+    Whether to flatten nested fields.
+  - `usemask` : bool, optional  
+    Whether to return a masked array.
+  - `asrecarray` : bool, optional  
+    Whether to return a recarray or MaskedRecords.
+
+- **Returns:**  
+  A merged structured array or masked structured array.
+
+- **Notes:**  
+  Without masking, missing values are filled with type-appropriate defaults (e.g., -1 for integers).
+
+- **Example:**
+  ```python
+  merge_arrays((np.array([1, 2]), np.array([10., 20., 30.])))
+  # array([(1, 10.), (2, 20.), (-1, 30.)], dtype=[('f0', '<i8'), ('f1', '<f8')])
+  ```
+
+drop_fields(base, drop_names, usemask=True, asrecarray=False)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Return a new array with specified fields dropped. Supports nested fields.
+
+- **Parameters:**
+  - `base` : array  
+    Input structured array.
+  - `drop_names` : str or sequence of str  
+    Field names to drop.
+  - `usemask` : bool, optional  
+    Whether to return a masked array.
+  - `asrecarray` : bool, optional  
+    Whether to return a recarray or MaskedRecords.
+
+- **Returns:**  
+  New array with specified fields removed.
+
+- **Example:**
+  ```python
+  a = np.array([(1, (2, 3.0)), (4, (5, 6.0))],
+               dtype=[('a', np.int64), ('b', [('ba', np.double), ('bb', np.int64)])])
+  drop_fields(a, 'a')
+  # array([((2., 3),), ((5., 6),)], dtype=[('b', [('ba', '<f8'), ('bb', '<i8')])])
+  drop_fields(a, ['ba', 'bb'])
+  # array([(1,), (4,)], dtype=[('a', '<i8')])
+  ```
+
+Additional Utilities
+--------------------
+
+- `_get_fieldspec(dtype)`  
+  Extracts a list of (name, dtype) pairs from a dtype, preserving subarray dtypes.
+
+- `_zip_dtype(seqarrays, flatten=False)`  
+  Combines dtypes from multiple arrays into a single dtype, optionally flattening nested fields.
+
+- `_zip_descr(seqarrays, flatten=False)`  
+  Returns the combined dtype description from multiple arrays.
+
+- `_izip_records(seqarrays, fill_value=None, flatten=True)`  
+  Iterator that yields tuples of concatenated fields from multiple arrays, padding shorter arrays.
+
+- `_fix_output(output, usemask=True, asrecarray=False)`  
+  Internal helper to convert output arrays to masked arrays, recarrays, or plain ndarrays as needed.
+
+- `_fix_defaults(output, defaults=None)`  
+  Updates fill values and masked data in masked arrays based on a defaults dictionary.
+
+Notes
+-----
+
+- Many functions support nested structured dtypes, allowing recursive operations on fields.
+- Masked arrays and recarrays are supported for flexible handling of missing or invalid data.
+- The module relies on NumPy's dtype system and structured array capabilities extensively.
+
+This module is useful for advanced manipulation and combination of structured arrays, especially when dealing with nested fields or heterogeneous data types.

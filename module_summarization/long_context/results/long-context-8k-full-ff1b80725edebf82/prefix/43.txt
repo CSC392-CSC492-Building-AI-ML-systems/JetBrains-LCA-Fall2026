@@ -1,0 +1,162 @@
+Config Usage
+============
+
+The `Config` object provides a powerful and flexible way to access and manage the configuration of an ASAB application. It extends Python's standard `configparser.ConfigParser` with additional features such as default values, environment variable expansion, URL validation, time conversion, and support for including configuration files from local paths or ZooKeeper servers.
+
+Basic Access
+------------
+
+You can access configuration values using dictionary-like syntax:
+
+```python
+value = asab.Config['section_name']['key']
+```
+
+This allows straightforward retrieval of configuration options organized by sections.
+
+Default Configuration
+---------------------
+
+`Config` comes with a set of predefined default values for common sections such as `general`, `logging`, `asab:metrics`, and others. These defaults are automatically added if not overridden by user configuration files.
+
+For example, the `general` section includes defaults like:
+
+- `config_file`: Path to the main configuration file, defaulting to the environment variable `ASAB_CONFIG`.
+- `tick_period`: Interval in seconds (default 1).
+- `var_dir`: Directory for variable data, defaulting to a hidden directory in the user's home folder.
+
+Including Additional Configuration Files
+----------------------------------------
+
+The configuration supports including other configuration files via the `include` option in the `[general]` section. Included files can be specified using glob patterns or ZooKeeper URLs.
+
+Example:
+
+```ini
+[general]
+include = /etc/asab/*.conf zookeeper://zookeeper-1:2181,zookeeper-2:2181/asab/etc/zk-site.conf
+```
+
+The inclusion mechanism supports nested includes and prevents infinite loops by including each file only once.
+
+ZooKeeper Integration
+---------------------
+
+Configurations can be loaded directly from ZooKeeper servers by specifying a ZooKeeper URL in the `include` directive. Supported formats include JSON, YAML, and `.conf` files.
+
+Example:
+
+```ini
+[asab:zookeeper]
+servers = zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+
+[general]
+include = zookeeper://zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181/asab/etc/zk-site.conf
+```
+
+This feature requires the `kazoo` Python package and supports automatic parsing of the configuration data.
+
+Advanced Getters
+----------------
+
+The `Config` object provides several helper methods to retrieve and convert configuration values conveniently:
+
+- `getseconds(section, option, ...) -> float`  
+  Converts time strings with units into seconds. Supported units include years (`y`), months (`M`), weeks (`w`), days (`d`), hours (`h`), minutes (`m`), seconds (`s`), and milliseconds (`ms`).
+
+  Example:
+
+  ```python
+  sleep_time = asab.Config.getseconds("sleep", "sleep_time")
+  ```
+
+- `geturl(section, option, scheme=None, ...)`  
+  Retrieves a URL string, trims whitespace and trailing slashes, and validates the scheme if specified.
+
+  Example:
+
+  ```python
+  url = asab.Config.geturl("urls", "teskalabs", scheme="https")
+  ```
+
+- `getmultiline(section, option, ...) -> List[str]`  
+  Retrieves multiline configuration values as a list of strings.
+
+  Example:
+
+  ```python
+  visited_places = asab.Config.getmultiline("places", "visited")
+  ```
+
+Environment Variable Expansion
+------------------------------
+
+Configuration values containing environment variables (e.g., `${HOME}`) are automatically expanded when read. Additionally, the special environment variable `THIS_DIR` is set to the directory of the currently loaded configuration file, allowing relative paths in configuration files.
+
+Using Configurable Objects
+--------------------------
+
+The `Configurable` class provides a convenient base for objects whose attributes are loaded from configuration sections. It supports default values via the `ConfigDefaults` dictionary and merges configuration values from the global `Config` object.
+
+Example:
+
+```python
+class MyComponent(asab.Configurable):
+    ConfigDefaults = {
+        'foo': 'bar',
+        'timeout': '10s',
+    }
+
+    def __init__(self, config_section_name, config=None):
+        super().__init__(config_section_name=config_section_name, config=config)
+        self.foo = self.Config.get('foo')
+        self.timeout = self.Config.getseconds('timeout')
+```
+
+Configurable objects automatically merge defaults from base classes and override them with values from the configuration file or passed dictionaries.
+
+ConfigurableDict
+----------------
+
+`ConfigurableDict` is a dictionary-like object used internally by `Configurable` to store configuration keys and values. It provides helper methods to convert values to boolean, integer, float, seconds, and validated URLs.
+
+Example usage:
+
+```python
+config_dict = asab.ConfigurableDict()
+config_dict['enabled'] = 'true'
+enabled = config_dict.getboolean('enabled')  # Returns True
+```
+
+Logging Configuration
+---------------------
+
+The configuration includes detailed logging options under the `[logging]` section and its subsections such as `[logging:console]`, `[logging:syslog]`, and `[logging:file]`. These allow customization of log formats, levels, output destinations, and rotation policies.
+
+Password Storage
+----------------
+
+The `[passwords]` section is reserved for securely storing passwords. Passwords stored here can be referenced in other sections using the syntax `${passwords:key_name}` to avoid exposing secrets directly.
+
+Example:
+
+```ini
+[connection:KafkaConnection]
+password=${passwords:kafka_password}
+
+[passwords]
+kafka_password=supersecret
+```
+
+Summary
+-------
+
+The `Config` object in ASAB provides a comprehensive and extensible configuration management system with:
+
+- Default values and environment variable expansion.
+- Support for including multiple configuration files and ZooKeeper integration.
+- Convenient methods for retrieving typed values (booleans, seconds, URLs, multiline lists).
+- Integration with configurable Python objects.
+- Secure password management.
+
+This makes it easy to manage complex application configurations in a structured and maintainable way.

@@ -1,0 +1,210 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "w_fork — Prepare a New Weighted Ensemble Simulation by Forking an Existing One\n===============================================================================\n\nSynopsis\n--------\n\n.. code-block:: console\n\n    w_fork [OPTIONS]\n\nDescription\n-----------\n\n`w_fork` prepares a new weighted ensemble (WE) simulation by forking from an existing simulation at a specified iteration. It generates a new HDF5 file representing the new simulation, initializing it based on the state of the original simulation at the chosen iteration.\n\nThis command is useful for branching off new simulations from a previously completed or ongoing WE simulation, allowing exploration of alternative pathways or conditions starting from a known ensemble distribution.\n\nWhen using executable propagation, users must manually prepare the new simulation directory, ensuring that restart data from the original simulation at the specified iteration is available as initial state data for the new simulation. To assist with this, `w_fork` creates a mapping between old simulation segments and new simulation initial states, saved both in the new HDF5 file and as a flat text file.\n\nTarget states and basis states for the new simulation are copied from those in the original simulation at the specified iteration.\n\nOptions\n-------\n\n- `-i`, `--input` *INPUT_H5FILE*\n\n    Specify the input HDF5 file from which to create the new simulation. If not provided, the input file is read from the configuration file.\n\n- `-I`, `--iteration` *N_ITER*\n\n    Specify the iteration number from the original simulation to use as the initial distribution for the new simulation. Defaults to the last complete iteration if not specified.\n\n- `-o`, `--output` *OUTPUT_H5FILE*\n\n    Specify the filename for the new simulation HDF5 file. Defaults to `forked.h5`.\n\n- `--istate-map` *ISTATE_MAP*\n\n    Specify the filename for the text file describing the mapping of existing segments to new initial states. Defaults to `istate_map.txt`.\n\n- `--no-headers`\n\n    If set, the header lines are omitted from the ISTATE_MAP text file.\n\nBehavior and Details\n--------------------\n\n1. **Input Simulation Data**\n\n   The command opens the specified input HDF5 file (or the default from configuration) in read mode and determines the iteration to fork from (defaulting to the last completed iteration).\n\n2. **New Simulation Setup**\n\n   A new HDF5 file is created and opened for writing. Target states and basis states from the original simulation at the chosen iteration are copied into the new simulation file.\n\n3. **Initial States and Segments**\n\n   Each segment from the original simulation at the fork iteration is transformed into one initial state and one corresponding new segment in the new simulation. This one-to-one mapping preserves the ensemble distribution at the fork point.\n\n4. **Mapping File**\n\n   A text file is generated that maps each old simulation segment (identified by iteration and segment ID) to the new simulation initial state ID. This file aids in preparing the new simulation directory, especially for executable propagation where restart data must be managed manually.\n\nExample\n-------\n\nFork a new simulation from iteration 10 of an existing simulation stored in `sim1.h5`, saving the new simulation as `sim2.h5` and writing the initial state mapping to `map.txt`:\n\n.. code-block:: console\n\n    w_fork -i sim1.h5 -I 10 -o sim2.h5 --istate-map map.txt\n\nNotes\n-----\n\n- The user is responsible for ensuring that restart data from the original simulation at the fork iteration is available and correctly linked for the new simulation, particularly when using executable propagation.\n\n- Further adjustments to the new simulation's initial states and segments can be made using other WESTPA tools such as `w_binning`.\n\nSee Also\n--------\n\n- `w_binning` — Adjust binning and initial states in a weighted ensemble simulation.\n\n- WESTPA documentation for managing weighted ensemble simulations.\n\nLogging\n-------\n\n`w_fork` logs its progress and any warnings or errors under the logger named `w_fork`.\n\nLicense\n-------\n\nPart of the WESTPA software suite. See WESTPA documentation for license details.",
+  "prediction_sha256": "3653deec01fefaacf071906ab63716684a7b8e2203679710e5d1f61197042180",
+  "prompt_sha256": "c20dc233a086ec99850252be540f1e89142017d3d60511f715c43e2df7e1c864",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 5885,
+    "completion_tokens": 1390,
+    "total_tokens": 7275
+  },
+  "cost_usd": 0.0045780000000000005,
+  "generation_seconds": 11.569905499996821,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "w_fork"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1049,
+              "code": "import argparse\nimport logging\n\nimport numpy as np\n\nimport westpa\nfrom westpa.core.segment import Segment\nfrom westpa.core.states import InitialState\nfrom westpa.core.data_manager import n_iter_dtype, seg_id_dtype\n\nlog = logging.getLogger('w_fork')\n\n\ndef entry_point():\n    parser = argparse.ArgumentParser(\n        'w_fork',\n        description='''\\\n    Prepare a new weighted ensemble simulation from an existing one at a particular\n    point. A new HDF5 file is generated. In the case of executable propagation,\n    it is the user's responsibility to prepare the new simulation directory\n    appropriately, particularly making the old simulation's restart data from the\n    appropriate iteration available as the new simulations initial state data; a\n    mapping of old simulation segment to new simulation initial states is\n    created, both in the new HDF5 file and as a flat text file, to aid in this.\n    Target states and basis states for the new simulation are taken from those\n    in the original simulation.\n    ''',\n    )\n\n    westpa.rc.",
+              "code_tokens": 300,
+              "score": 3.277585167936
+            },
+            {
+              "chunk_id": 6,
+              "start_char": 4936,
+              "end_char": 5570,
+              "code": "args.istate_map, 'wt')\n    if not args.no_headers:\n        istate_map_file.write('# mapping from previous segment IDs to new initial states\\n')\n        istate_map_file.write('# generated by w_fork\\n')\n        istate_map_file.write('# column 0: old simulation n_iter\\n')\n        istate_map_file.write('# column 1: old simulation seg_id\\n')\n        istate_map_file.write('# column 2: new simulation initial state ID\\n')\n\n    for row in state_map:\n        istate_map_file.write(\n            '{old_n_iter:20d}    {old_seg_id:20d}    {new_istate_id:20d}\\n'.format(\n                old_n_iter=int(row['old_n_iter']), old_seg_id=int(row['old",
+              "code_tokens": 300,
+              "score": 2.441163950077
+            }
+          ],
+          "code_tokens": 600
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3735,
+              "code": "import argparse\nimport logging\n\nimport numpy as np\n\nimport westpa\nfrom westpa.core.segment import Segment\nfrom westpa.core.states import InitialState\nfrom westpa.core.data_manager import n_iter_dtype, seg_id_dtype\n\nlog = logging.getLogger('w_fork')\n\n\ndef entry_point():\n    parser = argparse.ArgumentParser(\n        'w_fork',\n        description='''\\\n    Prepare a new weighted ensemble simulation from an existing one at a particular\n    point. A new HDF5 file is generated. In the case of executable propagation,\n    it is the user's responsibility to prepare the new simulation directory\n    appropriately, particularly making the old simulation's restart data from the\n    appropriate iteration available as the new simulations initial state data; a\n    mapping of old simulation segment to new simulation initial states is\n    created, both in the new HDF5 file and as a flat text file, to aid in this.\n    Target states and basis states for the new simulation are taken from those\n    in the original simulation.\n    ''',\n    )\n\n    westpa.rc.add_args(parser)\n    parser.add_argument(\n        '-i',\n        '--input',\n        dest='input_h5file',\n        help='''Create simulation from the given INPUT_H5FILE (default: read from\n                                configuration file.''',\n    )\n    parser.add_argument(\n        '-I',\n        '--iteration',\n        dest='n_iter',\n        type=int,\n        help='''Take initial distribution for new simulation from iteration N_ITER\n                                (default: last complete iteration).''',\n    )\n    parser.add_argument(\n        '-o',\n        '--output',\n        dest='output_h5file',\n        default='forked.h5',\n        help='''Save new simulation HDF5 file as OUTPUT (default: %(default)s).''',\n    )\n    parser.add_argument(\n        '--istate-map',\n        default='istate_map.txt',\n        help='''Write text file describing mapping of existing segments to new initial\n                                states in ISTATE_MAP (default: %(default)s).''',\n    )\n    parser.add_argument('--no-headers', action='store_true', help='''Do not write header to ISTATE_MAP''')\n    args = parser.parse_args()\n    westpa.rc.process_args(args)\n\n    # Open old HDF5 file\n    dm_old = westpa.rc.new_data_manager()\n    if args.input_h5file:\n        dm_old.we_h5filename = args.input_h5file\n    dm_old.open_backing(mode='r')\n\n    # Get iteration if necessary\n    n_iter = args.n_iter or dm_old.current_iteration - 1\n\n    # Create and open new HDF5 file\n    dm_new = westpa.rc.new_data_manager()\n    dm_new.we_h5filename = args.output_h5file\n    dm_new.prepare_backing()\n    dm_new.open_backing()\n\n    # Copy target states\n    target_states = dm_old.get_target_states(n_iter)\n    dm_new.save_target_states(target_states, n_iter)\n\n    # Copy basis states\n    basis_states = dm_old.get_basis_states(n_iter)\n    dm_new.create_ibstate_group(basis_states, n_iter=1)\n\n    # Transform old segments into initial states and new segments\n    # We produce one initial state and one corresponding\n    # new segment for each old segment. Further adjustment\n    # can be accomplished by using w_binning.\n    old_iter_group = dm_old.get_iter_group(n_iter)\n    old_index = old_iter_group['seg_index'][...]\n    old_pcoord_ds = old_iter_group['pcoord']\n    n_segments = old_pcoord_ds.shape[0]\n    pcoord_len = old_pcoord_ds.shape[1]\n    pcoord_ndim = old_pcoord_ds.shape[2]\n    old_final_pcoords = old_pcoord_ds[:, pcoord_len - 1, :]\n\n    istates = dm_new.create_initial_states(n_segments, n_iter=1)\n    segments = []\n    state_map_dtype = np.dtype([('old_n_iter', n_iter_dtype), ('old_seg_id', seg_id_dtype), ('new_istate_id', seg_id_dtype)])\n    state_map = np.empty((n_segments,), dtype=state_map_dtype",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 6
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 6,
+              "start_char": 4936,
+              "end_char": 5692,
+              "code": "args.istate_map, 'wt')\n    if not args.no_headers:\n        istate_map_file.write('# mapping from previous segment IDs to new initial states\\n')\n        istate_map_file.write('# generated by w_fork\\n')\n        istate_map_file.write('# column 0: old simulation n_iter\\n')\n        istate_map_file.write('# column 1: old simulation seg_id\\n')\n        istate_map_file.write('# column 2: new simulation initial state ID\\n')\n\n    for row in state_map:\n        istate_map_file.write(\n            '{old_n_iter:20d}    {old_seg_id:20d}    {new_istate_id:20d}\\n'.format(\n                old_n_iter=int(row['old_n_iter']), old_seg_id=int(row['old_seg_id']), new_istate_id=int(row['new_istate_id'])\n            )\n        )\n\n\nif __name__ == '__main__':\n    entry_point()",
+              "code_tokens": 368
+            }
+          ],
+          "code_tokens": 368
+        }
+      }
+    ],
+    "code_tokens_returned": 2468,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "92aa0ce0b191c47076354d18c9436b0b27f921157fa66201a38779d1206b071d",
+        "request_id": "chatcmpl-Ej8WVonZAUwOao2pCZs5qYFUhMyqc",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 16,
+          "total_tokens": 173,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.840000000000001e-05,
+        "seconds": 0.7933987079995859,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "ea9ba84840164a53f0257e908ab2a840dcf59613fe28ec23b793a9655a048083",
+        "request_id": "chatcmpl-Ej8WWLRakxZyiOyktwC9cAFgl2A7R",
+        "usage": {
+          "prompt_tokens": 718,
+          "completion_tokens": 15,
+          "total_tokens": 733,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003112,
+        "seconds": 0.8473402079980588,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "9ab855b9a7407e5a70a92d32b78722a2e8d6220403001e9988dde74bc4aa9132",
+        "request_id": "chatcmpl-Ej8WXBX8XaicG6UcQkf2mhXdo29rs",
+        "usage": {
+          "prompt_tokens": 1772,
+          "completion_tokens": 15,
+          "total_tokens": 1787,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007328,
+        "seconds": 0.7333222919987747,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "73265f647be823b8bfd6096d89a185444a8444984c7ddb8b11fc5aa900bf178c",
+        "request_id": "chatcmpl-Ej8WX5QLormnToVT6hhUiO04SOhlA",
+        "usage": {
+          "prompt_tokens": 2077,
+          "completion_tokens": 512,
+          "total_tokens": 2589,
+          "prompt_tokens_details": {
+            "cached_tokens": 1664,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00165,
+        "seconds": 3.5985038750004605,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "748fa6295b5ce8c41108b39d5f71d9cf74a4e1a7b77cc8cbf440200da6ef714a",
+        "request_id": "chatcmpl-Ej8WbuaFxGg1u0TS44WzV2zunG9IG",
+        "usage": {
+          "prompt_tokens": 1161,
+          "completion_tokens": 832,
+          "total_tokens": 1993,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0017956,
+        "seconds": 5.597340416999941,
+        "retry_count": 0
+      }
+    ]
+  }
+}

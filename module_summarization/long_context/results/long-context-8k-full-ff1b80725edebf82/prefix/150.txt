@@ -1,0 +1,87 @@
+# Supporting Data to Plotting Functions in Multiple Ways
+
+This module provides flexible support for supplying data to plotting functions, enabling them to handle a variety of data formats and structures seamlessly. It allows plotting functions to accept data in forms such as lists, arrays, dictionaries, pandas DataFrames, or even Bokeh `ColumnDataSource` objects, and to specify which keys or columns to use for plotting. This flexibility facilitates the creation of reusable and adaptable plotting routines.
+
+## Overview
+
+The core component of this module is the `PlotData` class, which acts as an interface to iterate over and manipulate data from different sources in a uniform way. It supports:
+
+- Data provided as a single dictionary, pandas DataFrame, or Bokeh `ColumnDataSource`.
+- Multiple data sources provided as a list of the above types.
+- Specification of columns or keys to be used for plotting via keyword arguments.
+- Handling of multiple plot sets by expanding lists of keys into multiple entries.
+- Automatic iteration over data entries, yielding named tuples with the requested data columns.
+- Operations such as sorting, masking, applying functions, and retrieving min/max values on the data columns.
+
+## Key Features
+
+### Flexible Data Input
+
+`PlotData` accepts data in various forms:
+
+- **Dictionary**: A mapping of keys to arrays or lists.
+- **Pandas DataFrame**: Columns can be accessed by their names.
+- **Bokeh ColumnDataSource**: Supports direct use of Bokeh data sources if Bokeh is installed.
+- **List of Data Sources**: Multiple data sources can be handled simultaneously, useful for plotting multiple datasets.
+
+### Specifying Data Columns
+
+When creating a `PlotData` instance, you specify which keys or columns correspond to plotting dimensions (e.g., `x`, `y`, `z`, `color`, `size`) via keyword arguments. These can be single keys or lists of keys to represent multiple plot sets.
+
+Example:
+
+```python
+p = PlotData(data, x='energy', y=['intensity1', 'intensity2', 'intensity3'])
+```
+
+This creates an iterable over three plot sets, each with the same `x` data but different `y` data.
+
+### Iteration and Access
+
+`PlotData` supports iteration over the data entries, yielding named tuples with the specified keys. It provides methods to iterate over:
+
+- **Keys**: The keys or column names used for each data entry.
+- **Values**: The actual data arrays or series corresponding to the keys.
+- **Items**: Tuples of keys and their corresponding data sources.
+
+These iterators can return either all entries or just the first entry for convenience.
+
+### Data Manipulation Methods
+
+- **Adding Data Keys**: You can add new data keys after initialization unless strict mode is enabled.
+- **Applying Functions**: Apply arbitrary functions to data columns in-place.
+- **Getting Function Results**: Apply functions and retrieve results without modifying the data.
+- **Masking**: Generate boolean masks for filtering data, supporting callable masks.
+- **Sorting**: Sort data by specified data keys, converting data to pandas DataFrames if necessary.
+- **Min/Max Computation**: Compute minimum or maximum values across all data entries or separately for each.
+
+### Handling Multiple Plot Sets
+
+If multiple plot sets are specified (e.g., multiple `y` keys), `PlotData` manages the iteration and data extraction transparently, allowing plotting functions to loop over the `PlotData` instance and receive the correct data for each plot.
+
+### Copying Data
+
+To avoid unintended side effects when modifying data, `PlotData` supports copying the underlying data sources, including special handling for Bokeh `ColumnDataSource` objects.
+
+## Usage Example
+
+```python
+from masci_tools.vis.data import PlotData
+import numpy as np
+
+# Define an energy grid and multiple functions on this grid
+x = np.linspace(-10, 10, 100)
+data = {'x': x, 'y1': np.sin(x), 'y2': np.cos(x), 'y3': x**2}
+
+# Create PlotData with multiple y keys
+p = PlotData(data, x='x', y=['y1', 'y2', 'y3'])
+
+# Iterate over the plot sets
+for entry in p:
+    print(entry.x)  # x data
+    print(entry.y)  # y1, then y2, then y3 data
+```
+
+## Summary
+
+The `PlotData` class and associated utilities provide a powerful and flexible way to support plotting functions with diverse data inputs. By abstracting the data access and manipulation, plotting functions can be written generically and handle multiple datasets, different data structures, and complex plotting scenarios with ease. This approach enhances code reuse and simplifies the integration of plotting capabilities into scientific workflows.

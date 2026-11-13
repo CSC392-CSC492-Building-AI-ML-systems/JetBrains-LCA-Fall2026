@@ -1,0 +1,127 @@
+Connect to Remote Data
+======================
+
+Dask provides convenient utilities to connect to and read data from remote filesystems and URLs, enabling scalable and efficient data processing workflows. This document describes how to connect to remote data sources, read data in chunks, and handle various file formats and compression types.
+
+Reading Bytes from Remote Filesystems
+-------------------------------------
+
+The primary function for reading raw bytes from remote or local filesystems is `read_bytes`. This function supports reading from single files, multiple files, or glob patterns, and works seamlessly with various protocols such as `s3://`, `hdfs://`, `http://`, and others, provided the appropriate filesystem libraries are installed.
+
+### Function: `read_bytes`
+
+```python
+read_bytes(
+    urlpath,
+    delimiter=None,
+    not_zero=False,
+    blocksize="128 MiB",
+    sample="10 kiB",
+    compression=None,
+    include_path=False,
+    **kwargs,
+)
+```
+
+#### Parameters
+
+- **urlpath** (`str` or `list`):  
+  The path or list of paths to the file(s) to read. Can be a single filename, a glob pattern (e.g., `'2015-*-*.csv'`), or a list of paths. Paths can include a protocol prefix such as `s3://` or `hdfs://` to specify remote filesystems.
+
+- **delimiter** (`bytes`, optional):  
+  A byte string delimiter (e.g., `b'\n'`) used to split the data into logical blocks. This ensures that block boundaries align with the delimiter, which is useful for line-delimited files.
+
+- **not_zero** (`bool`, default `False`):  
+  If `True`, forces the first block to start after the first delimiter, effectively skipping a header row.
+
+- **blocksize** (`int` or `str`, default `"128 MiB"`):  
+  The size of each chunk to read in bytes. Can be specified as an integer or a human-readable string like `"128 MiB"`. If set to `None`, the entire file is read as a single block.
+
+- **sample** (`int`, `str`, or `bool`, default `"10 kiB"`):  
+  The number of bytes to read as a sample from the start of the first file. Can be `False` to disable sampling, an integer number of bytes, or a human-readable string like `"10 kiB"`.
+
+- **compression** (`str` or `None`, default `None`):  
+  Compression codec to use, such as `'gzip'`, `'bz2'`, `'xz'`, or `'zip'`. If set to `'infer'`, the compression is inferred from the file extension. Note that chunked reads are not supported on compressed files; in such cases, set `blocksize=None`.
+
+- **include_path** (`bool`, default `False`):  
+  If `True`, the returned output includes the list of file paths corresponding to each block.
+
+- **kwargs**:  
+  Additional keyword arguments passed to the underlying filesystem, such as authentication credentials (`host`, `port`, `username`, `password`, etc.).
+
+#### Returns
+
+- **sample** (`bytes` or `False`):  
+  A sample of bytes read from the start of the first file, useful for inferring file structure or schema.
+
+- **blocks** (`list` of lists of `dask.Delayed` objects):  
+  A nested list where each inner list corresponds to a file, and each delayed object represents a block of bytes from that file. These delayed objects can be computed to read the data lazily.
+
+- **paths** (`list` of `str`, optional):  
+  Returned only if `include_path=True`. A list of file paths corresponding to each block.
+
+#### Usage Examples
+
+```python
+# Read CSV files from local filesystem with newline delimiter
+sample, blocks = read_bytes('2015-*-*.csv', delimiter=b'\n')
+
+# Read CSV files from an S3 bucket
+sample, blocks = read_bytes('s3://bucket/2015-*-*.csv', delimiter=b'\n')
+
+# Read files and include file paths in the output
+sample, blocks, paths = read_bytes('2015-*-*.csv', include_path=True)
+```
+
+Handling Compression
+--------------------
+
+Dask supports several compression formats transparently when reading files, including gzip, bz2, xz, and zip. Compression can be specified explicitly or inferred from file extensions. However, chunked reading is not supported on compressed files because random access is generally not possible. To read compressed files, set `blocksize=None` to read the entire file at once.
+
+Supported compression codecs and their corresponding Python implementations include:
+
+- `gzip` — `gzip.compress`
+- `bz2` — `bz2.compress`
+- `xz` — `lzma.compress`
+- `zip` — custom zip compression using `zipfile` module
+
+Opening Remote Files
+--------------------
+
+Dask leverages `fsspec` to open files from various remote filesystems. The function `open_files` from `fsspec.core` returns a list of file-like objects that can be used to read or write data.
+
+Example:
+
+```python
+from fsspec.core import open_files
+
+files = open_files('http://example.com/data/*.csv')
+with files[0] as f:
+    data = f.read()
+```
+
+This approach supports HTTP, S3, HDFS, and other protocols, depending on the installed filesystem implementations.
+
+Testing and Examples
+--------------------
+
+Dask includes tests and examples demonstrating reading from remote HTTP servers, S3 buckets, and other remote sources. These tests cover:
+
+- Reading files with and without blocksize chunking.
+- Reading with custom HTTP headers.
+- Handling errors such as missing files or connection issues.
+- Reading parquet files from remote URLs using engines like `pyarrow` or `fastparquet`.
+- Reading text data from multiple URLs into Dask bags.
+
+These examples illustrate the robustness and flexibility of Dask's remote data access capabilities.
+
+Summary
+-------
+
+- Use `read_bytes` to read raw bytes from local or remote filesystems with support for chunking and delimiters.
+- Compression is supported but chunked reads are disabled for compressed files.
+- `fsspec` integration allows seamless access to many remote storage backends.
+- Returned data blocks are lazy `dask.Delayed` objects, enabling scalable parallel computation.
+- Sampling bytes from files helps infer file structure before full processing.
+
+By leveraging these tools, users can efficiently connect to and process large datasets stored remotely, integrating smoothly into Dask's parallel computing ecosystem.

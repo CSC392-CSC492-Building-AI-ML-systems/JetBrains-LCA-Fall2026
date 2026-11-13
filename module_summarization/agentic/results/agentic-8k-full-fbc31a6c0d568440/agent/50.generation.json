@@ -1,0 +1,331 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Generate Example for Generalized Additive Models (GAM)\n=======================================================\n\nThis example demonstrates how to generate and use spline and smoother components for Generalized Additive Models (GAM) using the provided classes and functions.\n\nOverview\n--------\n\nThe code provides implementations of various spline and smoother classes designed for GAMs, including:\n\n- `BSplines`: Additive smooth components using B-Splines.\n- `CyclicCubicSplines`: Additive smooth components using cyclic cubic regression splines.\n- `CubicSplines`: Additive smooth components using cubic splines as described in Wood (2006).\n- `PolynomialSmoother`: Additive polynomial components.\n- `GenericSmoothers`: Generic class for additive smooth components.\n- Utility functions for knot placement and B-spline basis evaluation.\n\nThese components can be combined and used within a GAM framework such as `GLMGam` to fit flexible regression models.\n\nExample: Creating and Using B-Spline Basis Functions\n----------------------------------------------------\n\n```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom smooth_basis import BSplines\nfrom generalized_additive_model import GLMGam\n\n# Generate sample data\nnp.random.seed(0)\nn_samples = 100\nx = np.linspace(0, 10, n_samples)\ny = np.sin(x) + np.random.normal(scale=0.3, size=n_samples)\n\n# Reshape x to 2D array as required (observations x variables)\nX = x[:, None]\n\n# Define degrees of freedom and degree for splines\ndf = [12]  # Number of basis functions for the spline\ndegree = [3]  # Cubic splines\n\n# Create B-spline basis smoother\nbspline_smoother = BSplines(X, df=df, degree=degree, include_intercept=True)\n\n# Transform the input data to spline basis design matrix\nX_basis = bspline_smoother.transform(X)\n\n# Fit a GAM model using GLMGam with the spline basis\nmodel = GLMGam(y, exog=np.ones((n_samples, 1)), smoother=bspline_smoother)\nresults = model.fit()\n\n# Predict on new data\nx_new = np.linspace(0, 10, 200)[:, None]\ny_pred = results.predict(exog=np.ones((200, 1)), exog_smooth=bspline_smoother.transform(x_new))\n\n# Plot results\nplt.scatter(x, y, facecolors='none', edgecolors='b', label='Data')\nplt.plot(x_new, y_pred, 'r-', label='GAM fit with B-splines')\nplt.xlabel('x')\nplt.ylabel('y')\nplt.legend()\nplt.title('GAM Fit Using B-Splines')\nplt.show()\n```\n\nKey Points\n----------\n\n- The `BSplines` class constructs additive smooth components using B-spline basis functions. It supports customization of degrees of freedom, spline degree, knot placement, and constraints.\n- The `transform` method of the smoother classes converts raw input data into the spline basis design matrix suitable for model fitting.\n- The `GLMGam` class (imported from `generalized_additive_model`) can be used to fit a GAM model by specifying the smoother.\n- Knot placement can be controlled via keyword arguments such as `knots`, `spacing`, `lower_bound`, and `upper_bound` when creating spline smoothers.\n- Other spline classes such as `CyclicCubicSplines` and `CubicSplines` provide alternative spline bases for modeling periodic or cubic spline effects.\n- Polynomial smoothers and generic smoothers allow for flexible additive model components beyond splines.\n\nAdditional Utilities\n--------------------\n\n- `_equally_spaced_knots` and `_R_compat_quantile` functions assist in knot placement strategies.\n- `_eval_bspline_basis` evaluates B-spline basis functions given knots and degree.\n- `get_knots_bsplines` provides a unified interface to generate knots for B-splines with options for quantile or equal spacing.\n\nReferences\n----------\n\n- Wood, S.N. (2006). Generalized Additive Models: An Introduction with R. Chapman and Hall/CRC.\n- Patsy spline basis functions and knot placement strategies.\n\nThis example and the provided classes enable flexible and powerful modeling of nonlinear relationships in regression settings using GAMs with spline-based smoothers.",
+  "prediction_sha256": "700c1f43bc9d51918585c71de5124f87f96045c3069a4e724ff4622d0ced694a",
+  "prompt_sha256": "308b59192dcb6459d0fb17de48143f384243353c35841fe9a331c8b43b1f5ddc",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 14704,
+    "completion_tokens": 984,
+    "total_tokens": 15688
+  },
+  "cost_usd": 0.007456000000000001,
+  "generation_seconds": 10.521442711000418,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "gam"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 39,
+              "start_char": 28744,
+              "end_char": 29459,
+              "code": " : ndarray\n            design matrix for the spline basis for given ``x_new``.\n\n        \"\"\"\n        exog = np.hstack(list(self.smoothers[i].transform(x_new[:, i])\n                         for i in range(self.k_variables)))\n        return exog\n\n\nclass GenericSmoothers(AdditiveGamSmoother):\n    \"\"\"generic class for additive smooth components for GAM\n    \"\"\"\n    def __init__(self, x, smoothers):\n        self.smoothers = smoothers\n        super(GenericSmoothers, self).__init__(x, variable_names=None)\n\n    def _make_smoothers_list(self):\n        return self.smoothers\n\n\nclass PolynomialSmoother(AdditiveGamSmoother):\n    \"\"\"additive polynomial components for GAM\n    \"\"\"\n    def __init__(self, x, degrees, variable",
+              "code_tokens": 300,
+              "score": 2.454179546525
+            },
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 824,
+              "code": "from.generalized_additive_model import GLMGam  # noqa:F401\nfrom.gam_cross_validation.gam_cross_validation import MultivariateGAMCVPath  # noqa:F401,E501\nfrom.smooth_basis import BSplines, CyclicCubicSplines  # noqa:F401\n\n\n# -*- coding: utf-8 -*-\n\"\"\"\nSpline and other smoother classes for Generalized Additive Models\n\nAuthor: Luca Puggini\nAuthor: Josef Perktold\n\nCreated on Fri Jun  5 16:32:00 2015\n\"\"\"\n\n# import useful only for development\nfrom abc import ABCMeta, abstractmethod\nfrom statsmodels.compat.python import with_metaclass\n\nimport numpy as np\nimport pandas as pd\nfrom patsy import dmatrix\nfrom patsy.mgcv_cubic_splines import _get_all_sorted_knots\n\nfrom statsmodels.tools.linalg import transf_constraints\n\n\n# Obtain b splines from patsy\n\ndef _equally_spaced_knots(x, df):\n    n_knots = df - 2\n    x_min = x.min()\n ",
+              "code_tokens": 300,
+              "score": 2.00667924737
+            },
+            {
+              "chunk_id": 46,
+              "start_char": 34969,
+              "end_char": 35495,
+              "code": " super(CubicSplines, self).__init__(x, constraints=constraints,\n                                           variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n            uv_smoother = UnivariateCubicSplines(\n                            self.x[:, v], df=self.dfs[v],\n                            constraints=self.constraints,\n                            transform=self.transform,\n                            variable_name=self.variable_names[v])\n",
+              "code_tokens": 300,
+              "score": 1.48067617866
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 39
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 39,
+              "start_char": 28744,
+              "end_char": 32818,
+              "code": " : ndarray\n            design matrix for the spline basis for given ``x_new``.\n\n        \"\"\"\n        exog = np.hstack(list(self.smoothers[i].transform(x_new[:, i])\n                         for i in range(self.k_variables)))\n        return exog\n\n\nclass GenericSmoothers(AdditiveGamSmoother):\n    \"\"\"generic class for additive smooth components for GAM\n    \"\"\"\n    def __init__(self, x, smoothers):\n        self.smoothers = smoothers\n        super(GenericSmoothers, self).__init__(x, variable_names=None)\n\n    def _make_smoothers_list(self):\n        return self.smoothers\n\n\nclass PolynomialSmoother(AdditiveGamSmoother):\n    \"\"\"additive polynomial components for GAM\n    \"\"\"\n    def __init__(self, x, degrees, variable_names=None):\n        self.degrees = degrees\n        super(PolynomialSmoother, self).__init__(x,\n                                                 variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n            uv_smoother = UnivariatePolynomialSmoother(\n                self.x[:, v],\n                degree=self.degrees[v],\n                variable_name=self.variable_names[v])\n            smoothers.append(uv_smoother)\n        return smoothers\n\n\nclass BSplines(AdditiveGamSmoother):\n    \"\"\"additive smooth components using B-Splines\n\n    This creates and holds the B-Spline basis function for several\n    components.\n\n    Parameters\n    ----------\n    x : array_like, 1-D or 2-D\n        underlying explanatory variable for smooth terms.\n        If 2-dimensional, then observations should be in rows and\n        explanatory variables in columns.\n    df :  int\n        numer of basis functions or degrees of freedom\n    degree : int\n        degree of the spline\n    include_intercept : bool\n        If False, then the basis functions are transformed so that they\n        do not include a constant. This avoids perfect collinearity if\n        a constant or several components are included in the model.\n    constraints : None, string or array\n        Constraints are used to transform the basis functions to satisfy\n        those constraints.\n        `constraints = 'center'` applies a linear transform to remove the\n        constant and center the basis functions.\n    variable_names : None or list of strings\n        The names for the underlying explanatory variables, x used in for\n        creating the column and parameter names for the basis functions.\n        If ``x`` is a pandas object, then the names will be taken from it.\n    knot_kwds : None or list of dict\n        option for the knot selection.\n        By default knots are selected in the same way as in patsy, however the\n        number of knots is independent of keeping or removing the constant.\n        Interior knot selection is based on quantiles of the data and is the\n        same in patsy and mgcv. Boundary points are at the limits of the data\n        range.\n        The available options use with `get_knots_bsplines` are\n\n        - knots : None or array\n          interior knots\n        - spacing : 'quantile' or 'equal'\n        - lower_bound : None or float\n          location of lower boundary knots, all boundary knots are at the same\n          point\n        - upper_bound : None or float\n          location of upper boundary knots, all boundary knots are at the same\n          point\n        - all_knots : None or array\n          If all knots are provided, then those will be taken as given and\n          all other options will be ignored.\n\n\n    Attributes\n    ----------\n    smoothers : list of univariate smooth component instances\n    basis : design matrix, array of spline bases columns for all components\n    penalty_matrices : list of penalty matrices, one for each smooth term\n    dim_basis : number of columns in the basis\n    k_variables : number of smooth components\n    col_names : created names for the basis columns\n\n    There are additional attributes about the specification of the splines\n    and some attributes mainly for internal use.\n\n    Notes\n    -----\n    A constant in the spl",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 39
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3827,
+              "code": "from.generalized_additive_model import GLMGam  # noqa:F401\nfrom.gam_cross_validation.gam_cross_validation import MultivariateGAMCVPath  # noqa:F401,E501\nfrom.smooth_basis import BSplines, CyclicCubicSplines  # noqa:F401\n\n\n# -*- coding: utf-8 -*-\n\"\"\"\nSpline and other smoother classes for Generalized Additive Models\n\nAuthor: Luca Puggini\nAuthor: Josef Perktold\n\nCreated on Fri Jun  5 16:32:00 2015\n\"\"\"\n\n# import useful only for development\nfrom abc import ABCMeta, abstractmethod\nfrom statsmodels.compat.python import with_metaclass\n\nimport numpy as np\nimport pandas as pd\nfrom patsy import dmatrix\nfrom patsy.mgcv_cubic_splines import _get_all_sorted_knots\n\nfrom statsmodels.tools.linalg import transf_constraints\n\n\n# Obtain b splines from patsy\n\ndef _equally_spaced_knots(x, df):\n    n_knots = df - 2\n    x_min = x.min()\n    x_max = x.max()\n    knots = np.linspace(x_min, x_max, n_knots)\n    return knots\n\n\ndef _R_compat_quantile(x, probs):\n    # return np.percentile(x, 100 * np.asarray(probs))\n    probs = np.asarray(probs)\n    quantiles = np.asarray([np.percentile(x, 100 * prob)\n                            for prob in probs.ravel(order=\"C\")])\n    return quantiles.reshape(probs.shape, order=\"C\")\n\n\n# FIXME: is this copy/pasted?  If so, why do we need it?  If not, get\n#  rid of the try/except for scipy import\n# from patsy splines.py\ndef _eval_bspline_basis(x, knots, degree, deriv='all', include_intercept=True):\n    try:\n        from scipy.interpolate import splev\n    except ImportError:\n        raise ImportError(\"spline functionality requires scipy\")\n    # 'knots' are assumed to be already pre-processed. E.g. usually you\n    # want to include duplicate copies of boundary knots; you should do\n    # that *before* calling this constructor.\n    knots = np.atleast_1d(np.asarray(knots, dtype=float))\n    assert knots.ndim == 1\n    knots.sort()\n    degree = int(degree)\n    x = np.atleast_1d(x)\n    if x.ndim == 2 and x.shape[1] == 1:\n        x = x[:, 0]\n    assert x.ndim == 1\n    # XX FIXME: when points fall outside of the boundaries, splev and R seem\n    # to handle them differently. I don't know why yet. So until we understand\n    # this and decide what to do with it, I'm going to play it safe and\n    # disallow such points.\n    if np.min(x) < np.min(knots) or np.max(x) > np.max(knots):\n        raise NotImplementedError(\"some data points fall outside the \"\n                                  \"outermost knots, and I'm not sure how \"\n                                  \"to handle them. (Patches accepted!)\")\n    # Thanks to Charles Harris for explaining splev. It's not well\n    # documented, but basically it computes an arbitrary b-spline basis\n    # given knots and degree on some specificed points (or derivatives\n    # thereof, but we don't use that functionality), and then returns some\n    # linear combination of these basis functions. To get out the basis\n    # functions themselves, we use linear combinations like [1, 0, 0], [0,\n    # 1, 0], [0, 0, 1].\n    # NB: This probably makes it rather inefficient (though I haven't checked\n    # to be sure -- maybe the fortran code actually skips computing the basis\n    # function for coefficients that are zero).\n    # Note: the order of a spline is the same as its degree + 1.\n    # Note: there are (len(knots) - order) basis functions.\n\n    k_const = 1 - int(include_intercept)\n    n_bases = len(knots) - (degree + 1) - k_const\n    if deriv in ['all', 0]:\n        basis = np.empty((x.shape[0], n_bases), dtype=float)\n        ret = basis\n    if deriv in ['all', 1]:\n        der1_basis = np.empty((x.shape[0], n_bases), dtype=float)\n        ret = der1_basis\n    if deriv in ['all', 2]:\n        der2_basis = np.empty((x.shape[0], n_bases), dtype=float)\n        ret = der2_basis\n\n    for i in range(n_bases):\n        coefs = np.zeros((n_bases + k_const,))\n",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "BSplines example"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 40,
+              "start_char": 29561,
+              "end_char": 30191,
+              "code": "                                            variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n            uv_smoother = UnivariatePolynomialSmoother(\n                self.x[:, v],\n                degree=self.degrees[v],\n                variable_name=self.variable_names[v])\n            smoothers.append(uv_smoother)\n        return smoothers\n\n\nclass BSplines(AdditiveGamSmoother):\n    \"\"\"additive smooth components using B-Splines\n\n    This creates and holds the B-Spline basis function for several\n    components.\n\n    Parameters\n    ----------\n  ",
+              "code_tokens": 300,
+              "score": 3.160767667049
+            },
+            {
+              "chunk_id": 6,
+              "start_char": 5043,
+              "end_char": 5776,
+              "code": "\n\n\ndef get_knots_bsplines(x=None, df=None, knots=None, degree=3,\n                       spacing='quantile', lower_bound=None,\n                       upper_bound=None, all_knots=None):\n    \"\"\"knots for use in B-splines\n\n    There are two main options for the knot placement\n\n    - quantile spacing with multiplicity of boundary knots\n    - equal spacing extended to boundary or exterior knots\n\n    The first corresponds to splines as used by patsy. the second is the\n    knot spacing for P-Splines.\n\n    \"\"\"\n    # based on patsy memorize_finish\n    if all_knots is not None:\n        return all_knots\n\n    x_min = x.min()\n    x_max = x.max()\n\n    if degree < 0:\n        raise ValueError(\"degree must be greater than 0 (not %r)\"\n       ",
+              "code_tokens": 300,
+              "score": 3.148469216808
+            },
+            {
+              "chunk_id": 44,
+              "start_char": 33456,
+              "end_char": 34105,
+              "code": " \"\"\"\n    def __init__(self, x, df, degree, include_intercept=False,\n                 constraints=None, variable_names=None, knot_kwds=None):\n        self.degrees = degree\n        self.dfs = df\n        self.knot_kwds = knot_kwds\n        # TODO: move attaching constraints to super call\n        self.constraints = constraints\n        if constraints == 'center':\n            include_intercept = True\n\n        super(BSplines, self).__init__(x, include_intercept=include_intercept,\n                                       variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n",
+              "code_tokens": 300,
+              "score": 3.015099581358
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 44
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 44,
+              "start_char": 33456,
+              "end_char": 36836,
+              "code": " \"\"\"\n    def __init__(self, x, df, degree, include_intercept=False,\n                 constraints=None, variable_names=None, knot_kwds=None):\n        self.degrees = degree\n        self.dfs = df\n        self.knot_kwds = knot_kwds\n        # TODO: move attaching constraints to super call\n        self.constraints = constraints\n        if constraints == 'center':\n            include_intercept = True\n\n        super(BSplines, self).__init__(x, include_intercept=include_intercept,\n                                       variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n            kwds = self.knot_kwds[v] if self.knot_kwds else {}\n            uv_smoother = UnivariateBSplines(\n                self.x[:, v],\n                df=self.dfs[v], degree=self.degrees[v],\n                include_intercept=self.include_intercept[v],\n                constraints=self.constraints,\n                variable_name=self.variable_names[v], **kwds)\n            smoothers.append(uv_smoother)\n\n        return smoothers\n\n\nclass CubicSplines(AdditiveGamSmoother):\n    \"\"\"additive smooth components using cubic splines as in Wood 2006.\n\n    Note, these splines do NOT use the same spline basis as\n    ``Cubic Regression Splines``.\n\n    \"\"\"\n    def __init__(self, x, df, constraints='center', transform='domain',\n                 variable_names=None):\n        self.dfs = df\n        self.constraints = constraints\n        self.transform = transform\n        super(CubicSplines, self).__init__(x, constraints=constraints,\n                                           variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for v in range(self.k_variables):\n            uv_smoother = UnivariateCubicSplines(\n                            self.x[:, v], df=self.dfs[v],\n                            constraints=self.constraints,\n                            transform=self.transform,\n                            variable_name=self.variable_names[v])\n            smoothers.append(uv_smoother)\n\n        return smoothers\n\n\nclass CyclicCubicSplines(AdditiveGamSmoother):\n    \"\"\"additive smooth components using cyclic cubic regression splines\n\n    This spline basis is the same as in patsy.\n\n    Parameters\n    ----------\n    x : array_like, 1-D or 2-D\n        underlying explanatory variable for smooth terms.\n        If 2-dimensional, then observations should be in rows and\n        explanatory variables in columns.\n    df :  int\n        numer of basis functions or degrees of freedom\n    constraints : None, string or array\n        Constraints are used to transform the basis functions to satisfy\n        those constraints.\n    variable_names : None or list of strings\n        The names for the underlying explanatory variables, x used in for\n        creating the column and parameter names for the basis functions.\n        If ``x`` is a pandas object, then the names will be taken from it.\n\n    \"\"\"\n    def __init__(self, x, df, constraints=None, variable_names=None):\n        self.dfs = df\n        # TODO: move attaching constraints to super call\n        self.constraints = constraints\n        super(CyclicCubicSplines, self).__init__(x,\n                                                 variable_names=variable_names)\n\n    def _make_smoothers_list(self):\n        smoothers = []\n        for",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 6300,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "9d1077fa5b1958b583b29117b06561ed608895db63387c659787bc3f7040585c",
+        "request_id": "chatcmpl-Ej8SsUmlcnOzV0Qxxxskynfda3bfs",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 14,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.480000000000001e-05,
+        "seconds": 0.89557304200207,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "eb74f34b4be5b75bc131711d2927497d84ccc8d6e210562aeb11d8678b212233",
+        "request_id": "chatcmpl-Ej8StCOwMScoaDFRLnR52ifvMfjoW",
+        "usage": {
+          "prompt_tokens": 882,
+          "completion_tokens": 15,
+          "total_tokens": 897,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003768,
+        "seconds": 0.7875825420014735,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "d33bc6d30de3ec61c80e9e0b135a3e8152bf391728e9a4008e321a2d7c1d8497",
+        "request_id": "chatcmpl-Ej8St24XjV1OynHKPvasCDS9imMtq",
+        "usage": {
+          "prompt_tokens": 1909,
+          "completion_tokens": 15,
+          "total_tokens": 1924,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007876000000000001,
+        "seconds": 0.6536357080003654,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "0d9e0b4bec93a9287d777e0f393b813c1c1e38e3f8e0c3da315082741d913533",
+        "request_id": "chatcmpl-Ej8Sut7Ufvj2Sw8IW1LlUjnaZxWyK",
+        "usage": {
+          "prompt_tokens": 1945,
+          "completion_tokens": 15,
+          "total_tokens": 1960,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000802,
+        "seconds": 0.6632580839977891,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "41631cfd43645f4f6d965b82c0c1c786e0ed84e0fd1104c2637be85ca9e562c4",
+        "request_id": "chatcmpl-Ej8SvRvO5gS5DfcJl8NMjLnVe6UPn",
+        "usage": {
+          "prompt_tokens": 3130,
+          "completion_tokens": 17,
+          "total_tokens": 3147,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012792,
+        "seconds": 0.922459583998716,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "b5abd9d967ab97217e51c9ec3c633ea5b601ea04276b741b2dca76931521fec1",
+        "request_id": "chatcmpl-Ej8SwdABByIioEp3M6TP8HMgtY0Hx",
+        "usage": {
+          "prompt_tokens": 3823,
+          "completion_tokens": 15,
+          "total_tokens": 3838,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015532,
+        "seconds": 0.6911520840003504,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "bc371811f8c2ecad51a19d9fd4d48afd5bbfc0e6b0b5510e0d18fe0801cbd2ae",
+        "request_id": "chatcmpl-Ej8SwZXfLLtiFABYuNiyuEMX3W2jw",
+        "usage": {
+          "prompt_tokens": 2859,
+          "completion_tokens": 893,
+          "total_tokens": 3752,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0025724000000000007,
+        "seconds": 5.907781666999654,
+        "retry_count": 0
+      }
+    ]
+  }
+}

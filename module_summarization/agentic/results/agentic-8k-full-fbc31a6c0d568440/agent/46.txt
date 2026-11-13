@@ -1,0 +1,178 @@
+Storage Module
+==============
+
+Overview
+--------
+
+This module provides storage services implementations for MongoDB and ElasticSearch, designed to be used within the ASAB framework. It includes asynchronous operations for data retrieval, insertion, update, and deletion, with support for optimistic concurrency control and optional AES encryption for sensitive fields.
+
+MongoDB Storage Service
+-----------------------
+
+The `StorageService` class implements a MongoDB-backed storage service using the `motor` asynchronous driver and `pymongo`. It supports basic CRUD operations and provides an upsertor interface for atomic updates.
+
+### Configuration
+
+The MongoDB storage service can be configured via the `asab:storage` configuration section:
+
+- `mongodb_uri`: MongoDB connection URI (default: `mongodb://localhost:27017`)
+- `mongodb_database`: Name of the MongoDB database to use (default: `asabdb`)
+- `aes_key`: Optional AES key for encrypting selected fields (must be a non-empty string to enable encryption)
+
+### Class: StorageService
+
+```python
+class StorageService(StorageServiceABC):
+    """
+    StorageService for MongoDB. Depends on `pymongo` and `motor`.
+    """
+```
+
+#### Methods
+
+- `__init__(app, service_name, config_section_name='asab:storage')`  
+  Initializes the service, connects to MongoDB using the configured URI and database name.
+
+- `upsertor(collection: str, obj_id=None, version=0) -> MongoDBUpsertor`  
+  Creates an upsertor object for atomic insert/update operations on a specified collection.  
+  - `collection`: Name of the MongoDB collection.  
+  - `obj_id`: Optional object ID for existing documents; if `None`, a new ID will be generated.  
+  - `version`: Version number for optimistic concurrency control (default 0).
+
+- `async get(collection: str, obj_id, decrypt=None) -> dict`  
+  Retrieves a document by its ID from the specified collection.  
+  - Raises `KeyError` if the document is not found.  
+  - Optionally decrypts specified fields if `decrypt` is provided.
+
+- `async get_by(collection: str, key: str, value, decrypt=None) -> dict`  
+  Retrieves a document by a key-value pair from the specified collection.  
+  - Raises `KeyError` if no matching document is found.  
+  - Optionally decrypts specified fields.
+
+- `async collection(collection: str) -> AsyncIOMotorCollection`  
+  Returns the raw Motor collection object for advanced operations.
+
+- `async delete(collection: str, obj_id)`  
+  Deletes a document by its ID from the specified collection.  
+  - Raises `KeyError` if the document is not found.
+
+- `aes_encrypt(raw: bytes, iv: bytes = None) -> bytes`  
+  Encrypts binary data using AES-CBC with the configured AES key.  
+  - Raises `RuntimeError` if AES encryption is not enabled.  
+  - Raises `TypeError` if input data is not bytes.
+
+- `aes_decrypt(enc: bytes) -> bytes`  
+  Decrypts AES-CBC encrypted data.
+
+### Class: MongoDBUpsertor
+
+```python
+class MongoDBUpsertor(UpsertorABC):
+```
+
+Provides an interface for atomic upsert operations with support for:
+
+- `$set`, `$inc`, `$push`, and `$unset` MongoDB update operators.
+- Optimistic concurrency control via versioning.
+- Automatic generation of new object IDs.
+- Handling of duplicate key errors with `DuplicateError` exception.
+
+ElasticSearch Storage Service
+-----------------------------
+
+The `StorageService` class also provides an implementation for ElasticSearch storage using the `aiohttp` library for asynchronous HTTP requests.
+
+### Configuration
+
+The ElasticSearch storage service can be configured via the `asab:storage` configuration section:
+
+- `elasticsearch_url`: URL(s) of ElasticSearch nodes (e.g., `http://localhost:9200/`)
+- `elasticsearch_username`: Username for basic authentication (optional)
+- `elasticsearch_password`: Password for basic authentication (optional)
+- `elasticsearch_api_key`: API key for authorization (optional)
+- `refresh`: Controls visibility of operations to search (`true`, `false`, `wait_for`)
+- `scroll_timeout`: Timeout for scroll operations (default: `1m`)
+
+### Class: StorageService
+
+```python
+class StorageService(StorageServiceABC):
+    """
+    StorageService for ElasticSearch. Depends on `aiohttp` library.
+    """
+```
+
+#### Methods
+
+- `__init__(app, service_name, config_section_name='asab:storage')`  
+  Initializes the service, parses ElasticSearch URLs, sets up authentication and headers.
+
+- `async finalize(app)`  
+  Closes the HTTP client session.
+
+- `session()`  
+  Returns the current `aiohttp.ClientSession`, creating one if necessary.
+
+- `async is_connected() -> bool`  
+  Checks connectivity to the ElasticSearch cluster by sending a GET request to each configured node.  
+  - Raises `ConnectionError` if unable to connect to any node.
+
+- `async get(index: str, obj_id)`  
+  Retrieves a document by ID from the specified ElasticSearch index. (Method implementation incomplete in provided code.)
+
+Additional Notes
+----------------
+
+- The MongoDB storage service supports optional AES encryption for selected fields. To enable encryption, specify a non-empty `aes_key` in the configuration and ensure the `cryptography` package is installed.
+
+- The upsertor pattern used in MongoDB storage provides a safe way to perform atomic updates with version checks to prevent race conditions.
+
+- The ElasticSearch storage service supports both basic authentication and API key authorization.
+
+- Both storage services are designed to integrate seamlessly with the ASAB framework and its configuration system.
+
+Exceptions
+----------
+
+- `DuplicateError`: Raised when attempting to insert a document with a duplicate key.
+
+- `KeyError`: Raised when a requested document is not found in the storage.
+
+Dependencies
+------------
+
+- MongoDB Storage Service: `motor`, `pymongo`, `bson`, `cryptography` (optional for encryption)
+
+- ElasticSearch Storage Service: `aiohttp`
+
+Example Usage
+-------------
+
+```python
+# MongoDB StorageService usage example
+storage = StorageService(app, "storage")
+
+# Insert or update a document
+upsertor = storage.upsertor("mycollection", obj_id=None, version=0)
+upsertor.ModSet = {"field": "value"}
+await upsertor.execute()
+
+# Retrieve a document
+doc = await storage.get("mycollection", obj_id)
+
+# Delete a document
+await storage.delete("mycollection", obj_id)
+```
+
+```python
+# ElasticSearch StorageService usage example
+storage = StorageService(app, "storage")
+
+connected = await storage.is_connected()
+if connected:
+    doc = await storage.get("myindex", obj_id)
+```
+
+---
+
+This module provides robust, asynchronous storage backends for MongoDB and ElasticSearch, suitable for scalable and concurrent applications within the ASAB ecosystem.

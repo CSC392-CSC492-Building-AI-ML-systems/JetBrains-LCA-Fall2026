@@ -1,0 +1,123 @@
+Generate Documentation for Plans
+=================================
+
+This document provides an overview and usage details for several scanning and ramping plans designed for experimental control and data acquisition workflows. These plans facilitate complex motor movements and data collection patterns, including spiral scans and ramped measurements.
+
+Spiral Square Scan
+------------------
+
+**Function:** `spiral_square`
+
+Performs a square spiral scan pattern over specified ranges along two motor axes.
+
+**Parameters:**
+
+- `detectors` (list): List of readable detector objects.
+- `x_motor` (object): Settable object controlling the X-axis position.
+- `y_motor` (object): Settable object controlling the Y-axis position.
+- `x_center` (float): Center position along the X-axis.
+- `y_center` (float): Center position along the Y-axis.
+- `x_range` (float): Total width of the scan along the X-axis.
+- `y_range` (float): Total width of the scan along the Y-axis.
+- `x_num` (int): Number of points along the X-axis.
+- `y_num` (int): Number of points along the Y-axis.
+- `per_step` (callable, optional): Hook for customizing actions at each step.
+- `md` (dict, optional): Metadata dictionary to include with the scan.
+
+**Returns:**
+
+A generator plan that yields messages to perform the scan.
+
+**Metadata:**
+
+Includes plan arguments, plan name, pattern type, scan shape, extents, and hints for gridding and dimensions.
+
+**See Also:**
+
+- `bluesky.plans.relative_spiral_square`
+- `bluesky.plans.spiral`
+- `bluesky.plans.relative_spiral`
+- `bluesky.plans.spiral_fermat`
+- `bluesky.plans.relative_spiral_fermat`
+
+Relative Spiral Square Scan
+---------------------------
+
+**Function:** `rel_spiral_square`
+
+Performs a relative square spiral scan centered around the current position of the motors.
+
+**Parameters:**
+
+- `detectors` (list): List of readable detector objects.
+- `x_motor` (object): Settable object controlling the X-axis position.
+- `y_motor` (object): Settable object controlling the Y-axis position.
+- `x_range` (float): Width of the spiral along the X-axis.
+- `y_range` (float): Width of the spiral along the Y-axis.
+- `x_num` (int): Number of points along the X-axis.
+- `y_num` (int): Number of points along the Y-axis.
+- `per_step` (callable, optional): Hook for customizing actions at each step.
+- `md` (dict, optional): Metadata dictionary to include with the scan.
+
+**Returns:**
+
+A generator plan that yields messages to perform the relative spiral square scan.
+
+**Notes:**
+
+This plan uses decorators to reset motor positions and perform relative moves.
+
+**See Also:**
+
+- `bluesky.plans.spiral_square`
+- `bluesky.plans.spiral`
+- `bluesky.plans.relative_spiral`
+- `bluesky.plans.spiral_fermat`
+- `bluesky.plans.relative_spiral_fermat`
+
+Ramped Data Acquisition Plan
+----------------------------
+
+**Function:** `ramp_plan`
+
+Executes a data acquisition plan while ramping one or more positioners, allowing data collection during continuous motion.
+
+**Parameters:**
+
+- `go_plan` (generator): Plan to initiate the ramp. Must return an `ophyd.StatusBase` object.
+- `monitor_sig` (signal): Signal(s) to monitor during the ramp.
+- `inner_plan_func` (generator function): Function generating data acquisition steps; called repeatedly during the ramp.
+- `take_pre_data` (bool, optional): If True, takes a data point before starting the ramp (default: True).
+- `timeout` (float, optional): Maximum allowed time for the ramp in seconds.
+- `period` (float, optional): Minimum time interval between data points in seconds; if None, data is taken as fast as possible.
+- `md` (dict, optional): Metadata dictionary to include with the run.
+
+**Behavior:**
+
+- Starts the ramp using `go_plan`.
+- Opens a run and repeatedly calls `inner_plan_func` to collect data.
+- Monitors the ramp status and respects timeout and period constraints.
+- Closes the run upon completion.
+
+**Metadata:**
+
+Includes plan name and any user-provided metadata.
+
+Utility: Plan Chain
+-------------------
+
+**Function:** `pchain`
+
+Chains multiple generator plans together using `yield from`, ensuring that `.send()` calls work correctly and that return values from underlying plans are propagated.
+
+**Parameters:**
+
+- `*args`: Generator plans to chain.
+
+**Returns:**
+
+A generator that sequentially yields from each provided plan.
+
+---
+
+This collection of plans provides flexible and powerful tools for orchestrating complex experimental sequences involving motor movements and synchronized data acquisition. They are designed to integrate seamlessly with the Bluesky framework and support metadata enrichment for comprehensive experiment documentation.

@@ -1,0 +1,30 @@
+{
+  "original_id": 28,
+  "repo": "westpa__westpa",
+  "docfile_name": "w_multi_west.rst",
+  "source_sha256": "ade6b22cd55fa7b8f0531fb741e7fc39abd4631ed730f4bb685d26aafc4838b4",
+  "context": "))\n                    return mapper\n\n        raise KeyError('hash {} not found'.format(hashval))\n\n\ndef create_idtype_array(input_array):\n    '''Return a new array with the new istate_dtype while preserving old data.'''\n    new_array = np.zeros(input_array.shape, dtype=istate_dtype)\n    for j in input_array.dtype.names:\n        new_array[j] = input_array[j].copy()\n\n    # Need to turn 'basis_auxref' to empty bytestrings...\n    new_array['basis_auxref'] = b''\n\n    return new_array\n\n\nclass WMultiWest(WESTMultiTool):\n    prog = 'w_multi_west'\n    description = '''\\\nTool designed to combine multiple WESTPA simulations while accounting for\nreweighting.\n-----------------------------------------------------------------------------\nCommand-line options\n-----------------------------------------------------------------------------\n'''\n\n    def __init__(self):\n        super(WESTTool, self).__init__()\n    \n\n    self.progress = ProgressIndicatorComponent()\n        # We no longer care about a lot of this.\n        self.ntrials = 0\n        self.nstates = 0\n        self.kin_trial = {}\n        self.west = {}\n        self.niters = 0\n\n    def add_args(self, parser):\n        self.progress.add_args(parser)\n        iogroup = parser.add_argument_group('input/output options')\n        iogroup.add_argument('-o', '--output-file', default='multi.h5', help='''The name of the output file to store results in.''')\n        iogroup.add_argument(\n            '-W',\n            '--west',\n            '--WEST_H5FILE',\n            default='west.h5',\n            help='''The name of the main.h5 file inside each simulation\n                             directory''',\n        )\n        iogroup.add_argument('-a', '--aux', action='append', help='''Names of additional auxiliary datasets to be combined''')\n        iogroup.add_argument('-aa', '--auxall', action='store_true', help='''Combine all auxiliary datasets. Default: False''')\n        iogroup.add_argument('-nr', '--no-reweight', action='store_true', help='''Do not reweight. Default: False''')\n        iogroup.add_argument(\n            '-ib', '--ibstates', action='store_true', help='''Attempt to combine ibstates dataset. Default: False'''\n        )\n\n    def open_files(self):\n        self.output_file = h5io.WESTPAH5File(self.output_file, 'w', creating_program=True)\n        h5io.stamp_creator_data(self.output_file)\n\n        opened_files = self.generate_file_list([self.west])\n        self.westH5 = opened_files[self.west]\n        # Just some temp things while I clean everything up...\n        # west_files = self.westH5\n        # Determine max iteration...\n\n        # We can't really use the old method anymore, as we need to calculate rates in the bootstrap.\n        # Ergo, we're going to load things like w_kinavg, but that's all.\n        # We'll just load them up and store them internally, for the moment.\n\n    def process_args(self, args):\n        self.progress.process_args(args)\n        self.output_file = args.output_file\n        self.output_file_name = args.output_file\n        self.west = args.west\n        self.sims = args.sims\n        self.aux = args.aux\n        self.auxall = args.auxall\n        self.reweight = args.no_reweight\n        self.ibstates = args.ibstates\n\n    def total_number_of_walkers(self):\n        self.total_walkers = [0] * self.niters\n        for key, west in self.westH5.items():\n            # Sometimes, we're smaller or larger by one.  Hm.\n            try:\n                self.total_walkers[:] += west['summary'][:-1]['n_particles']\n            except ValueError:\n                self.total_walkers[:] += west['summary'][:-1]['n_particles'][: len(self.total_walkers)]\n\n\n\n    class Segment:\n        def __init__(self, weight=0, iteration=0, simid=0, recycled_in=0):\n            self.weight = weight\n            self.iteration = iteration\n            self.simid = simid\n            self.recycled_in = recycled_in\n\n    def go(self):\n        pi = self.progress.indicator\n        self.istates = True  # Assume serendipitously istates is same between runs...\n        with pi:\n            pi.new_operation('Initializing')\n            self.open_files()\n            self.total_number_of_walkers()\n            if self.auxall is True:\n                self.aux = list(self.westH5[1]['iterations/iter_00000001/auxdata'].keys())\n            # Create a giant WEST.h5 file, separating the individual walkers, and renormalizing the weights.\n \n\noutput_file.attrs['westpa_iter_prec'] = 8\n\n\ndef entry_point():\n    WMultiWest().main()\n\n\nif __name__ == '__main__':\n    entry_point()",
+  "preparation_seconds": 0.11933187399699818,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 2499,
+        "end_char": 3405
+      },
+      {
+        "start_char": 3405,
+        "end_char": 6145
+      },
+      {
+        "start_char": 6145,
+        "end_char": 6899
+      },
+      {
+        "start_char": 19529,
+        "end_char": 19662
+      }
+    ],
+    "context_tokens": 1908,
+    "context_sha256": "3aa9f17a325032546abc1048447b8685d35b3d8830e676b0b0fa598a8a81b6a6"
+  }
+}

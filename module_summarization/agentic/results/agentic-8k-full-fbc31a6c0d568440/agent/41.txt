@@ -1,0 +1,172 @@
+QuerySet Usage Guide
+====================
+
+The `QuerySet` class provides a powerful and flexible way to build database queries in a Pythonic manner. This guide explains how to use the various methods available on a `QuerySet` to filter, order, limit, and manipulate query results.
+
+Filtering and Excluding Records
+-------------------------------
+
+### `filter(*args: Q, **kwargs)`
+
+Filters the `QuerySet` by the given conditions. You can filter by fields on the model or related models using Django-style double-underscore notation.
+
+Example:
+
+```python
+Team.filter(events__tournament__name='Test')
+```
+
+You can also pass `Q` objects as positional arguments to build complex queries.
+
+### `exclude(*args: Q, **kwargs)`
+
+Works like `filter()`, but excludes records matching the given conditions. All conditions are negated.
+
+Ordering Results
+----------------
+
+### `order_by(*orderings: str)`
+
+Orders the results by the specified fields. You can specify ascending order by field name, or descending order by prefixing the field name with a minus (`-`).
+
+Supports ordering by related models using double-underscore notation.
+
+Example:
+
+```python
+.order_by('name', '-tournament__name')
+```
+
+Raises `FieldError` if an unknown field is provided.
+
+Limiting and Offsetting Results
+-------------------------------
+
+### `limit(limit: int)`
+
+Limits the number of results returned by the query.
+
+Raises `ParamsError` if the limit is negative.
+
+### `offset(offset: int)`
+
+Skips the first `offset` results.
+
+Raises `ParamsError` if the offset is negative.
+
+If the database backend requires a limit when using offset and no limit is set, a large default limit is applied.
+
+Distinct Results
+----------------
+
+### `distinct()`
+
+Returns distinct results. This is most useful when used in combination with `.values()` or `.values_list()` to avoid duplicate rows.
+
+Annotating Results
+------------------
+
+### `annotate(**kwargs: Function)`
+
+Annotates each result with the output of an aggregation or database function.
+
+Each keyword argument should be a `Function` instance representing the annotation.
+
+Raises `TypeError` if a non-`Function` value is passed.
+
+Grouping Results
+----------------
+
+### `group_by(*fields: str)`
+
+Groups the results by the specified fields.
+
+Must be called before `.values()` or `.values_list()`.
+
+Selecting Specific Fields
+-------------------------
+
+### `values(*args: str, **kwargs: str)`
+
+Returns a `QuerySet` that yields dictionaries instead of model instances.
+
+You can specify which fields to include by passing field names as positional arguments, or rename fields in the output dictionaries by passing keyword arguments mapping field names to dictionary keys.
+
+If no arguments are passed, all fields are included.
+
+Raises `FieldError` if duplicate keys are provided.
+
+### `values_list(*fields: str, flat: bool = False)`
+
+Returns a `QuerySet` that yields tuples of field values instead of model instances.
+
+If `flat=True` and only one field is specified, returns a flat list of values.
+
+If no fields are specified, all fields are included.
+
+Fetching Single or All Records
+------------------------------
+
+### `all()`
+
+Returns a clone of the current `QuerySet`. Essentially a no-op, useful for clarity or chaining.
+
+### `first()`
+
+Returns a `QuerySet` limited to one object, which will yield a single model instance or `None`.
+
+### `get(*args: Q, **kwargs)`
+
+Fetches exactly one object matching the given parameters.
+
+Raises an exception if no objects or more than one object match.
+
+### `get_or_none(*args: Q, **kwargs)`
+
+Fetches exactly one object matching the parameters, or returns `None` if no match is found.
+
+Partial Field Loading
+---------------------
+
+### `only(*fields_for_select: str)`
+
+Fetches only the specified fields, creating a partial model instance.
+
+Note:
+
+- You must include the primary key field to allow updates.
+- Accessing fields not specified will raise `AttributeError`.
+- Saving a partial model without the primary key or with missing update fields will raise `IncompleteInstanceError`.
+
+Prefetching Related Objects
+---------------------------
+
+### `prefetch_related(*args: Union[str, Prefetch])`
+
+Prefetches related objects for all items in the `QuerySet`.
+
+Accepts field names or `Prefetch` objects for advanced control.
+
+Raises `FieldError` if the specified field is not a relation or does not exist.
+
+Example:
+
+```python
+queryset.prefetch_related('author', Prefetch('comments', queryset=Comment.filter(active=True)))
+```
+
+Summary
+-------
+
+The `QuerySet` API allows you to build complex queries by chaining methods:
+
+- Use `.filter()` and `.exclude()` to narrow down results.
+- Use `.order_by()` to sort results.
+- Use `.limit()` and `.offset()` to paginate.
+- Use `.distinct()` to remove duplicates.
+- Use `.annotate()` and `.group_by()` to perform aggregations.
+- Use `.values()` and `.values_list()` to fetch dictionaries or tuples instead of model instances.
+- Use `.only()` to fetch partial models.
+- Use `.prefetch_related()` to optimize related object fetching.
+
+By combining these methods, you can efficiently query your database in a clear and expressive way.

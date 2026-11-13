@@ -1,0 +1,99 @@
+Multiple Imputation through Chained Equations (MICE) Module
+=============================================================
+
+Overview
+--------
+
+This module implements the Multiple Imputation through Chained Equations (MICE) approach to handling missing data in statistical analyses. The MICE procedure iteratively imputes missing values by modeling each incomplete variable conditional on the others, allowing for robust inference despite missingness.
+
+The general workflow of the MICE algorithm is as follows:
+
+0. Initialize missing values by imputing the mean of observed values for each variable.
+
+1. For each variable with missing data (the "focus variable"):
+
+   1a. Fit an imputation model regressing the focus variable on observed and currently imputed values of other variables.
+
+   1b. Impute missing values for the focus variable using predictive mean matching (PMM).
+
+2. Fit the analysis model to the fully imputed dataset.
+
+3. Repeat steps 1 and 2 multiple times, then combine results using a combining rule to obtain parameter estimates and standard errors.
+
+Imputation models are specified via model classes and regression formulas, with ordinary least squares (OLS) as the default model and formulas including main effects of other variables.
+
+Usage Modes
+-----------
+
+The MICE procedure can be employed in two primary ways:
+
+- **Data Imputation Only:** Use the `MICEData` class to wrap a Pandas DataFrame and perform imputations. This class provides methods for iterative imputation and visualization tools to assess imputation quality.
+
+- **Imputation with Analysis:** Use the `MICE` class to perform multiple imputations and fit a specified analysis model on the imputed datasets. The results are combined to produce inference summaries and diagnostic plots.
+
+Terminology
+-----------
+
+- **Analysis Model:** The statistical model of interest to be fit after imputation. If unspecified, the module produces imputed datasets for downstream use.
+
+- **Imputation Model:** A regression model used to impute missing values for each variable with missing data. These models can include main effects, transformations, and interactions.
+
+- **Perturbation Method:** A technique to introduce variability in parameter estimates during imputation. The module supports:
+
+  - *Gaussian perturbation:* Parameters are drawn from the Gaussian approximation of the sampling distribution after fitting.
+
+  - *Bootstrap perturbation:* Parameters are estimated from bootstrapped samples of the data.
+
+Class Structure
+---------------
+
+- **MICEData**
+
+  Wraps a Pandas DataFrame and manages imputation models for variables with missing data. It supports iterative imputation, plotting of missing data patterns and imputation diagnostics, and a `history_callback` hook to save features of imputed datasets for further analysis.
+
+- **MICE**
+
+  Combines a `MICEData` object with an analysis model specification. It performs multiple imputations, fits the analysis model on each imputed dataset, and combines results into a `MICEResults` object. The results object provides summary methods for key estimates and inferential statistics.
+
+Notes
+-----
+
+- To conserve memory, `MICEData` overwrites the dataset with new imputations at each iteration and saves minimal intermediate information by default.
+
+- When using `MICE`, fitted analysis models and results are retained.
+
+- The `history_callback` hook in `MICEData` allows users to save arbitrary information from intermediate imputed datasets.
+
+References
+----------
+
+- Schafer, J. L. (1999). Multiple Imputation: A Primer. *Statistical Methods in Medical Research*.
+
+- Raghunathan, T. E., et al. (2001). A Multivariate Technique for Multiply Imputing Missing Values Using a Sequence of Regression Models. *Survey Methodology*.
+
+- SAS Institute (2014). Predictive Mean Matching Method for Monotone Missing Data. *SAS 9.2 User's Guide*.
+
+- Gelman, A., et al. (2009). Multiple Imputation with Diagnostics (mi) in R: Opening Windows into the Black Box. *Journal of Statistical Software*.
+
+Example Usage
+-------------
+
+Imputing data with `MICEData` and saving intermediate datasets:
+
+.. code-block:: python
+
+    >>> imp = mice.MICEData(data)
+    >>> imp.set_imputer('x1', formula='x2 + np.square(x2) + x3')
+    >>> for j in range(20):
+    ...     imp.update_all()
+    ...     imp.data.to_csv('data%02d.csv' % j)
+
+Iterating over imputed datasets:
+
+.. code-block:: python
+
+    >>> imp = mice.MICEData(data)
+    >>> j = 0
+    >>> for data in imp:
+    ...     imp.data.to_csv('data%02d.csv' % j)
+    ...     j += 1

@@ -1,0 +1,147 @@
+Naive Bayes
+===========
+
+The `sklearn.naive_bayes` module implements Naive Bayes algorithms, which are supervised learning methods based on applying Bayes' theorem with strong (naive) feature independence assumptions.
+
+Overview
+--------
+
+Naive Bayes classifiers are a family of simple probabilistic classifiers based on applying Bayes' theorem with the assumption of independence between every pair of features given the class label. Despite their simplicity, Naive Bayes classifiers have proven effective in many real-world applications, especially in text classification and spam filtering.
+
+The module provides several variants of Naive Bayes classifiers tailored to different types of data:
+
+- GaussianNB: For continuous data assuming Gaussian distribution.
+- MultinomialNB: For multinomially distributed data, typically used for discrete counts.
+- BernoulliNB: For binary/boolean features.
+- ComplementNB: An adaptation of MultinomialNB designed to handle imbalanced data.
+- CategoricalNB: For categorical features.
+
+Base Class: _BaseNB
+-------------------
+
+All Naive Bayes classifiers in this module inherit from the abstract base class `_BaseNB`, which defines the core interface and shared functionality:
+
+- `_joint_log_likelihood(X)`: Computes the unnormalized posterior log probability of input samples `X`. This corresponds to the log of the joint probability `log P(c) + log P(x|c)` for each class `c`.
+- `_check_X(X)`: Validates the input data `X`. This method is overridden in subclasses.
+- `predict_joint_log_proba(X)`: Returns the joint log probability estimates for the input samples.
+- `predict(X)`: Predicts the class labels for the input samples.
+- `predict_log_proba(X)`: Returns the log-probability estimates for the input samples.
+- `predict_proba(X)`: Returns the probability estimates for the input samples.
+
+Gaussian Naive Bayes (GaussianNB)
+---------------------------------
+
+GaussianNB implements the Gaussian Naive Bayes algorithm, which assumes that the likelihood of the features is Gaussian distributed. It supports online updates to model parameters via the `partial_fit` method, enabling incremental learning from batches of data.
+
+Algorithm Details
+~~~~~~~~~~~~~~~~~
+
+The algorithm models each feature per class as a Gaussian distribution characterized by its mean and variance. During training, it estimates these parameters for each class. For prediction, it computes the posterior probability of each class given the input features using Bayes' theorem.
+
+Online updates to the mean and variance are performed using an efficient algorithm described in the Stanford CS technical report STAN-CS-79-773 by Chan, Golub, and LeVeque:
+
+http://i.stanford.edu/pub/cstr/reports/cs/tr/79/773/CS-TR-79-773.pdf
+
+Parameters
+~~~~~~~~~~
+
+- `priors` : array-like of shape (n_classes,), default=None  
+  Prior probabilities of the classes. If specified, these priors are not adjusted according to the data.
+
+- `var_smoothing` : float, default=1e-9  
+  Portion of the largest variance of all features that is added to variances for calculation stability.
+
+Attributes
+~~~~~~~~~~
+
+- `class_count_` : ndarray of shape (n_classes,)  
+  Number of training samples observed in each class.
+
+- `class_prior_` : ndarray of shape (n_classes,)  
+  Probability of each class.
+
+- `classes_` : ndarray of shape (n_classes,)  
+  Class labels known to the classifier.
+
+- `epsilon_` : float  
+  Absolute additive value to variances for numerical stability.
+
+- `n_features_in_` : int  
+  Number of features seen during fitting.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fitting, if available.
+
+- `var_` : ndarray of shape (n_classes, n_features)  
+  Variance of each feature per class.
+
+- `theta_` : ndarray of shape (n_classes, n_features)  
+  Mean of each feature per class.
+
+Methods
+~~~~~~~
+
+- `fit(X, y, sample_weight=None)`  
+  Fit Gaussian Naive Bayes according to training data `X` and target labels `y`. Supports optional sample weights.
+
+- `partial_fit(X, y, classes=None, sample_weight=None)`  
+  Incremental fit on a batch of samples. Useful for online learning or out-of-core learning.
+
+- `predict(X)`  
+  Perform classification on input samples.
+
+- `predict_proba(X)`  
+  Return probability estimates for input samples.
+
+- `predict_log_proba(X)`  
+  Return log-probability estimates for input samples.
+
+- `predict_joint_log_proba(X)`  
+  Return joint log probability estimates for input samples.
+
+Example
+~~~~~~~
+
+```python
+import numpy as np
+from sklearn.naive_bayes import GaussianNB
+
+X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
+y = np.array([1, 1, 1, 2, 2, 2])
+
+clf = GaussianNB()
+clf.fit(X, y)
+print(clf.predict([[-0.8, -1]]))  # Output: [1]
+
+# Using partial_fit for incremental learning
+clf_pf = GaussianNB()
+clf_pf.partial_fit(X, y, np.unique(y))
+print(clf_pf.predict([[-0.8, -1]]))  # Output: [1]
+```
+
+Other Naive Bayes Variants
+--------------------------
+
+- **MultinomialNB**: Suitable for discrete count data, such as word counts in text classification.
+- **BernoulliNB**: Designed for binary/boolean features.
+- **ComplementNB**: A variant of MultinomialNB that is particularly suited for imbalanced datasets.
+- **CategoricalNB**: Handles categorical features directly without requiring one-hot encoding.
+
+These classifiers share the common interface defined by `_BaseNB` and provide specialized implementations of the likelihood computations appropriate for their data types.
+
+References
+----------
+
+- Bishop, C. M. (2006). *Pattern Recognition and Machine Learning*. Springer.
+- Stanford CS technical report STAN-CS-79-773 by Chan, Golub, and LeVeque:  
+  http://i.stanford.edu/pub/cstr/reports/cs/tr/79/773/CS-TR-79-773.pdf
+
+See Also
+--------
+
+- :class:`sklearn.naive_bayes.BernoulliNB`
+- :class:`sklearn.naive_bayes.MultinomialNB`
+- :class:`sklearn.naive_bayes.ComplementNB`
+- :class:`sklearn.naive_bayes.CategoricalNB`
+
+For more detailed usage and examples, refer to the :ref:`User Guide <gaussian_naive_bayes>`.

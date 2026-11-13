@@ -1,0 +1,209 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Executing Notebooks\n===================\n\nThe `ExecutePreprocessor` class provides functionality to execute all the code cells in a Jupyter notebook, updating the outputs accordingly. This is useful for running notebooks programmatically as part of a conversion or processing pipeline.\n\nOverview\n--------\n\nThe `ExecutePreprocessor` inherits from both `Preprocessor` and `NotebookClient` to combine notebook preprocessing capabilities with notebook execution management. It executes each code cell in the notebook in order, capturing outputs and updating the notebook metadata with execution information.\n\nUsage\n-----\n\nTo execute a notebook, instantiate the `ExecutePreprocessor` and call its `preprocess` method with the notebook object and optional resources:\n\n```python\nfrom nbconvert.preprocessors import ExecutePreprocessor\nimport nbformat\n\n# Load the notebook\nwith open(\"notebook.ipynb\") as f:\n    nb = nbformat.read(f, as_version=4)\n\n# Create the preprocessor\nep = ExecutePreprocessor(timeout=600, kernel_name='python3')\n\n# Execute the notebook\nnb, resources = ep.preprocess(nb, resources={'metadata': {'path': './'}})\n```\n\nParameters\n----------\n\n- `nb` (`NotebookNode`): The notebook object to be executed. This notebook is modified in-place.\n- `resources` (optional, `dict`): Additional resources used during processing. For example, passing `{'metadata': {'path': run_path}}` sets the execution path to `run_path`.\n- `km` (optional, `KernelManager`): An optional kernel manager instance. If not provided, a new kernel manager will be created internally.\n\nMethods\n-------\n\n### `preprocess(nb, resources=None, km=None)`\n\nExecutes all code cells in the notebook.\n\n- Initializes the execution environment and kernel.\n- Executes each code cell sequentially.\n- Updates the notebook metadata with language information and execution results.\n- Returns the executed notebook and updated resources.\n\n### `preprocess_cell(cell, resources, index)`\n\nExecutes a single cell. This method can be overridden to customize cell execution behavior.\n\nReturns the modified cell and resources.\n\nDeprecation Notice\n------------------\n\nThe function `executenb` is deprecated and has been moved to the `nbclient.execute` module. It is recommended to import and use `nbclient.execute` directly for executing notebooks.\n\nExample:\n\n```python\nfrom nbclient import execute\n\nexecute.executenb(nb, kernel_name='python3')\n```\n\nNotes\n-----\n\n- The `ExecutePreprocessor` resets its internal state on each call to `preprocess` to ensure a clean execution environment.\n- Execution errors in cells raise `CellExecutionError` exceptions.\n- The notebook's metadata is updated with the kernel's language information after execution.\n- The execution path can be controlled via the `resources` dictionary by specifying the `metadata.path` key.\n\nLicense\n-------\n\nThis module is distributed under the terms of the Modified BSD License and is part of the IPython Development Team's efforts.",
+  "prediction_sha256": "001818bfc50394dfbced776a91b324acee297b8adf59613a9ccdb7e9a5bce008",
+  "prompt_sha256": "059c646860ed5c6136886422ef3e4b88fbeecbeebecff0106871983a7c8a680e",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 6405,
+    "completion_tokens": 1109,
+    "total_tokens": 7514
+  },
+  "cost_usd": 0.004336400000000001,
+  "generation_seconds": 9.914236166001501,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "execute notebook"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1029,
+              "code": "\"\"\"Module containing a preprocessor that executes the code cells\nand updates outputs\"\"\"\nimport typing as t\n\nfrom jupyter_client.manager import KernelManager\nfrom nbclient import NotebookClient\nfrom nbclient import execute as _execute\n\n# Backwards compatability for imported name\nfrom nbclient.exceptions import CellExecutionError  # noqa\n\n# Copyright (c) IPython Development Team.\n# Distributed under the terms of the Modified BSD License.\nfrom nbformat import NotebookNode\n\nfrom .base import Preprocessor\n\n\ndef executenb(*args, **kwargs):\n    \"\"\"DEPRECATED.\"\"\"\n    from warnings import warn\n\n    warn(\n        \"The 'nbconvert.preprocessors.execute.executenb' function was moved to nbclient.execute. \"\n        \"We recommend importing that library directly.\",\n        FutureWarning,\n        stacklevel=2,\n    )\n    return _execute(*args, **kwargs)\n\n\n# We inherit from both classes to allow for traitlets to resolve as they did pre-6.0.\n# This unfortunately makes for some ugliness around initialization as NotebookClient\n# assumes",
+              "code_tokens": 300,
+              "score": 5.209015606203
+            },
+            {
+              "chunk_id": 75,
+              "start_char": 62091,
+              "end_char": 62800,
+              "code": "0].outputs == []\n            assert nb.cells[0].execution_count is None\n            if \"metadata\" in nb.cells[0]:\n                for field in preprocessor.remove_metadata_fields:\n                    assert field not in nb.cells[0].metadata\n                # Ensure the test field is only removed when added to the traitlet\n                assert remove_test_field or \"test_field\" in nb.cells[0].metadata\n\n\n\"\"\"\nModule with tests for the execute preprocessor.\n\"\"\"\n\n# Copyright (c) IPython Development Team.\n# Distributed under the terms of the Modified BSD License.\nimport os\nimport re\nfrom copy import deepcopy\n\nimport nbformat\nimport pytest\n\nfrom ..execute import ExecutePreprocessor, executenb\n\naddr_pat = r",
+              "code_tokens": 267,
+              "score": 3.922771706199
+            },
+            {
+              "chunk_id": 53,
+              "start_char": 43425,
+              "end_char": 44400,
+              "code": " variables into the Jinja engine.\n        \"\"\"\n        nb, resources = super().preprocess(nb, resources)\n        if self.clear_notebook_metadata and \"metadata\" in nb:\n            nb.metadata = dict(\n                self.nested_filter(nb.metadata.items(), self.preserve_nb_metadata_mask)\n            )\n        return nb, resources\n\n\n# Class base Preprocessors\n# Backwards compatability for imported name\nfrom nbclient.exceptions import CellExecutionError\n\nfrom .base import Preprocessor\nfrom .clearmetadata import ClearMetadataPreprocessor\nfrom .clearoutput import ClearOutputPreprocessor\n\n# decorated function Preprocessors\nfrom .coalescestreams import coalesce_streams\nfrom .convertfigures import ConvertFiguresPreprocessor\nfrom .csshtmlheader import CSSHTMLHeaderPreprocessor\nfrom .execute import ExecutePreprocessor\nfrom .extractattachments import ExtractAttachmentsPreprocessor\nfrom .extractoutput import ExtractOutputPreprocessor\nfrom .highlightmagics import HighlightMag",
+              "code_tokens": 300,
+              "score": 3.568184935808
+            }
+          ],
+          "code_tokens": 867
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 4119,
+              "code": "\"\"\"Module containing a preprocessor that executes the code cells\nand updates outputs\"\"\"\nimport typing as t\n\nfrom jupyter_client.manager import KernelManager\nfrom nbclient import NotebookClient\nfrom nbclient import execute as _execute\n\n# Backwards compatability for imported name\nfrom nbclient.exceptions import CellExecutionError  # noqa\n\n# Copyright (c) IPython Development Team.\n# Distributed under the terms of the Modified BSD License.\nfrom nbformat import NotebookNode\n\nfrom .base import Preprocessor\n\n\ndef executenb(*args, **kwargs):\n    \"\"\"DEPRECATED.\"\"\"\n    from warnings import warn\n\n    warn(\n        \"The 'nbconvert.preprocessors.execute.executenb' function was moved to nbclient.execute. \"\n        \"We recommend importing that library directly.\",\n        FutureWarning,\n        stacklevel=2,\n    )\n    return _execute(*args, **kwargs)\n\n\n# We inherit from both classes to allow for traitlets to resolve as they did pre-6.0.\n# This unfortunately makes for some ugliness around initialization as NotebookClient\n# assumes it's a constructed class with a nb object that we have to hack around.\nclass ExecutePreprocessor(Preprocessor, NotebookClient):\n    \"\"\"\n    Executes all the cells in a notebook\n    \"\"\"\n\n    def __init__(self, **kw):\n        \"\"\"Initialize the preprocessor.\"\"\"\n        nb = kw.get(\"nb\")\n        if nb is None:\n            nb = NotebookNode()\n        Preprocessor.__init__(self, nb=nb, **kw)\n        NotebookClient.__init__(self, nb, **kw)\n\n    def _check_assign_resources(self, resources):\n        if resources or not hasattr(self, \"resources\"):\n            self.resources = resources\n\n    def preprocess(\n        self, nb: NotebookNode, resources: t.Any = None, km: t.Optional[KernelManager] = None\n    ) -> t.Tuple[NotebookNode, dict]:\n        \"\"\"\n        Preprocess notebook executing each code cell.\n\n        The input argument *nb* is modified in-place.\n\n        Note that this function recalls NotebookClient.__init__, which may look wrong.\n        However since the preprocess call acts line an init on execution state it's expected.\n        Therefore, we need to capture it here again to properly reset because traitlet\n        assignments are not passed. There is a risk if traitlets apply any side effects for\n        dual init.\n        The risk should be manageable, and this approach minimizes side-effects relative\n        to other alternatives.\n\n        One alternative but rejected implementation would be to copy the client's init internals\n        which has already gotten out of sync with nbclient 0.5 release before nbconvert 6.0 released.\n\n        Parameters\n        ----------\n        nb : NotebookNode\n            Notebook being executed.\n        resources : dictionary (optional)\n            Additional resources used in the conversion process. For example,\n            passing ``{'metadata': {'path': run_path}}`` sets the\n            execution path to ``run_path``.\n        km: KernelManager (optional)\n            Optional kernel manager. If none is provided, a kernel manager will\n            be created.\n\n        Returns\n        -------\n        nb : NotebookNode\n            The executed notebook.\n        resources : dictionary\n            Additional resources used in the conversion process.\n        \"\"\"\n        NotebookClient.__init__(self, nb, km)\n        self.reset_execution_trackers()\n        self._check_assign_resources(resources)\n\n        with self.setup_kernel():\n            assert self.kc  # noqa\n            info_msg = self.wait_for_reply(self.kc.kernel_info())\n            assert info_msg  # noqa\n            self.nb.metadata[\"language_info\"] = info_msg[\"content\"][\"language_info\"]\n            for index, cell in enumerate(self.nb.cells):\n                self.preprocess_cell(cell, resources, index)\n        self.set_widgets_metadata()\n\n        return self.nb, self.resources\n\n    def preprocess_cell(self, cell, resources, index):\n        \"\"\"\n        Override if you want to apply some preprocessing to each cell.\n        Must return modified cell and resource dictionary.\n\n        Parameters\n        ----------\n        cell : NotebookNode cell\n  ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 2367,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "e25865f5e62acdfd5bf52bdfecb81dedf738f244f7a56e3b4fe0e42f38b7ff25",
+        "request_id": "chatcmpl-Ej8OTJ1FzZ0LR2WuqruIbX2VtcGEG",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 15,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.6e-05,
+        "seconds": 0.6005538330027775,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "0c232c6cb3a326b5cb77a0aaf68f57cdf275d3cb4c5cdd94a3d2875755c856b1",
+        "request_id": "chatcmpl-Ej8OUdr6zBx7fSCbB1QsXVFcrI3C6",
+        "usage": {
+          "prompt_tokens": 963,
+          "completion_tokens": 15,
+          "total_tokens": 978,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004092,
+        "seconds": 0.9563431659989874,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "483f4e21d0a6d0b9bd230b6452575f0e857df7b6c58cb77963e0cc3e1a0c7604",
+        "request_id": "chatcmpl-Ej8OVgWYOIpK7u13MoS0Ap0GrtAdL",
+        "usage": {
+          "prompt_tokens": 1995,
+          "completion_tokens": 15,
+          "total_tokens": 2010,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000822,
+        "seconds": 0.6262492080022639,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "f6c9e09a9f049c46b312bf4b70aea1be43772d69e503c2079a8e03f3e64d6076",
+        "request_id": "chatcmpl-Ej8OWvNaRaSmXnOHf5sUa0ezARXPw",
+        "usage": {
+          "prompt_tokens": 2031,
+          "completion_tokens": 462,
+          "total_tokens": 2493,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0015516000000000002,
+        "seconds": 3.4571447919988714,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "c2e47f5073499d47ab3f7dd83aa7fb9499892aae66d54e8bea40e977d5457059",
+        "request_id": "chatcmpl-Ej8Oaokhd1rQy17dfi0Jhtt9j05eI",
+        "usage": {
+          "prompt_tokens": 1261,
+          "completion_tokens": 602,
+          "total_tokens": 1863,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014676000000000001,
+        "seconds": 4.273945166998601,
+        "retry_count": 0
+      }
+    ]
+  }
+}

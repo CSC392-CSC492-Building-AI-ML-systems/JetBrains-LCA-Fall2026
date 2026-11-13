@@ -1,0 +1,156 @@
+Contracts
+=========
+
+This module provides a `Contract` class that acts as a proxy for interacting with Ethereum smart contracts via a Web3 connector. It supports contract deployment, function calls, transactions, event listening, and gas estimation.
+
+Class: Contract
+--------------
+
+The `Contract` class is the base class for contract proxy classes. Contract proxy classes are typically created using a factory function that takes the compiled Solidity contract ABI definitions as input. The resulting class inherits from `Contract`.
+
+Once a contract proxy class is created, you can:
+
+- Instantiate a contract object for an existing deployed contract by specifying its address.
+- Deploy a new contract to the blockchain.
+- Interact with contract functions and events.
+
+### Initialization
+
+```python
+Contract(abi=None, address=None, code=None, code_runtime=None, source=None)
+```
+
+Create a new contract proxy object.
+
+- `abi`: Override the class-level ABI definition.
+- `address`: The contract address as a 0x-prefixed hex string.
+- `code`: Override the class-level contract bytecode.
+- `code_runtime`: Override the class-level runtime bytecode.
+- `source`: Override the class-level contract source code.
+
+Raises an `AttributeError` if the `Contract` class has not been initialized with a Web3 instance.
+
+### Properties
+
+- `abi`: Returns the contract ABI. Raises `AttributeError` if not specified.
+- `code`: Returns the contract bytecode. Raises `AttributeError` if not specified.
+- `code_runtime`: Returns the runtime bytecode. Raises `AttributeError` if not specified.
+- `source`: Returns the contract source code. Raises `AttributeError` if not specified.
+
+### Class Methods
+
+#### deploy(transaction=None, args=None, kwargs=None)
+
+Deploys the contract on the blockchain.
+
+- `transaction`: Dictionary of transaction parameters (e.g., `from`, `value`).
+- `args`: Positional arguments for the contract constructor.
+- `kwargs`: Keyword arguments for the contract constructor.
+
+Returns the hexadecimal transaction hash of the deployment transaction.
+
+Raises `ValueError` if the contract bytecode is not available or if `data` or `to` fields are specified in the transaction.
+
+Example:
+
+```python
+MyContract.deploy(
+    transaction={
+        'from': web3.eth.accounts[1],
+        'value': 12345,
+    },
+    args=('DGD', 18),
+)
+```
+
+#### encodeABI(fn_name, args=None, kwargs=None, data=None)
+
+Encodes the arguments for a contract function call using the Ethereum ABI.
+
+- `fn_name`: Name of the contract function.
+- `args`: Positional arguments for the function.
+- `kwargs`: Keyword arguments for the function.
+- `data`: Optional data prefix (defaults to function selector).
+
+Returns the ABI-encoded data as a hex string.
+
+### Instance and Class Methods (decorated with `@combomethod`)
+
+These methods can be called on both the contract class and instances.
+
+#### on(event_name, filter_params=None, *callbacks)
+
+Registers callbacks to be triggered on matching contract events.
+
+- `event_name`: Name of the event to listen for.
+- `filter_params`: Dictionary of filter parameters, including `filter` for argument filters.
+- `callbacks`: Functions to call when the event is triggered.
+
+Returns a filter object that can be used to watch for events.
+
+#### pastEvents(event_name, filter_params=None, *callbacks)
+
+Registers callbacks to be triggered on all past events matching the criteria.
+
+- `event_name`: Name of the event.
+- `filter_params`: Filter parameters including block range.
+- `callbacks`: Functions to call for each past event.
+
+Returns a filter object for past logs.
+
+#### estimateGas(transaction=None)
+
+Estimates the gas required for a contract function call.
+
+- `transaction`: Transaction parameters dictionary.
+
+Returns a `Caller` object exposing contract functions as callable methods that estimate gas usage.
+
+Raises `ValueError` if `data` or `to` fields are set in the transaction or if the contract address is missing.
+
+#### call(transaction=None)
+
+Executes a contract function call using the `eth_call` interface (read-only).
+
+- `transaction`: Transaction parameters dictionary.
+
+Returns a `Caller` object exposing contract functions as callable methods that perform read-only calls.
+
+Raises `ValueError` if `data` is set or if the contract address is missing.
+
+Example:
+
+```python
+contract = Contract(address='0x...')
+owner_address = contract.call().owner()
+```
+
+#### transact(transaction=None)
+
+Executes a contract function call using the `eth_sendTransaction` interface (state-changing).
+
+- `transaction`: Transaction parameters dictionary (e.g., `from`, `gas`, `value`).
+
+Returns a `Transactor` object exposing contract functions as callable methods that send transactions.
+
+Raises `ValueError` if `data` is set or if the contract address is missing.
+
+Example:
+
+```python
+wallet = Wallet(address='0x...')
+tx_hash = wallet.transact({'value': 12345}).deposit()
+```
+
+### Private Helper Methods
+
+These methods assist in internal contract function and event ABI matching and encoding.
+
+- `_find_matching_fn_abi(fn_name=None, args=None, kwargs=None)`: Finds the ABI for a function matching the name and arguments.
+- `_find_matching_event_abi(event_name=None, argument_names=None)`: Finds the ABI for an event matching the name and argument names.
+- `_get_function_info(fn_name, args=None, kwargs=None)`: Returns the function ABI, selector, and merged arguments.
+- `_prepare_transaction(...)`: (Incomplete in provided code) Prepares a transaction for a contract function call.
+
+---
+
+This class relies on several utility functions and modules for ABI encoding/decoding, event filtering, and Web3 interaction. It provides a high-level, Pythonic interface for deploying and interacting with Ethereum smart contracts.

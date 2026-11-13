@@ -1,0 +1,92 @@
+Generate documentation for this module
+======================================
+
+Generic SpectralModel wrapper
+-----------------------------
+
+This module provides a flexible and powerful wrapper class, `SpectralModel`, designed for spectral data modeling and fitting. It supports multi-component models, parameter annotations, integrals, and individual component extraction. The module is authored by Adam Ginsburg.
+
+Key Features
+^^^^^^^^^^^^
+
+- **SpectralModel Class**: A comprehensive wrapper for spectral models that facilitates fitting, parameter management, and model evaluation.
+- **Flexible Parameter Handling**: Supports naming parameters, setting limits, fixing parameters, and defining parameter units.
+- **Multi-Peak Support**: Enables modeling of multiple spectral components.
+- **Integration with Fitting Libraries**: Supports fitting using both `mpfit` and `lmfit` libraries.
+- **Parameter Guessing Utilities**: Includes utilities to parse and handle parameter guesses with offsets and arithmetic operations.
+- **Compatibility**: Designed to work with Astropy models and integrates with `pyspeckit`'s fitting infrastructure.
+
+Module API
+^^^^^^^^^^
+
+Imports
+-------
+
+The module imports essential libraries such as `numpy`, `copy`, `astropy.log`, and `matplotlib.cbook`. It also imports fitting utilities from `pyspeckit` and handles compatibility with Python 2 and 3 via `six`. The module attempts to import `OrderedDict` from the standard library or falls back to a backport if necessary.
+
+SpectralModel Class
+-------------------
+
+The `SpectralModel` class is the core of this module. It inherits from `fitter.SimpleFitter` and encapsulates a spectral model function along with its parameters and fitting behavior.
+
+### Initialization
+
+```python
+SpectralModel(modelfunc, npars, shortvarnames=("A","\\Delta x","\\sigma"),
+              fitunit=None, centroid_par=None, fwhm_func=None,
+              fwhm_pars=None, integral_func=None, use_lmfit=False,
+              guess_types=('amplitude', 'center', 'width'), **kwargs)
+```
+
+- **modelfunc**: The model function to fit. It should accept an X-axis array and model parameters, returning an array of the same shape.
+- **npars**: Number of parameters the model requires.
+- **shortvarnames**: TeX-style short names for parameters used in annotations.
+- **fitunit**: Units to convert the X-axis into before fitting.
+- **centroid_par**: Name of the parameter representing the centroid.
+- **fwhm_func**, **fwhm_pars**, **integral_func**: Optional functions related to full width at half maximum and integrals.
+- **use_lmfit**: Boolean flag to use `lmfit` instead of `mpfit`.
+- **guess_types**: Tuple specifying the types of parameters for initial guesses (e.g., 'amplitude', 'center', 'width').
+
+### Methods
+
+- `__call__(*args, **kwargs)`: Calls the fitter, choosing between `lmfit` and `mpfit` based on configuration.
+- `make_parinfo(**kwargs)`: Generates a `ParinfoList` object describing the parameters.
+- `_make_parinfo(...)`: Internal method to create a detailed `ParinfoList` from various input forms.
+- `computed_centroid(xarr=None)`: Computes the centroid of the model based on current parameters.
+- `fitter(xax, data, err=None, quiet=True, veryverbose=False, debug=False, parinfo=None, params=None, npeaks=None, **kwargs)`: Fits the model to data using Astropy's NonLinearLSQFitter.
+- `n_modelfunc(pars=None, debug=False, **kwargs)`: Returns the model function configured with given parameters.
+
+### Properties
+
+- `npeaks`: Number of peaks/components in the model. Must be an integer.
+
+Parameter Guessing Utility
+--------------------------
+
+The module includes the function `parse_offset_guess(gname, gval)` which allows parameter guesses to be specified with arithmetic offsets, such as `'amplitude*2'` or `'width+3'`. This utility parses the guess string and applies the specified operation to the guess value.
+
+Example Usage
+-------------
+
+```python
+from models import SpectralModel
+
+def gaussian(x, amp, cen, wid):
+    return amp * np.exp(-(x-cen)**2 / (2*wid**2))
+
+model = SpectralModel(gaussian, 3, shortvarnames=("A", "\\mu", "\\sigma"))
+params, fit_model, errors, chi2 = model.fitter(x_data, y_data, err=y_err)
+```
+
+Notes
+-----
+
+- The module requires `OrderedDict` for modeling; if unavailable, it attempts to import a backport.
+- Multi-peak fitting with Astropy models is not yet implemented.
+- The class supports deep copying and cloning of model instances.
+- The module integrates with `pyspeckit`'s parameter info (`ParinfoList`) for parameter management.
+
+Author
+------
+
+Adam Ginsburg <adam.g.ginsburg@gmail.com>

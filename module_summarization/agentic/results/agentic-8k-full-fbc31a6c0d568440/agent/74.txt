@@ -1,0 +1,145 @@
+Random Projection
+=================
+
+The `random_projection` module provides classes and functions to perform dimensionality reduction using random projections. Random projection is a technique that reduces the dimensionality of data by projecting it onto a lower-dimensional subspace using a random matrix. This approach is computationally efficient and preserves the structure of the data with high probability, as guaranteed by the Johnson-Lindenstrauss lemma.
+
+Overview
+--------
+
+Random projections are useful for reducing the dimensionality of high-dimensional datasets while approximately preserving pairwise distances between points. This module offers two main types of random projections:
+
+- **GaussianRandomProjection**: Uses a dense Gaussian random matrix.
+- **SparseRandomProjection**: Uses a sparse random matrix for more memory-efficient and faster computations.
+
+BaseRandomProjection
+--------------------
+
+`BaseRandomProjection` is an abstract base class for random projection transformers. It should not be used directly; instead, use one of the derived classes such as `GaussianRandomProjection` or `SparseRandomProjection`.
+
+### Parameters
+
+- `n_components` : int or 'auto'  
+  Dimensionality of the target projection space. If set to `'auto'`, the number of components is determined automatically based on the Johnson-Lindenstrauss lemma and the number of samples.
+
+- `eps` : float, default=0.1  
+  Parameter controlling the quality of the embedding according to the Johnson-Lindenstrauss lemma when `n_components='auto'`.
+
+- `compute_inverse_components` : bool, default=False  
+  Whether to compute the pseudo-inverse of the components matrix.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the randomness of the projection matrix.
+
+### Attributes
+
+- `n_components_` : int  
+  The actual number of components used after fitting.
+
+- `components_` : ndarray or sparse matrix of shape (n_components, n_features)  
+  The random projection matrix.
+
+- `inverse_components_` : ndarray of shape (n_features, n_components)  
+  Pseudo-inverse of the components matrix, computed if `compute_inverse_components=True`.
+
+- `n_features_in_` : int  
+  Number of features seen during fit.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fit, if available.
+
+### Methods
+
+- `fit(X, y=None)`  
+  Fits the transformer by generating a random projection matrix based on the shape of `X`.
+
+- `transform(X)`  
+  Projects the input data `X` into the lower-dimensional space using the random matrix.
+
+- `_make_random_matrix(n_components, n_features)`  
+  Abstract method to generate the random projection matrix. Must be implemented by subclasses.
+
+GaussianRandomProjection
+------------------------
+
+`GaussianRandomProjection` reduces dimensionality using a dense Gaussian random matrix. The components of the matrix are drawn from a normal distribution.
+
+### Parameters
+
+- Inherits all parameters from `BaseRandomProjection`.
+
+### Examples
+
+```python
+import numpy as np
+from sklearn.random_projection import GaussianRandomProjection
+
+rng = np.random.RandomState(42)
+X = rng.rand(25, 3000)
+transformer = GaussianRandomProjection(random_state=rng)
+X_new = transformer.fit_transform(X)
+print(X_new.shape)  # Output: (25, n_components)
+```
+
+SparseRandomProjection
+----------------------
+
+`SparseRandomProjection` reduces dimensionality using a sparse random matrix. This approach is more memory efficient and faster than dense projections, especially for high-dimensional data.
+
+The sparse random matrix components are drawn from the distribution:
+
+- \(-\sqrt{s} / \sqrt{n\_components}\) with probability \(1/(2s)\)
+- \(0\) with probability \(1 - 1/s\)
+- \(+\sqrt{s} / \sqrt{n\_components}\) with probability \(1/(2s)\)
+
+where \(s = 1 / \text{density}\).
+
+### Parameters
+
+- Inherits all parameters from `BaseRandomProjection`.
+
+- `density` : float or 'auto', default='auto'  
+  Ratio of non-zero components in the random projection matrix. If `'auto'`, it is set to \(1 / \sqrt{n\_features}\).
+
+- `dense_output` : bool, default=False  
+  Whether to return a dense array or sparse matrix after transformation.
+
+### Examples
+
+```python
+import numpy as np
+from sklearn.random_projection import SparseRandomProjection
+
+rng = np.random.RandomState(42)
+X = rng.rand(25, 3000)
+transformer = SparseRandomProjection(random_state=rng)
+X_new = transformer.fit_transform(X)
+print(X_new.shape)  # Output: (25, n_components)
+print(np.mean(transformer.components_ != 0))  # Proportion of non-zero components
+```
+
+References
+----------
+
+- Achlioptas, D. (2001). Database-friendly random projections. *Proceedings of the twentieth ACM SIGMOD-SIGACT-SIGART symposium on Principles of database systems*, 274–281.  
+  https://cgi.di.uoa.gr/~optas/papers/jl.pdf
+
+- Johnson, W. B., & Lindenstrauss, J. (1984). Extensions of Lipschitz mappings into a Hilbert space. *Contemporary Mathematics*, 26, 189–206.
+
+See Also
+--------
+
+- `sklearn.random_projection.SparseRandomProjection`  
+- `sklearn.random_projection.GaussianRandomProjection`
+
+Notes
+-----
+
+- The Johnson-Lindenstrauss lemma provides theoretical guarantees on the quality of the embedding, but the actual number of components required may be conservative.
+
+- Sparse random projections are particularly useful when working with very high-dimensional data due to their efficiency.
+
+- The `compute_inverse_components` parameter allows computation of the pseudo-inverse of the projection matrix, which can be useful for approximate reconstruction of the original data.
+
+---
+
+This module is part of the scikit-learn library and follows its API conventions for transformers.

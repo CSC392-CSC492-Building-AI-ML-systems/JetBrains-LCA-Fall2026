@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Regression Module\n=================\n\nThis module provides classes and methods for various regression techniques, including quantile regression and dimension reduction regression methods.\n\nQuantile Regression\n-------------------\n\nThe `QuantReg` class implements quantile regression, which estimates the conditional quantiles of a response variable given explanatory variables. It uses an iterative reweighted least squares algorithm to fit the model.\n\nKey Features:\n- Supports estimation of any quantile between 0 and 1.\n- The Least Absolute Deviation (LAD) estimator is a special case with quantile set to 0.5.\n- Provides robust and heteroskedasticity-consistent covariance matrix estimators.\n- Supports kernel density estimation for asymptotic covariance matrix calculation with various kernel and bandwidth options.\n\nParameters:\n- `endog`: Endogenous or response variable (array or DataFrame).\n- `exog`: Exogenous or explanatory variables (array or DataFrame).\n\nFit Method Parameters:\n- `q`: Quantile to estimate (float between 0 and 1).\n- `vcov`: Method for variance-covariance matrix estimation (`robust` or `iid`).\n- `kernel`: Kernel type for density estimation (`epa`, `cos`, `gau`, `par`).\n- `bandwidth`: Bandwidth selection method (`hsheather`, `bofinger`, `chamberlain`).\n- `max_iter`, `p_tol`: Control iterative fitting convergence.\n\nReferences:\n- Birkes and Dodge (1993), Alternative Methods of Regression.\n- Greene (2008), Econometric Analysis.\n- Koenker (2005), Quantile Regression.\n- LeSage (1999), Applied Econometrics Using MATLAB.\n- Additional references for kernels and bandwidth selection methods are provided in the class docstring.\n\nDimension Reduction Regression\n------------------------------\n\nThis module also includes base and specific classes for dimension reduction regression techniques, which aim to reduce the dimensionality of explanatory variables while preserving the relationship with the response variable.\n\nBase Class:\n- `_DimReductionRegression`: Provides common functionality such as data whitening and slicing for dimension reduction methods.\n\nSpecific Methods:\n\n1. Sliced Inverse Regression (SIR)\n   - Class: `SlicedInverseReg`\n   - Estimates effective dimension reduction (EDR) space by slicing the data according to the response variable.\n   - Parameters:\n     - `endog`: Dependent variable (1D array).\n     - `exog`: Covariates (2D array).\n     - `slice_n`: Number of observations per slice (optional).\n   - Reference: Li (1991), \"Sliced inverse regression for dimension reduction\", JASA.\n\n2. Principal Hessian Directions (PHD)\n   - Class: `PrincipalHessianDirections`\n   - Estimates EDR space using second-order derivative information.\n   - Parameters:\n     - `endog`: Dependent variable (1D array).\n     - `exog`: Covariates (2D array).\n     - `resid`: Boolean flag to remove linear effects before PHD (optional).\n   - Reference: Li (1992), \"On Principal Hessian Directions for Data Visualization and Dimension Reduction\", JASA.\n\nThese dimension reduction methods facilitate visualization and interpretation of high-dimensional regression problems by identifying lower-dimensional structures that capture the essential relationships between variables.\n\nSummary\n-------\n\nThe regression module offers robust and flexible tools for regression analysis, including advanced quantile regression techniques and dimension reduction methods. These tools are suitable for econometric analysis, robust estimation, and exploratory data analysis in high-dimensional settings.",
+  "prediction_sha256": "2561ac57d572a2749869b5f99ceaee1479b708dab3a904e75ed84ab4b8a965ee",
+  "prompt_sha256": "2b52ea99aac9a27121e1b264e727dbf9a5edca1b8cd00ecd5e523380e71f3c58",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 7921,
+    "completion_tokens": 1036,
+    "total_tokens": 8957
+  },
+  "cost_usd": 0.004826,
+  "generation_seconds": 9.08719908400235,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "regression"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 30,
+              "start_char": 23165,
+              "end_char": 23937,
+              "code": " Moore-Penrose pseudoinverse\n            to solve the least squares problem. \"qr\" uses the QR\n            factorization.\n        cov_type : str, optional\n            See `regression.linear_model.RegressionResults` for a description\n            of the available covariance estimators\n        cov_kwds : list or None, optional\n            See `linear_model.RegressionResults.get_robustcov_results` for a\n            description required keywords for alternative covariance estimators\n        use_t : bool, optional\n            Flag indicating to use the Student's t distribution when computing\n            p-values.  Default behavior depends on cov_type. See\n            `linear_model.RegressionResults.get_robustcov_results` for\n            implementation details.\n\n       ",
+              "code_tokens": 300,
+              "score": 2.643552669558
+            },
+            {
+              "chunk_id": 1,
+              "start_char": 1054,
+              "end_char": 1895,
+              "code": "                 RegressionResultsWrapper)\nfrom statsmodels.tools.sm_exceptions import (ConvergenceWarning,\n                                             IterationLimitWarning)\n\nclass QuantReg(RegressionModel):\n    '''Quantile Regression\n\n    Estimate a quantile regression model using iterative reweighted least\n    squares.\n\n    Parameters\n    ----------\n    endog : array or dataframe\n        endogenous/response variable\n    exog : array or dataframe\n        exogenous/explanatory variable(s)\n\n    Notes\n    -----\n    The Least Absolute Deviation (LAD) estimator is a special case where\n    quantile is set to 0.5 (q argument of the fit method).\n\n    The asymptotic covariance matrix is estimated following the procedure in\n    Greene (2008, p.407-408), using either the logistic or gaussian kernels\n    (kernel argument of the fit method",
+              "code_tokens": 300,
+              "score": 2.470416246546
+            },
+            {
+              "chunk_id": 167,
+              "start_char": 121060,
+              "end_char": 121761,
+              "code": "wrap_methods,\n                        _methods)\n\nwrap.populate_wrapper(RegressionResultsWrapper,\n                      RegressionResults)\n\n\nimport warnings\nimport numpy as np\nimport pandas as pd\nfrom statsmodels.base import model\nimport statsmodels.base.wrapper as wrap\n\n\nclass _DimReductionRegression(model.Model):\n    \"\"\"\n    A base class for dimension reduction regression methods.\n    \"\"\"\n\n    def __init__(self, endog, exog, **kwargs):\n        super(_DimReductionRegression, self).__init__(endog, exog, **kwargs)\n\n    def _prep(self, n_slice):\n\n        # Sort the data by endog\n        ii = np.argsort(self.endog)\n        x = self.exog[ii, :]\n\n        # Whiten the data\n        x -= x.mean(0)\n   ",
+              "code_tokens": 300,
+              "score": 2.370881165614
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 1054,
+              "end_char": 4910,
+              "code": "                 RegressionResultsWrapper)\nfrom statsmodels.tools.sm_exceptions import (ConvergenceWarning,\n                                             IterationLimitWarning)\n\nclass QuantReg(RegressionModel):\n    '''Quantile Regression\n\n    Estimate a quantile regression model using iterative reweighted least\n    squares.\n\n    Parameters\n    ----------\n    endog : array or dataframe\n        endogenous/response variable\n    exog : array or dataframe\n        exogenous/explanatory variable(s)\n\n    Notes\n    -----\n    The Least Absolute Deviation (LAD) estimator is a special case where\n    quantile is set to 0.5 (q argument of the fit method).\n\n    The asymptotic covariance matrix is estimated following the procedure in\n    Greene (2008, p.407-408), using either the logistic or gaussian kernels\n    (kernel argument of the fit method).\n\n    References\n    ----------\n    General:\n\n    * Birkes, D. and Y. Dodge(1993). Alternative Methods of Regression, John Wiley and Sons.\n    * Green,W. H. (2008). Econometric Analysis. Sixth Edition. International Student Edition.\n    * Koenker, R. (2005). Quantile Regression. New York: Cambridge University Press.\n    * LeSage, J. P.(1999). Applied Econometrics Using MATLAB,\n\n    Kernels (used by the fit method):\n\n    * Green (2008) Table 14.2\n\n    Bandwidth selection (used by the fit method):\n\n    * Bofinger, E. (1975). Estimation of a density function using order statistics. Australian Journal of Statistics 17: 1-17.\n    * Chamberlain, G. (1994). Quantile regression, censoring, and the structure of wages. In Advances in Econometrics, Vol. 1: Sixth World Congress, ed. C. A. Sims, 171-209. Cambridge: Cambridge University Press.\n    * Hall, P., and S. Sheather. (1988). On the distribution of the Studentized quantile. Journal of the Royal Statistical Society, Series B 50: 381-391.\n\n    Keywords: Least Absolute Deviation(LAD) Regression, Quantile Regression,\n    Regression, Robust Estimation.\n    '''\n\n    def __init__(self, endog, exog, **kwargs):\n        super(QuantReg, self).__init__(endog, exog, **kwargs)\n\n    def whiten(self, data):\n        \"\"\"\n        QuantReg model whitener does nothing: returns data.\n        \"\"\"\n        return data\n\n    def fit(self, q=.5, vcov='robust', kernel='epa', bandwidth='hsheather',\n            max_iter=1000, p_tol=1e-6, **kwargs):\n        '''Solve by Iterative Weighted Least Squares\n\n        Parameters\n        ----------\n        q : float\n            Quantile must be between 0 and 1\n        vcov : string, method used to calculate the variance-covariance matrix\n            of the parameters. Default is ``robust``:\n\n            - robust : heteroskedasticity robust standard errors (as suggested\n              in Greene 6th edition)\n            - iid : iid errors (as in Stata 12)\n\n        kernel : string, kernel to use in the kernel density estimation for the\n            asymptotic covariance matrix:\n\n            - epa: Epanechnikov\n            - cos: Cosine\n            - gau: Gaussian\n            - par: Parzene\n\n        bandwidth: string, Bandwidth selection method in kernel density\n            estimation for asymptotic covariance estimate (full\n            references in QuantReg docstring):\n\n            - hsheather: Hall-Sheather (1988)\n            - bofinger: Bofinger (1975)\n            - chamberlain: Chamberlain (1994)\n        '''\n\n        if q < 0 or q > 1:\n            raise Exception('p must be between 0 and 1')\n\n        kern_names = ['biw', 'cos', 'epa', 'gau', 'par']\n        if kernel not in kern_names:\n            raise Exception(\"kernel must be one of \" + ', '.join(kern_names))\n        else:\n            kernel = kernels[kernel]\n\n        if bandwidth == 'hsheather':\n            bandwidth = hall_sheather\n        elif bandwidth == 'bofinger':\n            bandwidth = bofinger\n        elif bandwidth == 'chamberlain':\n          ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 167
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 167,
+              "start_char": 121060,
+              "end_char": 124308,
+              "code": "wrap_methods,\n                        _methods)\n\nwrap.populate_wrapper(RegressionResultsWrapper,\n                      RegressionResults)\n\n\nimport warnings\nimport numpy as np\nimport pandas as pd\nfrom statsmodels.base import model\nimport statsmodels.base.wrapper as wrap\n\n\nclass _DimReductionRegression(model.Model):\n    \"\"\"\n    A base class for dimension reduction regression methods.\n    \"\"\"\n\n    def __init__(self, endog, exog, **kwargs):\n        super(_DimReductionRegression, self).__init__(endog, exog, **kwargs)\n\n    def _prep(self, n_slice):\n\n        # Sort the data by endog\n        ii = np.argsort(self.endog)\n        x = self.exog[ii, :]\n\n        # Whiten the data\n        x -= x.mean(0)\n        covx = np.cov(x.T)\n        covxr = np.linalg.cholesky(covx)\n        x = np.linalg.solve(covxr, x.T).T\n        self.wexog = x\n        self._covxr = covxr\n\n        # Split the data into slices\n        self._split_wexog = np.array_split(x, n_slice)\n\n\nclass SlicedInverseReg(_DimReductionRegression):\n    \"\"\"\n    Sliced Inverse Regression (SIR)\n\n    Parameters\n    ----------\n    endog : array_like (1d)\n        The dependent variable\n    exog : array_like (2d)\n        The covariates\n\n    References\n    ----------\n    KC Li (1991).  Sliced inverse regression for dimension reduction.\n    JASA 86, 316-342.\n    \"\"\"\n\n    def fit(self, **kwargs):\n        \"\"\"\n        Estimate the EDR space.\n\n        Parameters\n        ----------\n        slice_n : int, optional\n            Number of observations per slice\n        \"\"\"\n\n        # Sample size per slice\n        slice_n = kwargs.get(\"slice_n\", 20)\n\n        # Number of slices\n        n_slice = self.exog.shape[0] // slice_n\n\n        self._prep(n_slice)\n\n        mn = [z.mean(0) for z in self._split_wexog]\n        n = [z.shape[0] for z in self._split_wexog]\n        mn = np.asarray(mn)\n        n = np.asarray(n)\n        mnc = np.cov(mn.T, fweights=n)\n\n        a, b = np.linalg.eigh(mnc)\n        jj = np.argsort(-a)\n        a = a[jj]\n        b = b[:, jj]\n        params = np.linalg.solve(self._covxr.T, b)\n\n        results = DimReductionResults(self, params, eigs=a)\n        return DimReductionResultsWrapper(results)\n\n\nclass PrincipalHessianDirections(_DimReductionRegression):\n    \"\"\"\n    Principal Hessian Directions\n\n    Parameters\n    ----------\n    endog : array_like (1d)\n        The dependent variable\n    exog : array_like (2d)\n        The covariates\n\n    References\n    ----------\n    KC Li (1992).  On Principal Hessian Directions for Data\n    Visualization and Dimension Reduction: Another application\n    of Stein's lemma. JASA 87:420.\n    \"\"\"\n\n    def fit(self, **kwargs):\n        \"\"\"\n        Estimate the EDR space using PHD.\n\n        Parameters\n        ----------\n        resid : bool, optional\n            If True, use least squares regression to remove the\n            linear relationship between each covariate and the\n            response, before conducting PHD.\n        \"\"\"\n\n        resid = kwargs.get(\"resid\", False)\n\n        y = self.endog - self.endog.mean()\n        x = self.exog - self.exog.mean(0)\n\n        if resid:\n            from statsmodels.regression.linear_model import OLS\n            r = OLS(y, x).fit()\n            y = r.resid\n\n        cm = np.einsum('i,ij,ik->jk",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "4046bbaa450ad4f555d4be9321e6ec4804fba4b65e61ffeb41e8cac8b9dd8888",
+        "request_id": "chatcmpl-Ej8SiPKlep9gHssMUhSCHT315psEf",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.7155830830015475,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "dd66c37a26485781578d697c0039f3a63199ad186c8216384e868215e139ee8e",
+        "request_id": "chatcmpl-Ej8SjB8SrHjerztUHVVcqJUzn8PTY",
+        "usage": {
+          "prompt_tokens": 867,
+          "completion_tokens": 15,
+          "total_tokens": 882,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003708,
+        "seconds": 0.6533347920012602,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "3e8ae0bad41a1046446e8f9dc7fd44242b9b0300985cb6918b5836fac1f02628",
+        "request_id": "chatcmpl-Ej8Skv5rFeRBpHOEcChLbbaF497TN",
+        "usage": {
+          "prompt_tokens": 1961,
+          "completion_tokens": 15,
+          "total_tokens": 1976,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008084000000000001,
+        "seconds": 0.8211012089996075,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "615656e148a505d389e3e463d7f959cdf455f23c807664f34b6e76d1cdf484ae",
+        "request_id": "chatcmpl-Ej8SlWX3CnRnOY1wEy6ofWkWbBngN",
+        "usage": {
+          "prompt_tokens": 2973,
+          "completion_tokens": 281,
+          "total_tokens": 3254,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0016388000000000002,
+        "seconds": 2.191135959001258,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "1d875d062b5bb1e77c7aba7e55e5aa3716f2b03c7baf388d1a18fc08419d1a59",
+        "request_id": "chatcmpl-Ej8SnOYGPNxWr1kCo3f6nsAz0eI5h",
+        "usage": {
+          "prompt_tokens": 1964,
+          "completion_tokens": 710,
+          "total_tokens": 2674,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0019215999999999999,
+        "seconds": 4.706044040998677,
+        "retry_count": 0
+      }
+    ]
+  }
+}

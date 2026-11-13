@@ -1,0 +1,82 @@
+Collection API
+==============
+
+Overview
+--------
+
+This module provides the core functionality for adapting and managing Python collections within the SQLAlchemy ORM. It bridges the gap between arbitrary Python collections and the ORM's internal mechanisms, enabling event-driven mutation tracking and seamless integration of collections with ORM-mapped entities.
+
+Key Components
+--------------
+
+CollectionAdapter
+~~~~~~~~~~~~~~~~~
+
+The `CollectionAdapter` class acts as a bridge between the ORM and arbitrary Python collections. It proxies base-level collection operations such as append, remove, and iteration to the underlying Python collection, while emitting add/remove events for entities entering or leaving the collection.
+
+The ORM exclusively uses `CollectionAdapter` for interaction with entity collections, ensuring consistent behavior and event handling.
+
+Attributes:
+
+- `attr`: The `CollectionAttributeImpl` instance representing the collection attribute.
+- `_key`: The key (name) of the collection attribute.
+- `_data`: A weak reference to the adapted collection.
+- `owner_state`: The `InstanceState` of the owner object that holds the collection.
+- `_converter`: A protocol instance responsible for converting collection elements.
+- `invalidated`: A boolean flag indicating if the collection has been invalidated.
+- `empty`: A boolean flag indicating if the collection is in an "empty" state.
+
+Important Methods:
+
+- `append_with_event(item, initiator=None)`: Adds an entity to the collection and fires mutation events.
+- `append_without_event(item)`: Adds or restores an entity to the collection without firing events.
+- `append_multiple_without_event(items)`: Adds multiple entities without firing events.
+- `bulk_appender()`: Returns the underlying collection's appender callable.
+- `_set_empty(user_data)`: Marks the collection as empty and stores user data.
+- `_reset_empty()`: Resets the collection from the empty state.
+- `_refuse_empty()`: Raises an error if mutation is attempted on an empty collection.
+- `_referenced_by_owner`: Property indicating if the owner state still refers to this collection.
+- `data`: Property returning the underlying adapted collection.
+
+Decorators for Collection Methods
+---------------------------------
+
+The module provides decorators to mark methods on collection classes that modify the collection in specific ways, enabling the ORM to track changes accurately.
+
+- `removes_return()`: A static method decorator that marks a method as removing an entity from the collection. The return value of the method is considered the value to remove. This decorator adds "remove from collection" handling to the method without inspecting method arguments.
+
+  Example usage::
+
+      @collection.removes_return()
+      def pop(self):
+          ...
+
+Collection Adapter Retrieval
+----------------------------
+
+- `collection_adapter(collection)`: A utility function to fetch the `CollectionAdapter` associated with a given collection. When type checking is enabled, this function is explicitly defined; otherwise, it is implemented as an attribute getter for the `_sa_adapter` attribute.
+
+Instrumentation and Integration
+-------------------------------
+
+The module ensures that built-in collection classes such as `InstrumentedList`, `InstrumentedSet`, and `KeyFuncDict` are instrumented for ORM integration. This instrumentation allows these collections to emit appropriate events and participate fully in the ORM's change tracking system.
+
+Additional Utilities
+--------------------
+
+The module imports and integrates various mapped collection utilities such as:
+
+- `mapped_collection`
+- `column_keyed_dict`
+- `attribute_keyed_dict`
+- `KeyFuncDict`
+- `column_mapped_collection`
+- `attribute_mapped_collection`
+- `MappedCollection`
+
+These utilities provide specialized collection types and behaviors tailored for ORM use cases.
+
+Summary
+-------
+
+This module is fundamental for managing collections within SQLAlchemy's ORM. By adapting arbitrary Python collections and providing event-driven mutation tracking, it enables robust and efficient handling of entity collections, ensuring that changes are properly detected and propagated throughout the ORM system.

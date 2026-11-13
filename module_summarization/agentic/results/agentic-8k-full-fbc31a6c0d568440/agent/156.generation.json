@@ -1,0 +1,348 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "How Mitogen Works\n=================\n\nMitogen is a high-performance distributed execution library for Python that enables efficient remote code execution and management of multiple hosts. It achieves this by establishing lightweight communication channels and protocols over various transport mechanisms such as SSH, allowing Python code to be executed transparently on remote systems.\n\nCore Concepts\n-------------\n\n### Channels and Messaging\n\nMitogen uses the concept of **Channels** to facilitate communication between different contexts (local or remote). Each channel represents a bidirectional communication path over which messages are sent and received asynchronously.\n\nSpecial message values such as `IS_DEAD` are used internally to signal disconnection or routing failures. When a message with `reply_to` set to `IS_DEAD` is received, it typically indicates that the remote receiver is disconnected, a message could not be routed, or a router is being torn down. This causes exceptions like `mitogen.core.ChannelError` to be raised, prompting cleanup and error handling.\n\n### Protocols and Streams\n\nA **Stream** in Mitogen represents one or two file descriptors (readable and optionally writable) aggregated with an associated **Protocol**. The protocol defines how to handle IO readiness events on these descriptors.\n\nStreams are managed by a central **Broker** that monitors IO events and dispatches callbacks accordingly. Protocols can change over the lifetime of a stream; for example, during connection setup, an initial protocol such as `BootstrapProtocol` handles authentication and environment setup, before handing off to `MitogenProtocol` once the remote process is ready.\n\nStreams connected to child processes are further managed by `mitogen.parent.Connection`, which handles child process lifecycle and may maintain separate streams for standard error output.\n\n### Routers and Importers\n\nMitogen employs a **Router** to manage message routing between contexts. The router maintains knowledge of available routes and handlers, enabling messages to be forwarded efficiently.\n\nAn **Importer** is integrated with Python’s import system (`sys.meta_path`) to allow transparent importing of modules on remote hosts. This enables remote code execution to seamlessly access required Python modules as if they were local.\n\n### Execution Contexts and Decorators\n\nMitogen supports execution contexts that represent the environment in which code runs. Functions can be decorated with `@takes_econtext` or `@takes_router` to automatically receive references to the current external context or router when invoked remotely via Mitogen’s call mechanisms.\n\nThis design allows remote functions to interact with the Mitogen runtime environment, facilitating advanced features such as dynamic routing and context-aware execution.\n\n### Standard IO Handling and Logging\n\nTo ensure robust operation, Mitogen carefully manages standard input/output streams. It may temporarily redirect standard IO to `/dev/null` during startup to avoid interference, especially when running under privilege escalation tools like `sudo`.\n\nMitogen also preserves TTY file descriptors when necessary to prevent premature termination signals (e.g., `SIGHUP`) when the process is executed in a terminal environment.\n\nLogging is integrated into the IO streams, with special protocols capturing and forwarding log messages through the Mitogen communication channels, ensuring that logs from remote executions are accessible locally.\n\nStartup and Initialization\n--------------------------\n\nDuring startup, Mitogen performs several key steps:\n\n- **Setup of the Master Context:** Initializes the master router and communication infrastructure.\n- **Logging Configuration:** Establishes logging protocols to capture output from remote processes.\n- **Importer Setup:** Inserts the Mitogen importer into Python’s import machinery to enable remote module loading.\n- **Package Initialization:** Creates a synthetic `mitogen` module in the runtime to expose core functionality.\n- **Standard IO Nullification:** Redirects standard input/output to `/dev/null` temporarily to avoid interference during initialization.\n- **TTY Preservation:** Keeps a duplicate of the TTY file descriptor open if necessary to prevent signal loss.\n- **Broker and Stream Management:** Starts the broker event loop and registers streams for communication.\n\nThese steps ensure that Mitogen can reliably establish and maintain communication channels, manage remote processes, and execute Python code across multiple hosts with minimal overhead.\n\nSummary\n-------\n\nMitogen’s architecture centers around lightweight, asynchronous communication channels managed by brokers and routers, combined with flexible protocols that handle connection setup and data transmission. Its integration with Python’s import system and execution contexts allows seamless remote code execution, making it a powerful tool for distributed Python applications and automation.\n\nBy abstracting the complexities of remote communication and process management, Mitogen enables developers to write Python code that runs transparently across multiple machines, improving scalability and efficiency in distributed environments.",
+  "prediction_sha256": "2817b8f8ce9ee76b50db49da0d7743f61ceff8cd33efdd0316fe7188810a6686",
+  "prompt_sha256": "1e8ae4e462952d53514207be32a7091feb6fce78a9b16915275169370e967595",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15240,
+    "completion_tokens": 993,
+    "total_tokens": 16233
+  },
+  "cost_usd": 0.0076848,
+  "generation_seconds": 10.940766874009569,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 141076,
+              "code": " mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context",
+              "code_tokens": 300,
+              "score": 1.69162572482
+            },
+            {
+              "chunk_id": 176,
+              "start_char": 140180,
+              "end_char": 140800,
+              "code": "      self.config.get('blacklist', ()),\n            )\n\n        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.im",
+              "code_tokens": 285,
+              "score": 1.657067031087
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 13437,
+              "end_char": 14357,
+              "code": "  registered for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in",
+              "code_tokens": 300,
+              "score": 1.40312718731
+            }
+          ],
+          "code_tokens": 885
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "how mitogen works"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 68,
+              "start_char": 55342,
+              "end_char": 56386,
+              "code": " is expected that the :class:`Protocol` associated with a stream will\n    change over its life. For example during connection setup, the initial\n    protocol may be :class:`mitogen.parent.BootstrapProtocol` that knows how to\n    enter SSH and sudo passwords and transmit the :mod:`mitogen.core` source to\n    the target, before handing off to :class:`MitogenProtocol` when the target\n    process is initialized.\n\n    Streams connecting to children are in turn aggregated by\n    :class:`mitogen.parent.Connection`, which contains additional logic for\n    managing any child process, and a reference to any separate ``stderr``\n    :class:`Stream` connected to that process.\n    \"\"\"\n    #: A :class:`Side` representing the stream's receive file descriptor.\n    receive_side = None\n\n    #: A :class:`Side` representing the stream's transmit file descriptor.\n    transmit_side = None\n\n    #: A :class:`Protocol` representing the protocol active on the stream.\n    protocol = None\n\n    #: In parents, the :class:`mitogen.parent.Connection` instance.\n",
+              "code_tokens": 300,
+              "score": 4.436434707083
+            },
+            {
+              "chunk_id": 67,
+              "start_char": 54427,
+              "end_char": 55243,
+              "code": ".levelno, msg)\n            if isinstance(encoded, UnicodeType):\n                # Logging package emits both :(\n                encoded = encoded.encode('utf-8')\n            self._send(Message(data=encoded, handle=FORWARD_LOG))\n        finally:\n            self.local.in_emit = False\n\n\nclass Stream(object):\n    \"\"\"\n    A :class:`Stream` is one readable and optionally one writeable file\n    descriptor (represented by :class:`Side`) aggregated alongside an\n    associated :class:`Protocol` that knows how to respond to IO readiness\n    events for those descriptors.\n\n    Streams are registered with :class:`Broker`, and callbacks are invoked on\n    the broker thread in response to IO activity. When registered using\n    :meth:`Broker.start_receive` or :meth:`Broker._start_transmit`, the broker\n    may call any of",
+              "code_tokens": 300,
+              "score": 3.965127840537
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 3540,
+              "end_char": 4462,
+              "code": "VICE = 111\n\n#: Special value used to signal disconnection or the inability to route a\n#: message, when it appears in the `reply_to` field. Usually causes\n#: :class:`mitogen.core.ChannelError` to be raised when it is received.\n#:\n#: It indicates the sender did not know how to process the message, or wishes\n#: no further messages to be delivered to it. It is used when:\n#:\n#:  * a remote receiver is disconnected or explicitly closed.\n#:  * a related message could not be delivered due to no route existing for it.\n#:  * a router is being torn down, as a sentinel value to notify\n#:    :meth:`mitogen.core.Router.add_handler` callbacks to clean up.\nIS_DEAD = 999\n\ntry:\n    BaseException\nexcept NameError:\n    BaseException = Exception\n\nPY24 = sys.version_info < (2, 5)\nPY3 = sys.version_info > (3,)\nif PY3:\n    b = str.encode\n    BytesType = bytes\n    UnicodeType = str\n    FsPathTypes = (str,)\n    BufferType = lambda buf",
+              "code_tokens": 300,
+              "score": 3.679438691886
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen overview"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 141076,
+              "code": " mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context",
+              "code_tokens": 300,
+              "score": 1.69162572482
+            },
+            {
+              "chunk_id": 176,
+              "start_char": 140180,
+              "end_char": 140800,
+              "code": "      self.config.get('blacklist', ()),\n            )\n\n        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.im",
+              "code_tokens": 285,
+              "score": 1.657067031087
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 13437,
+              "end_char": 14357,
+              "code": "  registered for signal `name` on `obj`.\n    \"\"\"\n    for func in _signals(obj, name):\n        func(*args, **kwargs)\n\n\ndef takes_econtext(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `econtext`, referencing the\n    :class:`mitogen.core.ExternalContext` active in the context in which the\n    function is being invoked in. The decorator is only meaningful when the\n    function is invoked via :data:`CALL_FUNCTION <mitogen.core.CALL_FUNCTION>`.\n\n    When the function is invoked directly, `econtext` must still be passed to\n    it explicitly.\n    \"\"\"\n    func.mitogen_takes_econtext = True\n    return func\n\n\ndef takes_router(func):\n    \"\"\"\n    Decorator that marks a function or class method to automatically receive a\n    kwarg named `router`, referencing the :class:`mitogen.core.Router` active\n    in the context in which the function is being invoked in",
+              "code_tokens": 300,
+              "score": 1.40312718731
+            }
+          ],
+          "code_tokens": 885
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 177
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 177,
+              "start_char": 140400,
+              "end_char": 143654,
+              "code": " mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_fp(self):\n        \"\"\"\n        #481: when stderr is a TTY due to being started via tty_create_child()\n        or hybrid_tty_create_child(), and some privilege escalation tool like\n        prehistoric versions of sudo exec this process over the top of itself,\n        there is nothing left to keep the slave PTY open after we replace our\n        stdio. Therefore if stderr is a TTY, keep around a permanent dup() to\n        avoid receiving SIGHUP.\n        \"\"\"\n        try:\n            if os.isatty(2):\n                self.reserve_tty_fp = os.fdopen(os.dup(2), 'r+b', 0)\n                set_cloexec(self.reserve_tty_fp.fileno())\n        except OSError:\n            pass\n\n    def _setup_stdio(self):\n        self._preserve_tty_fp()\n        # When sys.stdout was opened by the runtime, overwriting it will not\n        # close FD 1. However when forking from a child that previously used\n        # fdopen(), overwriting it /will/ close FD 1. So we must swallow the\n        # close before IoLogger overwrites FD 1, otherwise its new FD 1 will be\n        # clobbered. Additionally, stdout must be replaced with /dev/null prior\n        # to stdout.close(), since if block buffering was active in the parent,\n        # any pre-fork buffered data will be flushed on close(), corrupting the\n        # connection to the parent.\n        self._nullify_stdio()\n        sys.stdout.close()\n        self._nullify_stdio()\n\n        self.loggers = []\n        for name, fd in (('stdout', 1), ('stderr', 2)):\n            log = IoLoggerProtocol.build_stream(name, fd)\n            self.broker.start_receive(log)\n            self.loggers.append(log)\n\n        # Reopen with line buffering.\n        sys.stdout = os.fdopen(1, 'w', 1)\n\n    def main(self):\n        self._setup_master()\n        try:\n            try:\n                self._setup_logging()\n                self._setup_importer()\n                self._reap_first_stage()\n                if self.config.get('setup_package', True):\n                    self._setup_package()\n          ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 176
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 176,
+              "start_char": 140180,
+              "end_char": 143470,
+              "code": "      self.config.get('blacklist', ()),\n            )\n\n        self.importer = importer\n        self.router.importer = importer\n        sys.meta_path.insert(0, self.importer)\n\n    def _setup_package(self):\n        global mitogen\n        mitogen = imp.new_module('mitogen')\n        mitogen.__package__ = 'mitogen'\n        mitogen.__path__ = []\n        mitogen.__loader__ = self.importer\n        mitogen.main = lambda *args, **kwargs: (lambda func: None)\n        mitogen.core = sys.modules['__main__']\n        mitogen.core.__file__ = 'x/mitogen/core.py'  # For inspect.getsource()\n        mitogen.core.__loader__ = self.importer\n        sys.modules['mitogen'] = mitogen\n        sys.modules['mitogen.core'] = mitogen.core\n        del sys.modules['__main__']\n\n    def _setup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_fp(self):\n        \"\"\"\n        #481: when stderr is a TTY due to being started via tty_create_child()\n        or hybrid_tty_create_child(), and some privilege escalation tool like\n        prehistoric versions of sudo exec this process over the top of itself,\n        there is nothing left to keep the slave PTY open after we replace our\n        stdio. Therefore if stderr is a TTY, keep around a permanent dup() to\n        avoid receiving SIGHUP.\n        \"\"\"\n        try:\n            if os.isatty(2):\n                self.reserve_tty_fp = os.fdopen(os.dup(2), 'r+b', 0)\n                set_cloexec(self.reserve_tty_fp.fileno())\n        except OSError:\n            pass\n\n    def _setup_stdio(self):\n        self._preserve_tty_fp()\n        # When sys.stdout was opened by the runtime, overwriting it will not\n        # close FD 1. However when forking from a child that previously used\n        # fdopen(), overwriting it /will/ close FD 1. So we must swallow the\n        # close before IoLogger overwrites FD 1, otherwise its new FD 1 will be\n        # clobbered. Additionally, stdout must be replaced with /dev/null prior\n        # to stdout.close(), since if block buffering was active in the parent,\n        # any pre-fork buffered data will be flushed on close(), corrupting the\n        # connection to the parent.\n        self._nullify_stdio()\n        sys.stdout.close()\n        self._nullify_stdio()\n\n        self.loggers = []\n        for name, fd in (('stdout', 1), ('stderr', 2)):\n            log = IoLoggerProtocol.build_stream(name, fd)\n            self.broker.start_receive(log)\n            self.loggers.append(log)\n\n        # Reopen with line buffering.\n        sys.stdout = os.fdopen(1, 'w', 1)\n\n    def main(self):\n        self._setup_master()\n        try:\n            try:\n                self._setup_logging()\n       ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mitogen overview"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 5670,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "6ffa955462ab1f0827369e108116390dd3266245fa1b5851fceadaaea2854c86",
+        "request_id": "chatcmpl-Ej9hDM4ur6FDAT0lEVit3B28xWQQB",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 15,
+          "total_tokens": 172,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 0.7674393749985029,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "72833c2d88e7329a00cf250e91dfc536473f9cb9efd486094dcb6dff3ce076db",
+        "request_id": "chatcmpl-Ej9hErvHy2itGpNo9jNnY5RYLBe7u",
+        "usage": {
+          "prompt_tokens": 935,
+          "completion_tokens": 17,
+          "total_tokens": 952,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004012,
+        "seconds": 1.1868059580010595,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "5385660945f8d7d3c9eac3b7a24def4a8003101f51ac424e30b2373e4f31aa5a",
+        "request_id": "chatcmpl-Ej9hF1es6zrYXBsFa7pXAU60G5d25",
+        "usage": {
+          "prompt_tokens": 1803,
+          "completion_tokens": 16,
+          "total_tokens": 1819,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007468,
+        "seconds": 0.8373025830005645,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "c14ed4e3cb2b5d3a9f3ba48840d0b37a4789e34778c12b17445152be7d7afb74",
+        "request_id": "chatcmpl-Ej9hGNf9d0EPetCLX1Qc25VGy2rH1",
+        "usage": {
+          "prompt_tokens": 2582,
+          "completion_tokens": 15,
+          "total_tokens": 2597,
+          "prompt_tokens_details": {
+            "cached_tokens": 1664,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010567999999999999,
+        "seconds": 0.6582886670003063,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "73c2cb10159aadac9322e1706a73fa95dfe9255095dd7ccdc8087ca3341a60c2",
+        "request_id": "chatcmpl-Ej9hHaM65k7b0iWfREKGbPAEbTab6",
+        "usage": {
+          "prompt_tokens": 3521,
+          "completion_tokens": 15,
+          "total_tokens": 3536,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014324000000000001,
+        "seconds": 0.6923442909974256,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "c723fe1f175abd86e0e10a2f3fb2dcb8d0e7f33c5b40484f7f0092eea34b2296",
+        "request_id": "chatcmpl-Ej9hHJNZrM9FZR4y5uovQ2VFOWPzr",
+        "usage": {
+          "prompt_tokens": 4480,
+          "completion_tokens": 16,
+          "total_tokens": 4496,
+          "prompt_tokens_details": {
+            "cached_tokens": 3328,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0018176,
+        "seconds": 0.7426227080068202,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "684d33f8cd983eecbfe137c6d9541679ce574b2c9e443903a1768ac5e0960c77",
+        "request_id": "chatcmpl-Ej9hI0y6VVusfWaDw6U7ZMzRQQumI",
+        "usage": {
+          "prompt_tokens": 1762,
+          "completion_tokens": 899,
+          "total_tokens": 2661,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0021432000000000005,
+        "seconds": 6.05596329200489,
+        "retry_count": 0
+      }
+    ]
+  }
+}

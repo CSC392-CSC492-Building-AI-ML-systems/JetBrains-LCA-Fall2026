@@ -1,0 +1,83 @@
+Table Data
+==========
+
+Reading Tables from FITS Files
+------------------------------
+
+The Table object can be read from a FITS file using a flexible interface that supports various input types and options.
+
+If the `astropy_native` argument is set to `True`, FITS columns representing astropy core objects will be converted to their corresponding astropy classes and stored as "mixin columns" in the Table. Currently, this conversion is limited to FITS columns adhering to the FITS Time standard, which are converted to `~astropy.time.Time` columns.
+
+### Parameters
+
+- **input** : str or file-like or compatible `astropy.io.fits` HDU object  
+  The source from which to read the table. This can be:
+  - A filename (string) to read the table from.
+  - A file object or a compatible HDU object to extract the table from.  
+  Supported `astropy.io.fits` HDU objects include:
+    - `~astropy.io.fits.hdu.table.TableHDU`
+    - `~astropy.io.fits.hdu.table.BinTableHDU`
+    - `~astropy.io.fits.hdu.table.GroupsHDU`
+    - `~astropy.io.fits.hdu.hdulist.HDUList`
+
+- **hdu** : int or str, optional  
+  The HDU (Header/Data Unit) to read the table from. If not specified and multiple tables are present, the first available table will be read with a warning.
+
+- **astropy_native** : bool, optional  
+  If `True`, FITS columns are read as native astropy objects where possible instead of standard Table Column objects. Default is `False`.
+
+- **memmap** : bool, optional  
+  Whether to use memory mapping to access data on disk as needed. This can be more efficient when accessing only part of the data. If you want to access all values and can fit the table in memory, it may be better to disable memory mapping. When `True`, `mask_invalid` is automatically set to `False` because masking would require loading the full data array.
+
+- **character_as_bytes** : bool, optional  
+  If `True`, string columns are stored as Numpy byte arrays (`dtype='S'`) and converted on-the-fly to unicode strings when accessed. If `False`, string columns use Numpy unicode arrays (`dtype='U'`), which use more memory and are not memory-mapped even if `memmap=True`.
+
+- **unit_parse_strict** : str, optional  
+  Controls behavior when encountering invalid column units in the FITS header. Default is `"warn"`, which emits a `UnitsWarning` and creates an `UnrecognizedUnit`. Allowed values are `"raise"`, `"warn"`, and `"silent"`, corresponding to the `parse_strict` argument of `astropy.units.core.Unit`.
+
+- **mask_invalid** : bool, optional  
+  By default, NaNs in float columns and empty strings in string columns are masked. Set this to `False` to avoid the performance penalty of masking. Masking is always disabled when `memmap=True`.
+
+Table Columns and Column Operations
+-----------------------------------
+
+Tables consist of columns which can be manipulated individually. Columns have attributes such as name, format, unit, and data array.
+
+- Columns can be added or removed from a table.
+- Column names can be changed, and the table updates accordingly.
+- Columns support deep copying, including special formats such as bit arrays (`X` format) and variable length arrays (`P` and `Q` formats).
+- Column initialization verifies keyword arguments for validity, ensuring proper column names and formats.
+
+Table Header and Metadata
+-------------------------
+
+Table headers contain metadata about the table and its columns, including keywords describing each column's properties.
+
+- Headers can be parsed and converted into Table objects.
+- Table header keywords are populated and updated automatically when columns are modified.
+- The header supports standard FITS keywords such as `TFIELDS` (number of fields), `TTYPE` (column names), and others describing column formats and units.
+
+Extension HDUs and Table HDUs
+-----------------------------
+
+- The `ExtensionHDU` class is a base class for FITS HDUs that contain table-like data, including `TableHDU`, `ImageHDU`, and `BinTableHDU`.
+- Table HDUs represent tables stored in FITS files and provide methods to create tables from columns or other table data.
+
+Unit Handling and Aliases
+-------------------------
+
+- Units in table columns can be specified and parsed with support for aliases.
+- Unit aliases allow for flexible unit naming conventions, e.g., "Angstroms" can be aliased to `u.AA`.
+- Unit parsing respects the `unit_parse_strict` parameter to control warnings or errors on invalid units.
+
+Examples and Tests
+------------------
+
+- Tests ensure that column operations such as renaming, deletion, and deep copying work correctly.
+- Regression tests verify support for special column formats and unit aliasing.
+- Example usage includes reading tables with unit aliases and verifying that units are correctly interpreted.
+
+Summary
+-------
+
+The Table data structure provides a powerful and flexible interface for reading, manipulating, and writing tabular data from FITS files. It supports native astropy objects, memory mapping, unit handling, and detailed metadata management, making it suitable for a wide range of astronomical data analysis tasks.

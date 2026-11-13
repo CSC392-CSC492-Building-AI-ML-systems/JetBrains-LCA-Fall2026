@@ -1,0 +1,145 @@
+Geometric Image Transformations
+===============================
+
+This module provides classes and functions for representing and manipulating geometric transformations related to pinhole camera models, which are fundamental in computer vision and image processing tasks.
+
+PinholeCamera Class
+-------------------
+
+The `PinholeCamera` class represents a pinhole camera model with intrinsic and extrinsic parameters. It supports batch processing to leverage PyTorch's parallelism for efficient computation.
+
+### Initialization
+
+```python
+PinholeCamera(intrinsics: torch.Tensor, extrinsics: torch.Tensor, height: torch.Tensor, width: torch.Tensor)
+```
+
+- **intrinsics**: Tensor of shape `(B, 4, 4)` containing the full 4x4 camera calibration matrices.
+- **extrinsics**: Tensor of shape `(B, 4, 4)` containing the full 4x4 rotation-translation matrices.
+- **height**: Tensor of shape `(B)` containing the image heights.
+- **width**: Tensor of shape `(B)` containing the image widths.
+
+### Properties
+
+- `intrinsics`: Returns the intrinsic matrices `(B, 4, 4)`.
+- `extrinsics`: Returns the extrinsic matrices `(B, 4, 4)`.
+- `batch_size`: Returns the batch size.
+- `fx`, `fy`: Focal lengths in x and y directions `(B)`.
+- `cx`, `cy`: Principal point coordinates `(B)`.
+- `tx`, `ty`, `tz`: Translation vector components `(B)`.
+- `rt_matrix`: Rotation-translation matrix `(B, 3, 4)`.
+- `camera_matrix`: Camera intrinsic matrix `(B, 3, 3)`.
+- `rotation_matrix`: Rotation matrix from extrinsics `(B, 3, 3)`.
+- `translation_vector`: Translation vector from extrinsics `(B, 3, 1)`.
+
+### Methods
+
+- `clone()`: Returns a deep copy of the camera instance.
+- `intrinsics_inverse()`: Returns the inverse of the intrinsic matrices `(B, 4, 4)`.
+- `scale(scale_factor)`: Returns a new `PinholeCamera` instance with scaled intrinsic parameters and image size.
+- `scale_(scale_factor)`: Scales the intrinsic parameters and image size in-place.
+
+### Class Method
+
+- `from_parameters(fx, fy, cx, cy, height, width, tx, ty, tz, batch_size=1, device=None, dtype=None)`: Creates a `PinholeCamera` instance from individual camera parameters.
+
+PinholeCamerasList Class
+------------------------
+
+The `PinholeCamerasList` class represents a list of pinhole cameras, extending the `PinholeCamera` class to handle multiple cameras simultaneously.
+
+### Initialization
+
+```python
+PinholeCamerasList(pinholes_list: Iterable[PinholeCamera])
+```
+
+- **pinholes_list**: A list or tuple of `PinholeCamera` instances.
+
+### Properties
+
+- `num_cameras`: Returns the number of cameras per batch.
+
+### Methods
+
+- `get_pinhole(idx: int)`: Returns a `PinholeCamera` instance corresponding to the camera at index `idx`.
+
+Utility Functions
+-----------------
+
+### pinhole_matrix(pinholes: torch.Tensor, eps: float = 1e-6) -> torch.Tensor
+
+Returns the pinhole intrinsic matrix from a pinhole model tensor.
+
+- **Input shape**: `(N, 12)` where each row contains `[fx, fy, cx, cy, ...]`.
+- **Output shape**: `(N, 4, 4)` intrinsic matrices.
+
+**Note**: This function is deprecated in favor of `PinholeCamera.camera_matrix`.
+
+### inverse_pinhole_matrix(pinhole: torch.Tensor, eps: float = 1e-6) -> torch.Tensor
+
+Returns the inverse of the pinhole intrinsic matrix.
+
+- **Input shape**: `(N, 12)`
+- **Output shape**: `(N, 4, 4)`
+
+**Note**: This function is deprecated in favor of `PinholeCamera.intrinsics_inverse()`.
+
+### scale_pinhole(pinholes: torch.Tensor, scale: torch.Tensor) -> torch.Tensor
+
+Scales the pinhole intrinsic parameters by a given scale factor.
+
+- **Input shapes**: pinholes `(N, 12)`, scale `(N,)`
+- **Output shape**: `(N, 12)`
+
+**Note**: This function is deprecated in favor of `PinholeCamera.scale()`.
+
+### get_optical_pose_base(pinholes: torch.Tensor) -> torch.Tensor
+
+Computes extrinsic transformation matrices from pinhole parameters.
+
+- **Input shape**: `(N, 12)` containing `[fx, fy, cx, cy, h, w, rx, ry, rz, tx, ty, tz]`.
+- **Output shape**: `(N, 4, 4)` extrinsic transformation matrices.
+
+**Note**: This function is currently not implemented.
+
+Usage Examples
+--------------
+
+Creating a pinhole camera from parameters:
+
+```python
+camera = PinholeCamera.from_parameters(
+    fx=500.0, fy=500.0, cx=320.0, cy=240.0,
+    height=480, width=640,
+    tx=0.0, ty=0.0, tz=0.0,
+    batch_size=1,
+    device=torch.device('cpu'),
+    dtype=torch.float32
+)
+```
+
+Scaling a camera model:
+
+```python
+scaled_camera = camera.scale(torch.tensor([2.0]))
+```
+
+Accessing intrinsic matrix:
+
+```python
+intrinsics = camera.camera_matrix  # shape (B, 3, 3)
+```
+
+Working with multiple cameras:
+
+```python
+camera_list = PinholeCamerasList([camera1, camera2])
+num_cameras = camera_list.num_cameras
+camera0 = camera_list.get_pinhole(0)
+```
+
+Summary
+-------
+
+This module provides a comprehensive and efficient representation of pinhole camera models, supporting batch operations and convenient manipulation of intrinsic and extrinsic parameters. It facilitates geometric image transformations essential for tasks such as 3D reconstruction, camera calibration, and image warping.

@@ -1,0 +1,57 @@
+Scheduling Policies
+===================
+
+Dask's distributed scheduler employs various policies to determine the preference of tasks and workers during scheduling. These policies guide the scheduler in selecting which tasks to execute next and which workers to assign them to, optimizing for efficiency, resource utilization, and task priorities.
+
+Task Preference Policies
+------------------------
+
+Each task in the scheduler is associated with a priority attribute, which is generally a tuple of values used to rank tasks for execution. The priority tuple typically consists of two elements:
+
+1. **Submission Time**: The first and dominant element corresponds to when the task was submitted. Tasks submitted earlier generally take precedence over later ones.
+
+2. **Client-Determined Priority**: The second element is determined by the client and allows prioritization within a large task graph. This can be used to emphasize tasks on the critical path or those that help release many dependencies quickly.
+
+This ranking mechanism ensures that tasks critical to the overall computation or those submitted earlier are favored during scheduling.
+
+Task Dependencies and States
+----------------------------
+
+Tasks maintain several sets that track their dependencies and dependents:
+
+- **dependencies**: The set of tasks that the current task depends on for execution. Only tasks still alive are included. A task can only execute once all its dependencies have completed successfully and their results are available on at least one worker.
+
+- **dependents**: The set of tasks that depend on the current task. This is the reverse mapping of `dependencies`.
+
+- **waiting_on**: A subset of `dependencies` representing tasks that the current task is still waiting to complete before it can execute. As dependencies finish, they are removed from this set.
+
+- **waiters**: A subset of `dependents` representing tasks that require the current task to remain alive. As dependents finish, they are removed from this set.
+
+- **who_wants**: The set of clients that want the result of this task to remain alive. This is the reverse mapping of `ClientState.wants_what`.
+
+- **who_has**: The set of workers that currently hold the result of this task in memory. This set is non-empty only if the task is in the "memory" state.
+
+Additionally, tasks track whether they have lost dependencies (e.g., if a dependency was forgotten for memory reasons) via the `has_lost_dependencies` flag. Tasks with lost dependencies cannot proceed to processing.
+
+Worker Preference Policies
+--------------------------
+
+The scheduler also manages worker states and employs policies to retire or close workers gracefully based on workload and resource management considerations. For example, the `RetireWorker` policy is used to retire workers by transitioning their status to `closing_gracefully` and coordinating the shutdown process to avoid race conditions.
+
+Adaptive scheduling mechanisms use workload metrics such as the number of running tasks and memory usage to determine the desired number of workers dynamically. The `adaptive_target` method computes this target based on a specified desired computation duration, helping the scheduler scale resources up or down accordingly.
+
+Retry and Failure Handling
+--------------------------
+
+Tasks have a `retries` attribute indicating how many times they can be retried upon failure. If a task fails during execution:
+
+- If `retries` is zero, the task is marked as "erred".
+
+- If `retries` is greater than zero, it is decremented, and the task execution is attempted again.
+
+This mechanism ensures robustness in the face of transient failures.
+
+Summary
+-------
+
+Dask's scheduling policies combine task priority ranking, dependency tracking, worker state management, and adaptive resource scaling to efficiently orchestrate distributed computations. These policies ensure that critical tasks are prioritized, dependencies are respected, workers are utilized effectively, and the system adapts to changing workloads dynamically.

@@ -1,0 +1,113 @@
+RandAugment Module
+==================
+
+Overview
+--------
+This module provides an implementation of the RandAugment data augmentation scheme as described in the paper `RandAugment: Practical automated data augmentation with a reduced search space <https://arxiv.org/abs/1909.13719>`_. RandAugment applies a sequence of randomly selected image transformations to batches of images or videos, enhancing the diversity of training data for machine learning models.
+
+The module supports both monotonic and non-monotonic magnitude scaling variants of RandAugment and allows customization of the augmentation suite, magnitude bins, translation parameters, and other augmentation-specific options.
+
+Functions
+---------
+
+rand_augment(data, n, m, num_magnitude_bins=31, shape=None, fill_value=128, interp_type=None, max_translate_abs=None, max_translate_rel=None, seed=None, monotonic_mag=True, excluded=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies the RandAugment augmentation scheme to a batch of samples.
+
+Parameters:
+- **data** (_DataNode_): Batch of samples to be augmented. Supports images with `HWC` layout and videos with `FHWC` layout, data type `uint8`.
+- **n** (int): Number of randomly sampled operations to apply to each sample.
+- **m** (int): Magnitude (strength) of each operation, an integer in `[0, num_magnitude_bins - 1]`.
+- **num_magnitude_bins** (int, optional): Number of bins dividing the magnitude range. Default is 31.
+- **shape** (_DataNode_ or Tuple[int, int], optional): Size (height, width) of images or video frames. If provided, translation magnitudes are relative to shape.
+- **fill_value** (int, optional): Padding value for warp affine transformations (translation, shear, rotate). Defaults to 128. If `None`, border values are repeated.
+- **interp_type** (types.DALIInterpType, optional): Interpolation method for warp affine ops. Supported values: `types.INTERP_LINEAR` (default), `types.INTERP_NN`.
+- **max_translate_abs** (int or Tuple[int, int], optional): Maximal absolute pixel shift for translations when `shape` is not provided. Defaults to 100 pixels.
+- **max_translate_rel** (float or Tuple[float, float], optional): Maximal relative shift as fraction of image/frame size when `shape` is provided. Defaults to approximately 0.45 (100/224).
+- **seed** (int, optional): Seed for random sampling of operations and magnitude negation.
+- **monotonic_mag** (bool, optional): If True (default), operation strengths increase monotonically with magnitude bins. If False, uses non-monotonic magnitude ranges similar to AutoAugment.
+- **excluded** (List[str], optional): List of augmentation operation names to exclude from the default suite.
+
+Returns:
+- _DataNode_: Batch of augmented samples.
+
+Notes:
+- The function automatically selects the augmentation suite based on `monotonic_mag`.
+- Use `excluded` to omit specific augmentations from the default suite.
+- For custom augmentation lists or fine-tuning, use `apply_rand_augment` directly.
+
+apply_rand_augment(augmentations, data, n, m, num_magnitude_bins=31, seed=None, **kwargs)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applies a list of augmentations in RandAugment fashion.
+
+Parameters:
+- **augmentations** (List[_Augmentation_]): List of augmentation operations to sample from.
+- **data** (_DataNode_): Batch of samples to be augmented.
+- **n** (int): Number of operations to apply per sample.
+- **m** (int): Magnitude bin for each operation, integer in `[0, num_magnitude_bins - 1]`.
+- **num_magnitude_bins** (int): Number of magnitude bins.
+- **seed** (int, optional): Seed for random sampling.
+- **kwargs**: Additional keyword arguments passed to augmentations if supported (e.g., `shape`, `fill_value`, `interp_type`).
+
+Returns:
+- _DataNode_: Batch of augmented samples.
+
+Raises:
+- Exception if `n` is negative or not an integer.
+- Exception if `num_magnitude_bins` is not positive.
+- Exception if `m` is out of valid range.
+- Exception if `augmentations` list is empty (unless `n=0`).
+
+Notes:
+- If `n=0`, returns input data unchanged with a warning.
+- Randomly selects `n` augmentations per sample and applies them sequentially.
+- Supports augmentations that may randomly negate magnitudes.
+
+get_rand_augment_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creates the default list of RandAugment augmentations with monotonic magnitude scaling.
+
+Parameters:
+- **use_shape** (bool): If True, translation offsets are relative to image/frame shape. If False, offsets are absolute pixel values.
+- **max_translate_abs** (int or Tuple[int, int], optional): Max absolute pixel shift for translations when `use_shape=False`. Defaults to 100.
+- **max_translate_rel** (float or Tuple[float, float], optional): Max relative shift fraction for translations when `use_shape=True`. Defaults to approximately 0.45 (100/224).
+
+Returns:
+- List[_Augmentation_]: List of augmentation operations including translations, shear, rotate, brightness, contrast, color, sharpness, posterize, solarize, equalize, auto contrast, and identity.
+
+Notes:
+- Translation augmentations are adjusted based on `use_shape` and translation parameters.
+- Magnitude ranges for operations increase monotonically with magnitude bin.
+
+get_rand_augment_non_monotonic_suite(use_shape=False, max_translate_abs=None, max_translate_rel=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creates a list of RandAugment augmentations with non-monotonic magnitude scaling.
+
+Parameters:
+- **use_shape** (bool): If True, translation offsets are relative to image/frame shape. If False, offsets are absolute pixel values.
+- **max_translate_abs** (int or Tuple[int, int], optional): Max absolute pixel shift for translations when `use_shape=False`. Defaults to 100.
+- **max_translate_rel** (float or Tuple[float, float], optional): Max relative shift fraction for translations when `use_shape=True`. Defaults to approximately 0.45 (100/224).
+
+Returns:
+- List[_Augmentation_]: List of augmentation operations similar to the default suite but with brightness, contrast, color, sharpness, posterize, and solarize using AutoAugment magnitude ranges that are non-monotonic.
+
+Notes:
+- This variant reflects the original AutoAugment magnitude ranges where higher magnitude bins do not always correspond to stronger effects.
+
+Module Details
+--------------
+- Supports augmentation of images and videos with uint8 data type.
+- Uses NVIDIA DALI framework's functional API and types.
+- Provides flexibility in augmentation parameters including magnitude bins, translation limits, interpolation methods, and padding values.
+- Allows exclusion of specific augmentations from the default suite.
+- Supports seeding for reproducible augmentation sequences.
+- Includes utility functions for magnitude bin handling and augmentation selection.
+
+License
+-------
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.
+
+References
+----------
+- RandAugment Paper: https://arxiv.org/abs/1909.13719
+- NVIDIA DALI Documentation: https://docs.nvidia.com/deeplearning/dali/user-guide/docs/index.html

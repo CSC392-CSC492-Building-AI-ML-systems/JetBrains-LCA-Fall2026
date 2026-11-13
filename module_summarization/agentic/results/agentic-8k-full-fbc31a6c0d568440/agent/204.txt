@@ -1,0 +1,154 @@
+Random Projection
+=================
+
+A simple and computationally efficient way to reduce the dimensionality of the data.
+
+Overview
+--------
+
+Random Projection is a technique used to reduce the dimensionality of data by projecting it onto a lower-dimensional subspace using a random matrix. This method is particularly useful for high-dimensional datasets where traditional dimensionality reduction techniques may be computationally expensive.
+
+Two main variants of random projection are provided:
+
+- **GaussianRandomProjection**: Uses a dense Gaussian random matrix for projection.
+- **SparseRandomProjection**: Uses a sparse random matrix, which is more memory efficient and allows faster computation.
+
+Both methods rely on the Johnson-Lindenstrauss lemma to preserve the distances between points with high probability, ensuring that the structure of the data is approximately maintained in the lower-dimensional space.
+
+GaussianRandomProjection
+------------------------
+
+This transformer projects data using a dense Gaussian random matrix. The random matrix components are drawn from a normal distribution and scaled appropriately.
+
+**Key Attributes:**
+
+- `n_components_` : int  
+  The concrete number of components computed when `n_components="auto"`.
+
+- `components_` : ndarray of shape (n_components, n_features)  
+  The random Gaussian matrix used for projection.
+
+- `inverse_components_` : ndarray of shape (n_features, n_components)  
+  Pseudo-inverse of the components, computed if `compute_inverse_components=True`.
+
+- `n_features_in_` : int  
+  Number of features seen during fitting.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fitting, if available.
+
+**Parameters:**
+
+- `n_components` : int or "auto", default="auto"  
+  Dimensionality of the target projection space. If "auto", it is determined automatically based on the Johnson-Lindenstrauss lemma and the `eps` parameter.
+
+- `eps` : float, default=0.1  
+  Parameter controlling the quality of the embedding according to the Johnson-Lindenstrauss lemma.
+
+- `compute_inverse_components` : bool, default=False  
+  Whether to compute the pseudo-inverse of the components.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the randomness of the projection.
+
+**Example:**
+
+```python
+import numpy as np
+from sklearn.random_projection import GaussianRandomProjection
+
+rng = np.random.RandomState(42)
+X = rng.rand(25, 3000)
+transformer = GaussianRandomProjection(random_state=rng)
+X_new = transformer.fit_transform(X)
+print(X_new.shape)  # Output: (25, n_components)
+```
+
+SparseRandomProjection
+----------------------
+
+This transformer uses a sparse random matrix for projection, which is more memory efficient and can speed up computations compared to dense Gaussian matrices.
+
+The components of the sparse random matrix are drawn from the following distribution:
+
+- \(-\sqrt{s} / \sqrt{n\_components}\) with probability \(1 / 2s\)
+- \(0\) with probability \(1 - 1 / s\)
+- \(+\sqrt{s} / \sqrt{n\_components}\) with probability \(1 / 2s\)
+
+where \(s = 1 / \text{density}\).
+
+**Key Attributes:**
+
+- `n_components_` : int  
+  The concrete number of components computed when `n_components="auto"`.
+
+- `components_` : sparse matrix of shape (n_components, n_features)  
+  The sparse random matrix used for projection.
+
+- `density_` : float  
+  The actual density of the random matrix used.
+
+- `inverse_components_` : ndarray of shape (n_features, n_components)  
+  Pseudo-inverse of the components, computed if `compute_inverse_components=True`.
+
+- `n_features_in_` : int  
+  Number of features seen during fitting.
+
+- `feature_names_in_` : ndarray of shape (n_features_in_,)  
+  Names of features seen during fitting, if available.
+
+**Parameters:**
+
+- `n_components` : int or "auto", default="auto"  
+  Dimensionality of the target projection space. If "auto", it is determined automatically based on the Johnson-Lindenstrauss lemma and the `eps` parameter.
+
+- `density` : float in (0, 1] or "auto", default="auto"  
+  Ratio of non-zero components in the random projection matrix. If "auto", it is set to \(1 / \sqrt{n\_features}\).
+
+- `eps` : float, default=0.1  
+  Parameter controlling the quality of the embedding according to the Johnson-Lindenstrauss lemma.
+
+- `dense_output` : bool, default=False  
+  Whether to return a dense array or sparse matrix after transformation.
+
+- `compute_inverse_components` : bool, default=False  
+  Whether to compute the pseudo-inverse of the components.
+
+- `random_state` : int, RandomState instance or None, default=None  
+  Controls the randomness of the projection.
+
+**Example:**
+
+```python
+import numpy as np
+from sklearn.random_projection import SparseRandomProjection
+
+rng = np.random.RandomState(42)
+X = rng.rand(25, 3000)
+transformer = SparseRandomProjection(random_state=rng)
+X_new = transformer.fit_transform(X)
+print(X_new.shape)  # Output: (25, n_components)
+print(np.mean(transformer.components_ != 0))  # Proportion of non-zero components
+```
+
+Usage Notes
+-----------
+
+- Random projection is a fast and scalable dimensionality reduction technique suitable for very high-dimensional data.
+- The choice between Gaussian and sparse random projection depends on the trade-off between computational efficiency and memory usage.
+- The `n_components` parameter can be set to "auto" to automatically select the number of components based on the Johnson-Lindenstrauss lemma, controlled by the `eps` parameter.
+- Sparse random projection is particularly useful when working with sparse input data or when memory efficiency is critical.
+
+References
+----------
+
+- Johnson, W. B., & Lindenstrauss, J. (1984). Extensions of Lipschitz mappings into a Hilbert space. *Contemporary Mathematics*, 26, 189–206.
+- Achlioptas, D. (2001). Database-friendly random projections. *Journal of Computer and System Sciences*, 66(4), 671–687. https://cgi.di.uoa.gr/~optas/papers/jl.pdf
+
+See Also
+--------
+
+- :class:`sklearn.random_projection.GaussianRandomProjection`
+- :class:`sklearn.random_projection.SparseRandomProjection`
+
+For more details, refer to the :ref:`User Guide <random_projection>`.

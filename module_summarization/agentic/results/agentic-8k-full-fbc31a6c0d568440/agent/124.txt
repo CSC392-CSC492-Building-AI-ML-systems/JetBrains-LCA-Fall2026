@@ -1,0 +1,123 @@
+Header Interface Transition Guide
+=================================
+
+This guide explains the changes and improvements made to the `Header` interface, focusing on the transition from older versions of Astropy to the current API. It highlights how to update and manipulate FITS headers using the new methods and best practices.
+
+Updating Header Keywords
+------------------------
+
+The `Header.update()` method now works similarly to the built-in Python dictionary `update()` method. For example:
+
+.. code-block:: python
+
+    header.update(NAXIS1=100, NAXIS2=100)
+
+is equivalent to:
+
+.. code-block:: python
+
+    header.update({'NAXIS1': 100, 'NAXIS2': 100})
+
+.. warning::
+
+    This method is very different from the ``Header.update()`` method in Astropy v0.1.
+    The old API has been **deprecated** for a long time and is now removed.
+    Most uses of the old API can be replaced as follows:
+
+    * Replace::
+
+          header.update(keyword, value)
+
+      with::
+
+          header[keyword] = value
+
+    * Replace::
+
+          header.update(keyword, value, comment=comment)
+
+      with::
+
+          header[keyword] = (value, comment)
+
+    * Replace::
+
+          header.update(keyword, value, before=before_keyword)
+
+      with::
+
+          header.insert(before_keyword, (keyword, value))
+
+    * Replace::
+
+          header.update(keyword, value, after=after_keyword)
+
+      with::
+
+          header.insert(after_keyword, (keyword, value), after=True)
+
+See also the :meth:`Header.set` method, which provides an interface similar to the old ``Header.update()`` and may help ease the transition.
+
+Details on `Header.update()` Behavior
+-------------------------------------
+
+The `Header.update()` method accepts various input types:
+
+- Another `Header` instance: all cards from the other header are copied.
+- A dictionary or mapping: keys and values are added or updated.
+- An iterable of cards or tuples: each item must be either a `Card` instance or a tuple of length 2 or 3 (keyword, value[, comment]).
+- Keyword arguments: additional key-value pairs to update.
+
+When updating from a dictionary or mapping, values can be scalars, 1-tuples (value,), or 2-tuples (value, comment). Invalid formats will raise a `ValueError`.
+
+Appending Cards
+---------------
+
+The `Header.append()` method appends a new keyword+value card to the end of the header, similar to `list.append`. By default, if the last cards in the header are commentary keywords, the new card is inserted before them (unless the new card is also commentary).
+
+Unlike `list.append`, this method can be called with no arguments, in which case a blank card is appended.
+
+Example Usage
+-------------
+
+.. code-block:: python
+
+    header = fits.Header.fromkeys(["A", "B"], "C")
+    assert "A" in header
+    assert header["A"] == "C"
+    assert header.comments["A"] == ""
+    assert "B" in header
+    assert header["B"] == "C"
+    assert header.comments["B"] == ""
+
+    header = fits.Header.fromkeys(["A"], ("B", "C"))
+    assert "A" in header
+    assert header["A"] == "B"
+    assert header.comments["A"] == "C"
+
+    header = fits.Header.fromkeys(["A", "B", "A"], "C")
+    assert "A" in header
+    assert ("A", 0) in header
+
+Using `setdefault()` with Headers
+---------------------------------
+
+The `Header.setdefault()` method behaves similarly to the dictionary method, returning the value for a key if it exists, or setting it to a default value otherwise.
+
+.. code-block:: python
+
+    assert header.setdefault("C") == "D"
+    assert header.setdefault("E") == "F"
+    assert len(header) == 3
+    assert header.setdefault("G", "H") == "H"
+    assert len(header) == 4
+    assert "G" in header
+    assert header.setdefault("G", "H") == "H"
+    assert len(header) == 4
+
+Summary
+-------
+
+The updated `Header` interface aligns more closely with Python dictionary semantics, making it more intuitive and consistent. The removal of the old `Header.update()` API simplifies the interface and encourages clearer, more maintainable code.
+
+For more detailed usage, refer to the :class:`Header` class documentation and the :meth:`Header.set` method for transitional support.

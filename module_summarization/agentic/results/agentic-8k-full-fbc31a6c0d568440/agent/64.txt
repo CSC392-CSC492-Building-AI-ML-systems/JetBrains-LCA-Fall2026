@@ -1,0 +1,200 @@
+Operations Module Documentation
+===============================
+
+This module provides a comprehensive set of classes and methods to represent and execute database schema migration operations. These operations are designed to be used within migration contexts, supporting both immediate execution and batch migration scenarios.
+
+Operation Classes
+-----------------
+
+### CreateTableOp
+
+Represents a **create table** operation.
+
+**Constructor:**
+
+```python
+CreateTableOp(
+    table_name: str,
+    columns: Sequence[SchemaItem],
+    *,
+    schema: Optional[str] = None,
+    _namespace_metadata: Optional[MetaData] = None,
+    _constraints_included: bool = False,
+    **kw: Any,
+)
+```
+
+- `table_name`: Name of the table to create.
+- `columns`: List of columns and constraints for the table.
+- `schema`: Optional schema name.
+- `_namespace_metadata`: Optional metadata namespace.
+- `_constraints_included`: Indicates if constraints are included in columns.
+- Additional keyword arguments supported.
+
+**Methods:**
+
+- `reverse() -> DropTableOp`: Returns the reverse operation (drop table).
+- `to_diff_tuple() -> Tuple[str, Table]`: Returns a tuple representing the operation for diffing.
+- `from_table(cls, table: Table, *, _namespace_metadata: Optional[MetaData] = None) -> CreateTableOp`: Creates an operation from a SQLAlchemy Table object.
+- `to_table(migration_context: Optional[MigrationContext] = None) -> Table`: Converts the operation back to a Table object.
+
+### AlterColumnOp
+
+Represents an **alter column** operation.
+
+**Constructor:**
+
+```python
+AlterColumnOp(
+    table_name: str,
+    column_name: str,
+    *,
+    schema: Optional[str] = None,
+    existing_type: Optional[Any] = None,
+    existing_server_default: Any = False,
+    existing_nullable: Optional[bool] = None,
+    existing_comment: Optional[str] = None,
+    modify_nullable: Optional[bool] = None,
+    modify_comment: Optional[Union[str, Literal[False]]] = False,
+    modify_server_default: Any = False,
+    modify_name: Optional[str] = None,
+    modify_type: Optional[Any] = None,
+    **kw: Any,
+)
+```
+
+- `table_name`: Name of the table containing the column.
+- `column_name`: Name of the column to alter.
+- `schema`: Optional schema name.
+- `existing_type`: Existing column type.
+- `existing_server_default`: Existing server default value.
+- `existing_nullable`: Existing nullable state.
+- `existing_comment`: Existing comment on the column.
+- `modify_nullable`: New nullable state.
+- `modify_comment`: New comment or False to remove.
+- `modify_server_default`: New server default or False to remove.
+- `modify_name`: New column name.
+- `modify_type`: New column type.
+- Additional keyword arguments supported.
+
+**Methods:**
+
+- `to_diff_tuple()`: Returns a representation of the column alteration for diffing.
+
+### BulkInsertOp
+
+Represents a **bulk insert** operation.
+
+**Constructor:**
+
+```python
+BulkInsertOp(
+    table: Union[Table, TableClause],
+    rows: List[dict],
+    *,
+    multiinsert: bool = True,
+)
+```
+
+- `table`: The target table or table clause.
+- `rows`: List of dictionaries representing rows to insert.
+- `multiinsert`: Whether to use multi-row insert syntax.
+
+**Class Methods:**
+
+- `bulk_insert(cls, operations: Operations, table: Union[Table, TableClause], rows: List[dict], *, multiinsert: bool = True) -> None`
+
+  Issues a bulk insert operation using the current migration context.
+
+  This method supports inserting multiple rows efficiently and works both in live execution and SQL script generation contexts.
+
+  Example usage:
+
+  ```python
+  from alembic import op
+  from datetime import date
+  from sqlalchemy.sql import table, column
+  from sqlalchemy import String, Integer, Date
+
+  accounts_table = table(
+      "account",
+      column("id", Integer),
+      column("name", String),
+      column("create_date", Date),
+  )
+
+  op.bulk_insert(
+      accounts_table,
+      [
+          {"id": 1, "name": "John Smith", "create_date": date(2010, 10, 5)},
+          {"id": 2, "name": "Ed Williams", "create_date": date(2007, 5, 27)},
+          {"id": 3, "name": "Wendy Jones", "create_date": date(2008, 8, 15)},
+      ],
+  )
+  ```
+
+  When using SQL script generation mode (`--sql`), some datatypes may not render inline automatically (e.g., dates). In such cases, use `Operations.inline_literal` to assist rendering.
+
+Batch Operations
+----------------
+
+Several operations support batch mode, allowing multiple schema changes to be grouped and executed atomically.
+
+### batch_drop_index
+
+Issues a **drop index** instruction using the current batch migration context.
+
+**Parameters:**
+
+- `operations`: The batch operations context.
+- `index_name`: Name of the index to drop.
+- Additional keyword arguments.
+
+**See Also:**
+
+- `Operations.drop_index`
+
+### batch_drop_table_comment
+
+Issues a **drop table comment** operation to remove an existing comment on a table using the current batch operations context.
+
+**Parameters:**
+
+- `operations`: The batch operations context.
+- `existing_comment`: Optional existing comment string to remove.
+
+**See Also:**
+
+- `Operations.create_table_comment`
+- `Operations.alter_column.comment`
+
+Operation Invocation
+--------------------
+
+Operations are typically instantiated and then invoked via the `operations.invoke()` method, which executes the operation within the current migration context.
+
+Example:
+
+```python
+op = CreateTableOp(table_name, columns, schema=schema)
+operations.invoke(op)
+```
+
+Reverse Operations
+------------------
+
+Many operations provide a `reverse()` method that returns the inverse operation, enabling automatic generation of downgrade migrations.
+
+Example:
+
+- `CreateTableOp.reverse()` returns a `DropTableOp`.
+- `CreateTableCommentOp.reverse()` returns a `CreateTableCommentOp` to restore the comment.
+
+Additional Notes
+----------------
+
+- Operations support carrying additional metadata such as comments, prefixes, and info dictionaries.
+- The module integrates with SQLAlchemy schema constructs such as `Table`, `Column`, `MetaData`, and constraints.
+- Operations are registered with the `Operations` and `BatchOperations` registries to enable dispatching and execution.
+
+This module is a core component for managing database schema migrations programmatically, providing a rich API for defining, executing, and reversing schema changes.

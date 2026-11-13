@@ -1,0 +1,331 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Working with Entities\n=====================\n\nThis section describes how to work with entities within the session, including creating, retrieving, ensuring existence, updating, deleting, and querying entities.\n\nCreating Entities\n-----------------\n\nEntities can be created using the `create` method by specifying the entity type and initial data. The constructed entity will be automatically merged into the session.\n\nExample:\n\n```python\nentity = session.create('User', {'username': 'martin'})\n```\n\nThe internal `_create` method is responsible for instantiating an entity of the specified type with the provided data.\n\nEnsuring Entities\n-----------------\n\nThe `ensure` method retrieves an entity of a given type with specified data, creating it if necessary.\n\n- *data* should be a dictionary similar to that passed to `create`.\n- By default, the method checks for an entity matching all keys in *data*.\n- Optionally, *identifying_keys* can be specified as a list of keys to consider when searching for an existing entity.\n- If any identifying key is missing in *data*, a `KeyError` is raised.\n- If no identifying keys can be determined, a `ValueError` is raised.\n- Only top-level scalar values are supported for identifying keys.\n- If multiple entities match the criteria, a `MultipleResultsFoundError` is raised.\n- If no matching entity is found, a new entity is created with the supplied data.\n- If a matching entity is found, it is updated with the supplied data if necessary.\n- If an entity is created or updated, a commit is issued automatically.\n\nExample:\n\n```python\n# First time, a new entity with username 'martin' is created.\nentity = session.ensure('User', {'username': 'martin'})\n\n# Subsequent calls retrieve the existing entity.\nentity = session.ensure('User', {'username': 'martin'})\n\n# Existing entity may be updated to match supplied data.\nentity = session.ensure(\n    'User', {'username': 'martin', 'email': 'martin@example.com'}\n)\n```\n\nRetrieving Entities\n-------------------\n\nThe `get` method returns an entity of a specified type with a unique entity key.\n\n- It first checks the configured cache for the entity.\n- If not found in cache, it queries the server.\n- If no matching entity is found, it returns `None`.\n- The entity key must match the primary key attributes of the entity type.\n- If the entity key length does not match the expected primary key length, a `ValueError` is raised.\n\nExample:\n\n```python\nentity = session.get('User', ['martin'])\n```\n\nThe internal `_get` method attempts to retrieve the entity from the cache and raises a `KeyError` if not found.\n\nDeleting Entities\n-----------------\n\nEntities can be marked for deletion using the `delete` method. This records a delete operation that will be committed later.\n\nExample:\n\n```python\nsession.delete(entity)\n```\n\nQuerying Entities\n-----------------\n\nThe `query` method allows querying remote data according to an expression.\n\n- The expression is not executed immediately.\n- Instead, a `QueryResult` instance is returned, which executes the remote call upon access.\n- The `page_size` parameter specifies the maximum page size for the query result.\n\nExample:\n\n```python\nresults = session.query('User where username is \"martin\"').all()\n```\n\nCommitting Changes\n------------------\n\nChanges made to entities, including creations, updates, and deletions, are recorded as operations and can be committed to the server.\n\n- The commit process batches operations and optimizes them.\n- For example, if an entity is created and deleted in the same batch, all related payloads are removed.\n- The commit process handles create, update, and delete operations accordingly.\n\nNotes\n-----\n\n- When ensuring entities, if you want to control commit behavior manually, perform the `query` and `create` calls yourself instead of using `ensure`.\n- Only top-level scalar values are supported for identifying keys in `ensure`.\n- The system uses caching to optimize retrieval of entities.\n- Entity types are dynamically constructed and cached based on schemas.\n\nThis documentation provides an overview of the primary methods and workflows for working with entities in the session. For more detailed usage and advanced querying, refer to the querying documentation and API reference.",
+  "prediction_sha256": "c3de272db467fa7b536234aaab4d1cc8b158acf5cee507c3d8cab11f2f12dd21",
+  "prompt_sha256": "4dcb08c010fbc2b1d28001918341a36f31bc9b0855675ba51606d4ec71d00558",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 11605,
+    "completion_tokens": 962,
+    "total_tokens": 12567
+  },
+  "cost_usd": 0.0061812,
+  "generation_seconds": 10.395664124003815,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "entity"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 51,
+              "start_char": 39205,
+              "end_char": 39741,
+              "code": " requires duplicating entity\n                    # type in data and also ensuring primary key added.\n                    entity_data = {\n                        '__entity_type__': operation.entity_type,\n                    }\n                    entity_data.update(operation.entity_key)\n                    entity_data.update(operation.entity_data)\n\n                    payload = OperationPayload({\n                        'action': 'create',\n                        'entity_type': operation.entity_type,\n                        'entity_",
+              "code_tokens": 300,
+              "score": 1.216289826096
+            },
+            {
+              "chunk_id": 29,
+              "start_char": 23793,
+              "end_char": 24464,
+              "code": "         self.commit()\n\n        return entity\n\n    def delete(self, entity):\n        '''Mark *entity* for deletion.'''\n        if self.record_operations:\n            self.recorded_operations.push(\n                ftrack_api.operation.DeleteEntityOperation(\n                    entity.entity_type,\n                    ftrack_api.inspection.primary_key(entity)\n                )\n            )\n\n    def get(self, entity_type, entity_key):\n        '''Return entity of *entity_type* with unique *entity_key*.\n\n        First check for an existing entry in the configured cache, otherwise\n        issue a query to the server.\n\n        If no matching entity found, return None.\n\n",
+              "code_tokens": 300,
+              "score": 1.201380594451
+            },
+            {
+              "chunk_id": 30,
+              "start_char": 24560,
+              "end_char": 25164,
+              "code": "   primary_key_definition = self.types[entity_type].primary_key_attributes\n        if isinstance(entity_key, basestring):\n            entity_key = [entity_key]\n\n        if len(entity_key)!= len(primary_key_definition):\n            raise ValueError(\n                'Incompatible entity_key {0!r} supplied. Entity type {1} '\n                'expects a primary key composed of {2} values ({3}).'\n               .format(\n                    entity_key, entity_type, len(primary_key_definition),\n                    ', '.join(primary_key_definition)\n                )\n            )\n\n        entity = None\n   ",
+              "code_tokens": 300,
+              "score": 1.197136744384
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 29
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 29,
+              "start_char": 23793,
+              "end_char": 27067,
+              "code": "         self.commit()\n\n        return entity\n\n    def delete(self, entity):\n        '''Mark *entity* for deletion.'''\n        if self.record_operations:\n            self.recorded_operations.push(\n                ftrack_api.operation.DeleteEntityOperation(\n                    entity.entity_type,\n                    ftrack_api.inspection.primary_key(entity)\n                )\n            )\n\n    def get(self, entity_type, entity_key):\n        '''Return entity of *entity_type* with unique *entity_key*.\n\n        First check for an existing entry in the configured cache, otherwise\n        issue a query to the server.\n\n        If no matching entity found, return None.\n\n        '''\n        self.logger.debug(L('Get {0} with key {1}', entity_type, entity_key))\n\n        primary_key_definition = self.types[entity_type].primary_key_attributes\n        if isinstance(entity_key, basestring):\n            entity_key = [entity_key]\n\n        if len(entity_key)!= len(primary_key_definition):\n            raise ValueError(\n                'Incompatible entity_key {0!r} supplied. Entity type {1} '\n                'expects a primary key composed of {2} values ({3}).'\n               .format(\n                    entity_key, entity_type, len(primary_key_definition),\n                    ', '.join(primary_key_definition)\n                )\n            )\n\n        entity = None\n        try:\n            entity = self._get(entity_type, entity_key)\n\n\n        except KeyError:\n\n            # Query for matching entity.\n            self.logger.debug(\n                'Entity not present in cache. Issuing new query.'\n            )\n            condition = []\n            for key, value in zip(primary_key_definition, entity_key):\n                condition.append('{0} is \"{1}\"'.format(key, value))\n\n            expression = '{0} where ({1})'.format(\n                entity_type,'and '.join(condition)\n            )\n\n            results = self.query(expression).all()\n            if results:\n                entity = results[0]\n\n        return entity\n\n    def _get(self, entity_type, entity_key):\n        '''Return cached entity of *entity_type* with unique *entity_key*.\n\n        Raise :exc:`KeyError` if no such entity in the cache.\n\n        '''\n        # Check cache for existing entity emulating\n        # ftrack_api.inspection.identity result object to pass to key maker.\n        cache_key = self.cache_key_maker.key(\n            (str(entity_type), map(str, entity_key))\n        )\n        self.logger.debug(L(\n            'Checking cache for entity with key {0}', cache_key\n        ))\n        entity = self.cache.get(cache_key)\n        self.logger.debug(L(\n            'Retrieved existing entity from cache: {0} at {1}',\n            entity, id(entity)\n        ))\n\n        return entity\n\n    def query(self, expression, page_size=500):\n        '''Query against remote data according to *expression*.\n\n        *expression* is not executed directly. Instead return an\n        :class:`ftrack_api.query.QueryResult` instance that will execute remote\n        call on access.\n\n        *page_size* specifies the maximum page size that the returned query\n        result object should be configured with.\n\n       .. seealso:: :ref:`querying`\n\n        '''\n        self.logger.debug(L('Query {0!r}",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 51
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 51,
+              "start_char": 39205,
+              "end_char": 41920,
+              "code": " requires duplicating entity\n                    # type in data and also ensuring primary key added.\n                    entity_data = {\n                        '__entity_type__': operation.entity_type,\n                    }\n                    entity_data.update(operation.entity_key)\n                    entity_data.update(operation.entity_data)\n\n                    payload = OperationPayload({\n                        'action': 'create',\n                        'entity_type': operation.entity_type,\n                        'entity_key': operation.entity_key.values(),\n                        'entity_data': entity_data\n                    })\n\n                elif isinstance(\n                    operation, ftrack_api.operation.UpdateEntityOperation\n                ):\n                    entity_data = {\n                        # At present, data payload requires duplicating entity\n                        # type.\n                        '__entity_type__': operation.entity_type,\n                        operation.attribute_name: operation.new_value\n                    }\n\n                    payload = OperationPayload({\n                        'action': 'update',\n                        'entity_type': operation.entity_type,\n                        'entity_key': operation.entity_key.values(),\n                        'entity_data': entity_data\n                    })\n\n                elif isinstance(\n                    operation, ftrack_api.operation.DeleteEntityOperation\n                ):\n                    payload = OperationPayload({\n                        'action': 'delete',\n                        'entity_type': operation.entity_type,\n                        'entity_key': operation.entity_key.values()\n                    })\n\n                else:\n                    raise ValueError(\n                        'Cannot commit. Unrecognised operation type {0} '\n                        'detected.'.format(type(operation))\n                    )\n\n                batch.append(payload)\n\n        # Optimise batch.\n        # TODO: Might be better to perform these on the operations list instead\n        # so all operation contextual information available.\n\n        # If entity was created and deleted in one batch then remove all\n        # payloads for that entity.\n        created = set()\n        deleted = set()\n\n        for payload in batch:\n            if payload['action'] == 'create':\n                created.add(\n                    (payload['entity_type'], str(payload['entity_key']))\n                )\n\n            elif payload['action'] == 'delete':\n                deleted.add(\n                    (payload['entity_type'], str(payload['entity_key']))\n                )\n\n        created",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "Entity"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "Entity class"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 72,
+              "start_char": 53256,
+              "end_char": 53888,
+              "code": "       elif len(results) > 1:\n                raise ValueError(\n                    'Expected single entity type to represent schema \"{0}\" but '\n                   'received {1} entity types instead.'\n                   .format(schema['id'], len(results))\n                )\n\n            else:\n                entity_type_class = results[0]\n\n            classes[entity_type_class.entity_type] = entity_type_class\n\n        return classes\n\n    def _configure_locations(self):\n        '''Configure locations.'''\n        # First configure builtin locations, by injecting them into local cache.\n\n        # Origin.\n        location = self.",
+              "code_tokens": 300,
+              "score": 4.775445480389
+            },
+            {
+              "chunk_id": 71,
+              "start_char": 52652,
+              "end_char": 53168,
+              "code": "rack.api.session.construct-entity-type',\n                    data=dict(\n                        schema=schema,\n                        schemas=schemas\n                    )\n                ),\n                synchronous=True\n            )\n\n            results = [result for result in results if result is not None]\n\n            if not results:\n                self.logger.debug(L(\n                    'Using default StandardFactory to construct entity type '\n                    'class for \"{0}\"', schema['id']\n     ",
+              "code_tokens": 300,
+              "score": 4.456930563045
+            },
+            {
+              "chunk_id": 23,
+              "start_char": 18869,
+              "end_char": 19660,
+              "code": "   Constructed entity will be automatically :meth:`merged <Session.merge>`\n        into the session.\n\n        '''\n        entity = self._create(entity_type, data, reconstructing=reconstructing)\n        entity = self.merge(entity)\n        return entity\n\n    def _create(self, entity_type, data, reconstructing):\n        '''Create and return an entity of *entity_type* with initial *data*.'''\n        try:\n            EntityTypeClass = self.types[entity_type]\n        except KeyError:\n            raise ftrack_api.exception.UnrecognisedEntityTypeError(entity_type)\n\n        return EntityTypeClass(self, data=data, reconstructing=reconstructing)\n\n    def ensure(self, entity_type, data, identifying_keys=None):\n        '''Retrieve entity of *entity_type* with *data*, creating if necessary.\n\n  ",
+              "code_tokens": 300,
+              "score": 3.834546873849
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 23
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 23,
+              "start_char": 18869,
+              "end_char": 22587,
+              "code": "   Constructed entity will be automatically :meth:`merged <Session.merge>`\n        into the session.\n\n        '''\n        entity = self._create(entity_type, data, reconstructing=reconstructing)\n        entity = self.merge(entity)\n        return entity\n\n    def _create(self, entity_type, data, reconstructing):\n        '''Create and return an entity of *entity_type* with initial *data*.'''\n        try:\n            EntityTypeClass = self.types[entity_type]\n        except KeyError:\n            raise ftrack_api.exception.UnrecognisedEntityTypeError(entity_type)\n\n        return EntityTypeClass(self, data=data, reconstructing=reconstructing)\n\n    def ensure(self, entity_type, data, identifying_keys=None):\n        '''Retrieve entity of *entity_type* with *data*, creating if necessary.\n\n        *data* should be a dictionary of the same form passed to :meth:`create`.\n\n        By default, check for an entity that has matching *data*. If\n        *identifying_keys* is specified as a list of keys then only consider the\n        values from *data* for those keys when searching for existing entity. If\n        *data* is missing an identifying key then raise :exc:`KeyError`.\n\n        If no *identifying_keys* specified then use all of the keys from the\n        passed *data*. Raise :exc:`ValueError` if no *identifying_keys* can be\n        determined.\n\n        Each key should be a string.\n\n       .. note::\n\n            Currently only top level scalars supported. To ensure an entity by\n            looking at relationships, manually issue the :meth:`query` and\n            :meth:`create` calls.\n\n        If more than one entity matches the determined filter criteria then\n        raise :exc:`~ftrack_api.exception.MultipleResultsFoundError`.\n\n        If no matching entity found then create entity using supplied *data*.\n\n        If a matching entity is found, then update it if necessary with *data*.\n\n       .. note::\n\n            If entity created or updated then a :meth:`commit` will be issued\n            automatically. If this behaviour is undesired, perform the\n            :meth:`query` and :meth:`create` calls manually.\n\n        Return retrieved or created entity.\n\n        Example::\n\n            # First time, a new entity with `username=martin` is created.\n            entity = session.ensure('User', {'username':'martin'})\n\n            # After that, the existing entity is retrieved.\n            entity = session.ensure('User', {'username':'martin'})\n\n            # When existing entity retrieved, entity may also be updated to\n            # match supplied data.\n            entity = session.ensure(\n                'User', {'username':'martin', 'email':'martin@example.com'}\n            )\n\n        '''\n        if not identifying_keys:\n            identifying_keys = data.keys()\n\n        self.logger.debug(L(\n            'Ensuring entity {0!r} with data {1!r} using identifying keys '\n            '{2!r}', entity_type, data, identifying_keys\n        ))\n\n        if not identifying_keys:\n            raise ValueError(\n                'Could not determine any identifying data to check against '\n                'when ensuring {0!r} with data {1!r}. Identifying keys: {2!r}'\n               .format(entity_type, data, identifying_keys)\n            )\n\n        expression = '{0} where'.format(entity_type)\n        criteria = []\n        for identifying_key in identifying_keys:\n            value = data[identifying_key]\n\n            if isinstance(value, basestring):\n                value = '\"{0}\"'.format(value)\n\n            elif isinstance(\n                value, (arrow.Arrow, datetime.datetime, datetime.date)\n            ):\n                # Server does not store microsecond or timezone currently so\n  ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 6300,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "9a4f18533bd8356be1defc87bef41b2e7dfa720a164993021635f566149c92d3",
+        "request_id": "chatcmpl-Ej8IMXeHsblJyEkQwtlTyK1mKu9cK",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 14,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.480000000000001e-05,
+        "seconds": 0.721025415998156,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "92037788128b69caad6a73dc3bd6b268a488f2f5cba6f63cd7b1341d45e14232",
+        "request_id": "chatcmpl-Ej8INteGVGZkUZAbXHZO5Ye0BWQGQ",
+        "usage": {
+          "prompt_tokens": 704,
+          "completion_tokens": 15,
+          "total_tokens": 719,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003056,
+        "seconds": 0.705989750000299,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "73d89b8b7c955309ef48a51cbd0167263eeb46e3662ffa52ccabe20b23c0ce9d",
+        "request_id": "chatcmpl-Ej8INaO4JzFI0TAqki2DK6B5TZb1n",
+        "usage": {
+          "prompt_tokens": 1557,
+          "completion_tokens": 15,
+          "total_tokens": 1572,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006468000000000001,
+        "seconds": 0.6796811670028546,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "de012a302f9076edad9bdfe72723750d087d134ff8cead146bde34541854e466",
+        "request_id": "chatcmpl-Ej8IOUlqIxc7FXInS11phV3Ef4X67",
+        "usage": {
+          "prompt_tokens": 2127,
+          "completion_tokens": 14,
+          "total_tokens": 2141,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008732000000000001,
+        "seconds": 0.8832184170023538,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "39f7dfec9d334ba2447259742e4d4587ad5fa54a136b487ca0954560c2fbd4a2",
+        "request_id": "chatcmpl-Ej8IPumqjTcWNXhd60v51hXjz5ynK",
+        "usage": {
+          "prompt_tokens": 2162,
+          "completion_tokens": 15,
+          "total_tokens": 2177,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008888,
+        "seconds": 0.6578434160001052,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "2c2cd2faa3fb5507e21e8f41bce2bb809893b0a4825d6d85b582a8561411cac2",
+        "request_id": "chatcmpl-Ej8IQXGlFVQmZtju7LCqq2d893YrV",
+        "usage": {
+          "prompt_tokens": 2766,
+          "completion_tokens": 15,
+          "total_tokens": 2781,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0011304000000000002,
+        "seconds": 0.8973669999977574,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "9a2666ac9b28b56394fe99acc2903e5727cf8f3eb97eadb962be5eac8be69641",
+        "request_id": "chatcmpl-Ej8IROdwqs4EFY2CudiondVrZ89UF",
+        "usage": {
+          "prompt_tokens": 2133,
+          "completion_tokens": 874,
+          "total_tokens": 3007,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0022516000000000003,
+        "seconds": 5.850538958002289,
+        "retry_count": 0
+      }
+    ]
+  }
+}

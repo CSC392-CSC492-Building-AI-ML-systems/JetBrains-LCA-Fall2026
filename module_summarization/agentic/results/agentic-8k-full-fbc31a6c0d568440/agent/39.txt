@@ -1,0 +1,131 @@
+Model Usage Documentation
+=========================
+
+Overview
+--------
+
+The `Model` class provides an asynchronous ORM interface for interacting with database records. It supports querying, filtering, annotating, and managing relationships between models.
+
+Querying and Filtering
+----------------------
+
+You can generate querysets to retrieve data from the database using various class methods:
+
+- `filter(*args: Q, **kwargs) -> QuerySet`  
+  Returns a `QuerySet` with the specified filter constraints applied.  
+  Example:
+  ```python
+  users = await User.filter(age__gte=18)
+  ```
+
+- `exclude(*args: Q, **kwargs) -> QuerySet`  
+  Returns a `QuerySet` excluding records matching the given constraints.
+
+- `annotate(**kwargs: Function) -> QuerySet`  
+  Annotates the queryset with extra computed fields using functions or aggregations.
+
+- `all() -> QuerySet`  
+  Returns a `QuerySet` containing all records of the model.
+
+Fetching Single Records
+-----------------------
+
+- `get(*args: Q, **kwargs) -> QuerySetSingle`  
+  Fetches a single record matching the filter parameters. Raises `MultipleObjectsReturned` if more than one record matches, or `DoesNotExist` if no record is found.  
+  Example:
+  ```python
+  user = await User.get(username="foo")
+  ```
+
+- `get_or_none(*args: Q, **kwargs) -> QuerySetSingle[Optional[Model]]`  
+  Similar to `get()`, but returns `None` if no record matches instead of raising an exception.
+
+Fetching Related Models
+-----------------------
+
+- `fetch_for_list(instance_list: List[Model], *args: str, using_db: Optional[BaseDBAsyncClient] = None) -> None`  
+  Asynchronously fetches related models for a list of model instances.  
+  Example:
+  ```python
+  await User.fetch_for_list(users, "profile", "groups")
+  ```
+
+Model Validation
+----------------
+
+- `check()`  
+  Validates the model configuration, including constraints like `unique_together` and indexes. Raises `ConfigurationError` if the model is misconfigured.
+
+- `_check_together(together: str)`  
+  Internal method to validate the `unique_together` or `indexes` options. Ensures these are tuples or lists of tuples and that fields exist and are not ManyToMany fields.
+
+Model Metadata
+--------------
+
+Each model has a `_meta` attribute containing metadata such as:
+
+- `abstract`  
+- `db_table`  
+- `app`  
+- `fields`  
+- `db_fields`  
+- `m2m_fields`  
+- `o2o_fields`  
+- `backward_o2o_fields`  
+- `fk_fields`  
+- `backward_fk_fields`  
+- `fetch_fields`  
+
+Relationship Handling
+---------------------
+
+The model supports various types of relationships with helper methods:
+
+- Foreign Key setters and getters (`_fk_setter`, `_fk_getter`)  
+- Reverse Foreign Key getter (`_rfk_getter`)  
+- Reverse One-to-One getter (`_ro2o_getter`)  
+- Many-to-Many getter (`_m2m_getter`)  
+
+These methods manage the loading and caching of related objects and relations.
+
+Comments Extraction
+-------------------
+
+The `_get_comments(cls)` function extracts documentation comments placed immediately before model attributes in the source code. Comments should be in the `#:` format and can include the placeholder `{model}` which will be replaced by the model class name.
+
+Example Usage
+-------------
+
+```python
+# Fetch all active users ordered by username
+users = await User.filter(is_active=True).order_by("username").all()
+
+# Get a single user by username
+user = await User.get(username="johndoe")
+
+# Get a user or None if not found
+user = await User.get_or_none(username="janedoe")
+
+# Annotate users with the count of related posts
+users = await User.annotate(post_count=Count("posts")).all()
+
+# Fetch related profiles for a list of users
+await User.fetch_for_list(users, "profile")
+```
+
+Exceptions
+----------
+
+- `MultipleObjectsReturned`  
+  Raised when `get()` finds more than one matching record.
+
+- `DoesNotExist`  
+  Raised when `get()` finds no matching record.
+
+- `ConfigurationError`  
+  Raised during model validation if the model is misconfigured.
+
+Summary
+-------
+
+The `Model` class provides a powerful and flexible interface for asynchronous database operations, supporting complex queries, annotations, and relationship management with built-in validation and helpful error handling.

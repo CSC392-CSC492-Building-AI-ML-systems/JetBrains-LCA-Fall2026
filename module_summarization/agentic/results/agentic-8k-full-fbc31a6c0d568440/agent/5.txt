@@ -1,0 +1,115 @@
+Publishing Versions
+===================
+
+The publishing system in the API provides a mechanism to notify interested parties about changes or events occurring within the session. This is primarily handled through the event hub, which acts as a central point for publishing and subscribing to events.
+
+Event Hub
+---------
+
+The event hub can be accessed via the `event_hub` method of the session. It serves as the core component for event communication:
+
+```python
+def event_hub(self):
+    '''Return event hub.'''
+    return self._event_hub
+```
+
+Publishing Events
+-----------------
+
+Events are published to notify subscribers about specific actions or changes. For example, when the session is reset or reconfigured, an event with the topic `'ftrack.api.session.reset'` is published synchronously:
+
+```python
+self.event_hub.publish(
+    ftrack_api.event.base.Event(
+        topic='ftrack.api.session.reset',
+        data=dict(
+            session=self
+        )
+    ),
+    synchronous=True
+)
+```
+
+Similarly, the session configuration process publishes an event with the topic `'ftrack.api.session.configure-location'` to allow further customization of session locations:
+
+```python
+self.event_hub.publish(
+    ftrack_api.event.base.Event(
+        topic='ftrack.api.session.configure-location',
+        data=dict(
+            session=self
+        )
+    ),
+    synchronous=True
+)
+```
+
+Version Compatibility and Publishing
+-------------------------------------
+
+The API includes a method to check compatibility with the connected server version before proceeding with operations that depend on server features:
+
+```python
+def check_server_compatibility(self):
+    '''Check compatibility with connected server.'''
+    server_version = self.server_information.get('version')
+    if server_version is None:
+        raise ftrack_api.exception.ServerCompatibilityError(
+            'Could not determine server version.'
+        )
+
+    # Perform basic version check.
+    if server_version != 'dev':
+        min_server_version = '3.3.11'
+        if (
+            # Version comparison logic here
+        ):
+            raise ftrack_api.exception.ServerCompatibilityError(
+                'Server version {0} incompatible with this version of the '
+                'API which requires a server version >= {1}'.format(
+                    server_version,
+                    min_server_version
+                )
+            )
+```
+
+This ensures that events and publishing mechanisms operate correctly with the server's capabilities.
+
+Session Lifecycle and Publishing
+--------------------------------
+
+When closing a session, the API clears the local cache and publishes a reset event to notify subscribers that the session has been reset:
+
+```python
+def close(self):
+    '''Close session.
+
+    Close connections to server. Clear any pending operations and local
+    cache.
+
+    Use this to ensure that session is cleaned up properly after use.
+    '''
+    # Clear top level cache (expected to be enforced memory cache).
+    self._local_cache.clear()
+
+    # Re-configure certain session aspects that may be dependant on cache.
+    self._configure_locations()
+
+    self.event_hub.publish(
+        ftrack_api.event.base.Event(
+            topic='ftrack.api.session.reset',
+            data=dict(
+                session=self
+            )
+        ),
+        synchronous=True
+    )
+```
+
+This publishing of events during session lifecycle changes allows other components or plugins to react accordingly.
+
+Summary
+-------
+
+The publishing system in the API is centered around the event hub, which facilitates synchronous event publishing to notify about session resets, configuration changes, and other significant actions. Version compatibility checks ensure that publishing and other API features function correctly with the connected server version. Proper use of publishing events enables extensibility and integration with other parts of the system.

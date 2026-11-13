@@ -1,0 +1,357 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Internal organization of NumPy arrays\n======================================\n\nNumPy arrays (`ndarray`) are the core data structure of the NumPy library, designed for efficient storage and manipulation of homogeneous multidimensional data. Understanding their internal organization is essential for advanced usage, debugging, and extending NumPy.\n\nArray Structure\n---------------\n\nAt the C level, a NumPy array is represented by the `PyArrayObject` structure, which contains all the metadata and pointers necessary to describe the array's data buffer and layout. The key components of this structure include:\n\n- **Data pointer (`void *data`)**: Points to the raw memory buffer holding the array elements.\n- **Dimensions (`npy_intp *dimensions`)**: An array specifying the size of the array in each dimension.\n- **Strides (`npy_intp *strides`)**: An array specifying the number of bytes to step in each dimension when traversing the array.\n- **Data type descriptor (`PyArray_Descr *descr`)**: Describes the type of elements stored in the array, including size, alignment, and byte order.\n- **Flags (`int flags`)**: Bitmask flags describing properties of the array such as contiguity, ownership of data, alignment, and writability.\n- **Base object (`PyObject *base`)**: Reference to the base object if the array is a view, ensuring proper memory management.\n- **Weak reference list (`PyObject *weakreflist`)**: Supports weak references to the array object.\n\nFlags and Their Meaning\n----------------------\n\nThe `flags` field encodes important properties of the array:\n\n- `NPY_ARRAY_C_CONTIGUOUS`: The array is C-contiguous; the last index varies fastest in memory.\n- `NPY_ARRAY_F_CONTIGUOUS`: The array is Fortran-contiguous; the first index varies fastest.\n- `NPY_ARRAY_OWNDATA`: The array owns the memory it uses and will free it upon deallocation.\n- `NPY_ARRAY_WRITEABLE`: The array's data buffer is writable.\n- `NPY_ARRAY_ALIGNED`: The data is aligned in memory according to the type's requirements.\n- `NPY_ARRAY_NOTSWAPPED`: The data has native byte order.\n- Additional flags control behavior during array creation and casting, such as `NPY_ARRAY_FORCECAST`, `NPY_ARRAY_ENSURECOPY`, and `NPY_ARRAY_ENSUREARRAY`.\n\nMemory Layout and Views\n-----------------------\n\nNumPy arrays support flexible memory layouts through the use of strides. The strides array specifies how many bytes to skip to move to the next element in each dimension. This allows for:\n\n- Creation of views with different shapes and strides without copying data.\n- Efficient slicing and broadcasting operations.\n- Support for non-contiguous arrays.\n\nHowever, care must be taken when manipulating strides directly (e.g., using `as_strided`), as improper use can lead to undefined behavior or memory access errors.\n\nData Type Descriptors\n---------------------\n\nEach array has an associated `PyArray_Descr` object that describes the element type. This includes:\n\n- The type kind (e.g., integer, float, structured).\n- The size in bytes.\n- Alignment requirements.\n- Endianness.\n- For structured dtypes, detailed field descriptions including names, formats, and offsets.\n\nThis descriptor is crucial for interpreting the raw data buffer correctly.\n\nArray Interface and Protocols\n-----------------------------\n\nNumPy arrays expose several protocols and interfaces to interact with other Python and C extensions:\n\n- **Array Interface (`__array_interface__`)**: Provides a dictionary describing the array's data pointer, shape, strides, data type, and version.\n- **Array Protocol (`__array_struct__`)**: Exposes a C struct interface for direct access to the array data.\n- **Buffer Protocol**: Allows other Python objects to access the array's memory buffer efficiently.\n- **ctypes Interface**: Provides access to the array data as ctypes objects for interoperability with C libraries.\n\nThese interfaces are implemented internally by functions such as `array_interface_get`, `array_ctypes_get`, and `array_data_get`.\n\nMemory Management and Ownership\n-------------------------------\n\nThe array's memory management is governed by the ownership flag and the base object pointer:\n\n- If `NPY_ARRAY_OWNDATA` is set, the array is responsible for freeing the memory buffer.\n- If the array is a view, the `base` pointer references the original array or object owning the data, ensuring the memory remains valid.\n- Writeback mechanisms exist for arrays created with the `WRITEBACKIFCOPY` flag, which require explicit synchronization.\n\nThreading and API Macros\n------------------------\n\nNumPy provides macros to manage the Global Interpreter Lock (GIL) and threading behavior when working with arrays in C extensions:\n\n- `NPY_BEGIN_ALLOW_THREADS` and `NPY_END_ALLOW_THREADS` macros allow releasing and reacquiring the GIL around blocking or long-running operations.\n- Additional macros handle threading thresholds and data type-specific threading.\n\nThese ensure safe and efficient multi-threaded operations involving NumPy arrays.\n\nSummary\n-------\n\nThe internal organization of NumPy arrays is designed to balance flexibility, performance, and interoperability. By combining a rich metadata structure with a contiguous or strided memory layout, NumPy arrays enable efficient numerical computations while supporting a wide range of use cases including views, broadcasting, and integration with other C and Python code.\n\nUnderstanding these internals is essential for developers working on NumPy itself, writing C extensions, or performing advanced manipulations of array data.",
+  "prediction_sha256": "b9e90876e3d6c822380cebd9cff539cdae97f665f4bd4cb8d70a936c480a6ec9",
+  "prompt_sha256": "371921c1fd996b9971f8e8f371048d5210fb6d19b4c575a70d24570976394749",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 17494,
+    "completion_tokens": 1219,
+    "total_tokens": 18713
+  },
+  "cost_usd": 0.008948,
+  "generation_seconds": 18.560762501998397,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array internal organization"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 8391,
+              "start_char": 6018203,
+              "end_char": 6018797,
+              "code": "               PyLong_FromVoidPtr(PyArray_DATA(self)),\n                         ((PyArray_FLAGS(self) & NPY_ARRAY_WRITEABLE) &&\n                          !(PyArray_FLAGS(self) & NPY_ARRAY_WARN_ON_WRITE)) ?\n                         Py_False : Py_True);\n}\n\nstatic PyObject *\narray_ctypes_get(PyArrayObject *self, void *NPY_UNUSED(ignored))\n{\n    PyObject *_numpy_internal;\n    PyObject *ret;\n    _numpy_internal = PyImport_ImportModule(\"numpy.core._internal\");\n    if (_numpy_internal == NULL) {\n        return NULL;\n    }\n    ret = PyObject_CallMethod(_numpy_internal, \"_ctypes\", \"ON\", self,\n   ",
+              "code_tokens": 300,
+              "score": 10.696352054408
+            },
+            {
+              "chunk_id": 15800,
+              "start_char": 10826162,
+              "end_char": 10826800,
+              "code": " bounds, the array is not\n    # read/write accessed\n    x = np.arange(1).astype(np.int8)\n\n    # Check low-dimensional special cases\n\n    check_internal_overlap(x, False) # 1-dim\n    check_internal_overlap(x.reshape([]), False) # 0-dim\n\n    a = as_strided(x, strides=(3, 4), shape=(4, 4))\n    check_internal_overlap(a, False)\n\n    a = as_strided(x, strides=(3, 4), shape=(5, 4))\n    check_internal_overlap(a, True)\n\n    a = as_strided(x, strides=(0,), shape=(0,))\n    check_internal_overlap(a, False)\n\n    a = as_strided(x, strides=(0,), shape=(1,))\n    check_internal_overlap(a, False)\n\n    a = as_strided(x, strides=(0,), shape=(2,))\n   ",
+              "code_tokens": 273,
+              "score": 10.572438511527
+            },
+            {
+              "chunk_id": 5807,
+              "start_char": 4285814,
+              "end_char": 4286404,
+              "code": " NULL;\n    }\n    if (order == Py_None) {\n        order = NULL;\n    }\n    if (order != NULL) {\n        PyObject *new_name;\n        PyObject *_numpy_internal;\n        saved = PyArray_DESCR(self);\n        if (!PyDataType_HASFIELDS(saved)) {\n            PyErr_SetString(PyExc_ValueError, \"Cannot specify \"\n                            \"order when the array has no fields.\");\n            return NULL;\n        }\n        _numpy_internal = PyImport_ImportModule(\"numpy.core._internal\");\n        if (_numpy_internal == NULL) {\n            return NULL;\n        }\n        new_name = PyObject_CallMethod",
+              "code_tokens": 300,
+              "score": 10.411244992467
+            }
+          ],
+          "code_tokens": 873
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 8391
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 8391,
+              "start_char": 6018203,
+              "end_char": 6021240,
+              "code": "               PyLong_FromVoidPtr(PyArray_DATA(self)),\n                         ((PyArray_FLAGS(self) & NPY_ARRAY_WRITEABLE) &&\n                          !(PyArray_FLAGS(self) & NPY_ARRAY_WARN_ON_WRITE)) ?\n                         Py_False : Py_True);\n}\n\nstatic PyObject *\narray_ctypes_get(PyArrayObject *self, void *NPY_UNUSED(ignored))\n{\n    PyObject *_numpy_internal;\n    PyObject *ret;\n    _numpy_internal = PyImport_ImportModule(\"numpy.core._internal\");\n    if (_numpy_internal == NULL) {\n        return NULL;\n    }\n    ret = PyObject_CallMethod(_numpy_internal, \"_ctypes\", \"ON\", self,\n                              PyLong_FromVoidPtr(PyArray_DATA(self)));\n    Py_DECREF(_numpy_internal);\n    return ret;\n}\n\nstatic PyObject *\narray_interface_get(PyArrayObject *self, void *NPY_UNUSED(ignored))\n{\n    PyObject *dict;\n    PyObject *obj;\n\n    dict = PyDict_New();\n    if (dict == NULL) {\n        return NULL;\n    }\n\n    int ret;\n\n    /* dataptr */\n    obj = array_dataptr_get(self, NULL);\n    ret = PyDict_SetItemString(dict, \"data\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    obj = array_protocol_strides_get(self);\n    ret = PyDict_SetItemString(dict, \"strides\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    obj = array_protocol_descr_get(self);\n    ret = PyDict_SetItemString(dict, \"descr\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    obj = arraydescr_protocol_typestr_get(PyArray_DESCR(self), NULL);\n    ret = PyDict_SetItemString(dict, \"typestr\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    obj = array_shape_get(self, NULL);\n    ret = PyDict_SetItemString(dict, \"shape\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    obj = PyLong_FromLong(3);\n    ret = PyDict_SetItemString(dict, \"version\", obj);\n    Py_DECREF(obj);\n    if (ret < 0) {\n        Py_DECREF(dict);\n        return NULL;\n    }\n\n    return dict;\n}\n\nstatic PyObject *\narray_data_get(PyArrayObject *self, void *NPY_UNUSED(ignored))\n{\n    return PyMemoryView_FromObject((PyObject *)self);\n}\n\nstatic int\narray_data_set(PyArrayObject *self, PyObject *op, void *NPY_UNUSED(ignored))\n{\n    void *buf;\n    Py_ssize_t buf_len;\n    int writeable=1;\n    Py_buffer view;\n\n    /* 2016-19-02, 1.12 */\n    int ret = DEPRECATE(\"Assigning the 'data' attribute is an \"\n                        \"inherently unsafe operation and will \"\n                        \"be removed in the future.\");\n    if (ret < 0) {\n        return -1;\n    }\n\n    if (op == NULL) {\n        PyErr_SetString(PyExc_AttributeError,\n                \"Cannot delete array data\");\n        return -1;\n    }\n    if (PyObject_GetBuffer(op, &view, PyBUF_WRITABLE|PyBUF_SIMPLE) < 0) {\n        writeable = 0;\n        PyErr_Clear();\n        if (PyObject_GetBuffer(op, &view, PyBUF_SIMPLE) < 0) {\n            return -1;\n        }\n    }\n    buf",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "array internal structure"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 14524,
+              "start_char": 9977521,
+              "end_char": 9978036,
+              "code": "(\n            names=['a', 'b', 'c', 'd'],\n            formats=['u1', np.uint16, np.uint32, [('one', 'u1'), ('two', np.uint32)]],\n            offsets=[0, 0, 0, 0],\n            itemsize=ctypes.sizeof(Union)\n        ))\n        self.check(Union, expected)\n\n    def test_packed_structure(self):\n        class PackedStructure(ctypes.Structure):\n            _pack_ = 1\n            _fields_ = [\n                ('a', ctypes.c_uint8),\n                ('b', ctypes.c_uint16)\n            ]\n        expected = np.dtype([\n      ",
+              "code_tokens": 300,
+              "score": 11.350397681671
+            },
+            {
+              "chunk_id": 604,
+              "start_char": 477451,
+              "end_char": 478297,
+              "code": " function has to be used with extreme care, see notes.\n\n    Parameters\n    ----------\n    x : ndarray\n        Array to create a new.\n    shape : sequence of int, optional\n        The shape of the new array. Defaults to ``x.shape``.\n    strides : sequence of int, optional\n        The strides of the new array. Defaults to ``x.strides``.\n    subok : bool, optional\n        .. versionadded:: 1.10\n\n        If True, subclasses are preserved.\n    writeable : bool, optional\n        .. versionadded:: 1.12\n\n        If set to False, the returned array will always be readonly.\n        Otherwise it will be writable if the original array was. It\n        is advisable to set this to False if possible (see Notes).\n\n    Returns\n    -------\n    view : ndarray\n\n    See also\n    --------\n    broadcast_to : broadcast an array to a given shape.\n    reshape :",
+              "code_tokens": 300,
+              "score": 11.219651828862
+            },
+            {
+              "chunk_id": 18268,
+              "start_char": 12195070,
+              "end_char": 12195870,
+              "code": " while (0);\n#define NPY_DISABLE_C_API    do {PyGILState_Release(__save__);} while (0);\n#else\n#define NPY_BEGIN_ALLOW_THREADS\n#define NPY_END_ALLOW_THREADS\n#define NPY_BEGIN_THREADS\n#define NPY_END_THREADS\n#define NPY_BEGIN_THREADS_THRESHOLDED(loop_size)\n#define NPY_BEGIN_THREADS_DESCR(dtype)\n#define NPY_END_THREADS_DESCR(dtype)\n#define NPY_ALLOW_C_API_DEF\n#define NPY_ALLOW_C_API\n#define NPY_DISABLE_C_API\n#endif\n\n/**********************************\n * The nditer object, added in 1.6\n **********************************/\n\n/* The actual structure of the iterator is an internal detail */\ntypedef struct NpyIter_InternalOnly NpyIter;\n\n/* Iterator function pointers that may be specialized */\ntypedef int (NpyIter_IterNextFunc)(NpyIter *iter);\ntypedef void (NpyIter_GetMultiIndexFunc)(NpyIter *iter,\n",
+              "code_tokens": 300,
+              "score": 11.111853024684
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "PyArrayObject struct"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 18258,
+              "start_char": 12186526,
+              "end_char": 12187424,
+              "code": "ef PyArrayObject_fields PyArrayObject;\n#else\ntypedef struct tagPyArrayObject {\n        PyObject_HEAD\n} PyArrayObject;\n#endif\n\n/*\n * Removed 2020-Nov-25, NumPy 1.20\n * #define NPY_SIZEOF_PYARRAYOBJECT (sizeof(PyArrayObject_fields))\n *\n * The above macro was removed as it gave a false sense of a stable ABI\n * with respect to the structures size.  If you require a runtime constant,\n * you can use `PyArray_Type.tp_basicsize` instead.  Otherwise, please\n * see the PyArrayObject documentation or ask the NumPy developers for\n * information on how to correctly replace the macro in a way that is\n * compatible with multiple NumPy versions.\n */\n\n\n/* Array Flags Object */\ntypedef struct PyArrayFlagsObject {\n        PyObject_HEAD\n        PyObject *arr;\n        int flags;\n} PyArrayFlagsObject;\n\n/* Mirrors buffer object to ptr */\n\ntypedef struct {\n        PyObject_HEAD\n        PyObject *base;\n       ",
+              "code_tokens": 300,
+              "score": 21.965707120959
+            },
+            {
+              "chunk_id": 7726,
+              "start_char": 5571768,
+              "end_char": 5572549,
+              "code": "PORT PyObject*\nPyArray_CumProd(PyArrayObject* self, int axis, int rtype, PyArrayObject* out);\n\nNPY_NO_EXPORT PyObject*\nPyArray_All(PyArrayObject* self, int axis, PyArrayObject* out);\n\nNPY_NO_EXPORT PyObject*\nPyArray_Any(PyArrayObject* self, int axis, PyArrayObject* out);\n\n#endif  /* NUMPY_CORE_SRC_MULTIARRAY_CALCULATION_H_ */\n\n\n/*\n * This file implements the CPython wrapper of NpyIter\n *\n * Copyright (c) 2010 by Mark Wiebe (mwwiebe@gmail.com)\n * The University of British Columbia\n *\n * See LICENSE.txt for the license.\n */\n#define NPY_NO_DEPRECATED_API NPY_API_VERSION\n#define _MULTIARRAYMODULE\n\n#define PY_SSIZE_T_CLEAN\n#include <Python.h>\n#include <structmember.h>\n\n#include \"numpy/arrayobject.h\"\n#include \"npy_config.h\"\n#include \"npy_pycompat.h\"\n#include \"alloc.h\"\n#include",
+              "code_tokens": 300,
+              "score": 20.17780629242
+            },
+            {
+              "chunk_id": 18257,
+              "start_char": 12185594,
+              "end_char": 12186379,
+              "code": " WRITEBACKIFCOPY flag this is an\n     * array to-be-updated upon calling\n     * PyArray_ResolveWritebackIfCopy\n     */\n    PyObject *base;\n    /* Pointer to type structure */\n    PyArray_Descr *descr;\n    /* Flags describing array -- see below */\n    int flags;\n    /* For weak references */\n    PyObject *weakreflist;\n#if NPY_FEATURE_VERSION >= NPY_1_20_API_VERSION\n    void *_buffer_info;  /* private buffer info, tagged to allow warning */\n#endif\n    /*\n     * For malloc/calloc/realloc/free per object\n     */\n#if NPY_FEATURE_VERSION >= NPY_1_22_API_VERSION\n    PyObject *mem_handler;\n#endif\n} PyArrayObject_fields;\n\n/*\n * To hide the implementation details, we only expose\n * the Python struct HEAD.\n */\n#if !defined(NPY_NO_DEPRECATED_API) || \\\n    (NPY_NO_DEPRECATED_API < NPY_1_",
+              "code_tokens": 300,
+              "score": 19.497443975881
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 18257
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 18257,
+              "start_char": 12185594,
+              "end_char": 12189864,
+              "code": " WRITEBACKIFCOPY flag this is an\n     * array to-be-updated upon calling\n     * PyArray_ResolveWritebackIfCopy\n     */\n    PyObject *base;\n    /* Pointer to type structure */\n    PyArray_Descr *descr;\n    /* Flags describing array -- see below */\n    int flags;\n    /* For weak references */\n    PyObject *weakreflist;\n#if NPY_FEATURE_VERSION >= NPY_1_20_API_VERSION\n    void *_buffer_info;  /* private buffer info, tagged to allow warning */\n#endif\n    /*\n     * For malloc/calloc/realloc/free per object\n     */\n#if NPY_FEATURE_VERSION >= NPY_1_22_API_VERSION\n    PyObject *mem_handler;\n#endif\n} PyArrayObject_fields;\n\n/*\n * To hide the implementation details, we only expose\n * the Python struct HEAD.\n */\n#if !defined(NPY_NO_DEPRECATED_API) || \\\n    (NPY_NO_DEPRECATED_API < NPY_1_7_API_VERSION)\n/*\n * Can't put this in npy_deprecated_api.h like the others.\n * PyArrayObject field access is deprecated as of NumPy 1.7.\n */\ntypedef PyArrayObject_fields PyArrayObject;\n#else\ntypedef struct tagPyArrayObject {\n        PyObject_HEAD\n} PyArrayObject;\n#endif\n\n/*\n * Removed 2020-Nov-25, NumPy 1.20\n * #define NPY_SIZEOF_PYARRAYOBJECT (sizeof(PyArrayObject_fields))\n *\n * The above macro was removed as it gave a false sense of a stable ABI\n * with respect to the structures size.  If you require a runtime constant,\n * you can use `PyArray_Type.tp_basicsize` instead.  Otherwise, please\n * see the PyArrayObject documentation or ask the NumPy developers for\n * information on how to correctly replace the macro in a way that is\n * compatible with multiple NumPy versions.\n */\n\n\n/* Array Flags Object */\ntypedef struct PyArrayFlagsObject {\n        PyObject_HEAD\n        PyObject *arr;\n        int flags;\n} PyArrayFlagsObject;\n\n/* Mirrors buffer object to ptr */\n\ntypedef struct {\n        PyObject_HEAD\n        PyObject *base;\n        void *ptr;\n        npy_intp len;\n        int flags;\n} PyArray_Chunk;\n\ntypedef struct {\n    NPY_DATETIMEUNIT base;\n    int num;\n} PyArray_DatetimeMetaData;\n\ntypedef struct {\n    NpyAuxData base;\n    PyArray_DatetimeMetaData meta;\n} PyArray_DatetimeDTypeMetaData;\n\n/*\n * This structure contains an exploded view of a date-time value.\n * NaT is represented by year == NPY_DATETIME_NAT.\n */\ntypedef struct {\n        npy_int64 year;\n        npy_int32 month, day, hour, min, sec, us, ps, as;\n} npy_datetimestruct;\n\n/* This is not used internally. */\ntypedef struct {\n        npy_int64 day;\n        npy_int32 sec, us, ps, as;\n} npy_timedeltastruct;\n\ntypedef int (PyArray_FinalizeFunc)(PyArrayObject *, PyObject *);\n\n/*\n * Means c-style contiguous (last index varies the fastest). The data\n * elements right after each other.\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_C_CONTIGUOUS    0x0001\n\n/*\n * Set if array is a contiguous Fortran array: the first index varies\n * the fastest in memory (strides array is reverse of C-contiguous\n * array)\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_F_CONTIGUOUS    0x0002\n\n/*\n * Note: all 0-d arrays are C_CONTIGUOUS and F_CONTIGUOUS. If a\n * 1-d array is C_CONTIGUOUS it is also F_CONTIGUOUS. Arrays with\n * more then one dimension can be C_CONTIGUOUS and F_CONTIGUOUS\n * at the same time if they have either zero or one element.\n * A higher dimensional array always has the same contiguity flags as\n * `array.squeeze()`; dimensions with `array.shape[dimension] == 1` are\n * effectively ignored when checking for contiguity.\n */\n\n/*\n * If set, the array owns the data: it will be free'd when the array\n * is deleted.\n *\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_OWNDATA         0x0004\n\n/*\n * An array never has the next four set; they're only used as parameter\n * flags to the various FromAny functions\n *\n * This flag may be requested in constructor functions.\n */\n\n/* Cause a cast to occur regardless of whether or not it is safe. */\n#define NPY_ARRAY_FORCECAST       0x0010\n\n/*\n * Always copy the array. Returned arrays are always CONTIGUOUS,\n * ALIGNED, and WRITEABLE. See also: NPY_ARRAY_ENSURENOCOPY = 0x4000.\n *\n * This flag may be requested in constructor functions.\n */\n#define NPY_",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 18258
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 18258,
+              "start_char": 12186526,
+              "end_char": 12190990,
+              "code": "ef PyArrayObject_fields PyArrayObject;\n#else\ntypedef struct tagPyArrayObject {\n        PyObject_HEAD\n} PyArrayObject;\n#endif\n\n/*\n * Removed 2020-Nov-25, NumPy 1.20\n * #define NPY_SIZEOF_PYARRAYOBJECT (sizeof(PyArrayObject_fields))\n *\n * The above macro was removed as it gave a false sense of a stable ABI\n * with respect to the structures size.  If you require a runtime constant,\n * you can use `PyArray_Type.tp_basicsize` instead.  Otherwise, please\n * see the PyArrayObject documentation or ask the NumPy developers for\n * information on how to correctly replace the macro in a way that is\n * compatible with multiple NumPy versions.\n */\n\n\n/* Array Flags Object */\ntypedef struct PyArrayFlagsObject {\n        PyObject_HEAD\n        PyObject *arr;\n        int flags;\n} PyArrayFlagsObject;\n\n/* Mirrors buffer object to ptr */\n\ntypedef struct {\n        PyObject_HEAD\n        PyObject *base;\n        void *ptr;\n        npy_intp len;\n        int flags;\n} PyArray_Chunk;\n\ntypedef struct {\n    NPY_DATETIMEUNIT base;\n    int num;\n} PyArray_DatetimeMetaData;\n\ntypedef struct {\n    NpyAuxData base;\n    PyArray_DatetimeMetaData meta;\n} PyArray_DatetimeDTypeMetaData;\n\n/*\n * This structure contains an exploded view of a date-time value.\n * NaT is represented by year == NPY_DATETIME_NAT.\n */\ntypedef struct {\n        npy_int64 year;\n        npy_int32 month, day, hour, min, sec, us, ps, as;\n} npy_datetimestruct;\n\n/* This is not used internally. */\ntypedef struct {\n        npy_int64 day;\n        npy_int32 sec, us, ps, as;\n} npy_timedeltastruct;\n\ntypedef int (PyArray_FinalizeFunc)(PyArrayObject *, PyObject *);\n\n/*\n * Means c-style contiguous (last index varies the fastest). The data\n * elements right after each other.\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_C_CONTIGUOUS    0x0001\n\n/*\n * Set if array is a contiguous Fortran array: the first index varies\n * the fastest in memory (strides array is reverse of C-contiguous\n * array)\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_F_CONTIGUOUS    0x0002\n\n/*\n * Note: all 0-d arrays are C_CONTIGUOUS and F_CONTIGUOUS. If a\n * 1-d array is C_CONTIGUOUS it is also F_CONTIGUOUS. Arrays with\n * more then one dimension can be C_CONTIGUOUS and F_CONTIGUOUS\n * at the same time if they have either zero or one element.\n * A higher dimensional array always has the same contiguity flags as\n * `array.squeeze()`; dimensions with `array.shape[dimension] == 1` are\n * effectively ignored when checking for contiguity.\n */\n\n/*\n * If set, the array owns the data: it will be free'd when the array\n * is deleted.\n *\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_OWNDATA         0x0004\n\n/*\n * An array never has the next four set; they're only used as parameter\n * flags to the various FromAny functions\n *\n * This flag may be requested in constructor functions.\n */\n\n/* Cause a cast to occur regardless of whether or not it is safe. */\n#define NPY_ARRAY_FORCECAST       0x0010\n\n/*\n * Always copy the array. Returned arrays are always CONTIGUOUS,\n * ALIGNED, and WRITEABLE. See also: NPY_ARRAY_ENSURENOCOPY = 0x4000.\n *\n * This flag may be requested in constructor functions.\n */\n#define NPY_ARRAY_ENSURECOPY      0x0020\n\n/*\n * Make sure the returned array is a base-class ndarray\n *\n * This flag may be requested in constructor functions.\n */\n#define NPY_ARRAY_ENSUREARRAY     0x0040\n\n/*\n * Make sure that the strides are in units of the element size Needed\n * for some operations with record-arrays.\n *\n * This flag may be requested in constructor functions.\n */\n#define NPY_ARRAY_ELEMENTSTRIDES  0x0080\n\n/*\n * Array data is aligned on the appropriate memory address for the type\n * stored according to how the compiler would align things (e.g., an\n * array of integers (4 bytes each) starts on a memory address that's\n * a multiple of 4)\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_ALIGNED         0x0100\n\n/*\n * Array data has the native endianness\n *\n * This flag may be requested in constructor functions.\n */\n#define NPY_ARRAY_NOTSWAPPED      0x0200\n\n/*\n * Array data is writeable\n *\n * This flag may be requested in constructor functions.\n * This flag may be tested for in PyArray_FLAGS(arr).\n */\n#define NPY_ARRAY_WRITE",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 7173,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "31caeb459e729b93e3919d1b7b32b267d07907573fe3f1c41e95a1ceac362066",
+        "request_id": "chatcmpl-Ej8NgD0Geza0C3vzvFe7jifhxAhUw",
+        "usage": {
+          "prompt_tokens": 162,
+          "completion_tokens": 16,
+          "total_tokens": 178,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9.04e-05,
+        "seconds": 1.0289951249978913,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "7e93e0fafa33c8b775827552956822c9fd9c17e75574fed594a78a2c6f1ae37c",
+        "request_id": "chatcmpl-Ej8NhufIyEDQks04MqopGaSY9UV3U",
+        "usage": {
+          "prompt_tokens": 883,
+          "completion_tokens": 16,
+          "total_tokens": 899,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00037880000000000005,
+        "seconds": 0.7291708330012625,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "5b7e095f9e51ac82c95a659807da9b23fa77d481b87ab441076ce2a8fd8feb1f",
+        "request_id": "chatcmpl-Ej8NiyuptkhD8dFlbrvaWJUrWoR2m",
+        "usage": {
+          "prompt_tokens": 1906,
+          "completion_tokens": 16,
+          "total_tokens": 1922,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007880000000000001,
+        "seconds": 1.1084457920005661,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "948d29a117790c3f6ab6062a63c29ee249f9404ad5b54f972423619d429ac2b4",
+        "request_id": "chatcmpl-Ej8NjXT8TyfwxY3E6maYfwViXBa3Z",
+        "usage": {
+          "prompt_tokens": 2680,
+          "completion_tokens": 17,
+          "total_tokens": 2697,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010992,
+        "seconds": 3.2316008749985485,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "59a03daf0b326993e837d82b5317c636e9a1db436b59a57ef7c13813df91c5fa",
+        "request_id": "chatcmpl-Ej8NmHvqgyGCp2yEQfnlHRdxqnKPd",
+        "usage": {
+          "prompt_tokens": 3591,
+          "completion_tokens": 16,
+          "total_tokens": 3607,
+          "prompt_tokens_details": {
+            "cached_tokens": 2560,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001462,
+        "seconds": 2.3923129590002645,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "888c6ac70b09140c8d461eaf5c99a14a5afd2335306c23570fdf23c3c03f2129",
+        "request_id": "chatcmpl-Ej8NoB8Vst5uxm5IuDNya3SXJJ98l",
+        "usage": {
+          "prompt_tokens": 4940,
+          "completion_tokens": 16,
+          "total_tokens": 4956,
+          "prompt_tokens_details": {
+            "cached_tokens": 3456,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020016,
+        "seconds": 1.77560858400102,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "d7eb59db2bfa91084350a2e65e4bd0cc6c867bd5fb7805c1d0947c66ada9a55b",
+        "request_id": "chatcmpl-Ej8NqDnlD027J7cIo1dMCW2NeyfRe",
+        "usage": {
+          "prompt_tokens": 3332,
+          "completion_tokens": 1122,
+          "total_tokens": 4454,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.003128,
+        "seconds": 8.294628333998844,
+        "retry_count": 0
+      }
+    ]
+  }
+}

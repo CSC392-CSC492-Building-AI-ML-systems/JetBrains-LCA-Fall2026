@@ -1,0 +1,107 @@
+Gaussian Processes
+==================
+
+Gaussian Processes (GPs) are a powerful, flexible method for probabilistic modeling and inference in machine learning. They provide a principled, practical, probabilistic approach to learning in kernel machines.
+
+Overview
+--------
+
+A Gaussian Process defines a distribution over functions and can be used for regression and classification tasks. It is fully specified by a mean function and a covariance function (kernel). The choice of kernel encodes assumptions about the function to be learned, such as smoothness, periodicity, or linearity.
+
+Kernels
+-------
+
+Kernels, or covariance functions, define the similarity between points in the input space and play a central role in Gaussian Processes. Several kernels are commonly used:
+
+- **Radial Basis Function (RBF) Kernel**  
+  Also known as the squared exponential kernel, it is a popular choice due to its smoothness properties.  
+  Parameters:  
+  - `length_scale` : Controls the smoothness of the function. Can be a scalar or an array for anisotropic kernels.  
+  - `length_scale_bounds` : Bounds on the length scale parameter for hyperparameter tuning.
+
+- **Matern Kernel**  
+  A generalization of the RBF kernel with an additional parameter `nu` controlling smoothness.  
+  Parameters:  
+  - `length_scale`  
+  - `length_scale_bounds`  
+  - `nu` : Smoothness parameter (common values are 0.5, 1.5, 2.5).
+
+- **Rational Quadratic Kernel**  
+  Can be seen as a scale mixture of RBF kernels with different length scales.  
+  Parameters:  
+  - `length_scale` (isotropic only)  
+  - `alpha` : Scale mixture parameter  
+  - `length_scale_bounds`  
+  - `alpha_bounds`
+
+Kernel Evaluation
+-----------------
+
+Kernels compute the covariance matrix \( K(X, Y) \) between two sets of input points \( X \) and \( Y \). When \( Y \) is not provided, the kernel computes \( K(X, X) \).
+
+For example, the RBF kernel between points \( x \) and \( y \) is computed as:
+
+\[
+k(x, y) = \exp\left(-\frac{1}{2} \frac{\|x - y\|^2}{\ell^2}\right)
+\]
+
+where \( \ell \) is the length scale.
+
+Kernels also support computation of gradients with respect to their hyperparameters, which is useful for hyperparameter optimization.
+
+GaussianProcessClassifier
+-------------------------
+
+The `GaussianProcessClassifier` implements Gaussian Process classification. It uses kernels to define the covariance structure of the latent function and applies a probabilistic classification model.
+
+Example usage:
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+
+X, y = load_iris(return_X_y=True)
+kernel = 1.0 * RBF(length_scale=1.0)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+score = gpc.score(X, y)
+print(score)  # e.g., 0.9866...
+
+proba = gpc.predict_proba(X[:2, :])
+print(proba)
+# array([[0.8354..., 0.03228..., 0.1322...],
+#        [0.7906..., 0.0652..., 0.1441...]])
+```
+
+Other kernels such as `Matern` and `RationalQuadratic` can also be used similarly:
+
+```python
+from sklearn.gaussian_process.kernels import Matern
+
+kernel = 1.0 * Matern(length_scale=1.0, nu=1.5)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+```
+
+```python
+from sklearn.gaussian_process.kernels import RationalQuadratic
+
+kernel = RationalQuadratic(length_scale=1.0, alpha=1.5)
+gpc = GaussianProcessClassifier(kernel=kernel, random_state=0).fit(X, y)
+print(gpc.score(X, y))
+```
+
+References
+----------
+
+.. [1] David Duvenaud (2014). "The Kernel Cookbook: Advice on Covariance functions".  
+       <https://www.cs.toronto.edu/~duvenaud/cookbook/>
+
+.. [2] Carl Edward Rasmussen, Christopher K. I. Williams (2006).  
+       "Gaussian Processes for Machine Learning". The MIT Press.  
+       <http://www.gaussianprocess.org/gpml/>
+
+Further Reading
+---------------
+
+For a comprehensive introduction to Gaussian Processes and their applications, see Rasmussen and Williams [2]. For practical advice on kernel design, see Duvenaud [1].

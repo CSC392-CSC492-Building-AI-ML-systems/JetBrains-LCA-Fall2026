@@ -1,0 +1,42 @@
+{
+  "original_id": 96,
+  "repo": "mitogen-hq__mitogen",
+  "docfile_name": "getting_started.rst",
+  "source_sha256": "5797d27d0f0d66c14a65692ae129c944d8d2c5be42f9ef2362153cd3ac97db5c",
+  "context": "\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker,'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.start_child()\n   \n\nconnection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n           \n\nIn this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled, :meth:`reset`\n\n must be invoked to ensure any\n    exception is discarded, otherwise unbounded memory usage is possible in\n    long-running programs. The context manager protocol is supported to ensure\n    :meth:`reset` is always invoked::\n\n        with mitogen.parent.CallChain(context, pipelined=True) as chain:\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call(...)\n\n        # chain.reset() automatically invoked.\n    \"\"\"\n    def __init__(self, context, pipelined=False):\n        self.context = context\n        if pipelined:\n            self.chain_id = self.make_chain_id()\n        else:\n            self.chain_id = None\n\n    @classmethod\n    def make_chain_id(cls):\n        return '%s-%s-%x-%x' % (\n            socket.gethostname(),\n            os.getpid(),\n            thread.get_ident(),\n            int(1e6 * mitogen.core.now()),\n        )\n\n    def __repr__(self):\n        return '%s(%s)' % (self.__class__.__name__, self.context)\n\n    def __enter__(self):\n        return self\n\n    def __exit__(self, _1, _2, _3):\n        self.reset()\n\n    def reset(self):\n        \"\"\"\n        Instruct the target to forget any related exception.\n        \"\"\"\n        if not self.chain_id:\n            return\n\n        saved, self.chain_id = self.chain_id, None\n        try:\n            self.call_no_reply(mitogen.core.Dispatcher.forget_chain, saved)\n        finally:\n            self.chain_id = saved\n\n    closures_msg = (\n        'Mitogen cannot invoke closures, as doing so would require '\n       'serializing arbitrary program state, and no universal '\n       'method exists to recover a reference to them.'\n    )\n\n    lambda_msg = (\n        'Mitogen cannot invoke anonymous functions, as no universal method '\n        'exists to recover a reference to an anonymous function.'\n    )\n\n    method_msg = (\n        'Mitogen cannot invoke instance methods, as doing so would require '\n       'serializing arbitrary program state.'\n    )\n\n    def make_msg(self, fn, *args, **kwargs):\n        if getattr(fn, closure_attr, None) is not None:\n            raise TypeError(self.closures_msg)\n        if fn.__name__ == '<lambda>':\n            raise TypeError(self.lambda_msg)\n\n        if inspect.ismethod(fn):\n            im_self = getattr(fn, IM_SELF_ATTR)\n            if not inspect.isclass(im_self):\n                raise TypeError(self.method_msg)\n            klass = mitogen.core.to_text(im_self.__name__)\n        else:\n            klass = None\n\n        tup = (\n            self.chain_id,\n            mitogen.core.to_text(fn.__module__),\n            klass,\n      \n\n      and usually invoked by any subclass :meth:`on_receive` implementation\n        in response to a 0-byte read.\n\n        The base implementation fires a ``disconnect`` event, then closes\n        :attr:`receive_side` and :attr:`transmit_side` after unregistering the\n        stream from the broker.\n        \"\"\"\n        fire(self, 'disconnect')\n        self.protocol.on_disconnect(broker)\n\n\nclass Protocol(object):\n    \"\"\"\n    Implement the program behaviour associated with activity on a\n    :class:`Stream`. The protocol in use may vary over a stream's life, for\n    example to allow :class:`mitogen.parent.BootstrapProtocol` to initialize\n    the connected child before handing it off to :class:`MitogenProtocol`. A\n    stream's active protocol is tracked in the :attr:`Stream.protocol`\n    attribute, and modified via :meth:`Stream.set_protocol`.\n\n    Protocols do not handle IO, they are entirely\n\nlen -= total_len\n        self._router._async_route(msg, self.stream)\n        return True\n\n    def pending_bytes(self):\n        \"\"\"\n        Return the number of bytes queued for transmission on this stream. This\n        can be used to limit the amount of data buffered in RAM by an otherwise\n        unlimited consumer.\n\n        For an accurate result, this method should be called from the Broker\n        thread, for example by using :meth:`Broker.defer_sync`.\n        \"\"\"\n        return self._writer._len\n\n    def on_transmit(self, broker):\n        \"\"\"\n        Transmit buffered messages.\n        \"\"\"\n        _vv and IOLOG.debug('%r.on_transmit()', self)\n        self._writer.on_transmit(broker)\n\n    def _send(self, msg):\n      \n\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd!= stdfd:\n                os.dup2(fd, stdfd)\n                os.close(fd)\n\n    def _preserve_tty_",
+  "preparation_seconds": 0.43737504199089017,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 58449,
+        "end_char": 59017
+      },
+      {
+        "start_char": 59125,
+        "end_char": 59685
+      },
+      {
+        "start_char": 62400,
+        "end_char": 63171
+      },
+      {
+        "start_char": 63171,
+        "end_char": 65787
+      },
+      {
+        "start_char": 157743,
+        "end_char": 158644
+      },
+      {
+        "start_char": 172927,
+        "end_char": 173657
+      },
+      {
+        "start_char": 238841,
+        "end_char": 239427
+      }
+    ],
+    "context_tokens": 3009,
+    "context_sha256": "db807dde590aa6e841ebfbe5b901f8f7b50381698558458fca2a597d5b16e5a8"
+  }
+}

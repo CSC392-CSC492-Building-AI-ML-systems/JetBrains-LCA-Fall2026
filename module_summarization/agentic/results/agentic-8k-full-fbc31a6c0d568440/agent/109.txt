@@ -1,0 +1,196 @@
+async — Asynchronous Scanning Plans
+===================================
+
+This module provides a collection of asynchronous scanning plans designed for controlling motors and detectors in experimental setups. These plans facilitate complex scan trajectories, including linear, grid, product, relative, and spiral scans, with support for customizable per-step actions and metadata integration.
+
+Functions
+---------
+
+scan(detectors, *args, num=None, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Scan over one multi-motor trajectory.
+
+Parameters
+----------
+detectors : list
+    List of readable detector objects.
+*args :
+    For one dimension, specify ``motor, start, stop``.
+    For multiple dimensions, specify as:
+
+    .. code-block:: python
+
+        motor1, start1, stop1,
+        motor2, start2, stop2,
+        ...,
+        motorN, startN, stopN
+
+    Motors can be any settable object (motor, temperature controller, etc.).
+num : int
+    Number of points in the scan.
+per_step : callable, optional
+    Hook for customizing the action of the inner loop (messages per step).
+    See :func:`bluesky.plan_stubs.one_nd_step` for details.
+md : dict, optional
+    Metadata dictionary.
+
+Raises
+------
+ValueError
+    If the number of points `num` is not provided or is not a positive integer.
+
+See Also
+--------
+:func:`bluesky.plans.relative_inner_product_scan`
+:func:`bluesky.plans.grid_scan`
+:func:`bluesky.plans.scan_nd`
+
+relative_inner_product_scan(detectors, num, *args, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Scan over one multi-motor trajectory relative to the current position.
+
+Parameters
+----------
+detectors : list
+    List of readable detector objects.
+num : int
+    Number of points in the scan.
+*args :
+    Motor and start/stop positions as in :func:`scan`.
+per_step : callable, optional
+    Hook for customizing the action of the inner loop.
+md : dict, optional
+    Metadata dictionary.
+
+See Also
+--------
+:func:`bluesky.plans.rel_grid_scan`
+:func:`bluesky.plans.inner_product_scan`
+:func:`bluesky.plans.scan_nd`
+
+rel_scan(detectors, *args, num=None, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Scan over one multi-motor trajectory relative to current position.
+
+Parameters
+----------
+detectors : list
+    List of readable detector objects.
+*args :
+    Motor and start/stop positions as in :func:`scan`.
+num : int
+    Number of points in the scan.
+per_step : callable, optional
+    Hook for customizing the action of the inner loop.
+md : dict, optional
+    Metadata dictionary.
+
+See Also
+--------
+:func:`bluesky.plans.rel_grid_scan`
+:func:`bluesky.plans.inner_product_scan`
+:func:`bluesky.plans.scan_nd`
+
+inner_product_scan(detectors, num, *args, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Scan over one multi-motor trajectory with the number of points as the last positional argument.
+
+Parameters
+----------
+detectors : list
+    List of readable detector objects.
+num : int
+    Number of points in the scan.
+*args :
+    Motor and start/stop positions as in :func:`scan`.
+per_step : callable, optional
+    Hook for customizing the action of the inner loop.
+md : dict, optional
+    Metadata dictionary.
+
+See Also
+--------
+:func:`bluesky.plans.scan`
+
+tweak(detector, target_field, motor, step, *, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Move a motor and read a detector with an interactive prompt for adaptive tuning.
+
+Parameters
+----------
+detector : Device
+    Detector device to read.
+target_field : str
+    Data field whose output is the focus of the adaptive tuning.
+motor : Device
+    Motor device to move.
+step : float
+    Initial suggestion for step size.
+md : dict, optional
+    Metadata dictionary.
+
+spiral(detectors, x_motor, y_motor, x_start, y_start, x_range, y_range, dr,
+       nth, *, dr_y=None, tilt=0.0, per_step=None, md=None)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Perform a spiral scan centered around a specified point.
+
+Parameters
+----------
+detectors : list
+    List of readable detector objects.
+x_motor : object
+    Any settable object controlling the X-axis (motor, temperature controller, etc.).
+y_motor : object
+    Any settable object controlling the Y-axis.
+x_start : float
+    X center coordinate.
+y_start : float
+    Y center coordinate.
+x_range : float
+    Width of the spiral along the X-axis.
+y_range : float
+    Width of the spiral along the Y-axis.
+dr : float
+    Delta radius along the minor axis of the ellipse.
+nth : float
+    Number of theta steps.
+dr_y : float, optional
+    Delta radius along the major axis of the ellipse. Defaults to `dr` if None.
+tilt : float, optional
+    Tilt angle in radians. Default is 0.0.
+per_step : callable, optional
+    Hook for customizing the action of the inner loop.
+md : dict, optional
+    Metadata dictionary.
+
+See Also
+--------
+:func:`bluesky.plans.rel_spiral`
+:func:`bluesky.plans.spiral_fermat`
+:func:`bluesky.plans.rel_spiral_fermat`
+
+Details
+-------
+
+- These plans use decorators such as `reset_positions_decorator` and `relative_set_decorator` to manage motor positions safely.
+- The `per_step` callable allows users to inject custom behavior at each step of the scan.
+- Metadata dictionaries (`md`) are used extensively to store plan arguments, hints, and other contextual information useful for data management and analysis.
+- The spiral scan supports elliptical spirals with optional tilt and different radii along the axes.
+- The `tweak` plan provides an interactive way to adjust motor positions based on detector feedback, useful for fine-tuning experimental parameters.
+
+Usage
+-----
+
+These plans are designed to be used with asynchronous execution frameworks that support Python generators and `yield from` syntax, enabling non-blocking control of hardware devices during scans.
+
+Example usage of `scan`:
+
+.. code-block:: python
+
+    yield from scan([detector1, detector2], motor1, 0, 10, motor2, 5, 15, num=100)
+
+This will perform a scan over two motors with 100 points, reading the specified detectors at each step.
+
+---
+
+This documentation covers the core asynchronous scanning plans provided in this module, enabling flexible and powerful control of experimental hardware for data acquisition.

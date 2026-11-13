@@ -1,0 +1,141 @@
+Augmentations Module
+====================
+
+Overview
+--------
+
+This module provides a standard suite of image augmentations commonly used in automatic augmentation policies such as AutoAugment for ImageNet, RandAugment, and TrivialAugmentWide. The augmentations are implemented using NVIDIA DALI operators, enabling efficient and flexible image transformations.
+
+The augmentations are decorated with the `@augmentation` decorator, which manages the computation of transformation parameters based on a magnitude bin system. Instead of directly specifying parameters, augmentations receive a `magnitude_bin` and `num_magnitude_bins`, which are internally converted to transformation parameters. This design facilitates easy integration with augmentation policies that operate on discrete magnitude levels.
+
+Usage
+-----
+
+Each augmentation function expects:
+
+- A batch of samples as the first positional argument.
+- Parameters `magnitude_bin` and `num_magnitude_bins` to determine the transformation strength.
+- Additional optional arguments specific to the augmentation.
+
+The parameter for the transformation is computed as:
+
+```
+mag_to_param(magnitudes[magnitude_bin] * ((-1) ** random_sign))
+```
+
+where `magnitudes` is a linear space between the specified magnitude range.
+
+To customize an augmentation's magnitude range or behavior, you can create a new augmentation instance by adjusting the decorator parameters. For example, to increase the shear magnitude range:
+
+```python
+my_shear_x = shear_x.augmentation(mag_range=(0, 0.5))
+```
+
+Available Augmentations
+-----------------------
+
+### Geometric Transformations
+
+- **shear_x(data, shear, fill_value=128, interp_type=None)**  
+  Applies a shear transformation along the X-axis.  
+  Magnitude range: 0 to 0.3 (randomly negated).
+
+- **shear_y(data, shear, fill_value=128, interp_type=None)**  
+  Applies a shear transformation along the Y-axis.  
+  Magnitude range: 0 to 0.3 (randomly negated).
+
+- **translate_x(data, rel_offset, shape, fill_value=128, interp_type=None)**  
+  Translates the image along the X-axis by a relative offset multiplied by image width.  
+  Magnitude range: 0 to 1 (randomly negated).
+
+- **translate_x_no_shape(data, offset, fill_value=128, interp_type=None)**  
+  Translates the image along the X-axis by an absolute offset.  
+  Magnitude range: 0 to 250 (randomly negated).
+
+- **translate_y(data, rel_offset, shape, fill_value=128, interp_type=None)**  
+  Translates the image along the Y-axis by a relative offset multiplied by image height.  
+  Magnitude range: 0 to 1 (randomly negated).
+
+- **translate_y_no_shape(data, offset, fill_value=128, interp_type=None)**  
+  Translates the image along the Y-axis by an absolute offset.  
+  Magnitude range: 0 to 250 (randomly negated).
+
+- **rotate(data, angle, fill_value=128, interp_type=None, rotate_keep_size=True)**  
+  Rotates the image by a specified angle.  
+  Magnitude range: 0 to 30 degrees (randomly negated).
+
+### Color and Brightness Enhancements
+
+- **brightness(data, parameter)**  
+  Adjusts image brightness. The parameter is shifted so that 1 is neutral, and values vary symmetrically around 1.  
+  Magnitude range: 0 to 0.9 (randomly negated, shifted by +1).
+
+- **contrast(data, parameter)**  
+  Adjusts image contrast following PIL's implementation, using a channel-weighted mean as contrast center.  
+  Magnitude range: 0 to 0.9 (randomly negated, shifted by +1).
+
+- **color(data, parameter)**  
+  Adjusts image color saturation.  
+  Magnitude range: 0 to 0.9 (randomly negated, shifted by +1).
+
+- **sharpness(data, kernel)**  
+  Adjusts image sharpness using a convolution kernel. The kernel is computed based on the magnitude.  
+  Magnitude range: 0 to 0.9 (randomly negated).
+
+### Pixel-Level Transformations
+
+- **posterize(data, mask)**  
+  Reduces the number of bits for each color channel. The mask is computed from the magnitude.  
+  Magnitude range: 0 to 4.
+
+- **solarize(data, threshold)**  
+  Inverts all pixel values above a threshold.  
+  Magnitude range: 256 down to 0.
+
+- **solarize_add(data, shift)**  
+  Adds a shift value to pixels below 128, leaving others unchanged.  
+  Magnitude range: 0 to 110.
+
+- **invert(data, _)**  
+  Inverts the pixel values (255 - pixel). No magnitude parameter.
+
+- **equalize(data, _)**  
+  Applies histogram equalization following OpenCV's method. No magnitude parameter.
+
+- **auto_contrast(data, _)**  
+  Automatically adjusts contrast by stretching pixel values to cover the full range. No magnitude parameter.
+
+- **identity(data, _)**  
+  Returns the input data unchanged.
+
+Parameter Computation Details
+-----------------------------
+
+- **Warp Parameters**:  
+  Functions `warp_x_param` and `warp_y_param` convert magnitudes into 2D vectors for affine transformations along X or Y axes.
+
+- **Enhancement Shift**:  
+  Brightness, contrast, color, and sharpness enhancements use a shifted magnitude range so that the neutral effect corresponds to a parameter value of 1.
+
+- **Sharpness Kernel**:  
+  The sharpness kernel is computed as a weighted combination of an identity kernel and a blur kernel, modulated by the magnitude.
+
+- **Posterize Mask**:  
+  The posterize mask is computed to zero out the least significant bits according to the magnitude, avoiding completely blank images by remapping zero magnitude to 1.
+
+- **Solarize Add Shift**:  
+  The solarize_add augmentation accepts shifts from 0 to 128, adding the shift to pixels below 128.
+
+Notes
+-----
+
+- The augmentations assume input images are in FHWC or HWC layout.
+- Fill values default to 128 for geometric transformations to avoid black borders.
+- Interpolation types can be specified where applicable.
+- Some augmentations use GPU-friendly implementations and handle parameter passing accordingly.
+- The module requires `numpy` and NVIDIA DALI to function.
+
+License
+-------
+
+This module is licensed under the Apache License, Version 2.0. See the LICENSE file or visit http://www.apache.org/licenses/LICENSE-2.0 for details.

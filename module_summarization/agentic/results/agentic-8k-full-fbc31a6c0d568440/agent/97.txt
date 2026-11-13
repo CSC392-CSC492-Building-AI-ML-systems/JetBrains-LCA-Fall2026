@@ -1,0 +1,98 @@
+Mitogen How It Works
+====================
+
+Overview
+--------
+Mitogen is a lightweight, high-performance Python library designed to simplify and accelerate the execution of remote code and inter-process communication. It achieves this by creating isolated execution contexts, called ExternalContexts, which communicate efficiently over multiplexed channels. This document provides an overview of how Mitogen works internally, explaining its core components and mechanisms.
+
+Core Concepts
+-------------
+- **ExternalContext**: Represents an isolated execution environment, typically a remote process or container, where Python code can be executed. Each ExternalContext runs its own event loop and manages communication with other contexts.
+
+- **Router**: The central message dispatcher that routes messages between contexts. It manages connections, message queues, and dispatches incoming messages to the appropriate handlers.
+
+- **Importer**: A custom import hook that intercepts Python module imports to enable transparent remote module loading and caching.
+
+- **Broker**: Handles the low-level I/O multiplexing and scheduling of message transmission and reception.
+
+- **Call Function Mechanism**: Mitogen supports remote function invocation via a special message type (`CALL_FUNCTION`), allowing functions to be called in remote contexts with automatic argument serialization and result retrieval.
+
+Decorators for Context-Aware Functions
+--------------------------------------
+Mitogen provides decorators to simplify writing functions that interact with the Mitogen runtime:
+
+- `@takes_econtext`: Marks a function or method to automatically receive an `econtext` keyword argument, which references the active `ExternalContext` in which the function is invoked. This is useful for functions that need to interact with the execution context.
+
+- `@takes_router`: Marks a function or method to automatically receive a `router` keyword argument, referencing the active `Router` instance. This allows functions to access routing and messaging capabilities.
+
+These decorators are meaningful only when functions are invoked remotely via Mitogen's `CALL_FUNCTION` mechanism. When called directly, the `econtext` or `router` arguments must be passed explicitly.
+
+Import Management and Security
+------------------------------
+Mitogen uses a custom `Importer` to manage module imports across contexts. It supports whitelisting and blacklisting of packages to control which modules can be imported remotely:
+
+- **Whitelisting**: If any packages are whitelisted, only those packages are allowed to be imported remotely.
+
+- **Blacklisting**: Packages on the blacklist are explicitly disallowed.
+
+If a package appears on both lists, it is treated as blacklisted. This mechanism helps maintain security and control over remote code execution.
+
+File Descriptor Management
+--------------------------
+Mitogen carefully manages file descriptors to ensure robust communication and resource handling:
+
+- `set_cloexec(fd)`: Marks a file descriptor to be automatically closed during an `execve` system call, preventing descriptor leakage to child processes.
+
+- `set_nonblock(fd)`: Sets a file descriptor to non-blocking mode, so I/O operations do not block the thread and raise `EAGAIN` errors instead.
+
+- `set_block(fd)`: Reverts a file descriptor to blocking mode.
+
+These utilities help Mitogen maintain responsive and reliable I/O operations across contexts.
+
+Robust I/O Operations
+---------------------
+Mitogen wraps I/O operations with the `io_op` function, which handles common transient errors and disconnection signals gracefully:
+
+- Automatically retries system calls interrupted by signals (`EINTR`).
+
+- Detects disconnection events on TTYs (`EIO`), sockets (`ECONNRESET`), and pipes (`EPIPE`).
+
+- Returns a tuple `(result, disconnect_reason)` where `disconnect_reason` is an exception instance if a disconnection was detected, or `None` otherwise.
+
+This approach ensures that Mitogen can recover from or cleanly handle communication failures.
+
+Context Initialization and Setup
+--------------------------------
+When an `ExternalContext` starts, it performs several setup steps:
+
+1. **Nullify Standard I/O**: Replaces standard input/output/error with `/dev/null` to avoid interference and ensure clean communication channels.
+
+2. **Preserve TTY File Descriptors**: Keeps a duplicate of the standard error file descriptor if it is a TTY, preventing premature closure and SIGHUP signals during privilege escalation or process replacement.
+
+3. **Setup Logging**: Initializes logging streams for stdout and stderr, redirecting them through Mitogen's broker for remote capture and display.
+
+4. **Setup Importer**: Installs the custom importer into `sys.meta_path` to intercept module imports.
+
+5. **Setup Package Namespace**: Creates a synthetic `mitogen` package in `sys.modules` to provide access to core Mitogen modules and metadata.
+
+6. **Configure Globals**: Sets global variables such as `mitogen.is_master`, `mitogen.context_id`, and parent context IDs to track the execution environment.
+
+7. **Start Event Loop**: Runs the main dispatcher loop to process incoming messages, execute remote calls, and manage communication.
+
+Message Dispatch and Handling
+-----------------------------
+Mitogen's router continuously receives messages and dispatches them based on their type:
+
+- Messages from the master context trigger service pool initialization.
+
+- Function call messages (`CALL_FUNCTION`) are dispatched to the appropriate handler, with results sent back to the caller.
+
+- Errors during no-reply function calls are logged for debugging.
+
+This message-driven architecture enables asynchronous, multiplexed communication between multiple contexts.
+
+Conclusion
+----------
+Mitogen's design leverages Python's dynamic features, custom import hooks, and robust I/O handling to provide a powerful framework for remote code execution and inter-process communication. By isolating execution contexts, managing imports securely, and providing transparent remote function invocation, Mitogen simplifies complex distributed programming tasks while maintaining high performance and reliability.
+
+For more detailed information, refer to the Mitogen API documentation and source code.

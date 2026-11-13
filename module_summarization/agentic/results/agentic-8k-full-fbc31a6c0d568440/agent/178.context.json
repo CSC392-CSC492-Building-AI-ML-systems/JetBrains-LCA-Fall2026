@@ -1,0 +1,42 @@
+{
+  "original_id": 178,
+  "repo": "scikit-learn__scikit-learn",
+  "docfile_name": "computational_performance.rst",
+  "source_sha256": "335bfaf570da4fcec40369cef4e8d7c5eb1eeccbbae2612766c11469b30bb700",
+  "context": "        has feature names that are all strings.\n\n        .. versionadded:: 1.0\n\n    n_iter_ : int\n        The number of rounds of self-training, that is the number of times the\n        base estimator is fitted on relabeled variants of the training set.\n\n    termination_condition_ : {'max_iter', 'no_change', 'all_labeled'}\n        The reason that fitting was stopped.\n\n        - `'max_iter'`: `n_iter_` reached `max_iter`.\n        - `'no_change'`: no new labels were predicted.\n        - `'all_labeled'`: all unlabeled samples were labeled before `max_iter`\n          was reached.\n\n    See Also\n    --------\n    LabelPropagation : Label propagation classifier.\n    LabelSpreading : Label spreading model for semi-supervised learning.\n\n    References\n    ----------\n    :doi:`David Yarowsky. 1995. Unsupervised word sense disamb\n\n  # Exit early without computing the hessian.\n                return grad, hess, hessian_warning\n\n            # TODO: This \"sandwich product\", X' diag(W) X, is the main computational\n            # bottleneck for solvers. A dedicated Cython routine might improve it\n            # exploiting the symmetry (as opposed to, e.g., BLAS gemm).\n            if sparse.issparse(X):\n                hess[:n_features, :n_features] = (\n                    X.T\n                    @ sparse.dia_matrix(\n                        (hess_pointwise, 0), shape=(n_samples, n_samples)\n                    )\n  \n\n                  @ X\n                ).toarray()\n            else:\n                # np.einsum may use less memory but the following, using BLAS matrix\n                # multiplication (gemm), is by far faster.\n                WX = hess_pointwise[:, None] * X\n                hess[:n_features, :n_features] = np.dot(X.T, WX)\n\n            if l2_reg_strength > 0:\n                # The L2 penalty enters the Hessian on the diagonal only. To add those\n                # terms, we use a flattened view on the array.\n                hess.reshape(-1)[\n                    : (n_features * n_dof) : (n_dof + 1)\n                ] += l2_reg_strength\n\n            if self.fit_intercept:\n                # With intercept included as added column to X, the hessian becomes\n                # hess = (X, 1)' @ diag(h) @ (X, 1)\n                #      = (X' @ diag(h) @ X, X' @ h)\n                #        (           h @ X, sum(h))\n                # The left upper part has already been filled, it remains to compute\n                # the last row and the last column.\n                Xh = X.T @ hess_pointwise\n                hess[:-1, -1] = Xh\n                hess[-1, :-1] = Xh\n                hess[-1, -1] = hess_pointwise.sum()\n        else:\n            # Here we may safely assume HalfMultinomialLoss aka categorical\n            # cross-entropy.\n            raise NotImplementedError\n\n        return grad, hess, hessian_warning\n\n    def gradient_hessian_product(\n        self, coef, X, y, sample_weight=None, l2_reg_strength=0.0, n_threads=1\n    ):\n        \"\"\"Computes gradient and hessp (hessian product function) w.r.t. coef.\n\n        Parameters\n        ----------\n        coef : ndarray of shape (n_dof,), (n_classes, n_dof) or (n_classes * n_dof,)\n            Coefficients of a linear model.\n            If shape (n_classes * n_dof,), the classes of one feature are contiguous,\n            i.e. one reconstructs the 2d-array via\n            coef.reshape((n_classes, -1), order=\"F\").\n        X : {array-like, sparse matrix} of shape (n_samples, n_features)\n            Training data.\n        y : contiguous array of shape (n_samples,)\n            Observed, true target values.\n        sample_weight : None or contiguous array of shape (n_samples,), default=None\n            Sample weights.\n        l2_reg_strength : float, default=0.0\n\n\n_weight : array-like of shape (n_samples,), default=None\n        Sample weights.\n\n    Returns\n    -------\n    kappa : float\n        The kappa statistic, which is a number between -1 and 1. The maximum\n        value means complete agreement; zero or lower means chance agreement.\n\n    References\n    ----------\n    .. [1] :doi:`J. Cohen (1960). \"A coefficient of agreement for nominal scales\".\n           Educational and Psychological Measurement 20(1):37-46.\n           <10.1177/001316446002000104>`\n    .. [2] `R. Artstein and M. Poesio (2008). \"Inter-coder agreement for\n           computational linguistics\". Computational Linguistics 34(4):555-596\n           <https://www.mitpressjournals.org/doi/pdf/10.1162/coli.07-034-R2>`_.\n    .. [3] `Wikipedia entry for the Cohen's kappa\n \n\n>`.\n\n    .. versionadded:: 0.20\n\n    Parameters\n    ----------\n    y_true : array-like of shape (n_samples,)\n        Ground truth (correct) target values.\n\n    y_pred : array-like of shape (n_samples,)\n        Estimated targets as returned by a classifier.\n\n    sample_weight : array-like of shape (n_samples,), default=None\n        Sample weights.\n\n    adjusted : bool, default=False\n        When true, the result is adjusted for chance, so that random\n        performance would score 0, while keeping perfect performance at a score\n        of 1.\n\n    Returns\n    -------\n    balanced_accuracy : float\n        Balanced accuracy score.\n\n    See Also\n    --------\n    average_precision_score : Compute average precision (AP) from prediction\n        scores.\n    precision_score : Compute the precision score.\n    recall_score : Compute the recall score.\n    roc_\n\n range `(0.0, 1.0]` and the features\n          considered at each split will be `max(1, int(max_features * n_features_in_))`.\n        - If 'sqrt', then `max_features=sqrt(n_features)`.\n        - If 'log2', then `max_features=log2(n_features)`.\n        - If None, then `max_features=n_features`.\n\n        Choosing `max_features < n_features` leads to a reduction of variance\n        and an increase in bias.\n\n        Note: the search for a split does not stop until at least one\n        valid partition of the node samples is found, even if it requires to\n        effectively inspect more than ``max_features`` features.\n\n    verbose : int, default=0\n        Enable verbose output. If 1 then it prints progress and performance\n        once in a while (the more trees the lower the frequency). If greater\n        than 1 then it prints progress\n\n=0.9\n        The alpha-quantile of the huber loss function and the quantile\n        loss function. Only if ``loss='huber'`` or ``loss='quantile'``.\n        Values must be in the range `(0.0, 1.0)`.\n\n    verbose : int, default=0\n        Enable verbose output. If 1 then it prints progress and performance\n        once in a while (the more trees the lower the frequency). If greater\n        than 1 then it prints progress and performance for every tree.\n        Values must be in the range `[0, inf)`.\n\n    max_leaf_nodes : int, default=None\n        Grow trees with ``max_leaf_nodes`` in best-first fashion.\n        Best nodes are defined as relative reduction in impurity.\n        Values must be in the range `[2, inf)`.\n        If None, then unlimited number of leaf nodes.\n\n    warm_start : bool, default=False\n        When set",
+  "preparation_seconds": 0.9274117499953718,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 1126293,
+        "end_char": 1127121
+      },
+      {
+        "start_char": 4353772,
+        "end_char": 4354358
+      },
+      {
+        "start_char": 4354358,
+        "end_char": 4356687
+      },
+      {
+        "start_char": 7917769,
+        "end_char": 7918552
+      },
+      {
+        "start_char": 7981392,
+        "end_char": 7982252
+      },
+      {
+        "start_char": 10560219,
+        "end_char": 10561060
+      },
+      {
+        "start_char": 10583722,
+        "end_char": 10584550
+      }
+    ],
+    "context_tokens": 3008,
+    "context_sha256": "c8b497490cb829b4097e5bb17bb306d81a14ed3dc7fd458f90ca0d66daf752c5"
+  }
+}

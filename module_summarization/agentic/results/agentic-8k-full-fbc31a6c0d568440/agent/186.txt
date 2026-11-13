@@ -1,0 +1,121 @@
+Imputation of Missing Values
+============================
+
+Imputation is a common technique used to handle missing data in datasets by filling in missing values with substituted values. This process is essential for preparing data for machine learning models, which typically require complete datasets.
+
+SimpleImputer
+-------------
+
+The `SimpleImputer` class provides basic strategies for imputing missing values in a univariate manner. It supports several imputation strategies including:
+
+- `"mean"`: Replace missing values using the mean along each column.
+- `"median"`: Replace missing values using the median along each column.
+- `"most_frequent"`: Replace missing values using the most frequent value along each column.
+- `"constant"`: Replace missing values with a constant fill value provided by the user.
+
+**Notes**
+
+- Columns that contain only missing values during the `fit` phase are discarded during `transform` unless the strategy is `"constant"`.
+- Simple imputation can perform poorly when paired with weak learners but may yield comparable or better results than complex imputation methods when used with powerful learners.
+
+**Example**
+
+```python
+import numpy as np
+from sklearn.impute import SimpleImputer
+
+imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
+imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
+X = [[np.nan, 2, 3], [4, np.nan, 6], [10, np.nan, 9]]
+print(imp_mean.transform(X))
+# Output:
+# [[ 7.   2.   3. ]
+#  [ 4.   3.5  6. ]
+#  [10.   3.5  9. ]]
+```
+
+IterativeImputer
+----------------
+
+The `IterativeImputer` class implements a multivariate imputation technique by modeling each feature with missing values as a function of other features in a round-robin fashion. It iteratively refines the imputations by fitting estimators to predict missing values.
+
+**Attributes**
+
+- `initial_imputer_`: The initial univariate imputer used to fill missing values before iterative refinement.
+- `imputation_sequence_`: A list of tuples `(feat_idx, neighbor_feat_idx, estimator)` describing the imputation order and estimators used.
+- `n_iter_`: Number of completed iteration rounds.
+- `n_features_in_`: Number of features seen during fitting.
+- `feature_names_in_`: Names of features seen during fitting (if available).
+- `n_features_with_missing_`: Number of features containing missing values.
+- `indicator_`: Optional indicator for missing values.
+- `random_state_`: Random state used for reproducibility.
+
+**Notes**
+
+- Features with all missing values at fit time are discarded during transform.
+- The computational complexity scales approximately as \( \mathcal{O}(k n p^3 \min(n, p)) \), where \(k\) is the number of iterations, \(n\) is the number of samples, and \(p\) is the number of features.
+- To reduce computational cost, consider limiting the number of nearest features, skipping complete features, or increasing the tolerance parameter.
+- Iterative imputation is based on the Multivariate Imputation by Chained Equations (MICE) methodology.
+
+**References**
+
+- Stef van Buuren, Karin Groothuis-Oudshoorn (2011). "mice: Multivariate Imputation by Chained Equations in R". *Journal of Statistical Software*, 45: 1-67.  
+  <https://www.jstatsoft.org/article/view/v045i03>
+- S. F. Buck (1960). "A Method of Estimation of Missing Values in Multivariate Data Suitable for use with an Electronic Computer". *Journal of the Royal Statistical Society*, 22(2): 302-306.  
+  <https://www.jstor.org/stable/2984099>
+
+**Example**
+
+```python
+import numpy as np
+from sklearn.experimental import enable_iterative_imputer  # noqa
+from sklearn.impute import IterativeImputer
+
+imp_mean = IterativeImputer(random_state=0)
+imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
+X = [[np.nan, 2, 3], [4, np.nan, 6], [10, np.nan, 9]]
+print(imp_mean.transform(X))
+# Output:
+# array([[ 6.9584...,  2.       ,  3.        ],
+#        [ 4.       ,  2.6000...,  6.        ],
+#        [10.       ,  4.9999...,  9.        ]])
+```
+
+KNNImputer
+----------
+
+The `KNNImputer` class imputes missing values using the k-Nearest Neighbors approach. It estimates missing features by averaging the values of the nearest samples found in the feature space.
+
+**Notes**
+
+- When there are not enough neighbors to impute a missing value, the imputer falls back to using the column mean from the training data.
+- The imputation value is computed as the average of the nearest neighbors' values for the missing feature.
+
+**Example**
+
+```python
+import numpy as np
+from sklearn.impute import KNNImputer
+
+X = np.array([
+    [1, 0, 0, np.nan],
+    [2, 1, 2, np.nan],
+    [3, 2, 3, np.nan],
+    [4, 4, 5, np.nan],
+    [6, 7, 6, np.nan],
+    [8, 8, 8, np.nan],
+    [20, 20, 20, 20],
+    [22, 22, 22, 22],
+])
+
+imputer = KNNImputer(missing_values=np.nan)
+X_imputed = imputer.fit_transform(X)
+print(X_imputed)
+```
+
+Summary
+-------
+
+Imputation techniques are vital for handling missing data in machine learning workflows. Simple imputation methods are fast and easy to use but may be less accurate for complex datasets. Iterative and KNN imputers provide more sophisticated approaches by leveraging relationships between features or samples, often resulting in improved imputation quality at the cost of increased computational complexity.
+
+Choosing the appropriate imputation strategy depends on the dataset characteristics, the nature of missingness, and the downstream learning algorithm.

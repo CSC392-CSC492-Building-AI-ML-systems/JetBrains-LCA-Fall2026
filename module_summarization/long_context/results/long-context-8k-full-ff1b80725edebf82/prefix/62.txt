@@ -1,0 +1,92 @@
+Visitor and Traversal Interface
+===============================
+
+The `sql.visitors` module provides a comprehensive visitor and traversal interface along with utility functions designed to facilitate the traversal and manipulation of SQL expression trees and related structures within SQLAlchemy. This module underpins many internal operations such as SQL compilation, cache key generation, and expression cloning.
+
+Key Concepts
+------------
+
+Visitable
+~~~~~~~~~
+
+The `Visitable` class serves as the foundational base for objects that can be visited by a visitor pattern. It defines a standardized mechanism for dispatching visitor methods based on a class-level `__visit_name__` attribute. This enables external visitors, such as SQL compilers, to implement custom behavior for different types of SQL expression elements.
+
+- The visitor method naming convention is `visit_<visit_name>`.
+- The class supports automatic generation of the dispatch method `_compiler_dispatch`.
+- Originally named `Traversible` in SQLAlchemy 1.4, renamed back to `Visitable` in 2.0.
+
+InternalTraversal
+~~~~~~~~~~~~~~~~~
+
+`InternalTraversal` is an enumeration that defines a set of symbols representing different types of internal traversal strategies. These symbols are used to describe how the internal state of an object should be traversed, particularly for cache key generation and deep inspection.
+
+- Symbols cover a wide range of data types including clause elements, lists, tuples, dictionaries, strings, booleans, operators, types, and more.
+- Used primarily in conjunction with the `_traverse_internals` attribute on classes to declaratively specify traversal behavior.
+- Supports traversal of complex nested structures such as SQL clauses, dialect options, annotations, and DDL elements.
+- Introduced in version 1.4.
+
+HasTraverseInternals
+~~~~~~~~~~~~~~~~~~~~
+
+This base class is designed for objects that define their own internal traversal logic via the `_traverse_internals` attribute. Unlike `Visitable`, which relies on external visitors, `HasTraverseInternals` allows an object to specify which attributes should be traversed and how.
+
+- Provides the `get_children()` method to yield immediate child elements based on the traversal specification.
+- Supports optional omission of certain attributes during traversal.
+- Facilitates consistent traversal for cache key generation and cloning operations.
+
+HasTraversalDispatch
+~~~~~~~~~~~~~~~~~~~~
+
+`HasTraversalDispatch` defines the infrastructure for visitor classes that perform internal traversals based on the `InternalTraversal` symbols.
+
+- Maintains a dispatch lookup mapping traversal symbols to visitor method names.
+- Supports generation and caching of traversal dispatcher methods on target classes.
+- Enables efficient traversal by dynamically creating dispatch methods that invoke the appropriate visitor methods for each attribute.
+
+ExternallyTraversible
+~~~~~~~~~~~~~~~~~~~~~
+
+A subclass combining `HasTraverseInternals` and `Visitable`, representing objects that can be traversed both internally and externally.
+
+- Supports annotations via the `_annotations` mapping.
+- Defines abstract methods `_clone()` and `_copy_internals()` for cloning and copying internal elements.
+- Serves as a base for SQL expression elements that require both visitation and internal traversal capabilities.
+
+ExternalTraversal
+~~~~~~~~~~~~~~~~~
+
+`ExternalTraversal` is a base class for visitor objects that traverse expression structures externally using the `traverse()` function.
+
+- Provides methods such as `traverse_single()`, `iterate()`, and `traverse()` to visit elements.
+- Supports chaining of visitors and memoization of visitor methods.
+- Typically, direct use of the `traverse()` function is preferred for traversal operations.
+
+Utility Functions
+-----------------
+
+- `iterate(obj, options)`: Returns an iterator over all elements in the given expression structure.
+- `traverse(obj, options, visitor_dict)`: Traverses and visits the given expression structure, applying visitor methods as appropriate.
+- `cloned_traverse()`, `replacement_traverse()`: Functions to facilitate cloning and replacement of elements during traversal.
+
+Usage and Integration
+---------------------
+
+This module is integral to SQLAlchemy's internal mechanisms for compiling SQL expressions, generating cache keys, cloning expression trees, and applying transformations. By defining clear traversal protocols and visitor dispatch mechanisms, it enables extensible and efficient manipulation of complex SQL constructs.
+
+The visitor pattern implemented here allows external components such as compilers, analyzers, and transformers to operate on SQL expression objects without requiring those objects to implement the logic themselves, promoting separation of concerns and modularity.
+
+Versioning Notes
+----------------
+
+- The `Visitable` class was known as `Traversible` in SQLAlchemy 1.4 but was renamed back to `Visitable` in version 2.0.
+- The `InternalTraversal` enumeration and related traversal infrastructure were introduced in version 1.4.
+- The `HasTraversalDispatch` class and enhanced traversal dispatch mechanisms were added in version 2.0.
+
+License
+-------
+
+This module is part of SQLAlchemy and is released under the MIT License. See https://www.opensource.org/licenses/mit-license.php for details.
+
+---
+
+This documentation provides an overview of the visitor and traversal system implemented in the `sql.visitors` module, highlighting its core classes, enumerations, and their roles in SQLAlchemy's expression system.

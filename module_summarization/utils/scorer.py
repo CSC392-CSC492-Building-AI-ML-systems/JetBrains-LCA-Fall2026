@@ -11,7 +11,8 @@ OPENAI_SYSTEM_PROMPT = 'You are a code quality assesing engine.'
 class OptionsScoringModel:
     def __init__(self,
                  model_name: str,
-                 device: torch.DeviceObjType | str) -> None:
+                 device: torch.DeviceObjType | str,
+                 *, revision: str | None = None) -> None:
         if model_name in {'gpt-3.5-turbo', 'gpt-4'}:
             self.tokenizer = tiktoken.encoding_for_model(model_name)
             token = os.getenv('OPENAI_API_KEY')
@@ -21,10 +22,11 @@ class OptionsScoringModel:
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
+                revision=revision,
                 torch_dtype=torch.bfloat16,
                 attn_implementation="flash_attention_2",
             )
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
             self.model = self.model.to(device)
         self.model_name = model_name
         self.device = device

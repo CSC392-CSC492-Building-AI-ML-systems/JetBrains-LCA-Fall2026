@@ -1,0 +1,124 @@
+dask.delayed interface
+======================
+
+The `dask.delayed` interface provides a simple way to build task graphs by wrapping functions and objects to create lazy computations. It allows you to defer execution of functions and operations, constructing a graph of tasks that can be executed later, either locally or on a distributed cluster.
+
+Key Components
+--------------
+
+- **Delayed**: A class representing a lazily computed value. It acts as a proxy for the wrapped object or function call, building a dask graph internally.
+- **delayed**: A function and decorator to wrap functions or objects, producing `Delayed` instances.
+
+Delayed Class
+-------------
+
+`Delayed` objects represent values to be computed by dask. They correspond to single keys in a dask graph.
+
+**Attributes and Methods:**
+
+- `key`: The unique key identifying this delayed value in the dask graph.
+- `dask`: The underlying dask graph (a `HighLevelGraph` or dict) that computes this value.
+- `__dask_graph__()`: Returns the dask graph.
+- `__dask_keys__()`: Returns the list of keys for this delayed object (usually a single key).
+- `__dask_layers__()`: Returns the layers of the graph.
+- `__dask_tokenize__()`: Returns the token used for hashing.
+- `__dask_scheduler__`: The default scheduler used to compute this delayed object.
+- `__dask_optimize__`: Optimization function applied to the graph before execution.
+- `__dask_postcompute__()`: Returns a function and arguments to apply after computation (usually identity).
+- `__dask_postpersist__()`: Returns a function to rebuild the delayed object after persistence.
+- Supports many Python operators and methods, allowing delayed objects to be used like their underlying values.
+- Immutable: setting attributes or items is not allowed.
+- Attribute access and method calls on delayed objects return new delayed objects representing those operations.
+
+Creating Delayed Objects
+------------------------
+
+Use the `delayed` function or decorator to wrap functions or objects:
+
+```python
+from dask import delayed
+
+@delayed
+def inc(x):
+    return x + 1
+
+x = inc(10)  # x is a Delayed object
+result = x.compute()  # Executes the graph and returns 11
+```
+
+Parameters of `delayed`:
+
+- `obj`: The function or object to wrap.
+- `name`: Optional key name for the delayed object in the graph. If not provided, a unique name is generated.
+- `pure`: Boolean indicating if the function is pure (deterministic). If `True`, keys are deterministic based on inputs; if `False`, keys are unique per call.
+- `nout`: Number of outputs expected from the delayed call (for unpacking multiple outputs).
+- `traverse`: Whether to traverse Python collections to find nested delayed objects.
+
+Examples
+--------
+
+Delaying function calls:
+
+```python
+@delayed(pure=True)
+def add(a, b):
+    return a + b
+
+x = add(1, 2)
+print(x.compute())  # Outputs 3
+```
+
+Delaying objects:
+
+```python
+a = delayed([1, 2, 3])
+print(a.compute())  # Outputs [1, 2, 3]
+```
+
+Delayed objects support operators and methods:
+
+```python
+a = delayed([1, 2, 3])
+b = a + [4]
+print(b.compute())  # Outputs [1, 2, 3, 4]
+
+count = a.count(2)
+print(count.compute())  # Outputs 1
+```
+
+Purity and Key Naming
+---------------------
+
+- By default, delayed function calls are impure (`pure=False`), meaning each call produces a unique key.
+- Setting `pure=True` enables deterministic keys based on input arguments, allowing caching and reuse.
+- The global configuration `delayed_pure` can be used to set the default purity.
+- You can explicitly specify the key name for a delayed call using the `dask_key_name` keyword argument.
+
+Advanced Usage
+--------------
+
+- `nout` allows unpacking multiple outputs from a delayed call.
+- Attribute and method access on delayed objects create new delayed objects representing those operations.
+- To handle impure attribute or operator calls, wrap them in a delayed function with `pure=False`.
+- The `Delayed` class supports optimization and persistence hooks for integration with dask's execution framework.
+
+Utility Functions
+-----------------
+
+- `tokenize(*args, pure=None, **kwargs)`: Generates a consistent key name for tasks, optionally using a pure hash.
+- `unpack_collections(expr)`: Normalizes Python objects, replacing delayed objects with keys and merging graphs.
+- `finalize(collection)`: Wraps a dask collection to produce a finalized delayed object.
+- `optimize(dsk, keys, **kwargs)`: Optimizes the dask graph by culling unnecessary tasks.
+
+Notes
+-----
+
+- Delayed objects are immutable.
+- Attribute access starting with underscore is disallowed.
+- The `visualise` method is not available; use `visualize` instead.
+- Iteration over delayed objects requires specifying `nout` to indicate the number of outputs.
+
+Summary
+-------
+
+The `dask.delayed` interface provides a powerful and flexible way to build lazy computations by wrapping functions and objects. It integrates seamlessly with dask's task scheduling and optimization framework, enabling scalable and efficient parallel computation with minimal code changes.

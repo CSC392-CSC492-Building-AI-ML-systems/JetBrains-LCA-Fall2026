@@ -1,0 +1,102 @@
+Mixed Generalized Linear Models with Bayesian Variational Inference
+=====================================================================
+
+Overview
+--------
+
+This module provides classes for fitting Bayesian mixed generalized linear models (GLMs) using variational Bayes (VB) methods. It supports models with complex random effects structures and is designed to handle binomial and Poisson response variables with mixed effects.
+
+The models implemented here extend the classical GLM framework by incorporating random effects with flexible variance components, estimated via variational inference for computational efficiency.
+
+Key Classes
+-----------
+
+_BayesMixedGLM
+~~~~~~~~~~~~~~
+
+Base class for Bayesian mixed GLMs. It handles the core functionality including model initialization, parameter naming, and input validation. It supports fixed effects design matrices (`exog`), random effects design matrices (`exog_vc`), and grouping identifiers (`ident`) for variance components.
+
+BinomialBayesMixedGLM
+~~~~~~~~~~~~~~~~~~~~~
+
+Implements a Bayesian mixed GLM for binomial response data. It assumes a binomial family with a logistic link function. This class inherits from both `_VariationalBayesMixedGLM` and `_BayesMixedGLM` and provides methods for fitting the model using variational Bayes.
+
+Key features:
+
+- Validates that the response variable contains only 0 and 1 values.
+- Supports model construction from formulas with random effects specified via variance component formulas.
+- Provides methods to compute the evidence lower bound (ELBO) for model evaluation.
+
+PoissonBayesMixedGLM
+~~~~~~~~~~~~~~~~~~~~
+
+Implements a Bayesian mixed GLM for count data modeled with a Poisson distribution. Like `BinomialBayesMixedGLM`, it inherits from `_VariationalBayesMixedGLM` and `_BayesMixedGLM`.
+
+Key features:
+
+- Supports Poisson family with log link function.
+- Allows specification of random effects via variance component formulas.
+- Provides variational Bayes fitting and ELBO computation.
+
+Model Construction
+------------------
+
+Models can be constructed directly by providing the endogenous variable (`endog`), fixed effects design matrix (`exog`), random effects design matrix (`exog_vc`), and grouping identifiers (`ident`). Alternatively, models can be created from formulas using the `from_formula` class method, which accepts:
+
+- `formula`: a Patsy formula describing the fixed effects.
+- `vc_formulas`: a dictionary specifying variance component formulas for random effects.
+- `data`: a DataFrame containing the data.
+- Optional parameters controlling prior hyperparameters (`vcp_p`, `fe_p`) and variance component names.
+
+Example Usage
+-------------
+
+Binomial model with random intercepts and slopes:
+
+    >>> random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    >>> model = BinomialBayesMixedGLM.from_formula(
+                    'y ~ year_cen', random, data)
+    >>> result = model.fit_vb()
+
+Poisson model with random intercepts and slopes:
+
+    >>> random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    >>> model = PoissonBayesMixedGLM.from_formula(
+                    'y ~ year_cen', random, data)
+    >>> result = model.fit_vb()
+
+Methods
+-------
+
+- `fit_vb()`: Fits the model using variational Bayes, returning a result object with parameter estimates.
+- `predict(exog=None, linear=False)`: Returns predicted values for the mean structure. If `linear=True`, returns the linear predictor; otherwise, applies the inverse link function.
+- `vb_elbo(vb_mean, vb_sd)`: Computes the evidence lower bound (ELBO) for the variational approximation, useful for model comparison and convergence diagnostics.
+
+Input Validation
+----------------
+
+The module performs rigorous input validation to ensure:
+
+- Fixed and random effects design matrices have appropriate dimensions.
+- Grouping identifiers are one-dimensional integer arrays matching the number of random effect columns.
+- Response variables conform to the expected distributions (e.g., binary for binomial models).
+
+Notes
+-----
+
+- The variational Bayes approach implemented here provides a scalable alternative to traditional MCMC methods for Bayesian mixed models.
+- The module relies on sparse matrix representations for random effects design matrices to improve computational efficiency.
+- Parameter names for fixed effects and variance components are automatically generated if not provided.
+
+References
+----------
+
+The methodology implemented in this module is based on Bayesian hierarchical modeling and variational inference techniques for generalized linear mixed models.
+
+See Also
+--------
+
+- `statsmodels.genmod.families` for supported GLM families.
+- `patsy` for formula parsing and design matrix construction.
+
+This module is part of the broader `statsmodels` ecosystem for statistical modeling in Python.

@@ -1,0 +1,60 @@
+Working with Large Data Sets
+============================
+
+This section describes the approach and tools provided for fitting statistical models on large data sets by partitioning the data and performing distributed or parallel estimation.
+
+Distributed Model Fitting
+-------------------------
+
+When working with large data sets that cannot be processed all at once, the data can be partitioned into smaller chunks. Each partition is then used to fit the model separately, and the results are combined afterward.
+
+The fitting process supports two main modes:
+
+1. **Sequential fitting over partitions**  
+2. **Parallel fitting using joblib**
+
+### Sequential Fitting
+
+The method iterates over a data generator that yields tuples of `(endog, exog)` arrays, representing the dependent and independent variables for each partition. Optionally, an additional generator can provide initialization keywords (`init_kwds`) that may vary per partition, useful for models like Weighted Least Squares (WLS) or Generalized Least Squares (GLS).
+
+For each partition, a helper function `_helper_fit_partition` is called with the partition data and fitting keywords. The results from each partition are collected into a list and returned.
+
+### Parallel Fitting with joblib
+
+To speed up computation, the fitting can be performed in parallel using the `joblib` library. This method supports:
+
+- Running with or without a specified parallel backend (e.g., `dask.distributed`).
+- Using an optional generator for initialization keywords per partition.
+
+The parallel fitting method uses `statsmodels.tools.parallel.parallel_func` to distribute the calls to `_helper_fit_partition` across available workers. The results from all partitions are collected and returned as a list.
+
+Parameters common to both fitting methods include:
+
+- `data_generator` : A generator yielding `(endog, exog)` tuples for each data partition.
+- `fit_kwds` : A dictionary-like object containing keywords needed for model fitting.
+- `init_kwds_generator` (optional) : A generator yielding initialization keyword dictionaries for each partition.
+- `parallel_backend` (for parallel fitting) : A joblib parallel backend context manager to support advanced parallelization frameworks.
+
+Distributed Results
+-------------------
+
+The results from distributed fitting are encapsulated in the `DistributedResults` class, which inherits from `LikelihoodModelResults`. This class holds the model instance and the parameter estimates obtained from fitting on the distributed data.
+
+### Predicting with Distributed Results
+
+The `DistributedResults` class provides a `predict` method that calls the underlying model's `predict` method using the stored parameters. Unlike standard prediction methods, the `exog` argument is required because the model instance used internally contains only placeholder or "fake" data.
+
+Parameters for `predict`:
+
+- `exog` : array-like, required  
+  The independent variable values for which predictions are desired.
+- Additional positional and keyword arguments supported by the model's `predict` method.
+
+Returns:
+
+- Predictions as an ndarray, pandas Series, or pandas DataFrame, depending on the model.
+
+Summary
+-------
+
+This framework facilitates working with large data sets by enabling model fitting on data partitions either sequentially or in parallel. It supports flexible initialization per partition and provides a results container that integrates seamlessly with existing model prediction workflows.

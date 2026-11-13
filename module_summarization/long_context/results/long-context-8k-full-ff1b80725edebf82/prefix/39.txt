@@ -1,0 +1,157 @@
+Model Usage
+===========
+
+The `Model` class is the core abstraction representing database entities in the ORM. It provides a rich interface for defining, querying, and manipulating data models asynchronously.
+
+Model Definition
+----------------
+
+Models are defined by subclassing the `Model` base class and declaring fields as class attributes. Fields represent columns in the database and can be of various types such as integer fields, foreign keys, many-to-many relations, and one-to-one relations.
+
+Example:
+
+```python
+from tortoise import fields
+from tortoise.models import Model
+
+class User(Model):
+    id = fields.IntField(pk=True)
+    username = fields.CharField(max_length=50)
+    email = fields.CharField(max_length=255, unique=True)
+```
+
+Meta Options
+------------
+
+Each model can define an inner `Meta` class to configure metadata such as:
+
+- `abstract`: If `True`, the model will not create a database table.
+- `table`: Custom database table name.
+- `app`: Application label for the model.
+- `unique_together`: Tuple of tuples specifying sets of fields that must be unique together.
+- `indexes`: Tuple of tuples specifying database indexes.
+- `ordering`: Default ordering for querysets.
+- `pk_attr`: Name of the primary key attribute.
+- `table_description`: Optional description for the database table.
+
+Example:
+
+```python
+class User(Model):
+    # fields...
+
+    class Meta:
+        table = "auth_user"
+        unique_together = (("username", "email"),)
+        ordering = ("username",)
+```
+
+Field Types and Relations
+-------------------------
+
+- **Basic Fields**: Such as `IntField`, `CharField`, etc., represent standard database columns.
+- **ForeignKeyFieldInstance**: Defines a foreign key relationship to another model.
+- **OneToOneFieldInstance**: Defines a one-to-one relationship.
+- **ManyToManyFieldInstance**: Defines a many-to-many relationship.
+- **BackwardFKRelation** and **BackwardOneToOneRelation**: Represent reverse relations automatically created for foreign keys and one-to-one fields.
+
+Lazy Loading of Relations
+-------------------------
+
+Relations are accessed lazily via properties generated dynamically on the model class. For example:
+
+- Accessing a foreign key field returns the related model instance asynchronously.
+- Reverse relations return a `ReverseRelation` or `QuerySetSingle` object that can be awaited or further queried.
+- Many-to-many relations return a `ManyToManyRelation` manager to add, remove, or query related objects.
+
+Example:
+
+```python
+user = await User.get(id=1)
+profile = await user.profile  # OneToOne relation
+posts = await user.posts.all()  # Reverse FK relation
+groups = await user.groups.all()  # ManyToMany relation
+```
+
+Querying
+--------
+
+Models support asynchronous querying via the `QuerySet` interface:
+
+- `filter()`: Filter records by field values.
+- `exclude()`: Exclude records matching criteria.
+- `all()`: Retrieve all records.
+- `get()`: Retrieve a single record matching criteria.
+- `first()`: Retrieve the first record matching criteria.
+- `order_by()`: Specify ordering of results.
+
+Example:
+
+```python
+users = await User.filter(username__startswith="A").order_by("email").all()
+user = await User.get(id=1)
+```
+
+Transactions and Database Access
+--------------------------------
+
+Each model is associated with a database connection, accessible via the `MetaInfo.db` property. Transactions can be managed using the `in_transaction` context manager.
+
+Example:
+
+```python
+async with in_transaction() as connection:
+    await User.filter(active=True).using_db(connection).update(active=False)
+```
+
+Model Metadata and Introspection
+-------------------------------
+
+The `MetaInfo` class holds metadata about the model, including:
+
+- Fields and their database projections.
+- Relations and their types.
+- Filters available for querying.
+- Database table and primary key information.
+- Default ordering and indexes.
+
+This metadata is used internally to generate queries and manage relations.
+
+Signals
+-------
+
+Models support signals for lifecycle events such as:
+
+- `pre_save`
+- `post_save`
+- `pre_delete`
+- `post_delete`
+
+These can be used to hook into model events for custom behavior.
+
+Example:
+
+```python
+from tortoise.signals import pre_save
+
+@pre_save(User)
+async def validate_user(sender, instance, **kwargs):
+    if not instance.email:
+        raise ValueError("Email is required")
+```
+
+Error Handling
+--------------
+
+Common exceptions related to models include:
+
+- `ConfigurationError`: Raised for misconfiguration issues.
+- `IncompleteInstanceError`: Raised when an instance is incomplete.
+- `IntegrityError`: Raised on database integrity violations.
+- `OperationalError`: Raised on operational database errors.
+- `TransactionManagementError`: Raised on transaction misuse.
+
+Summary
+-------
+
+The `Model` class provides a powerful and flexible way to define and interact with database entities asynchronously. It supports rich field types, relations, querying capabilities, and lifecycle hooks, making it suitable for complex applications requiring asynchronous ORM functionality.

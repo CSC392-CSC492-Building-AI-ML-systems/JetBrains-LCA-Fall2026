@@ -4,7 +4,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from rag_pipeline.rag_compscore import prepare, execute
@@ -54,16 +54,20 @@ class ScoringAdapterTests(unittest.TestCase):
     def test_scoring_uses_original_rows_and_same_judge_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); data=self.fixture(root)
-            _,plan=prepare(root,data)
+            _,plan=prepare(root,data,judge_revision='judge-sha',judge_tokenizer_revision='tokenizer-sha')
+            scorer_factory = Mock(return_value=object())
+            tokenizer_factory = Mock(return_value=object())
             calls=[]
             def metric(scorer,intent,code,gold,pred):
                 calls.append((intent,code,gold,pred)); return .25
             modules={'metrics':SimpleNamespace(get_metric=metric),
-                'utils.scorer':SimpleNamespace(OptionsScoringModel=lambda *a:object()),
+                'utils.scorer':SimpleNamespace(OptionsScoringModel=scorer_factory),
                 'utils.context_utils':SimpleNamespace(trim_context=lambda code,tok,n:code+'-trimmed'),
-                'transformers':SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a:object()))}
+                'transformers':SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=tokenizer_factory))}
             with patch.dict(sys.modules, modules):
                 output=execute(root,data,plan,'cuda:0')
+            scorer_factory.assert_called_once_with(plan['judge'], 'cuda:0', revision='judge-sha')
+            tokenizer_factory.assert_called_once_with(plan['judge_tokenizer'], revision='tokenizer-sha')
             self.assertEqual(calls,[('intent2','code2-trimmed','gold2','prefix2'),
                 ('intent2','code2-trimmed','gold2','bm252'),
                 ('intent0','code0-trimmed','gold0','prefix0'),

@@ -1,0 +1,78 @@
+Event System and ClassManager Documentation
+===========================================
+
+Overview
+--------
+
+This module provides the core event management and class instrumentation facilities used for tracking and managing state information at the class level within an ORM or similar system. It defines protocols and classes that facilitate event dispatching, attribute loading, and lifecycle management of mapped classes.
+
+Key Components
+--------------
+
+### ClassManager[_O]
+
+`ClassManager` is a generic class responsible for tracking state information and managing instrumentation at the class level. It extends several base classes and protocols to provide a rich interface for managing class attributes, events, and lifecycle hooks.
+
+- **Inheritance**:  
+  - `HasMemoized` — provides memoization utilities for computed properties.  
+  - `Dict[str, QueryableAttribute[Any]]` — acts as a dictionary mapping attribute names to their queryable attribute representations.  
+  - `Generic[_O]` — generic over the class type it manages.  
+  - `EventTarget` — supports event dispatching capabilities.
+
+- **Attributes**:  
+  - `dispatch`: An event dispatcher instance specialized for `ClassManager[_O]`.  
+  - `MANAGER_ATTR`, `STATE_ATTR`: Constants defining attribute names used internally.  
+  - `expired_attribute_loader`: Callable responsible for loading expired or deferred attributes on instances.  
+  - `init_method`: Optional initialization method to be used during instance creation.  
+  - `original_init`: Stores the original `__init__` method of the managed class.  
+  - `factory`: Optional factory callable for creating `ClassManager` instances.  
+  - `declarative_scan`: Weak reference to a mapper configuration used during declarative scanning.  
+  - `registry`: Registry that tracks all managers.  
+  - `class_`: The class type managed by this `ClassManager`.  
+  - `_bases`: List of base `ClassManager` instances corresponding to the class’s base classes.
+
+- **Initialization**:  
+  The constructor initializes the manager by collecting base class managers, updating state, and setting up event dispatching. It also warns if the managed class defines a `__del__` method, which can cause memory leaks due to reference cycles.
+
+- **Methods**:  
+  - `_update_state(...)`: Updates internal state with optional parameters such as mapper, registry, declarative scan config, expired attribute loader, and initialization method. It supports finalizing the instrumentation process.  
+  - `_finalize()`: Completes the instrumentation process by setting up necessary hooks and dispatching class instrumentation events.  
+  - `is_mapped`: Property indicating whether the class has been mapped (i.e., has an associated mapper).  
+  - Memoized attributes such as `_all_key_set`, `_collection_impl_keys`, `_scalar_loader_impls`, and `_loader_impls` provide cached sets of attribute keys and implementations relevant to collections and loaders.
+
+- **Deprecated Attributes**:  
+  - `deferred_scalar_loader`: Deprecated alias for `expired_attribute_loader`, maintained for backward compatibility with warnings.
+
+Protocols
+---------
+
+### _ExpiredAttributeLoaderProto
+
+A protocol defining the callable signature for expired attribute loaders. Such a callable accepts:
+
+- `state`: The instance state object.  
+- `toload`: A set of attribute names to be loaded.  
+- `passive`: A flag indicating the loading behavior.
+
+### _ManagerFactory
+
+A protocol defining a callable that takes a class type and returns a `ClassManager` instance managing that class.
+
+Events and Dispatching
+----------------------
+
+`ClassManager` integrates with an event dispatching system via its `dispatch` attribute, which is an event dispatcher specialized for `ClassManager` instances. This allows hooking into lifecycle events such as class instrumentation and instance creation.
+
+During initialization, `ClassManager` updates its dispatchers by merging with dispatchers from base class managers, ensuring event propagation across inheritance hierarchies.
+
+Usage Notes
+-----------
+
+- The module warns against defining `__del__` methods on managed classes due to potential memory leaks caused by reference cycles created by instrumentation.
+
+- The `ClassManager` is central to the ORM’s internal management of class-level state and event handling, enabling features such as deferred attribute loading, event-driven instrumentation, and integration with declarative mapping configurations.
+
+Summary
+-------
+
+This module provides foundational infrastructure for class-level event management and state tracking in an ORM context. The `ClassManager` class serves as the primary interface for managing mapped classes, their attributes, and associated events, supporting extensible and efficient instrumentation of Python classes.

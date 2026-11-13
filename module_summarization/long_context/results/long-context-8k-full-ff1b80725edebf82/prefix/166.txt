@@ -1,0 +1,98 @@
+FileNode — Simulating a Filesystem with PyTables
+=================================================
+
+Overview
+--------
+
+The `FileNode` module provides a file-like interface to nodes within PyTables database files, enabling users to simulate filesystem-like behavior inside HDF5 files. This allows for reading and writing data to PyTables nodes as if they were ordinary Python files.
+
+Key Features
+------------
+
+- Creation of new file nodes that behave like standard Python binary files.
+- Opening existing file nodes for read-only or read-write access.
+- Support for appending data to file nodes when opened in write or append modes.
+- Compliance with Python's `io` module interfaces for seamless integration.
+- Binary I/O support (text mode is not supported).
+- Access to node attributes through a convenient property interface.
+
+Usage
+-----
+
+### Creating and Opening File Nodes
+
+- Use the `new_node()` function to create a new file node within a PyTables file.
+- Use the `open_node()` function to open an existing file node for reading or appending.
+
+### File Modes
+
+- Read-only mode (`'r'`): Allows reading data from the file node.
+- Append mode (`'a+'`): Allows appending data to the file node.
+- Write mode (`'w'`): Not supported for overwriting existing data; only appending is allowed.
+
+### Binary I/O
+
+Currently, only binary input/output is supported. Text mode and line separators other than newline (`\n`) are not supported.
+
+Classes and Interfaces
+----------------------
+
+### RawPyTablesIO
+
+A base class implementing raw binary I/O on PyTables nodes. It inherits from Python's `io.RawIOBase` and provides methods such as:
+
+- `read()`, `readinto()`, `readline()`
+- `write()`
+- `seek()`, `tell()`, `truncate()`
+- `flush()`, `close()`
+- Properties like `mode` and `fileno()`
+
+This class manages the internal file pointer and ensures data consistency when reading or appending data to the underlying PyTables EArray node.
+
+### FileNodeMixin
+
+A mixin class that provides access to the attribute set of the underlying PyTables node via the `attrs` property. This allows users to store metadata alongside the file data.
+
+### ROFileNode
+
+A read-only file node class combining `FileNodeMixin` and `RawPyTablesIO`. It provides a file interface for reading data from an existing PyTables node created with `new_node()`. Write operations are not permitted.
+
+### RAFileNode
+
+A read-write file node class combining `FileNodeMixin` and `RawPyTablesIO`. It supports opening existing nodes or creating new ones with specified parameters such as location, name, title, filters, and expected size. Write access allows appending data to the node.
+
+Node Attributes and Versions
+----------------------------
+
+File nodes are stored as PyTables `EArray` objects with the following system attributes:
+
+- `NODE_TYPE`: Must be set to `'file'`.
+- `NODE_TYPE_VERSION`: Supported versions are `1` and `2`.
+
+Version differences affect the internal storage shape and handling of the data array.
+
+Limitations and Notes
+---------------------
+
+- Only binary mode is supported; text mode and universal newline support are not implemented.
+- Write access only allows appending data; overwriting or deleting existing data is not supported.
+- The file pointer can be manipulated using `seek()` and `tell()` methods.
+- The `truncate()` method only supports growing the file node by appending zeros.
+- Direct manipulation of the underlying PyTables node is discouraged to avoid breaking the file node interface.
+- The module requires PyTables and NumPy.
+
+Version History
+---------------
+
+- **Version 3.0**: Complete rewrite to comply fully with Python's `io` module interfaces.
+- Removal of the `offset` attribute; use `seek()` and `tell()` instead.
+- Removal of the `line_separator` property; newline (`\n`) is the only line separator for binary I/O.
+
+References
+----------
+
+For detailed usage instructions and examples, see the :ref:`filenode_usersguide`.
+
+---
+
+This module enables efficient and convenient simulation of filesystem-like behavior within PyTables HDF5 files, facilitating complex data storage and retrieval scenarios in scientific and data-intensive applications.

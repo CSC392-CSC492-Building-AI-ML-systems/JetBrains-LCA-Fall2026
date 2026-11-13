@@ -1,0 +1,151 @@
+How to Generate Pydantic Models from Tortoise Models
+=====================================================
+
+This document explains how to generate Pydantic models from Tortoise ORM models using the utilities provided in `tortoise.contrib.pydantic`. This allows you to leverage Pydantic's powerful data validation and serialization features seamlessly with your Tortoise models.
+
+PydanticMeta Configuration
+--------------------------
+
+The `PydanticMeta` class is used to configure metadata for generating Pydantic models from Tortoise models. You can define this inner class inside your Tortoise model to customize the generated Pydantic model.
+
+Example usage:
+
+.. code-block:: python3
+
+    class Foo(Model):
+        ...
+
+        class PydanticMeta:
+            exclude = ("foo", "baa")          # Fields to exclude from the Pydantic model
+            computed = ("count_peanuts", )    # Computed fields to include
+
+Available configuration options:
+
+- **include** (`Tuple[str, ...]`): If not empty, only fields listed here will be included in the Pydantic model.
+- **exclude** (`Tuple[str, ...]`): Fields listed here will be excluded from the Pydantic model.
+- **computed** (`Tuple[str, ...]`): Computed fields (methods) to include in the Pydantic model.
+- **backward_relations** (`bool`): Whether to include backward relations without annotations (default: `True`). Use with caution as it can include large amounts of data.
+- **max_recursion** (`int`): Maximum recursion depth allowed when generating nested models (default: `3`).
+- **allow_cycles** (`bool`): Allow cycles in recursion (default: `False`). Use carefully with appropriate `exclude`/`include` and `max_recursion` settings to avoid huge data.
+- **exclude_raw_fields** (`bool`): Whether to exclude raw fields (fields with `_id` suffixes) of relations (default: `True`).
+- **sort_alphabetically** (`bool`): Sort fields alphabetically instead of declaration order (default: `False`).
+
+Generating Pydantic Models
+--------------------------
+
+Use the function `pydantic_model_creator` to generate a Pydantic model class from a Tortoise model.
+
+**Function signature:**
+
+.. code-block:: python3
+
+    pydantic_model_creator(
+        cls: Type[Model],
+        *,
+        name: Optional[str] = None,
+        exclude: Tuple[str, ...] = (),
+        include: Tuple[str, ...] = (),
+        computed: Tuple[str, ...] = (),
+        allow_cycles: Optional[bool] = None,
+        sort_alphabetically: Optional[bool] = None,
+        exclude_readonly: bool = False,
+    ) -> Type[PydanticModel]
+
+**Parameters:**
+
+- `cls`: The Tortoise model class to generate the Pydantic model from.
+- `name`: Optional custom name for the generated Pydantic model class.
+- `exclude`: Additional fields to exclude from the model.
+- `include`: Additional fields to include in the model.
+- `computed`: Additional computed fields (methods) to include.
+- `allow_cycles`: Whether to allow cycles in the generated model (useful for recursive/self-referential models).
+- `sort_alphabetically`: Whether to sort fields alphabetically instead of declaration order.
+- `exclude_readonly`: If `True`, excludes any readonly fields from the generated model.
+
+**Returns:**
+
+A Pydantic model class (`Type[PydanticModel]`) representing the Tortoise model.
+
+Example:
+
+.. code-block:: python3
+
+    from tortoise.contrib.pydantic import pydantic_model_creator
+
+    UserPydantic = pydantic_model_creator(User, exclude=("password",), computed=("full_name",))
+
+Generating Pydantic Models for QuerySets
+----------------------------------------
+
+To generate a Pydantic model representing a list of Tortoise model instances, use `pydantic_queryset_creator`.
+
+**Function signature:**
+
+.. code-block:: python3
+
+    pydantic_queryset_creator(
+        cls: Type[Model],
+        *,
+        name: Optional[str] = None,
+        exclude: Tuple[str, ...] = (),
+        include: Tuple[str, ...] = (),
+        computed: Tuple[str, ...] = (),
+        allow_cycles: Optional[bool] = None,
+        sort_alphabetically: Optional[bool] = None,
+    ) -> Type[PydanticListModel]
+
+**Parameters:**
+
+Same as `pydantic_model_creator`, but the returned model represents a list of the specified model.
+
+Example:
+
+.. code-block:: python3
+
+    UsersPydanticList = pydantic_queryset_creator(User)
+
+Using the Generated Pydantic Models
+-----------------------------------
+
+The generated Pydantic models inherit from `PydanticModel`, which extends Pydantic's `BaseModel` with additional support for Tortoise ORM objects.
+
+You can create Pydantic model instances from Tortoise model instances asynchronously using:
+
+.. code-block:: python3
+
+    user_pydantic = await UserPydantic.from_tortoise_orm(user_instance)
+
+This method automatically prefetches all related fields to avoid `OperationalError` exceptions due to missing related data.
+
+Note: If you prefer synchronous conversion or want to manage prefetching manually, you can use the standard Pydantic `.from_orm()` method, but you must ensure related fields are prefetched or excluded.
+
+Handling Recursive and Related Models
+-------------------------------------
+
+The model creator functions handle recursive and related models by generating nested Pydantic models for foreign keys, one-to-one relations, backward foreign keys, and many-to-many relations.
+
+- ForeignKey and OneToOne fields are represented as nested Pydantic models.
+- Backward foreign keys and ManyToMany fields are represented as lists of nested Pydantic models.
+- Computed fields (methods) can be included by specifying their names in the `computed` parameter or `PydanticMeta.computed`.
+
+Recursion depth and cycles are controlled by the `max_recursion` and `allow_cycles` settings in `PydanticMeta` or via parameters.
+
+Field Ordering and Exclusions
+-----------------------------
+
+By default, fields are ordered by their declaration order in the Tortoise model, followed by reverse relations and computed functions. You can override this behavior by setting `sort_alphabetically=True`.
+
+Raw fields (fields with `_id` suffixes) of relations are excluded by default to avoid redundancy but can be included by setting `exclude_raw_fields=False`.
+
+Readonly fields can be excluded by setting `exclude_readonly=True` when creating the Pydantic model.
+
+Summary
+-------
+
+- Define `PydanticMeta` inside your Tortoise models to customize Pydantic model generation.
+- Use `pydantic_model_creator` to generate Pydantic models from Tortoise models.
+- Use `pydantic_queryset_creator` to generate Pydantic models representing lists of Tortoise models.
+- Use `from_tortoise_orm` to asynchronously create Pydantic model instances from Tortoise model instances with automatic prefetching.
+- Control recursion, cycles, field inclusion/exclusion, and ordering via parameters and `PydanticMeta`.
+
+This integration provides a powerful and flexible way to serialize and validate your Tortoise ORM models using Pydantic.

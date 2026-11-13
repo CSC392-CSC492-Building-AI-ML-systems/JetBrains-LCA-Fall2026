@@ -1,0 +1,134 @@
+Best Effort Callback
+====================
+
+The `BestEffortCallback` class provides a versatile and user-friendly callback for live data visualization and tabulation during data acquisition scans. It is designed to work with streaming data documents and offers features such as live plotting, live tables, and peak analysis with minimal configuration.
+
+Overview
+--------
+
+`BestEffortCallback` inherits from `QtAwareCallback` and is decorated with `make_class_safe` to ensure safe execution with logging support.
+
+This callback attempts to automatically generate useful visualizations and tables from streaming data based on hints provided in the metadata documents. It supports multiple streams, handles independent and dependent variables, and adapts plotting strategies based on the dimensionality of the data.
+
+Features
+--------
+
+- **Live Table Display**: Displays a live-updating table of hinted fields from the primary data stream.
+- **Live Plotting**: Automatically generates live plots for numeric data fields, supporting 1D line plots, 2D grids, and scatter plots.
+- **Peak Analysis**: Integrates peak detection and statistics on live plots.
+- **Baseline Data Handling**: Optionally displays baseline stream data.
+- **Stream Management**: Detects and announces new data streams.
+- **Flexible Plot Management**: Supports overplotting and selective disabling of plots for specified streams.
+- **Configurable Display Options**: Enable or disable headings, tables, baseline data, and plots independently.
+
+Usage
+-----
+
+The callback is typically instantiated and passed to a data acquisition run engine or similar system that emits documents conforming to the Bluesky data model.
+
+```python
+from best_effort_callback import BestEffortCallback
+
+bec = BestEffortCallback()
+run_engine.subscribe(bec)
+```
+
+Public Methods
+--------------
+
+### enable_heading()
+Enable printing of timestamp and scan IDs at the start of a run.
+
+### disable_heading()
+Disable printing of the heading information.
+
+### enable_table()
+Enable printing of hinted readings from the primary stream in a live-updating table.
+
+### disable_table()
+Disable the live table display.
+
+### enable_baseline()
+Enable printing of hinted fields from the baseline stream.
+
+### disable_baseline()
+Disable baseline data printing.
+
+### enable_plots()
+Enable live plotting of hinted fields from all streams except those listed in `noplot_streams`.
+
+### disable_plots()
+Disable all live plotting.
+
+Callback Interface
+------------------
+
+The callback implements the following document handlers:
+
+- **start(doc)**  
+  Initializes internal state at the beginning of a run. Prints heading information if enabled. Determines independent variables (dimensions) from hints or heuristics.
+
+- **descriptor(doc)**  
+  Processes descriptor documents to identify data streams and fields. Sets up live plots, grids, or scatter plots depending on the dimensionality and hints. Initializes live tables if enabled.
+
+- **event(doc)**  
+  Updates live tables and plots with new data points as they arrive.
+
+Internal Behavior and Heuristics
+--------------------------------
+
+- Attempts to infer independent variables (dimensions) from plan hints or falls back to using motors or time.
+- Supports only single-stream dimensions for plotting; warns and falls back if multiple streams are combined.
+- Omits plotting for streams listed in `noplot_streams` or if only a single data point is present and `omit_single_point_plot` is enabled.
+- For 1D data, creates line plots with peak detection overlays.
+- For 2D data, uses `LiveGrid` for rectilinear gridding or `LiveScatter` otherwise.
+- Automatically manages figure creation and layout, reusing figures when appropriate.
+- Prints new stream announcements when new data streams are detected.
+- Uses `LiveTable` to display tabular data for the primary stream.
+
+Configuration Attributes
+------------------------
+
+- `overplot` (bool): If True, attempts to reuse existing figures for overplotting.
+- `noplot_streams` (list): List of stream names for which plotting is disabled (default includes `'baseline'`).
+- `omit_single_point_plot` (bool): If True, suppresses plotting for streams with only one data point.
+- `peaks` (PeakResults): Public attribute holding peak analysis results.
+
+Example Output
+--------------
+
+At the start of a run, if headings are enabled, output similar to:
+
+```
+Transient Scan ID: 1234     Time: 2024-06-01 12:00:00
+Persistent Unique Scan ID: 'abcd-efgh-ijkl-mnop'
+```
+
+When new streams are detected:
+
+```
+New stream: 'primary'
+New stream: 'baseline'
+```
+
+Live tables and plots update dynamically as data events are received.
+
+Notes
+-----
+
+- The callback requires matplotlib for plotting and depends on other modules such as `LivePlot`, `LiveGrid`, `LiveScatter`, and `PeakStats` for visualization and analysis.
+- It is designed for interactive use and testing in simulated environments can be done via `tests/interactive/best_effort_cb.py`.
+- The callback currently supports up to 2D data for plotting; 3D or higher-dimensional data is not supported.
+
+See Also
+--------
+
+- `LivePlot`
+- `LiveGrid`
+- `LiveScatter`
+- `PeakStats`
+- `QtAwareCallback`
+
+---
+
+This callback provides a convenient and powerful way to monitor data acquisition runs with minimal setup, making it ideal for exploratory data analysis and real-time feedback during experiments.

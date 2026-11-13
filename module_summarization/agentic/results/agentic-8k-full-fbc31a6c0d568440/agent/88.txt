@@ -1,0 +1,111 @@
+Using SQLite and asyncio Effectively
+====================================
+
+This module provides utilities and abstractions to work efficiently with SQLite databases in asynchronous Python applications using `asyncio`. It includes custom type converters and adapters for SQLite, asynchronous batch processing of queries, transaction management, and connection handling optimized for concurrency.
+
+Type Conversion and Adaptation
+------------------------------
+
+SQLite supports a limited set of data types natively. To enable seamless integration with Python types, this module registers custom converters and adapters for various data types:
+
+- **Converters**: Functions that convert SQLite data types (stored as bytes) back into Python objects when fetching data.
+- **Adapters**: Functions that convert Python objects into a format suitable for SQLite when inserting or updating data.
+
+The following types have custom converters and adapters registered:
+
+- Numeric types (`Decimal`)
+- Integer
+- UUID (`uuid.UUID`)
+- Date and time types (`datetime.date`, `datetime.time`, `datetime.datetime`, `datetime.timedelta`)
+- Boolean
+- Timestamp and timestamptz
+- Array (serialized as JSON)
+- Many-to-many relationships (stored as comma-separated strings)
+
+These conversions ensure that complex Python types can be stored and retrieved transparently from SQLite.
+
+AsyncBatch: Asynchronous Batch Query Processing
+-----------------------------------------------
+
+The `AsyncBatch` class extends batch processing capabilities to asynchronous contexts. It allows fetching query results in batches asynchronously, which is useful for processing large datasets without loading all data into memory at once.
+
+Key features:
+
+- Maintains an asynchronous cursor to fetch data in chunks (`batch_size`).
+- Implements asynchronous iteration protocol (`__aiter__` and `__anext__`), enabling usage in `async for` loops.
+- Supports asynchronous context management (`async with`), ensuring proper acquisition and release of database resources.
+- Processes query results asynchronously using the associated `Query` object's `_process_results` method.
+
+Example usage:
+
+```python
+async with engine.batch(query, batch_size=100) as batch:
+    async for rows in batch:
+        # Process rows
+```
+
+Transaction Management with Atomic and TransactionType
+------------------------------------------------------
+
+SQLite supports different transaction modes: `DEFERRED`, `IMMEDIATE`, and `EXCLUSIVE`. This module exposes these modes via the `TransactionType` enum for clarity and explicit control.
+
+The `Atomic` class provides a convenient interface for managing transactions asynchronously:
+
+- Initialize with an `SQLiteEngine` instance and optional transaction type.
+- Add multiple queries to the transaction.
+- Run all queries atomically within a single transaction context.
+- Supports both synchronous (`run_sync`) and asynchronous (`run`) execution.
+
+Example usage:
+
+```python
+transaction = engine.atomic()
+transaction.add(Foo.create_table())
+await transaction.run()
+```
+
+This ensures that all queries added to the transaction are executed as a single atomic operation, with rollback on failure.
+
+SQLiteEngine: Asynchronous SQLite Engine
+----------------------------------------
+
+The `SQLiteEngine` class encapsulates connection management and query execution for SQLite databases in an asynchronous environment.
+
+Features include:
+
+- Connection configuration with support for SQLite pragmas and type detection.
+- Context variable to track the current transaction.
+- Methods to create and remove the SQLite database file, useful for testing.
+- Asynchronous batch query execution returning `AsyncBatch` instances.
+- Asynchronous connection acquisition using `aiosqlite`.
+- Automatic enabling of foreign key constraints on connections.
+- Retrieval of SQLite version information.
+- Internal methods to handle primary key retrieval for inserted rows, accommodating SQLite versions prior to 3.35.0.
+
+Example usage:
+
+```python
+engine = SQLiteEngine(path="mydatabase.db")
+
+# Run a query asynchronously
+async with engine.get_connection() as connection:
+    cursor = await connection.execute("SELECT * FROM my_table")
+    rows = await cursor.fetchall()
+```
+
+Concurrency Considerations
+--------------------------
+
+SQLite is a lightweight database engine designed for simplicity and efficiency but has limitations with concurrent writes. This module's design, including asynchronous connection handling and batch processing, helps mitigate common concurrency issues by:
+
+- Using `aiosqlite` for asynchronous database access.
+- Managing transactions explicitly with `Atomic`.
+- Fetching data in manageable batches with `AsyncBatch`.
+- Configuring connections with appropriate pragmas and isolation levels.
+
+This approach allows Python applications to leverage SQLite effectively in asynchronous contexts, balancing performance and correctness.
+
+Summary
+-------
+
+This module provides a comprehensive toolkit for working with SQLite databases asynchronously in Python. By combining custom type handling, asynchronous batch processing, explicit transaction management, and robust connection handling, it enables developers to build efficient, scalable applications using SQLite and `asyncio`.

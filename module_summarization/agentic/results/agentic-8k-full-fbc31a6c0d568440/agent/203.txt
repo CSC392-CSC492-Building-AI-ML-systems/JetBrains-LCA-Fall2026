@@ -1,0 +1,137 @@
+Transforming the Prediction Target
+==================================
+
+When working with supervised learning tasks, it is often necessary to transform the prediction target (`y`) into a format suitable for the learning algorithm. Scikit-learn provides several utilities and transformers to facilitate this process, enabling encoding, binarization, and normalization of target labels.
+
+Label Encoding
+--------------
+
+The `LabelEncoder` class encodes target labels with values between `0` and `n_classes - 1`. This transformer is intended for encoding target values (`y`) and **not** the input features (`X`). It is useful for normalizing labels, especially when the labels are non-numerical but hashable and comparable.
+
+**Key features:**
+
+- Converts categorical labels to integer labels.
+- Stores the classes seen during fitting in the `classes_` attribute.
+- Supports inverse transformation to recover original labels.
+
+**Example:**
+
+```python
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+le.fit(["paris", "paris", "tokyo", "amsterdam"])
+print(list(le.classes_))
+# Output: ['amsterdam', 'paris', 'tokyo']
+
+encoded = le.transform(["tokyo", "tokyo", "paris"])
+print(encoded)
+# Output: [2 2 1]
+
+original = le.inverse_transform(encoded)
+print(list(original))
+# Output: ['tokyo', 'tokyo', 'paris']
+```
+
+Label Binarization
+------------------
+
+The `LabelBinarizer` class binarizes labels in a one-vs-all fashion. This is particularly useful for extending binary classifiers or regressors to multi-class classification problems by converting multi-class labels into binary labels indicating class membership.
+
+**Key features:**
+
+- Transforms multi-class labels into a binary indicator matrix.
+- Supports sparse output format.
+- Handles multilabel classification by accepting 2D input matrices.
+- Stores the classes seen during fitting in the `classes_` attribute.
+- Provides inverse transformation to recover original labels.
+
+**Parameters:**
+
+- `neg_label` (int, default=0): Value to encode negative labels.
+- `pos_label` (int, default=1): Value to encode positive labels.
+- `sparse_output` (bool, default=False): Whether to return sparse CSR matrix on transform.
+
+**Example:**
+
+```python
+from sklearn.preprocessing import LabelBinarizer
+import numpy as np
+
+lb = LabelBinarizer()
+lb.fit([1, 2, 6, 4, 2])
+print(lb.classes_)
+# Output: [1 2 4 6]
+
+binary = lb.transform([1, 6])
+print(binary)
+# Output:
+# [[1 0 0 0]
+#  [0 0 0 1]]
+
+# Binary targets transform to a column vector
+lb = LabelBinarizer()
+binary_col = lb.fit_transform(['yes', 'no', 'no', 'yes'])
+print(binary_col)
+# Output:
+# [[1]
+#  [0]
+#  [0]
+#  [1]]
+
+# Multilabel classification example
+lb.fit(np.array([[0, 1, 1], [1, 0, 0]]))
+print(lb.classes_)
+# Output: [0 1 2]
+
+print(lb.transform([0, 1, 2, 1]))
+# Output:
+# [[1 0 0]
+#  [0 1 0]
+#  [0 0 1]
+#  [0 1 0]]
+```
+
+Label Binarization Function
+---------------------------
+
+The `label_binarize` function provides a convenient way to binarize labels with fixed classes, allowing independent fitting and transformation steps.
+
+**Example:**
+
+```python
+from sklearn.preprocessing import label_binarize
+
+binary = label_binarize([1, 6], classes=[1, 2, 4, 6])
+print(binary)
+# Output:
+# [[1 0 0 0]
+#  [0 0 0 1]]
+
+# Class ordering is preserved
+binary_ordered = label_binarize([1, 6], classes=[1, 6, 4, 2])
+print(binary_ordered)
+# Output:
+# [[1 0 0 0]
+#  [0 1 0 0]]
+
+# Binary targets transform to a column vector
+binary_col = label_binarize(['yes', 'no', 'no', 'yes'], classes=['no', 'yes'])
+print(binary_col)
+# Output:
+# [[1]
+#  [0]
+#  [0]
+#  [1]]
+```
+
+Notes
+-----
+
+- The `LabelEncoder` is suitable for encoding target labels as integers, which is often required by many classifiers.
+- The `LabelBinarizer` is useful for multi-class and multilabel classification problems, converting labels into a binary indicator matrix.
+- When using sparse output in `LabelBinarizer`, the positive label must be non-zero and the negative label must be zero.
+- Multioutput targets are not supported by `LabelBinarizer`.
+- The type of target data is automatically inferred and validated to ensure compatibility.
+
+For more detailed information and examples, please refer to the :ref:`User Guide <preprocessing_targets>`.

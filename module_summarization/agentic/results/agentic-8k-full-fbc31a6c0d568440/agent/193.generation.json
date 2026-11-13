@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Metadata Routing API\n====================\n\nThe Metadata Routing API provides a standardized mechanism to handle and route metadata within meta-estimators and composite objects in scikit-learn. This API facilitates passing additional information (metadata) to specific methods of nested estimators, enabling more flexible and powerful model composition.\n\nOverview\n--------\n\nMetadata routing is managed through routing objects that store and handle metadata requests and routing information. The core components of this API include:\n\n- **MetadataRouter**: A class that stores and manages metadata routing information for a router object.\n- **MetadataRequest**: Represents a request for metadata parameters.\n- **MethodMapping**: Defines the mapping between child and parent method parameters.\n- **process_routing**: A utility function to validate and route metadata parameters during method calls.\n- **RequestMethod**: A descriptor class to dynamically generate methods for setting metadata requests.\n\nMetadataRouter\n--------------\n\nThe `MetadataRouter` class is used by router objects to store and handle metadata routing. Routing information is stored as a dictionary mapping object names to `RouteMappingPair` instances, which pair a `MethodMapping` with routing information (either a `MetadataRequest` or another `MetadataRouter`).\n\nKey features:\n\n- **Initialization**: Requires the name of the owner object to which the routing requests belong.\n- **Adding self requests**: The router itself can be added as a consumer of metadata using `add_self_request(obj)`. This is necessary when the router also consumes metadata.\n- **Adding child objects**: Child objects and their corresponding method mappings can be added using the `add` method.\n- **Routing storage**: Maintains routing information internally and supports deep copying for safe reuse.\n\nMetadataRequest and MetadataRouter Retrieval\n--------------------------------------------\n\nThe function `get_routing_for_object(obj)` retrieves the metadata routing information for a given object:\n\n- If the object is a `MetadataRequest` or `MetadataRouter`, a deep copy is returned.\n- If the object implements a `get_metadata_routing` method, a deep copy of its output is returned.\n- Otherwise, an empty `MetadataRequest` is returned.\n\nRequestMethod Descriptor\n------------------------\n\n`RequestMethod` is a descriptor class that dynamically creates methods to set metadata requests for specific estimator methods (e.g., `fit`, `predict`). It supports:\n\n- Defining accepted metadata parameters for the method.\n- Validating requested parameters against the method's signature.\n- Generating detailed docstrings explaining the usage and options for metadata routing.\n\nThe generated methods allow users to specify whether metadata parameters should be requested, ignored, or aliased when passed to the corresponding method.\n\nprocess_routing Function\n------------------------\n\nThe `process_routing(_obj, _method, /, **kwargs)` function is used inside router methods (such as `fit`) to validate and route metadata parameters.\n\n- `_obj`: The router or meta-estimator object implementing `get_metadata_routing`.\n- `_method`: The name of the method in which routing is processed (e.g., `\"fit\"`).\n- `**kwargs`: Metadata parameters to be routed.\n\nThis function performs the following:\n\n1. Validates that `_obj` supports metadata routing.\n2. Checks that `_method` is one of the supported methods.\n3. Retrieves the routing requests for `_obj`.\n4. Validates the provided metadata parameters against the requests.\n5. Routes the parameters to the appropriate child objects and methods.\n\nIt returns a `Bunch` object mapping object names to method names and their corresponding metadata values, which can then be passed to the respective methods.\n\nUsage Notes\n-----------\n\n- Metadata routing is only effective if `enable_metadata_routing=True` is set in scikit-learn's configuration.\n- This API is primarily intended for use within meta-estimators and composite estimators, such as pipelines.\n- Metadata parameters can be requested, ignored, or aliased to different names when passed to child estimators.\n- The API minimizes boilerplate code required to handle metadata routing in complex estimator compositions.\n\nVersion Information\n-------------------\n\n- The Metadata Routing API was introduced in scikit-learn version 1.3.\n- The `RequestMethod` descriptor and `process_routing` function were added in version 1.3.\n- The API is designed to be extensible and to integrate seamlessly with scikit-learn's estimator interface.\n\nFurther Reading\n---------------\n\nFor detailed usage examples and guidance, please refer to the :ref:`User Guide <metadata_routing>` section in the scikit-learn documentation.\n\n---\n\nThis API enables advanced users and developers to build meta-estimators that can flexibly handle additional metadata parameters, improving the expressiveness and configurability of composite models.",
+  "prediction_sha256": "c69007b3aebcdfceb395058ff918e0941f45e8de7395b4124c28c7224779a98b",
+  "prompt_sha256": "629e1761324c6e7cfca3505c4362bdea523604b8889a9f1064b4e5ab24d57eaf",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12863,
+    "completion_tokens": 1518,
+    "total_tokens": 14381
+  },
+  "cost_usd": 0.007574000000000001,
+  "generation_seconds": 15.255398542001785,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "metadata routing"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3022,
+              "start_char": 2371200,
+              "end_char": 2371929,
+              "code": "est(self):\n        \"\"\"Get requested data properties.\n\n        Please check :ref:`User Guide <metadata_routing>` on how the routing\n        mechanism works.\n\n        Returns\n        -------\n        request : MetadataRequest\n            A :class:`~sklearn.utils.metadata_routing.MetadataRequest` instance.\n        \"\"\"\n        if hasattr(self, \"_metadata_request\"):\n            requests = get_routing_for_object(self._metadata_request)\n        else:\n            requests = self._get_default_requests()\n\n        return requests\n\n    def get_metadata_routing(self):\n        \"\"\"Get metadata routing of this object.\n\n        Please check :ref:`User Guide <metadata_routing>` on how the routing\n        mechanism works.\n\n        Returns\n",
+              "code_tokens": 300,
+              "score": 18.301399122638
+            },
+            {
+              "chunk_id": 3006,
+              "start_char": 2358771,
+              "end_char": 2359563,
+              "code": "    :class:`~sklearn.utils.metadata_routing.MetadataRouter`, return a copy\n            of that.\n        - If the object provides a `get_metadata_routing` method, return a copy\n            of the output of that method.\n        - Returns an empty :class:`~sklearn.utils.metadata_routing.MetadataRequest`\n            otherwise.\n\n    Returns\n    -------\n    obj : MetadataRequest or MetadataRouting\n        A ``MetadataRequest`` or a ``MetadataRouting`` taken or created from\n        the given object.\n    \"\"\"\n    # doing this instead of a try/except since an AttributeError could be raised\n    # for other reasons.\n    if hasattr(obj, \"get_metadata_routing\"):\n        return deepcopy(obj.get_metadata_routing())\n\n    elif getattr(obj, \"_type\", None) in [\"metadata_request\", \"metadata_router\"]:\n ",
+              "code_tokens": 300,
+              "score": 17.374589832325
+            },
+            {
+              "chunk_id": 2990,
+              "start_char": 2345952,
+              "end_char": 2346818,
+              "code": "' or a single method!\")\n        return routing\n\n    def __repr__(self):\n        return str(self._serialize())\n\n    def __str__(self):\n        return str(repr(self))\n\n\nclass MetadataRouter:\n    \"\"\"Stores and handles metadata routing for a router object.\n\n    This class is used by router objects to store and handle metadata routing.\n    Routing information is stored as a dictionary of the form ``{\"object_name\":\n    RouteMappingPair(method_mapping, routing_info)}``, where ``method_mapping``\n    is an instance of :class:`~sklearn.utils.metadata_routing.MethodMapping` and\n    ``routing_info`` is either a\n    :class:`~utils.metadata_routing.MetadataRequest` or a\n    :class:`~utils.metadata_routing.MetadataRouter` instance.\n\n    .. versionadded:: 1.3\n\n    Parameters\n    ----------\n    owner : str\n        The name of the object to which these requests belong.\n  ",
+              "code_tokens": 300,
+              "score": 17.089377565993
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 2990
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2990,
+              "start_char": 2345952,
+              "end_char": 2349751,
+              "code": "' or a single method!\")\n        return routing\n\n    def __repr__(self):\n        return str(self._serialize())\n\n    def __str__(self):\n        return str(repr(self))\n\n\nclass MetadataRouter:\n    \"\"\"Stores and handles metadata routing for a router object.\n\n    This class is used by router objects to store and handle metadata routing.\n    Routing information is stored as a dictionary of the form ``{\"object_name\":\n    RouteMappingPair(method_mapping, routing_info)}``, where ``method_mapping``\n    is an instance of :class:`~sklearn.utils.metadata_routing.MethodMapping` and\n    ``routing_info`` is either a\n    :class:`~utils.metadata_routing.MetadataRequest` or a\n    :class:`~utils.metadata_routing.MetadataRouter` instance.\n\n    .. versionadded:: 1.3\n\n    Parameters\n    ----------\n    owner : str\n        The name of the object to which these requests belong.\n    \"\"\"\n\n    # this is here for us to use this attribute's value instead of doing\n    # `isinstance`` in our checks, so that we avoid issues when people vendor\n    # this file instead of using it directly from scikit-learn.\n    _type = \"metadata_router\"\n\n    def __init__(self, owner):\n        self._route_mappings = dict()\n        # `_self_request` is used if the router is also a consumer.\n        # _self_request, (added using `add_self_request()`) is treated\n        # differently from the other objects which are stored in\n        # _route_mappings.\n        self._self_request = None\n        self.owner = owner\n\n    def add_self_request(self, obj):\n        \"\"\"Add `self` (as a consumer) to the routing.\n\n        This method is used if the router is also a consumer, and hence the\n        router itself needs to be included in the routing. The passed object\n        can be an estimator or a\n        :class:`~utils.metadata_routing.MetadataRequest`.\n\n        A router should add itself using this method instead of `add` since it\n        should be treated differently than the other objects to which metadata\n        is routed by the router.\n\n        Parameters\n        ----------\n        obj : object\n            This is typically the router instance, i.e. `self` in a\n            ``get_metadata_routing()`` implementation. It can also be a\n            ``MetadataRequest`` instance.\n\n        Returns\n        -------\n        self : MetadataRouter\n            Returns `self`.\n        \"\"\"\n        if getattr(obj, \"_type\", None) == \"metadata_request\":\n            self._self_request = deepcopy(obj)\n        elif hasattr(obj, \"_get_metadata_request\"):\n            self._self_request = deepcopy(obj._get_metadata_request())\n        else:\n            raise ValueError(\n                \"Given `obj` is neither a `MetadataRequest` nor does it implement the\"\n                \" required API. Inheriting from `BaseEstimator` implements the required\"\n                \" API.\"\n            )\n        return self\n\n    def add(self, *, method_mapping, **objs):\n        \"\"\"Add named objects with their corresponding method mapping.\n\n        Parameters\n        ----------\n        method_mapping : MethodMapping or str\n            The mapping between the child and the parent's methods. If str, the\n            output of :func:`~sklearn.utils.metadata_routing.MethodMapping.from_str`\n            is used.\n\n        **objs : dict\n            A dictionary of objects from which metadata is extracted by calling\n            :func:`~sklearn.utils.metadata_routing.get_routing_for_object` on them.\n\n        Returns\n        -------\n        self : MetadataRouter\n            Returns `self`.\n        \"\"\"\n        if isinstance(method_mapping, str):\n            method_mapping = MethodMapping.from_str(method_mapping)\n        else:\n            method_mapping = deepcopy(method_mapping)\n\n        for name, obj in objs.items():\n            self._route_mappings[name",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3022
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3022,
+              "start_char": 2371200,
+              "end_char": 2375391,
+              "code": "est(self):\n        \"\"\"Get requested data properties.\n\n        Please check :ref:`User Guide <metadata_routing>` on how the routing\n        mechanism works.\n\n        Returns\n        -------\n        request : MetadataRequest\n            A :class:`~sklearn.utils.metadata_routing.MetadataRequest` instance.\n        \"\"\"\n        if hasattr(self, \"_metadata_request\"):\n            requests = get_routing_for_object(self._metadata_request)\n        else:\n            requests = self._get_default_requests()\n\n        return requests\n\n    def get_metadata_routing(self):\n        \"\"\"Get metadata routing of this object.\n\n        Please check :ref:`User Guide <metadata_routing>` on how the routing\n        mechanism works.\n\n        Returns\n        -------\n        routing : MetadataRequest\n            A :class:`~sklearn.utils.metadata_routing.MetadataRequest` encapsulating\n            routing information.\n        \"\"\"\n        return self._get_metadata_request()\n\n\n# Process Routing in Routers\n# ==========================\n# This is almost always the only method used in routers to process and route\n# given metadata. This is to minimize the boilerplate required in routers.\n\n\n# Here the first two arguments are positional only which makes everything\n# passed as keyword argument a metadata. The first two args also have an `_`\n# prefix to reduce the chances of name collisions with the passed metadata, and\n# since they're positional only, users will never type those underscores.\ndef process_routing(_obj, _method, /, **kwargs):\n    \"\"\"Validate and route input parameters.\n\n    This function is used inside a router's method, e.g. :term:`fit`,\n    to validate the metadata and handle the routing.\n\n    Assuming this signature: ``fit(self, X, y, sample_weight=None, **fit_params)``,\n    a call to this function would be:\n    ``process_routing(self, sample_weight=sample_weight, **fit_params)``.\n\n    .. versionadded:: 1.3\n\n    Parameters\n    ----------\n    _obj : object\n        An object implementing ``get_metadata_routing``. Typically a\n        meta-estimator.\n\n    _method : str\n        The name of the router's method in which this function is called.\n\n    **kwargs : dict\n        Metadata to be routed.\n\n    Returns\n    -------\n    routed_params : Bunch\n        A :class:`~utils.Bunch` of the form ``{\"object_name\": {\"method_name\":\n        {prop: value}}}`` which can be used to pass the required metadata to\n        corresponding methods or corresponding child objects. The object names\n        are those defined in `obj.get_metadata_routing()`.\n    \"\"\"\n    if not (hasattr(_obj, \"get_metadata_routing\") or isinstance(_obj, MetadataRouter)):\n        raise AttributeError(\n            f\"The given object ({repr(_obj.__class__.__name__)}) needs to either\"\n            \" implement the routing method `get_metadata_routing` or be a\"\n            \" `MetadataRouter` instance.\"\n        )\n    if _method not in METHODS:\n        raise TypeError(\n            f\"Can only route and process input on these methods: {METHODS}, \"\n            f\"while the passed method is: {_method}.\"\n        )\n\n    request_routing = get_routing_for_object(_obj)\n    request_routing.validate_metadata(params=kwargs, method=_method)\n    routed_params = request_routing.route_params(params=kwargs, caller=_method)\n\n    return routed_params\n\n\nfrom functools import update_wrapper, wraps\nfrom types import MethodType\n\n\nclass _AvailableIfDescriptor:\n    \"\"\"Implements a conditional property using the descriptor protocol.\n\n    Using this class to create a decorator will raise an ``AttributeError``\n    if check(self) returns a falsey value. Note that if check raises an error\n    this will also result in hasattr returning false.\n\n    See https://docs.python.org/3/howto/descriptor.html for an explanation of\n    descriptors.\n    \"\"\"\n\n    def __init__(self, fn, check, attribute_name):\n        self.fn = fn\n        self.check = check\n        self.attribute_name = attribute_name\n\n        # update the docstring of the descriptor\n        update_wrapper(self, fn)\n\n    def __get__(self, obj, owner=None):\n        attr_err = AttributeError(\n            f\"This {repr(owner.__name__)} has no attribute {repr(self.attribute_name)}\"\n   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3006
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 3006,
+              "start_char": 2358771,
+              "end_char": 2362857,
+              "code": "    :class:`~sklearn.utils.metadata_routing.MetadataRouter`, return a copy\n            of that.\n        - If the object provides a `get_metadata_routing` method, return a copy\n            of the output of that method.\n        - Returns an empty :class:`~sklearn.utils.metadata_routing.MetadataRequest`\n            otherwise.\n\n    Returns\n    -------\n    obj : MetadataRequest or MetadataRouting\n        A ``MetadataRequest`` or a ``MetadataRouting`` taken or created from\n        the given object.\n    \"\"\"\n    # doing this instead of a try/except since an AttributeError could be raised\n    # for other reasons.\n    if hasattr(obj, \"get_metadata_routing\"):\n        return deepcopy(obj.get_metadata_routing())\n\n    elif getattr(obj, \"_type\", None) in [\"metadata_request\", \"metadata_router\"]:\n        return deepcopy(obj)\n\n    return MetadataRequest(owner=None)\n\n\n# Request method\n# ==============\n# This section includes what's needed for the request method descriptor and\n# their dynamic generation in a meta class.\n\n# These strings are used to dynamically generate the docstrings for\n# set_{method}_request methods.\nREQUESTER_DOC = \"\"\"        Request metadata passed to the ``{method}`` method.\n\n        Note that this method is only relevant if\n        ``enable_metadata_routing=True`` (see :func:`sklearn.set_config`).\n        Please see :ref:`User Guide <metadata_routing>` on how the routing\n        mechanism works.\n\n        The options for each parameter are:\n\n        - ``True``: metadata is requested, and \\\npassed to ``{method}`` if provided. The request is ignored if \\\nmetadata is not provided.\n\n        - ``False``: metadata is not requested and the meta-estimator \\\nwill not pass it to ``{method}``.\n\n        - ``None``: metadata is not requested, and the meta-estimator \\\nwill raise an error if the user provides it.\n\n        - ``str``: metadata should be passed to the meta-estimator with \\\nthis given alias instead of the original name.\n\n        The default (``sklearn.utils.metadata_routing.UNCHANGED``) retains the\n        existing request. This allows you to change the request for some\n        parameters and not others.\n\n        .. versionadded:: 1.3\n\n        .. note::\n            This method is only relevant if this estimator is used as a\n            sub-estimator of a meta-estimator, e.g. used inside a\n            :class:`~sklearn.pipeline.Pipeline`. Otherwise it has no effect.\n\n        Parameters\n        ----------\n\"\"\"\nREQUESTER_DOC_PARAM = \"\"\"        {metadata} : str, True, False, or None, \\\n                    default=sklearn.utils.metadata_routing.UNCHANGED\n            Metadata routing for ``{metadata}`` parameter in ``{method}``.\n\n\"\"\"\nREQUESTER_DOC_RETURN = \"\"\"        Returns\n        -------\n        self : object\n            The updated object.\n\"\"\"\n\n\nclass RequestMethod:\n    \"\"\"\n    A descriptor for request methods.\n\n    .. versionadded:: 1.3\n\n    Parameters\n    ----------\n    name : str\n        The name of the method for which the request function should be\n        created, e.g. ``\"fit\"`` would create a ``set_fit_request`` function.\n\n    keys : list of str\n        A list of strings which are accepted parameters by the created\n        function, e.g. ``[\"sample_weight\"]`` if the corresponding method\n        accepts it as a metadata.\n\n    validate_keys : bool, default=True\n        Whether to check if the requested parameters fit the actual parameters\n        of the method.\n\n    Notes\n    -----\n    This class is a descriptor [1]_ and uses PEP-362 to set the signature of\n    the returned function [2]_.\n\n    References\n    ----------\n    .. [1] https://docs.python.org/3/howto/descriptor.html\n\n    .. [2] https://www.python.org/dev/peps/pep-0362/\n    \"\"\"\n\n    def __init__(self, name, keys, validate_keys=True):\n        self.name = name\n        self.keys = keys\n        self.validate_keys = validate_keys\n\n    def __get__(self, instance, owner):\n        # we would want to have a method which accepts only the expected args\n        def func(**kw):\n            \"\"\"Updates the request for provided parameters\n\n            This docstring",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "0ebbf1bd2cbf35bf11a7290884af3b0e8001145e6420214f6c38398d8bac9cb6",
+        "request_id": "chatcmpl-Ej9mc4UBxKfc9XFFmORfZpp56jRlx",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 15,
+          "total_tokens": 172,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 0.6182683330043801,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "ef848c4f979fa54ecdf428bf8a0769c6126e0f950b40d21e8f9ef96b25f39a33",
+        "request_id": "chatcmpl-Ej9mdQqwYmZsqqeHfVuSePI45Easn",
+        "usage": {
+          "prompt_tokens": 931,
+          "completion_tokens": 16,
+          "total_tokens": 947,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0003980000000000001,
+        "seconds": 0.7318987089965958,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "f63c25bec089e5c819d78b9ecff45f8b4361a2ed37c1931174a63d2ef6976ac0",
+        "request_id": "chatcmpl-Ej9metTufcaAyFD4QwOuoAh5nhMRc",
+        "usage": {
+          "prompt_tokens": 1921,
+          "completion_tokens": 16,
+          "total_tokens": 1937,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007940000000000001,
+        "seconds": 0.8783357920037815,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "882c85da7b38ff7902079671096f84f8b2f54bc60ea5e714094c4195265eab85",
+        "request_id": "chatcmpl-Ej9mfhyhbzs908EizoEZP8s75aS89",
+        "usage": {
+          "prompt_tokens": 3026,
+          "completion_tokens": 16,
+          "total_tokens": 3042,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001236,
+        "seconds": 0.6761223749999772,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "5615128891c9ab28ace79d0721b2270b012078d4877f8bb76df56ce8c39ff703",
+        "request_id": "chatcmpl-Ej9mg8bbFJeCMMb5v8JJVP8pTtPca",
+        "usage": {
+          "prompt_tokens": 4138,
+          "completion_tokens": 512,
+          "total_tokens": 4650,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0024744000000000003,
+        "seconds": 4.507679082998948,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "ace7db0f5475878be84787b7b73e1b353e31e2ea6a64f2c63b05eeff4e82a8d7",
+        "request_id": "chatcmpl-Ej9mkGmJ7NpDGMd68ERBKtgRwjHkA",
+        "usage": {
+          "prompt_tokens": 2690,
+          "completion_tokens": 943,
+          "total_tokens": 3633,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0025848000000000004,
+        "seconds": 7.843094249998103,
+        "retry_count": 0
+      }
+    ]
+  }
+}

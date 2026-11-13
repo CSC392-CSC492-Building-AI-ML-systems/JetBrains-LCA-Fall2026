@@ -1,0 +1,137 @@
+Alchemical Transformations
+===========================
+
+Overview
+--------
+
+Alchemical transformations are a powerful technique used in molecular simulations to compute free energy differences between different molecular states, such as mutations, ligand binding, or chemical modifications. These transformations involve gradually changing ("alchemically" modifying) the system from one state to another by scaling or modifying interaction parameters in the force field.
+
+The `NCMCEngine` class implements a Nonequilibrium Candidate Monte Carlo (NCMC) switching engine that facilitates alchemical transformations by performing nonequilibrium switching between two different molecular systems. This approach enables efficient sampling of intermediate states and accurate estimation of free energy differences.
+
+NCMCEngine Class
+----------------
+
+The `NCMCEngine` class provides the core functionality for performing alchemical switching using NCMC protocols. It supports switching between two systems by gradually modifying system parameters over a series of integration steps.
+
+### Initialization
+
+```python
+NCMCEngine(temperature=300.0*unit.kelvin, functions=None, nsteps=1,
+           steps_per_propagation=1, timestep=1.0*unit.femtoseconds,
+           constraint_tolerance=None, platform=None, write_ncmc_interval=1,
+           measure_shadow_work=False, integrator_splitting='V R O H R V',
+           storage=None, verbose=False, LRUCapacity=10, pressure=None,
+           bond_softening_constant=1.0, angle_softening_constant=1.0)
+```
+
+**Parameters:**
+
+- `temperature` (`simtk.unit.Quantity`): Temperature at which switching is performed (default 300 K).
+- `functions` (`dict`): Dictionary mapping alchemical parameters to switching functions of the alchemical parameter λ (default uses predefined functions).
+- `nsteps` (`int`): Number of switching steps to perform (default 1).
+- `steps_per_propagation` (`int`): Number of propagation steps per switching step (default 1).
+- `timestep` (`simtk.unit.Quantity`): Integration timestep for velocity Verlet steps (default 1 fs).
+- `constraint_tolerance` (`float`): Relative tolerance for constraints (optional).
+- `platform` (`simtk.openmm.Platform`): OpenMM platform to use (optional).
+- `write_ncmc_interval` (`int`): Interval for writing snapshots to storage (optional).
+- `measure_shadow_work` (`bool`): Whether to measure shadow work during integration (default False).
+- `integrator_splitting` (`str`): Splitting scheme for the internal integrator (default 'V R O H R V').
+- `storage` (`NetCDFStorageView`): Storage object for saving simulation data (optional).
+- `verbose` (`bool`): Verbosity flag (default False).
+- `LRUCapacity` (`int`): Capacity of the hybrid system cache (default 10).
+- `pressure` (`simtk.unit.Quantity`): Pressure for simulations (optional).
+- `bond_softening_constant` (`float`): Softening constant for bonds during alchemical transformations (default 1.0).
+- `angle_softening_constant` (`float`): Softening constant for angles during alchemical transformations (default 1.0).
+
+### Key Methods
+
+#### `make_alchemical_system(topology_proposal, current_positions, new_positions)`
+
+Constructs or retrieves a cached `HybridTopologyFactory` object that represents the hybrid system used for alchemical switching between the old and new states.
+
+- **Parameters:**
+  - `topology_proposal`: A `TopologyProposal` object containing old and new system/topology information and atom mappings.
+  - `current_positions`: Positions of the old system atoms.
+  - `new_positions`: Positions of the new system atoms.
+
+- **Returns:**
+  - A `HybridTopologyFactory` instance representing the hybrid system, or `None` if construction fails.
+
+#### `integrate(topology_proposal, initial_sampler_state, proposed_sampler_state, iteration=None)`
+
+Performs the NCMC switching protocol to alchemically delete or insert atoms according to the provided `topology_proposal`.
+
+- **Parameters:**
+  - `topology_proposal`: A `TopologyProposal` object describing the transformation.
+  - `initial_sampler_state`: An `openmmtools.states.SamplerState` representing the initial system configuration.
+  - `proposed_sampler_state`: An `openmmtools.states.SamplerState` representing the proposed system configuration after geometry changes.
+  - `iteration`: Optional iteration number for storage or logging.
+
+- **Returns:**
+  - `final_old_sampler_state`: The final sampler state of the old system after switching.
+  - `final_sampler_state`: The final sampler state after alchemical switching and reversion to the nonalchemical system.
+  - `logP_work`: The NCMC work contribution to the log acceptance probability.
+  - `logP_initial`: The initial log probability of the hybrid configuration.
+  - `logP_final`: The final log probability of the hybrid configuration.
+
+Usage Example
+-------------
+
+The following example demonstrates how to create an alchemical transformation that eliminates the N-methyl group from an alanine dipeptide test system using the `NCMCEngine`:
+
+```python
+from openmmtools import testsystems
+from perses.rjmc.topology_proposal import TopologyProposal
+from perses.annihilation.ncmc import NCMCEngine
+from simtk import unit
+
+# Load alanine dipeptide vacuum test system
+testsystem = testsystems.AlanineDipeptideVacuum()
+
+# Define atom mapping excluding the N-methyl group (atoms with index <= 3)
+new_to_old_atom_map = {index: index for index in range(testsystem.system.getNumParticles()) if index > 3}
+
+# Create a topology proposal for the transformation
+topology_proposal = TopologyProposal(
+    old_system=testsystem.system,
+    old_topology=testsystem.topology,
+    old_chemical_state_key='AA',
+    new_chemical_state_key='AA',
+    new_system=testsystem.system,
+    new_topology=testsystem.topology,
+    logp_proposal=0.0,
+    new_to_old_atom_map=new_to_old_atom_map,
+    metadata=dict()
+)
+
+# Initialize the NCMC engine
+ncmc_engine = NCMCEngine(
+    temperature=300.0*unit.kelvin,
+    nsteps=50,
+    timestep=1.0*unit.femtoseconds
+)
+
+positions = testsystem.positions
+
+# Perform NCMC switching to delete the N-methyl group
+positions, logP_delete, potential_delete = ncmc_engine.integrate(topology_proposal, positions, direction='delete')
+
+# Perform NCMC switching to insert the N-methyl group back
+positions, logP_insert, potential_insert = ncmc_engine.integrate(topology_proposal, positions, direction='insert')
+```
+
+Notes
+-----
+
+- The `NCMCEngine` relies on a cache of hybrid systems (`HybridTopologyFactory`) to efficiently reuse hybrid topologies and systems during repeated switching attempts.
+- The engine supports flexible integrator splitting schemes and can optionally measure shadow work for more detailed thermodynamic analysis.
+- Alchemical transformations can be customized by specifying switching functions for individual parameters, allowing for smooth or tailored transitions.
+- The engine integrates tightly with OpenMM and OpenMMTools for system representation, state management, and simulation execution.
+
+References
+----------
+
+- Nilmeier, J. P., Crooks, G. E., Minh, D. D., & Chodera, J. D. (2011). Nonequilibrium candidate Monte Carlo is an efficient tool for equilibrium simulation. Proceedings of the National Academy of Sciences, 108(45), E1009-E1018.
+- Shirts, M. R., & Chodera, J. D. (2008). Statistically optimal analysis of samples from multiple equilibrium states. The Journal of Chemical Physics, 129(12), 124105.
+
+This documentation provides an overview of the alchemical transformation capabilities implemented in the `NCMCEngine` class, enabling efficient and accurate free energy calculations through nonequilibrium switching protocols.

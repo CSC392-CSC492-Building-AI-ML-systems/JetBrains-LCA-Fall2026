@@ -1,0 +1,42 @@
+{
+  "original_id": 155,
+  "repo": "mitogen-hq__mitogen",
+  "docfile_name": "getting_started.rst",
+  "source_sha256": "e20ce23cc1030f6e92b2f95baddf21a4e3706885db64d5b5d9199018b798e03b",
+  "context": "speed, cc]\n\n\ndef disable_echo(fd):\n    old = termios.tcgetattr(fd)\n    new = cfmakeraw(old)\n    flags = getattr(termios, 'TCSASOFT', 0)\n    if not mitogen.core.IS_WSL:\n        # issue #319: Windows Subsystem for Linux as of July 2018 throws EINVAL\n        # if TCSAFLUSH is specified.\n        flags |= termios.TCSAFLUSH\n    termios.tcsetattr(fd, flags, new)\n\n\ndef create_socketpair(size=None):\n    \"\"\"\n    Create a :func:`socket.socketpair` for use as a child's UNIX stdio\n    channels. As socketpairs are bidirectional, they are economical on file\n    descriptor usage as one descriptor can be used for ``stdin`` and\n    ``stdout``. As they are sockets their buffers are tunable, allowing large\n    buffers to improve file transfer throughput and reduce IO loop iterations.\n    \"\"\"\n    if size is None:\n        size = mitogen.core\n\n after %.2f seconds',\n                self.options.connect_timeout,\n            )\n        )\n\n    def _async_connect(self):\n        LOG.debug('creating connection to context %d using %s',\n                  self.context.context_id, self.__class__.__module__)\n        mitogen.core.listen(self._router.broker, 'shutdown',\n                            self._on_broker_shutdown)\n        self._timer = self._router.broker.timers.schedule(\n            when=self.options.connect_deadline,\n            func=self._on_timer_expired,\n        )\n\n        try:\n            self.proc = self.\n\n     self._fail_connection(sys.exc_info()[1])\n            return\n\n        LOG.debug('child for %r started: pid:%r stdin:%r stdout:%r stderr:%r',\n                  self, self.proc.pid,\n                  self.proc.stdin.fileno(),\n                  self.proc.stdout.fileno(),\n                  self.proc.stderr and self.proc.stderr.fileno())\n\n        self.stdio_stream = self._setup_stdio_stream()\n        if self.context.name is None:\n            self.context.name = self.stdio_stream.name\n        self.proc.name = self.stdio_stream.name\n        if self.proc.stderr:\n   \n\ninterference.\n\n    In this example, 4 calls complete in one round-trip::\n\n        chain = mitogen.parent.CallChain(context, pipelined=True)\n        chain.call_no_reply(os.mkdir, '/tmp/foo')\n\n        # If previous mkdir() failed, this never runs:\n        chain.call_no_reply(os.mkdir, '/tmp/foo/bar')\n\n        # If either mkdir() failed, this never runs, and the exception is\n        # asynchronously delivered to the receiver.\n        recv = chain.call_async(subprocess.check_output, '/tmp/foo')\n\n        # If anything so far failed, this never runs, and raises the exception.\n        chain.call(do_something)\n\n        # If this code was executed, the exception would also be raised.\n        if recv.get().unpickle() == 'baz':\n            pass\n\n    When pipelining is enabled,\n\n :meth:`reset` must be invoked to ensure any\n    exception is discarded, otherwise unbounded memory usage is possible in\n    long-running programs. The context manager protocol is supported to ensure\n    :meth:`reset` is always invoked::\n\n        with mitogen.parent.CallChain(context, pipelined=True) as chain:\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call_no_reply(...)\n            chain.call(...)\n\n        # chain.reset() automatically invoked.\n    \"\"\"\n    def __init__(self, context, pipelined=False):\n        self.context = context\n        if pipelined:\n            self.chain_id = self.make_chain_id()\n        else:\n            self.chain_id = None\n\n    @classmethod\n    def make_chain_id(cls):\n        return '%s-%s-%x-%x' % (\n            socket.gethostname(),\n            os.getpid(),\n            thread.get_ident(),\n            int(1e6 * mitogen.core.now()),\n        )\n\n    def __repr__(self):\n        return '%s(%s)' % (self.__class__.__name__, self.context)\n\n    def __enter__(self):\n        return self\n\n    def __exit__(self, _1, _2, _3):\n        self.reset()\n\n    def reset(self):\n        \"\"\"\n        Instruct the target to forget any related exception.\n        \"\"\"\n        if not self.chain_id:\n            return\n\n        saved, self.chain_id = self.chain_id, None\n        try:\n            self.call_no_reply(mitogen.core.Dispatcher.forget_chain, saved)\n        finally:\n            self.chain_id = saved\n\n    closures_msg = (\n        'Mitogen cannot invoke closures, as doing so would require '\n        'serializing arbitrary program state, and no universal '\n        'method exists to recover a reference to them.'\n    )\n\n    lambda_msg = (\n        'Mitogen cannot invoke anonymous functions, as no universal method '\n        'exists to recover a reference to an anonymous function.'\n    )\n\n    method_msg = (\n        'Mitogen cannot invoke instance methods, as doing so would require '\n        'serializing arbitrary program state.'\n    )\n\n    def make_msg(self, fn, *args, **kwargs):\n        if getattr(fn, closure_attr, None) is not None:\n            raise TypeError(self.closures_msg)\n        if fn.__name__ == '<lambda>':\n            raise TypeError(self.lambda_msg)\n\n        if inspect.ismethod(fn):\n            im_self = getattr(fn, IM_SELF_ATTR)\n            if not inspect.isclass(im_self):\n                raise TypeError(self.method_msg)\n            klass = mitogen.core.to_text(im_self.__name__)\n        else:\n            klass = None\n\n        tup = (\n            self.chain_id,\n            mitogen.core.to_text(fn.__module__),\n           \n\n size. For example,\n#:\n#: * Most UNIXes have TTYs with fixed 2KiB-4KiB buffers, making them unsuitable\n#:   for efficient IO.\n#: * Different UNIXes have varying presets for pipes, which may not be\n#:   configurable. On recent Linux the default pipe buffer size is 64KiB, but\n#:   under memory pressure may be as low as 4KiB for unprivileged processes.\n#: * When communication is via an intermediary process, its internal buffers\n#:   effect the speed OS buffers will drain. For example OpenSSH uses 64KiB\n#:   reads.\n#:\n#: An ideal :class:`Message` has a size that is a multiple of\n#: :data:`CHUNK_SIZE` inclusive of headers, to avoid wasting IO loop iterations\n#: writing small trailer chunks.\nCHUNK_SIZE = 131072\n\n_tls = threading.local()\n\n\nif __name__ == 'mitogen.core':\n    # When loaded using import mechanism, ExternalContext.main() will not have\n    # a chance to set the synthetic mitogen global, so just import it here.\n    import mitogen\nelse:\n    # When loaded as\n\nsetup_globals(self):\n        mitogen.is_master = False\n        mitogen.__version__ = self.config['version']\n        mitogen.context_id = self.config['context_id']\n        mitogen.parent_ids = self.config['parent_ids'][:]\n        mitogen.parent_id = mitogen.parent_ids[0]\n\n    def _nullify_stdio(self):\n        \"\"\"\n        Open /dev/null to replace stdio temporarily. In case of odd startup,\n        assume we may be allocated a standard handle.\n        \"\"\"\n        for stdfd, mode in ((0, os.O_RDONLY), (1, os.O_RDWR), (2, os.O_RDWR)):\n            fd = os.open('/dev/null', mode)\n            if fd != stdfd:\n               ",
+  "preparation_seconds": 0.4327497500053141,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 7640,
+        "end_char": 8471
+      },
+      {
+        "start_char": 58445,
+        "end_char": 59018
+      },
+      {
+        "start_char": 59127,
+        "end_char": 59695
+      },
+      {
+        "start_char": 62400,
+        "end_char": 63176
+      },
+      {
+        "start_char": 63176,
+        "end_char": 65795
+      },
+      {
+        "start_char": 103584,
+        "end_char": 104558
+      },
+      {
+        "start_char": 238831,
+        "end_char": 239454
+      }
+    ],
+    "context_tokens": 3008,
+    "context_sha256": "12fb6b45f68e0ec5b0123506feaca9f06e55bf2ea6d8f2eb8dcac4a74277074c"
+  }
+}

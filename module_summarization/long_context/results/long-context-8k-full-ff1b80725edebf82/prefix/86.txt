@@ -1,0 +1,162 @@
+Postgres Engine
+===============
+
+The `PostgresEngine` module provides an asynchronous interface for connecting to and interacting with PostgreSQL databases using the `asyncpg` driver. It supports connection pooling, transactions, batching, and extension management, making it suitable for high-performance and scalable applications.
+
+Key Components
+--------------
+
+AsyncBatch
+~~~~~~~~~~
+
+An asynchronous batch processor for executing queries in batches. It manages a database cursor and transaction context, allowing iteration over query results in chunks.
+
+- **Attributes:**
+  - `connection`: The active database connection.
+  - `query`: The query to execute.
+  - `batch_size`: Number of rows to fetch per batch.
+- **Usage:**
+  - Use as an asynchronous iterator to fetch results batch-by-batch.
+  - Supports asynchronous context management to handle transactions and cursor lifecycle.
+
+Atomic
+~~~~~~
+
+A helper class to build and run a transaction programmatically by adding multiple queries.
+
+- **Usage:**
+
+  ```python
+  transaction = engine.atomic()
+  transaction.add(Foo.create_table())
+  await transaction.run()
+  # or synchronously
+  transaction.run_sync()
+  ```
+
+- Supports asynchronous execution and synchronous execution via `run_sync`.
+- Ensures all queries run within a single transaction context.
+
+Savepoint
+~~~~~~~~~
+
+Represents a savepoint within a transaction, allowing partial rollbacks.
+
+- **Methods:**
+  - `rollback_to()`: Rolls back the transaction to this savepoint.
+  - `release()`: Releases the savepoint.
+
+PostgresTransaction
+~~~~~~~~~~~~~~~~~~~
+
+Manages PostgreSQL transactions using asynchronous context management.
+
+- Supports nested transactions with optional enforcement to disallow nesting.
+- Provides savepoint management.
+- Automatically commits or rolls back transactions based on context exit status.
+- Manages connection acquisition and release from the pool or direct connection.
+
+- **Usage:**
+
+  ```python
+  async with engine.transaction():
+      await Band.select().run()
+  ```
+
+PostgresEngine
+~~~~~~~~~~~~~~
+
+The main engine class for connecting to PostgreSQL databases.
+
+- **Initialization Parameters:**
+  - `config`: Dictionary of connection parameters for `asyncpg` (e.g., host, port, user, password, database).
+  - `extensions`: Sequence of PostgreSQL extensions to create on startup (default: `("uuid-ossp",)`).
+  - `log_queries`: If `True`, logs all SQL and DDL statements before execution.
+  - `log_responses`: If `True`, logs raw responses from queries.
+  - `extra_nodes`: Optional mapping of additional database nodes (e.g., read replicas) to other `PostgresEngine` instances.
+
+- **Features:**
+  - Connection pooling management (`start_connection_pool`, `close_connection_pool`).
+  - Direct connection acquisition (`get_new_connection`).
+  - Running queries and DDL statements with automatic logging and transaction awareness.
+  - Batch query execution with `batch`.
+  - Transaction management with `transaction` and `atomic`.
+  - PostgreSQL version detection.
+  - Extension preparation on startup.
+  - Context variable tracking of the current transaction for nested transaction support.
+
+- **Example Usage:**
+
+  ```python
+  engine = PostgresEngine(
+      config={'host': 'localhost', 'port': 5432, 'user': 'user', 'password': 'pass', 'database': 'mydb'},
+      extensions=('uuid-ossp',),
+      log_queries=True,
+      log_responses=False,
+  )
+
+  async def run():
+      async with engine.transaction():
+          await SomeTable.select().run()
+  ```
+
+- **Extra Nodes Example:**
+
+  ```python
+  DB = PostgresEngine(
+      config={'database': 'main_db'},
+      extra_nodes={
+          'read_replica_1': PostgresEngine(
+              config={'database': 'main_db', 'host': 'read_replicate.my_db.com'},
+              extensions=()
+          )
+      }
+  )
+
+  # Run query on read replica
+  await MyTable.select().run(node='read_replica_1')
+  ```
+
+Important Methods
+-----------------
+
+- `get_version()`: Asynchronously retrieves the PostgreSQL server version.
+- `get_version_sync()`: Synchronous wrapper for `get_version`.
+- `prep_database()`: Creates configured extensions in the database.
+- `start_connection_pool(**kwargs)`: Starts a connection pool with optional overrides.
+- `close_connection_pool()`: Closes the active connection pool.
+- `get_new_connection()`: Returns a new database connection outside the pool.
+- `batch(query, batch_size=100, node=None)`: Returns an `AsyncBatch` instance for batch processing.
+- `run_querystring(querystring, in_pool=True)`: Executes a compiled query string.
+- `run_ddl(ddl, in_pool=True)`: Executes a DDL statement.
+- `atomic()`: Returns an `Atomic` transaction builder.
+- `transaction(allow_nested=True)`: Returns a `PostgresTransaction` context manager.
+
+Deprecated Methods
+------------------
+
+- `start_connnection_pool` and `close_connnection_pool` are deprecated typos and should be replaced with `start_connection_pool` and `close_connection_pool` respectively.
+
+Logging
+-------
+
+- When `log_queries` is enabled, all SQL and DDL statements are printed before execution.
+- When `log_responses` is enabled, raw database responses are printed after execution.
+
+Error Handling
+--------------
+
+- Raises `TransactionError` if nested transactions are disallowed and an attempt is made to nest.
+- Handles insufficient privileges when creating extensions by issuing warnings.
+- Connection errors during version retrieval are caught and logged as warnings.
+
+Context Management
+------------------
+
+- Transactions and batches use asynchronous context managers to ensure proper resource management.
+- The current transaction is tracked using a `contextvars.ContextVar` to support nested transaction awareness.
+
+Summary
+-------
+
+The `PostgresEngine` module provides a robust, asynchronous PostgreSQL client with advanced features such as connection pooling, transaction management with nested transactions and savepoints, batch processing, and extension management. It integrates tightly with the Piccolo ORM query system and is designed for ease of use and high performance in asynchronous Python applications.

@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "# Supporting Data to Plotting Functions in Multiple Ways\n\nThis document describes how data can be supported and normalized for use in plotting functions, enabling flexible and consistent handling of various data formats.\n\n## Overview\n\nThe plotting functions support data input in multiple forms, including dictionaries, lists, numpy arrays, and pandas Series. The data can be provided as single datasets or multiple datasets grouped together. The system normalizes these inputs to ensure compatibility with plotting routines.\n\n## PlotData and Iteration Modes\n\nThe `PlotDataIterator` class provides iteration behavior over the `PlotData` class, supporting three modes of iteration:\n\n- **keys**: Returns the keys corresponding to the data entries.\n- **values**: Returns the data values for each entry.\n- **items**: Returns tuples of keys and corresponding data sources.\n\nThe keys and values are returned as named tuples with fields corresponding to the defined data keys. This allows for structured access to the data components during plotting.\n\n## Data Normalization\n\nThe function `normalize_list_or_array` is responsible for normalizing input data that may be provided as lists, numpy arrays, or pandas Series. It processes the data according to the following rules:\n\n- If the input data is a multidimensional array (e.g., list of lists or multidimensional numpy array) and splitting is not forbidden, the first dimension is iterated over and interpreted as separate entries. This allows multiple datasets to be handled simultaneously.\n- If the input data is one-dimensional and its length differs from the number of existing data sets, the data is added to all existing entries.\n- If the input data is one-dimensional and matches the length of existing data sets, each data entry is added to the corresponding dataset.\n\n### Parameters\n\n- `data`: The array-like data to be normalized.\n- `key`: The key under which the new data will be stored.\n- `out_data`: A dictionary or list of dictionaries containing previously normalized data.\n- `flatten_np`: If `True`, multidimensional numpy arrays are flattened before processing.\n- `forbid_split_up`: If `True`, multidimensional arrays are not split into separate entries.\n\n### Return Value\n\nThe function returns either a dictionary or a list of dictionaries containing the normalized data, ready for use in plotting.\n\n## Handling of Column Data Sources\n\nWhen iterating over plot data, if the data source is a Bokeh `ColumnDataSource` and wrapping is enabled, the data is wrapped using a `ColumnDataSourceWrapper`. This ensures compatibility with Bokeh plotting functions and allows seamless integration of data sources.\n\n## Summary\n\nThe plotting system supports flexible data input formats and provides mechanisms to normalize and iterate over data in a structured way. This flexibility allows users to supply data in various forms while ensuring consistent behavior in plotting functions.\n\nBy supporting multiple data input styles and providing robust normalization, the plotting functions can handle complex datasets and multiple data sources efficiently and transparently.",
+  "prediction_sha256": "aa5d65b12ded1ec89e576537a276d5a0f2ac5ea6f366c49dfac830c4860a794b",
+  "prompt_sha256": "3fb6e041b354bb122c8d34f8b715d2ca18749d544bb592b8e39120e928bbb968",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 11083,
+    "completion_tokens": 1156,
+    "total_tokens": 12239
+  },
+  "cost_usd": 0.0062828,
+  "generation_seconds": 12.061065875990607,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "plot_data"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 36,
+              "start_char": 26676,
+              "end_char": 27520,
+              "code": " key):\n        return self.wrapped.data[key]\n\n    def __setitem__(self, key, value):\n        self.wrapped.data[key] = value\n\n    def __getattr__(self, attr):\n        return getattr(self.wrapped, attr)\n\n    def __contains__(self, key):\n        return key in self.wrapped.data\n\n    @property\n    def original(self):\n        return self.wrapped\n\n\nclass PlotDataIterator:\n    \"\"\"\n    Class containing the iteration behaviour over the\n    :py:class:`PlotData` class. Can be used in three modes:\n\n      - `keys`: Returns the keys to be entered in the corresponding data sources for each entry\n      - `values`: Returns the data for each entry\n      - `items`: Returns the keys and the data sources in a tuple\n\n    The keys and values are always returned in a ``namedtuple`` with fields corresponding\n    to the set data keys\n    \"\"\"\n\n    def __init__",
+              "code_tokens": 300,
+              "score": 5.667468011009
+            },
+            {
+              "chunk_id": 38,
+              "start_char": 28373,
+              "end_char": 29245,
+              "code": "    plot_data = {key: data[val] if val is not None else None for key, val in columns._asdict().items()}\n            return self._plot_data._column_spec(**plot_data)  #pylint: disable=protected-access\n        if self._iter_mode == 'items':\n            return columns, data\n        raise StopIteration\n\n\ndef normalize_list_or_array(data, key, out_data, flatten_np=False, forbid_split_up=False):\n    \"\"\"\n    Split up a given list/numpy array or pd.Series to be used in the plotting methods\n\n    :param data: The (array-like) data to be normalized\n    :param key: key under which to enter the new data\n    :param out_data: dict containing previously normalized data\n    :param flatten_np: bool, if True multidimensional numpy arrays are flattened\n    :param forbid_split_up: bool, if True multidimensional arrays are not split up\n\n    The rules are the following:\n        - if",
+              "code_tokens": 300,
+              "score": 4.932344690231
+            },
+            {
+              "chunk_id": 37,
+              "start_char": 27632,
+              "end_char": 28272,
+              "code": "appable or not self._plot_data.use_column_source\n        self._iter_mode = mode\n        self._column_iter = iter(self._plot_data.columns)\n        self._data_iter = None\n        if isinstance(self._plot_data.data, list):\n            self._data_iter = iter(self._plot_data.data)\n\n    def __iter__(self):\n        return self\n\n    def __next__(self):\n        columns = next(self._column_iter)\n\n        if self._iter_mode == 'keys':\n            return columns\n\n        if self._data_iter is not None:\n            data = next(self._data_iter)\n        else:\n            data = self._plot_data.data\n\n        if self._wrap_cds and _is_bokeh_cds(data",
+              "code_tokens": 300,
+              "score": 4.580079697029
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 36
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 36,
+              "start_char": 26676,
+              "end_char": 30523,
+              "code": " key):\n        return self.wrapped.data[key]\n\n    def __setitem__(self, key, value):\n        self.wrapped.data[key] = value\n\n    def __getattr__(self, attr):\n        return getattr(self.wrapped, attr)\n\n    def __contains__(self, key):\n        return key in self.wrapped.data\n\n    @property\n    def original(self):\n        return self.wrapped\n\n\nclass PlotDataIterator:\n    \"\"\"\n    Class containing the iteration behaviour over the\n    :py:class:`PlotData` class. Can be used in three modes:\n\n      - `keys`: Returns the keys to be entered in the corresponding data sources for each entry\n      - `values`: Returns the data for each entry\n      - `items`: Returns the keys and the data sources in a tuple\n\n    The keys and values are always returned in a ``namedtuple`` with fields corresponding\n    to the set data keys\n    \"\"\"\n\n    def __init__(self, plot_data, mode='values', mappable=False):\n        self._plot_data = plot_data\n        self._wrap_cds = mappable or not self._plot_data.use_column_source\n        self._iter_mode = mode\n        self._column_iter = iter(self._plot_data.columns)\n        self._data_iter = None\n        if isinstance(self._plot_data.data, list):\n            self._data_iter = iter(self._plot_data.data)\n\n    def __iter__(self):\n        return self\n\n    def __next__(self):\n        columns = next(self._column_iter)\n\n        if self._iter_mode == 'keys':\n            return columns\n\n        if self._data_iter is not None:\n            data = next(self._data_iter)\n        else:\n            data = self._plot_data.data\n\n        if self._wrap_cds and _is_bokeh_cds(data):\n            data = ColumnDataSourceWrapper(data)\n\n        if self._iter_mode == 'values':\n            plot_data = {key: data[val] if val is not None else None for key, val in columns._asdict().items()}\n            return self._plot_data._column_spec(**plot_data)  #pylint: disable=protected-access\n        if self._iter_mode == 'items':\n            return columns, data\n        raise StopIteration\n\n\ndef normalize_list_or_array(data, key, out_data, flatten_np=False, forbid_split_up=False):\n    \"\"\"\n    Split up a given list/numpy array or pd.Series to be used in the plotting methods\n\n    :param data: The (array-like) data to be normalized\n    :param key: key under which to enter the new data\n    :param out_data: dict containing previously normalized data\n    :param flatten_np: bool, if True multidimensional numpy arrays are flattened\n    :param forbid_split_up: bool, if True multidimensional arrays are not split up\n\n    The rules are the following:\n        - if ``data`` is a multidimensional array (list of lists, etc.)\n          and it is not forbidden by the given argument the first dimension\n          of the array is iterated over and interpreted as separate entries\n          (if the data was previously split up into multiple sets a length check is performed)\n        - if ``data`` is a one-dimensional array and of a different length than the\n          number of defined data sets it is added to all previously existing entries\n        - if ``data`` is a one-dimensional array and of the same length as the\n          number of defined data sets each entry is added to the corresponding data set\n\n    :returns: list of dicts or dict containing the nomralized data\n    \"\"\"\n    LIST_TYPES = (tuple, list, np.ndarray, pd.Series)\n\n    if isinstance(data, np.ndarray) and flatten_np:\n        data = data.flatten()\n\n    if isinstance(data, LIST_TYPES):\n        if isinstance(data[0], LIST_TYPES) and not forbid_split_up:\n            #Split up\n            if isinstance(out_data, (list, tuple)):\n                if len(out_data) != len(data):\n                    raise ValueError(\n                        f\"Mismatch of dimensions: Got two different dimensions 'key' {len(data)} 'previous' {len(out_data)}\"\n                    )\n          ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 38
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 38,
+              "start_char": 28373,
+              "end_char": 31825,
+              "code": "    plot_data = {key: data[val] if val is not None else None for key, val in columns._asdict().items()}\n            return self._plot_data._column_spec(**plot_data)  #pylint: disable=protected-access\n        if self._iter_mode == 'items':\n            return columns, data\n        raise StopIteration\n\n\ndef normalize_list_or_array(data, key, out_data, flatten_np=False, forbid_split_up=False):\n    \"\"\"\n    Split up a given list/numpy array or pd.Series to be used in the plotting methods\n\n    :param data: The (array-like) data to be normalized\n    :param key: key under which to enter the new data\n    :param out_data: dict containing previously normalized data\n    :param flatten_np: bool, if True multidimensional numpy arrays are flattened\n    :param forbid_split_up: bool, if True multidimensional arrays are not split up\n\n    The rules are the following:\n        - if ``data`` is a multidimensional array (list of lists, etc.)\n          and it is not forbidden by the given argument the first dimension\n          of the array is iterated over and interpreted as separate entries\n          (if the data was previously split up into multiple sets a length check is performed)\n        - if ``data`` is a one-dimensional array and of a different length than the\n          number of defined data sets it is added to all previously existing entries\n        - if ``data`` is a one-dimensional array and of the same length as the\n          number of defined data sets each entry is added to the corresponding data set\n\n    :returns: list of dicts or dict containing the nomralized data\n    \"\"\"\n    LIST_TYPES = (tuple, list, np.ndarray, pd.Series)\n\n    if isinstance(data, np.ndarray) and flatten_np:\n        data = data.flatten()\n\n    if isinstance(data, LIST_TYPES):\n        if isinstance(data[0], LIST_TYPES) and not forbid_split_up:\n            #Split up\n            if isinstance(out_data, (list, tuple)):\n                if len(out_data) != len(data):\n                    raise ValueError(\n                        f\"Mismatch of dimensions: Got two different dimensions 'key' {len(data)} 'previous' {len(out_data)}\"\n                    )\n                for indx, (entry, new_data) in enumerate(zip(out_data, data)):\n                    entry[f'{key}_{indx}'] = new_data\n            else:\n                new_list = []\n                for indx, new_data in enumerate(data):\n                    old_data = out_data.copy()\n                    new_list.append({\n                        (f'{key}_{indx}' if val is not None else key): val for key, val in old_data.items()\n                    })\n                    new_list[-1][f'{key}_{indx}'] = new_data\n                out_data = new_list\n\n            return out_data\n        if isinstance(out_data, (list, tuple)):\n            if len(out_data) == len(data):\n                for indx, (entry, new_data) in enumerate(zip(out_data, data)):\n                    entry[f'{key}_{indx}'] = new_data\n                return out_data\n\n    if isinstance(out_data, (list, tuple)):\n        for indx, entry in enumerate(out_data):\n            entry[f'{key}_{indx}'] = data\n    else:\n        out_data[key] = data\n\n    return out_data\n\n\ndef _normalize_dict_entries(dict_data):\n\n    LIST_TYPES = (list, np.ndarray, pd.Series)\n\n    length = max(len(data) for data in dict_data.values() if isinstance(data, LIST_TYPES))\n\n    for key, val in dict_data.items():\n        if not isinstance(val, LIST_TYPES):\n            dict_",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 37
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 37,
+              "start_char": 27632,
+              "end_char": 31101,
+              "code": "appable or not self._plot_data.use_column_source\n        self._iter_mode = mode\n        self._column_iter = iter(self._plot_data.columns)\n        self._data_iter = None\n        if isinstance(self._plot_data.data, list):\n            self._data_iter = iter(self._plot_data.data)\n\n    def __iter__(self):\n        return self\n\n    def __next__(self):\n        columns = next(self._column_iter)\n\n        if self._iter_mode == 'keys':\n            return columns\n\n        if self._data_iter is not None:\n            data = next(self._data_iter)\n        else:\n            data = self._plot_data.data\n\n        if self._wrap_cds and _is_bokeh_cds(data):\n            data = ColumnDataSourceWrapper(data)\n\n        if self._iter_mode == 'values':\n            plot_data = {key: data[val] if val is not None else None for key, val in columns._asdict().items()}\n            return self._plot_data._column_spec(**plot_data)  #pylint: disable=protected-access\n        if self._iter_mode == 'items':\n            return columns, data\n        raise StopIteration\n\n\ndef normalize_list_or_array(data, key, out_data, flatten_np=False, forbid_split_up=False):\n    \"\"\"\n    Split up a given list/numpy array or pd.Series to be used in the plotting methods\n\n    :param data: The (array-like) data to be normalized\n    :param key: key under which to enter the new data\n    :param out_data: dict containing previously normalized data\n    :param flatten_np: bool, if True multidimensional numpy arrays are flattened\n    :param forbid_split_up: bool, if True multidimensional arrays are not split up\n\n    The rules are the following:\n        - if ``data`` is a multidimensional array (list of lists, etc.)\n          and it is not forbidden by the given argument the first dimension\n          of the array is iterated over and interpreted as separate entries\n          (if the data was previously split up into multiple sets a length check is performed)\n        - if ``data`` is a one-dimensional array and of a different length than the\n          number of defined data sets it is added to all previously existing entries\n        - if ``data`` is a one-dimensional array and of the same length as the\n          number of defined data sets each entry is added to the corresponding data set\n\n    :returns: list of dicts or dict containing the nomralized data\n    \"\"\"\n    LIST_TYPES = (tuple, list, np.ndarray, pd.Series)\n\n    if isinstance(data, np.ndarray) and flatten_np:\n        data = data.flatten()\n\n    if isinstance(data, LIST_TYPES):\n        if isinstance(data[0], LIST_TYPES) and not forbid_split_up:\n            #Split up\n            if isinstance(out_data, (list, tuple)):\n                if len(out_data) != len(data):\n                    raise ValueError(\n                        f\"Mismatch of dimensions: Got two different dimensions 'key' {len(data)} 'previous' {len(out_data)}\"\n                    )\n                for indx, (entry, new_data) in enumerate(zip(out_data, data)):\n                    entry[f'{key}_{indx}'] = new_data\n            else:\n                new_list = []\n                for indx, new_data in enumerate(data):\n                    old_data = out_data.copy()\n                    new_list.append({\n                        (f'{key}_{indx}' if val is not None else key): val for key, val in old_data.items()\n                    })\n                    new_list[-1][f'{key}_{indx}'] = new_data\n                out_data = new_list\n\n            return out_data\n        if",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "3e7c985aa381c834e79a102d85ff53dd050b87fdfca5e7499da24d78ed9560a6",
+        "request_id": "chatcmpl-Ej9dgEn62GFuX7bt8jPJRCJa3eI70",
+        "usage": {
+          "prompt_tokens": 160,
+          "completion_tokens": 15,
+          "total_tokens": 175,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.8e-05,
+        "seconds": 0.7069446249952307,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "9de66acb9a58e614f66a8ae0768ad802f3baf5f898edb7acdf4382b48200e10c",
+        "request_id": "chatcmpl-Ej9divDUdn5iG0f6WKBPKeFQSrcXu",
+        "usage": {
+          "prompt_tokens": 952,
+          "completion_tokens": 15,
+          "total_tokens": 967,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040480000000000003,
+        "seconds": 1.7777809999970486,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "59071c9f9367e610153d59205e41041a21e40300048196f3d6ed09930adff15a",
+        "request_id": "chatcmpl-Ej9dinEtwZpVxqglpPtxZmNdx96u5",
+        "usage": {
+          "prompt_tokens": 1992,
+          "completion_tokens": 15,
+          "total_tokens": 2007,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008208000000000001,
+        "seconds": 0.76727095899696,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "3d56e2e2578f0d3f203decd56c293a6f5c6c2b4062fc1cdd4290702f6dcb0347",
+        "request_id": "chatcmpl-Ej9dj4ZrAq9lwbBqM3QltFmzbljSX",
+        "usage": {
+          "prompt_tokens": 2905,
+          "completion_tokens": 15,
+          "total_tokens": 2920,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001186,
+        "seconds": 0.6398124999977881,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "57fd6b9dcfebc26c2f5e8818e4313135edaedcbe889dedd20c22457fe12125b4",
+        "request_id": "chatcmpl-Ej9dk3aJyRrCtcbY540aP2QNzeC5B",
+        "usage": {
+          "prompt_tokens": 3820,
+          "completion_tokens": 512,
+          "total_tokens": 4332,
+          "prompt_tokens_details": {
+            "cached_tokens": 2688,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0023472,
+        "seconds": 3.360378124998533,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "bb1b482a882ba6e5059a0d531f2a3445be4677410ba1b7688bc6020d92c979ca",
+        "request_id": "chatcmpl-Ej9dnPeQwRDQIRiSHf2ZgSOgkSET9",
+        "usage": {
+          "prompt_tokens": 1254,
+          "completion_tokens": 584,
+          "total_tokens": 1838,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001436,
+        "seconds": 4.808878667005047,
+        "retry_count": 0
+      }
+    ]
+  }
+}

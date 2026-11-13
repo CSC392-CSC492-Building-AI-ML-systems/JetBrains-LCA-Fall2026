@@ -1,0 +1,83 @@
+Using Custom Attributes
+=======================
+
+Custom attributes provide a flexible way to extend the schema of entities by adding user-defined fields. This allows you to store additional information specific to your needs without modifying the core schema.
+
+Adding Custom Attributes
+------------------------
+
+Custom attributes can be added to entity types to capture extra data. These attributes can be configured locally and included in queries to retrieve or modify their values.
+
+Querying with Custom Attributes
+-------------------------------
+
+When querying entities, if no explicit projections are specified, sensible default projections are automatically added. This includes commonly used custom attributes, allowing you to access them seamlessly in query results.
+
+For example, if a query expression does not start with `select`, the system will prepend a `select` statement with default projections for the entity type:
+
+```python
+if not expression.startswith('select'):
+    entity_type = expression.split(' ', 1)[0]
+    EntityTypeClass = self.types[entity_type]
+    projections = EntityTypeClass.default_projections
+
+    expression = 'select {0} from {1}'.format(projections, entity_type)
+```
+
+This behavior ensures that custom attributes are included in query results without requiring manual specification.
+
+Entity Attribute Strategies
+---------------------------
+
+When working with custom attributes, you can specify an `entity_attribute_strategy` to control which attributes are included or how their values are retrieved. The supported strategies are:
+
+- `all`: Include all attributes.
+- `set_only`: Include only attributes that have been explicitly set.
+- `modified_only`: Include only attributes that have been modified locally.
+- `persisted_only`: Include only attributes that are persisted and not computed.
+
+If an unsupported strategy is provided, a `ValueError` will be raised:
+
+```python
+entity_attribute_strategies = ('all', 'set_only', 'modified_only', 'persisted_only')
+if entity_attribute_strategy not in entity_attribute_strategies:
+    raise ValueError(
+        'Unsupported entity_attribute_strategy "{0}". Must be one of {1}'.format(
+            entity_attribute_strategy,
+            ', '.join(entity_attribute_strategies)
+        )
+    )
+```
+
+Retrieving Attribute Values
+---------------------------
+
+Attribute values can be retrieved using different methods depending on the strategy:
+
+- For `all` or `set_only`, the local value is retrieved if set; otherwise, the remote value is used.
+- For `modified_only`, only attributes marked as modified locally will have their local values retrieved.
+- For `persisted_only`, only attributes that are not computed (i.e., persisted) will have their values included.
+
+Example snippet for retrieving values:
+
+```python
+value = attribute.get_local_value(item)
+if value is ftrack_api.symbol.NOT_SET:
+    value = attribute.get_remote_value(item)
+```
+
+Logging and Debugging
+---------------------
+
+Query operations involving custom attributes include debug logging to help trace the execution and the constructed query expressions:
+
+```python
+self.logger.debug(L('Query {0!r}', expression))
+```
+
+This assists in understanding how custom attributes are incorporated into queries and can aid in troubleshooting.
+
+See Also
+--------
+
+For more information on querying and working with entities, refer to the :ref:`querying` documentation.

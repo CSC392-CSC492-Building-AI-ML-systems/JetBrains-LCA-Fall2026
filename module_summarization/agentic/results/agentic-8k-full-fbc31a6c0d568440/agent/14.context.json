@@ -1,0 +1,30 @@
+{
+  "original_id": 14,
+  "repo": "ynput__OpenPype",
+  "docfile_name": "querying.rst",
+  "source_sha256": "471c3a374d5c109fcda236b0773ba56a21ce1f6d1a15a284a5dd8c3606176e8a",
+  "context": "\n        call on access.\n\n        *page_size* specifies the maximum page size that the returned query\n        result object should be configured with.\n\n       .. seealso:: :ref:`querying`\n\n        '''\n        self.logger.debug(L('Query {0!r}', expression))\n\n        # Add in sensible projections if none specified. Note that this is\n        # done here rather than on the server to allow local modification of the\n        # schema setting to include commonly used custom attributes for example.\n        # TODO: Use a proper parser perhaps?\n        if not expression.startswith('select'):\n            entity_type = expression.split(' ', 1)[0]\n            EntityTypeClass = self.types[entity_type]\n            projections = EntityTypeClass.default_projections\n\n            expression ='select {0} from {1}'.format(\n\n\n                ', '.join(projections),\n                expression\n            )\n\n        query_result = ftrack_api.query.QueryResult(\n            self, expression, page_size=page_size\n        )\n        return query_result\n\n    def _query(self, expression):\n        '''Execute *query* and return (records, metadata).\n\n        Records will be a list of entities retrieved via the query and metadata\n        a dictionary of accompanying information about the result set.\n\n        '''\n        # TODO: Actually support batching several queries together.\n        # TODO: Should batches have unique ids to match them up later.\n        batch = [{\n            'action': 'query',\n            'expression': expression\n        }]\n\n        # TODO: When should this execute? How to handle background=True?\n        results = self.call(batch)\n\n        # Merge entities into local cache and return merged entities.\n        data = []\n        merged = dict()\n        for entity in results[0]['data']:\n            data.append(self._merge_recursive(entity, merged))\n\n        return data, results[0]['metadata']\n\n    def merge(self, value, merged=None):\n        '''Merge *value* into session and return merged value.\n\n        *merged* should be a mapping to record merges during run and should be\n        used to avoid infinite recursion. If not set will default to a\n        dictionary.\n\n        '''\n        if merged is None:\n            merged = {}\n\n        with self.operation_recording(False):\n            return self._merge(value, merged)\n\n    def _merge(self, value, merged):\n        '''Return merged *value*.'''\n        log_debug = self.logger.isEnabledFor(logging.DEBUG)\n\n        if isinstance(value, ftrack_api.entity.base.Entity):\n            log_debug and self.logger.debug(\n                'Merging entity into session: {0} at {1}'\n               .format(value, id(value))\n            )\n\n            return self._merge_entity(value, merged=merged)\n\n        elif isinstance(value, ftrack_api.collection.Collection):\n            log_debug and self.logger.debug(\n                'Merging collection into session: {0!r} at {1}'\n               .format(value, id(value))\n            )\n\n            merged_collection = []\n            for entry in value:\n                merged_collection.append(\n                    self._merge(entry, merged=merged)\n                )\n\n            return merged_collection\n\n        elif isinstance(value, ftrack_api.collection.MappedCollectionProxy):\n            log_debug and self.logger.debug(\n                'Merging mapped collection into session: {0!r} at {1}'\n               .format(value, id(value))\n            )\n\n            merged_collection = []\n\n\n            for entry in value.collection:\n                merged_collection.append(\n                    self._merge(entry, merged=merged)\n                )\n\n            return merged_collection\n\n        else:\n            return value\n\n    def _merge_recursive(self, entity, merged=None):\n        '''Merge *entity* and all its attributes recursivly.'''\n        log_debug = self.logger.isEnabledFor(logging.DEBUG)\n\n        if merged is None:\n            merged = {}\n\n        attached = self.merge(entity, merged)\n\n        for attribute in entity.attributes:\n            # Remote attributes.\n            remote_value = attribute.get_remote_value(entity)\n\n            if isinstance(\n                remote_value,\n        \n\n_key = primary_key_definition[0]\n\n                if len(entity_keys) > 1:\n                    query = '{0} where {1} in ({2})'.format(\n                        query, primary_key,\n                        ','.join([\n                            str(entity_key[0]) for entity_key in entity_keys\n                        ])\n                    )\n                else:\n                    query = '{0} where {1} is {2}'.format(\n                     ",
+  "preparation_seconds": 0.09728375100530684,
+  "trace": {
+    "selected": [
+      {
+        "start_char": 26826,
+        "end_char": 27638
+      },
+      {
+        "start_char": 27638,
+        "end_char": 30315
+      },
+      {
+        "start_char": 30315,
+        "end_char": 31033
+      },
+      {
+        "start_char": 37860,
+        "end_char": 38303
+      }
+    ],
+    "context_tokens": 2154,
+    "context_sha256": "b4e72cfccdfa50d44fb8002a1bc9a7ed00af04453d280c96ad3a36028f05f731"
+  }
+}

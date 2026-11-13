@@ -1,0 +1,136 @@
+Logging Module Documentation
+============================
+
+Overview
+--------
+This module provides a comprehensive logging framework designed to support structured logging with multiple output handlers including console, file, and syslog. It extends Python's standard logging capabilities by adding support for structured data, asynchronous syslog handling, and configurable log rotation.
+
+Key Features
+------------
+- Custom log level `NOTICE` for informational messages visible in non-verbose mode.
+- Structured data support in log messages.
+- Multiple logging handlers:
+  - Console logging with optional color support.
+  - Rotating file logging with configurable rotation policies.
+  - Asynchronous syslog logging supporting various protocols (TCP, UDP, UNIX sockets).
+- Fine-grained logger level configuration.
+- Asyncio-compatible exception handling for logging unhandled exceptions in asynchronous tasks.
+- Several syslog formatters supporting legacy and modern syslog standards (RFC 3164, RFC 5424, MacOSX format).
+- Detection and adaptation for containerized environments.
+
+Constants
+---------
+- `LOG_NOTICE` (int): Custom log level with value 25, used for informational messages that should be visible in non-verbose mode but are not warnings or errors.
+
+Classes
+-------
+
+Logging
+-------
+Manages the overall logging configuration for an application.
+
+**Initialization:**
+- Configures console, file, and syslog handlers based on application configuration.
+- Supports log rotation based on file size or time intervals.
+- Applies fine-grained log levels per logger.
+- Detects if running inside a container to adjust console logging behavior.
+
+**Methods:**
+- `rotate()`: Manually triggers log file rotation.
+- `_on_tick_rotate_check()`: Async method to periodically check if log rotation is needed.
+- `_configure_console_logging()`: Sets up console logging with appropriate formatting and color support.
+
+_StructuredDataLogger
+---------------------
+Extends the standard Python `logging.Logger` class to support an additional `struct_data` parameter in logging calls. This allows attaching structured data to log messages for enhanced context.
+
+StructuredDataFormatter
+-----------------------
+A logging formatter that renders log messages including structured data.
+
+**Features:**
+- Formats structured data as part of the log message.
+- Supports colorized output for console logs.
+- Calculates syslog priority based on facility and severity.
+- Provides custom time formatting with millisecond precision.
+- Can be configured with different syslog facility codes and structured data identifiers.
+
+Syslog Formatters
+-----------------
+- `MacOSXSyslogFormatter`: Formats logs according to Mac OSX syslog style.
+- `SyslogRFC3164Formatter`: Implements legacy BSD syslog (RFC 3164) formatting.
+- `SyslogRFC5424Formatter`: Implements modern syslog format (RFC 5424) with GMT timestamps.
+- `SyslogRFC5424microFormatter`: Similar to RFC 5424 formatter but includes microsecond precision timestamps.
+
+AsyncIOHandler
+--------------
+An asynchronous logging handler designed for sending log messages to syslog servers using asyncio event loop.
+
+**Features:**
+- Supports UNIX domain sockets and network sockets (TCP/UDP).
+- Uses an internal queue to decouple logging from network I/O.
+- Handles socket connection management and reconnection.
+- Integrates with asyncio event loop for non-blocking operation.
+- Provides robust error handling and fallback logging to stderr on failures.
+
+Functions
+---------
+
+_loop_exception_handler(loop, context)
+--------------------------------------
+An asyncio exception handler that logs unhandled exceptions occurring in asyncio tasks. It formats the exception traceback and context information for clear error reporting.
+
+Usage Example
+-------------
+```python
+import logging
+from log import Logging
+
+app = ...  # Your application instance with event loop and configuration
+
+# Initialize logging
+logging_system = Logging(app)
+
+logger = logging.getLogger(__name__)
+logger.info("Application started", struct_data={"event": "start"})
+
+# Manually rotate logs if needed
+logging_system.rotate()
+```
+
+Configuration
+-------------
+The logging behavior is controlled via a configuration object `Config` with the following relevant sections:
+
+- `[logging]`
+  - `level`: Default log level (e.g., DEBUG, INFO, NOTICE).
+  - `verbose`: Boolean to enable verbose logging (sets level to DEBUG).
+  - `sd_id`: Identifier used for structured data in logs.
+  - `app_name`: Application name used in syslog messages.
+  - `levels`: Fine-grained logger level overrides (format: `logger_name level_name`).
+
+- `[logging:file]`
+  - `path`: File path for log file.
+  - `backup_count`: Number of backup files to keep.
+  - `backup_max_bytes`: Maximum size of log file before rotation.
+  - `format`: Log message format for file logs.
+  - `datefmt`: Date/time format for file logs.
+  - `rotate_every`: Time interval for log rotation (e.g., "1d", "12H").
+
+- `[logging:console]`
+  - `format`: Log message format for console logs.
+  - `datefmt`: Date/time format for console logs.
+
+- `[logging:syslog]`
+  - `enabled`: Enable or disable syslog logging.
+  - `address`: Syslog server address (supports unix socket paths or URLs like tcp://host:port).
+  - `format`: Syslog message format (e.g., "m", "5", "5micro", or default).
+
+Notes
+-----
+- The module automatically detects if it is running inside a container and disables colored console output accordingly.
+- If no logging handlers are configured and the application is running inside a container, console logging is enabled by default.
+- The custom log level `NOTICE` is intended for informational messages that should be visible without verbose logging enabled.
+- The asynchronous syslog handler ensures that logging does not block the main application flow.
+
+This module is designed to be integrated into applications requiring advanced logging capabilities with structured data and asynchronous syslog support.

@@ -1,0 +1,78 @@
+Handling Large Datasets
+=======================
+
+When working with large spectral data cubes, memory management and computational efficiency become critical. This documentation outlines strategies and classes designed to handle large datasets effectively, leveraging chunked computation, lazy evaluation, and optimized moment calculations.
+
+Moment Map Computation Strategies
+---------------------------------
+
+Moment maps are statistical summaries of spectral cubes along a specified axis. Computing moments on large datasets requires balancing speed and memory usage. Several strategies are implemented to accommodate different data sizes and computational resources:
+
+- **Cubewise Computation**: Processes the entire data cube at once. This method is straightforward but can be memory-intensive for large datasets.
+
+- **Raywise Computation**: Accumulates results one ray at a time (a ray corresponds to a single spatial pixel across the spectral axis). This approach reduces memory usage by processing smaller data slices sequentially.
+
+- **Slicewise Computation**: Accumulates results one slice at a time, where a slice is a 2D plane orthogonal to the axis of collapse. This method balances memory and speed by processing intermediate-sized chunks.
+
+The function `moment_auto(cube, order, axis)` automatically selects the optimal strategy based on the cube's characteristics and the axis along which the moment is computed.
+
+Dask Integration for Lazy and Parallel Computation
+--------------------------------------------------
+
+To handle very large datasets that do not fit into memory, the code integrates with **Dask**, a parallel computing library that supports out-of-core computation and lazy evaluation.
+
+- **DaskSpectralCube** and **DaskVaryingResolutionSpectralCube** classes provide spectral cube representations backed by Dask arrays.
+
+- These classes allow deferred computation, where operations build a task graph that is only executed when results are explicitly requested.
+
+- The `FilledArrayHandler` class wraps data and masks to initialize Dask arrays, enabling chunk-wise data filling and processing.
+
+- Functions like `nansum_allbadtonan` provide Dask-compatible reductions that handle missing or invalid data gracefully.
+
+Masking and Memory Efficiency
+-----------------------------
+
+Masks are essential for excluding invalid or unwanted data points during analysis. The classes support:
+
+- Composite masks combining global and component-specific masks.
+
+- Broadcasting and shape compatibility checks to ensure masks align with data shapes without unnecessary memory overhead.
+
+- Masked views that do not copy data but provide filtered access, preserving memory.
+
+Temporary Storage and Persistence
+---------------------------------
+
+For workflows requiring intermediate storage or checkpointing:
+
+- Cubes can be saved to temporary directories using Zarr format, which supports chunked, compressed, and cloud-friendly storage.
+
+- This feature requires the `zarr` and `fsspec` packages and integrates with Dask's scheduler for efficient I/O.
+
+Projection and Unit Handling
+----------------------------
+
+When collapsing dimensions or computing moments:
+
+- The code supports automatic projection of results into lower-dimensional structures with appropriate World Coordinate System (WCS) transformations.
+
+- Units are preserved and converted as needed, ensuring physical consistency of results.
+
+- Warnings are issued when operations cannot preserve WCS or units, such as averaging over mixed spatial and spectral dimensions.
+
+Summary
+-------
+
+This framework provides robust tools for handling large spectral datasets by:
+
+- Offering multiple moment computation strategies tailored to data size and available memory.
+
+- Leveraging Dask for scalable, parallel, and out-of-core computation.
+
+- Supporting flexible masking and metadata management.
+
+- Enabling efficient temporary storage and persistence.
+
+- Maintaining physical and coordinate integrity through unit and WCS-aware operations.
+
+These capabilities facilitate the analysis of large astronomical spectral cubes that would otherwise be challenging to process with conventional in-memory methods.

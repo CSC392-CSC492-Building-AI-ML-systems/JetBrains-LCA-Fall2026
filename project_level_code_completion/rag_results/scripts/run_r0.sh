@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # R0: re-baseline on the 48-datapoint dev set (dev_size=20 + dev_extra=28), starcoderbase-1b.
-export PROJECT=/mnt/c/Users/Adriana/Documents/School/CSC398/JetBrains-LCA-Fall2026/project_level_code_completion
+export PROJECT="${PROJECT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PY=~/.cache/pypoetry/virtualenvs/lca-L6V1CIw0-py3.11/bin/python
 ART=$HOME/lca_artifacts
 LOG=$HOME/lca_r0.log

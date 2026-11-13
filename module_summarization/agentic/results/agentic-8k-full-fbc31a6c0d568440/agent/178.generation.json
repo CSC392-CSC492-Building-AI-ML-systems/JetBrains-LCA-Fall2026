@@ -1,0 +1,339 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Computational Performance\n=========================\n\nThis section provides an overview of the computational performance considerations and implementation details relevant to the algorithms and models described.\n\nHessian Computation and Optimization\n------------------------------------\n\nA significant computational bottleneck in the optimization routines arises from the calculation of the Hessian matrix, specifically the \"sandwich product\" \\( X^\\top \\, \\text{diag}(W) \\, X \\). This operation is critical for solvers but can be expensive, especially for large datasets.\n\n- For sparse input matrices \\( X \\), the Hessian is computed using sparse matrix operations to leverage sparsity and reduce memory usage:\n\n  ```python\n  hess[:n_features, :n_features] = (\n      X.T\n      @ sparse.dia_matrix(\n          (hess_pointwise, 0), shape=(n_samples, n_samples)\n      )\n      @ X\n  ).toarray()\n  ```\n\n- For dense matrices, BLAS-accelerated matrix multiplication (`np.dot`) is used for speed, which is faster than alternatives like `np.einsum` despite potentially higher memory usage:\n\n  ```python\n  WX = hess_pointwise[:, None] * X\n  hess[:n_features, :n_features] = np.dot(X.T, WX)\n  ```\n\nRegularization and Intercept Handling\n-------------------------------------\n\n- L2 regularization is incorporated by adding the regularization strength to the diagonal elements of the Hessian matrix, ensuring proper penalization of model coefficients.\n\n- When fitting an intercept term, the Hessian matrix is augmented accordingly to include the intercept's contribution. This involves computing additional terms for the last row and column of the Hessian matrix:\n\n  ```python\n  Xh = X.T @ hess_pointwise\n  hess[:-1, -1] = Xh\n  hess[-1, :-1] = Xh\n  hess[-1, -1] = hess_pointwise.sum()\n  ```\n\nGradient and Hessian Product Computation\n----------------------------------------\n\nThe `gradient_hessian_product` function efficiently computes both the gradient and a Hessian product function with respect to model coefficients. This function supports:\n\n- Dense and sparse input data.\n- Sample weights.\n- L2 regularization.\n- Multi-threading via the `n_threads` parameter.\n\nThis design allows scalable and efficient optimization for linear models, including multi-class settings where coefficients are arranged contiguously per class.\n\nEarly Exit and Error Handling\n-----------------------------\n\nTo optimize performance, the implementation includes early exit strategies that avoid unnecessary Hessian computations when possible. For example, if certain conditions are met, the function returns the gradient and a warning without computing the full Hessian.\n\nUnsupported loss functions, such as categorical cross-entropy in some contexts, raise a `NotImplementedError` to signal that the current implementation does not support these cases.\n\nPerformance Considerations in Tree-Based Models\n-----------------------------------------------\n\nFor tree-based models, parameters such as `max_features` influence computational cost and model variance:\n\n- Setting `max_features` to a value less than the total number of features reduces variance but increases bias.\n- The search for splits continues until a valid partition is found, potentially inspecting more features than `max_features`.\n- Verbosity levels control the frequency and detail of progress output, which can impact runtime performance due to logging overhead.\n\nAdditional Notes\n----------------\n\n- The implementation leverages BLAS libraries for matrix operations to maximize computational efficiency.\n- Sparse matrix operations are carefully utilized to handle large-scale and high-dimensional data efficiently.\n- Regularization and intercept handling are integrated seamlessly into gradient and Hessian computations to maintain model accuracy without sacrificing performance.\n\nReferences\n----------\n\n- David Yarowsky. 1995. Unsupervised word sense disambiguation.\n- J. Cohen (1960). \"A coefficient of agreement for nominal scales\". Educational and Psychological Measurement 20(1):37-46.\n- R. Artstein and M. Poesio (2008). \"Inter-coder agreement for computational linguistics\". Computational Linguistics 34(4):555-596.\n\nThis documentation reflects the computational strategies and performance considerations implemented to ensure efficient and scalable model fitting and evaluation.",
+  "prediction_sha256": "dadb5dd9198eae2b10d672224912a63429bb1cecdf263a131f625b34bed9e433",
+  "prompt_sha256": "c4e7733e620073904027010a7d4d6c80def736dbca20bea4eef5a9cbe137e750",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 10648,
+    "completion_tokens": 940,
+    "total_tokens": 11588
+  },
+  "cost_usd": 0.0057632000000000004,
+  "generation_seconds": 10.358855708007468,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "computational performance"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10393,
+              "start_char": 7917769,
+              "end_char": 7918552,
+              "code": "_weight : array-like of shape (n_samples,), default=None\n        Sample weights.\n\n    Returns\n    -------\n    kappa : float\n        The kappa statistic, which is a number between -1 and 1. The maximum\n        value means complete agreement; zero or lower means chance agreement.\n\n    References\n    ----------\n    .. [1] :doi:`J. Cohen (1960). \"A coefficient of agreement for nominal scales\".\n           Educational and Psychological Measurement 20(1):37-46.\n           <10.1177/001316446002000104>`\n    .. [2] `R. Artstein and M. Poesio (2008). \"Inter-coder agreement for\n           computational linguistics\". Computational Linguistics 34(4):555-596\n           <https://www.mitpressjournals.org/doi/pdf/10.1162/coli.07-034-R2>`_.\n    .. [3] `Wikipedia entry for the Cohen's kappa\n ",
+              "code_tokens": 300,
+              "score": 8.971999873658
+            },
+            {
+              "chunk_id": 1434,
+              "start_char": 1126293,
+              "end_char": 1127121,
+              "code": "        has feature names that are all strings.\n\n        .. versionadded:: 1.0\n\n    n_iter_ : int\n        The number of rounds of self-training, that is the number of times the\n        base estimator is fitted on relabeled variants of the training set.\n\n    termination_condition_ : {'max_iter', 'no_change', 'all_labeled'}\n        The reason that fitting was stopped.\n\n        - `'max_iter'`: `n_iter_` reached `max_iter`.\n        - `'no_change'`: no new labels were predicted.\n        - `'all_labeled'`: all unlabeled samples were labeled before `max_iter`\n          was reached.\n\n    See Also\n    --------\n    LabelPropagation : Label propagation classifier.\n    LabelSpreading : Label spreading model for semi-supervised learning.\n\n    References\n    ----------\n    :doi:`David Yarowsky. 1995. Unsupervised word sense disamb",
+              "code_tokens": 300,
+              "score": 8.344321237305
+            },
+            {
+              "chunk_id": 5680,
+              "start_char": 4353772,
+              "end_char": 4354358,
+              "code": "  # Exit early without computing the hessian.\n                return grad, hess, hessian_warning\n\n            # TODO: This \"sandwich product\", X' diag(W) X, is the main computational\n            # bottleneck for solvers. A dedicated Cython routine might improve it\n            # exploiting the symmetry (as opposed to, e.g., BLAS gemm).\n            if sparse.issparse(X):\n                hess[:n_features, :n_features] = (\n                    X.T\n                    @ sparse.dia_matrix(\n                        (hess_pointwise, 0), shape=(n_samples, n_samples)\n                    )\n  ",
+              "code_tokens": 300,
+              "score": 7.464469234935
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "computational performance"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "performance computational"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10393,
+              "start_char": 7917769,
+              "end_char": 7918552,
+              "code": "_weight : array-like of shape (n_samples,), default=None\n        Sample weights.\n\n    Returns\n    -------\n    kappa : float\n        The kappa statistic, which is a number between -1 and 1. The maximum\n        value means complete agreement; zero or lower means chance agreement.\n\n    References\n    ----------\n    .. [1] :doi:`J. Cohen (1960). \"A coefficient of agreement for nominal scales\".\n           Educational and Psychological Measurement 20(1):37-46.\n           <10.1177/001316446002000104>`\n    .. [2] `R. Artstein and M. Poesio (2008). \"Inter-coder agreement for\n           computational linguistics\". Computational Linguistics 34(4):555-596\n           <https://www.mitpressjournals.org/doi/pdf/10.1162/coli.07-034-R2>`_.\n    .. [3] `Wikipedia entry for the Cohen's kappa\n ",
+              "code_tokens": 300,
+              "score": 8.971999873658
+            },
+            {
+              "chunk_id": 1434,
+              "start_char": 1126293,
+              "end_char": 1127121,
+              "code": "        has feature names that are all strings.\n\n        .. versionadded:: 1.0\n\n    n_iter_ : int\n        The number of rounds of self-training, that is the number of times the\n        base estimator is fitted on relabeled variants of the training set.\n\n    termination_condition_ : {'max_iter', 'no_change', 'all_labeled'}\n        The reason that fitting was stopped.\n\n        - `'max_iter'`: `n_iter_` reached `max_iter`.\n        - `'no_change'`: no new labels were predicted.\n        - `'all_labeled'`: all unlabeled samples were labeled before `max_iter`\n          was reached.\n\n    See Also\n    --------\n    LabelPropagation : Label propagation classifier.\n    LabelSpreading : Label spreading model for semi-supervised learning.\n\n    References\n    ----------\n    :doi:`David Yarowsky. 1995. Unsupervised word sense disamb",
+              "code_tokens": 300,
+              "score": 8.344321237305
+            },
+            {
+              "chunk_id": 5680,
+              "start_char": 4353772,
+              "end_char": 4354358,
+              "code": "  # Exit early without computing the hessian.\n                return grad, hess, hessian_warning\n\n            # TODO: This \"sandwich product\", X' diag(W) X, is the main computational\n            # bottleneck for solvers. A dedicated Cython routine might improve it\n            # exploiting the symmetry (as opposed to, e.g., BLAS gemm).\n            if sparse.issparse(X):\n                hess[:n_features, :n_features] = (\n                    X.T\n                    @ sparse.dia_matrix(\n                        (hess_pointwise, 0), shape=(n_samples, n_samples)\n                    )\n  ",
+              "code_tokens": 300,
+              "score": 7.464469234935
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 5680
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 5680,
+              "start_char": 4353772,
+              "end_char": 4356687,
+              "code": "  # Exit early without computing the hessian.\n                return grad, hess, hessian_warning\n\n            # TODO: This \"sandwich product\", X' diag(W) X, is the main computational\n            # bottleneck for solvers. A dedicated Cython routine might improve it\n            # exploiting the symmetry (as opposed to, e.g., BLAS gemm).\n            if sparse.issparse(X):\n                hess[:n_features, :n_features] = (\n                    X.T\n                    @ sparse.dia_matrix(\n                        (hess_pointwise, 0), shape=(n_samples, n_samples)\n                    )\n                    @ X\n                ).toarray()\n            else:\n                # np.einsum may use less memory but the following, using BLAS matrix\n                # multiplication (gemm), is by far faster.\n                WX = hess_pointwise[:, None] * X\n                hess[:n_features, :n_features] = np.dot(X.T, WX)\n\n            if l2_reg_strength > 0:\n                # The L2 penalty enters the Hessian on the diagonal only. To add those\n                # terms, we use a flattened view on the array.\n                hess.reshape(-1)[\n                    : (n_features * n_dof) : (n_dof + 1)\n                ] += l2_reg_strength\n\n            if self.fit_intercept:\n                # With intercept included as added column to X, the hessian becomes\n                # hess = (X, 1)' @ diag(h) @ (X, 1)\n                #      = (X' @ diag(h) @ X, X' @ h)\n                #        (           h @ X, sum(h))\n                # The left upper part has already been filled, it remains to compute\n                # the last row and the last column.\n                Xh = X.T @ hess_pointwise\n                hess[:-1, -1] = Xh\n                hess[-1, :-1] = Xh\n                hess[-1, -1] = hess_pointwise.sum()\n        else:\n            # Here we may safely assume HalfMultinomialLoss aka categorical\n            # cross-entropy.\n            raise NotImplementedError\n\n        return grad, hess, hessian_warning\n\n    def gradient_hessian_product(\n        self, coef, X, y, sample_weight=None, l2_reg_strength=0.0, n_threads=1\n    ):\n        \"\"\"Computes gradient and hessp (hessian product function) w.r.t. coef.\n\n        Parameters\n        ----------\n        coef : ndarray of shape (n_dof,), (n_classes, n_dof) or (n_classes * n_dof,)\n            Coefficients of a linear model.\n            If shape (n_classes * n_dof,), the classes of one feature are contiguous,\n            i.e. one reconstructs the 2d-array via\n            coef.reshape((n_classes, -1), order=\"F\").\n        X : {array-like, sparse matrix} of shape (n_samples, n_features)\n            Training data.\n        y : contiguous array of shape (n_samples,)\n            Observed, true target values.\n        sample_weight : None or contiguous array of shape (n_samples,), default=None\n            Sample weights.\n        l2_reg_strength : float, default=0.0\n",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "computational performance"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "performance"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 14013,
+              "start_char": 10583722,
+              "end_char": 10584550,
+              "code": "=0.9\n        The alpha-quantile of the huber loss function and the quantile\n        loss function. Only if ``loss='huber'`` or ``loss='quantile'``.\n        Values must be in the range `(0.0, 1.0)`.\n\n    verbose : int, default=0\n        Enable verbose output. If 1 then it prints progress and performance\n        once in a while (the more trees the lower the frequency). If greater\n        than 1 then it prints progress and performance for every tree.\n        Values must be in the range `[0, inf)`.\n\n    max_leaf_nodes : int, default=None\n        Grow trees with ``max_leaf_nodes`` in best-first fashion.\n        Best nodes are defined as relative reduction in impurity.\n        Values must be in the range `[2, inf)`.\n        If None, then unlimited number of leaf nodes.\n\n    warm_start : bool, default=False\n        When set",
+              "code_tokens": 300,
+              "score": 6.694198496898
+            },
+            {
+              "chunk_id": 10467,
+              "start_char": 7981392,
+              "end_char": 7982252,
+              "code": ">`.\n\n    .. versionadded:: 0.20\n\n    Parameters\n    ----------\n    y_true : array-like of shape (n_samples,)\n        Ground truth (correct) target values.\n\n    y_pred : array-like of shape (n_samples,)\n        Estimated targets as returned by a classifier.\n\n    sample_weight : array-like of shape (n_samples,), default=None\n        Sample weights.\n\n    adjusted : bool, default=False\n        When true, the result is adjusted for chance, so that random\n        performance would score 0, while keeping perfect performance at a score\n        of 1.\n\n    Returns\n    -------\n    balanced_accuracy : float\n        Balanced accuracy score.\n\n    See Also\n    --------\n    average_precision_score : Compute average precision (AP) from prediction\n        scores.\n    precision_score : Compute the precision score.\n    recall_score : Compute the recall score.\n    roc_",
+              "code_tokens": 300,
+              "score": 6.55708675486
+            },
+            {
+              "chunk_id": 13985,
+              "start_char": 10560219,
+              "end_char": 10561060,
+              "code": " range `(0.0, 1.0]` and the features\n          considered at each split will be `max(1, int(max_features * n_features_in_))`.\n        - If 'sqrt', then `max_features=sqrt(n_features)`.\n        - If 'log2', then `max_features=log2(n_features)`.\n        - If None, then `max_features=n_features`.\n\n        Choosing `max_features < n_features` leads to a reduction of variance\n        and an increase in bias.\n\n        Note: the search for a split does not stop until at least one\n        valid partition of the node samples is found, even if it requires to\n        effectively inspect more than ``max_features`` features.\n\n    verbose : int, default=0\n        Enable verbose output. If 1 then it prints progress and performance\n        once in a while (the more trees the lower the frequency). If greater\n        than 1 then it prints progress",
+              "code_tokens": 300,
+              "score": 6.500029013947
+            }
+          ],
+          "code_tokens": 900
+        }
+      }
+    ],
+    "code_tokens_returned": 4200,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "a71cd695fed5d140a9952d8e04876455a322c7280ac6e7dcdb47f789b175713a",
+        "request_id": "chatcmpl-Ej9LOz41IDBndJRG8xmcPHVnzKuDw",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 16,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.759999999999999e-05,
+        "seconds": 0.8262402079999447,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "c5c9470a970abd307fc6916a1286d5d6a215411f7ee4dcad1bf04e1d6617e697",
+        "request_id": "chatcmpl-Ej9LPaMfswZkLgd531AKJYQ76QsCE",
+        "usage": {
+          "prompt_tokens": 917,
+          "completion_tokens": 16,
+          "total_tokens": 933,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00039240000000000005,
+        "seconds": 0.6435500000006869,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "fe99213297c5568162a2af6c328c5c60c2644bc5b8e04f2aa6d2a90002bc6dbb",
+        "request_id": "chatcmpl-Ej9LQ0umGHy8EpaaXRqzaVCguiTlB",
+        "usage": {
+          "prompt_tokens": 954,
+          "completion_tokens": 15,
+          "total_tokens": 969,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00040560000000000005,
+        "seconds": 0.654706792003708,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "d3172213e16404ce4864ea97adc3c6062802ddcbfc0a0a980bd9610247e24845",
+        "request_id": "chatcmpl-Ej9LQHKP2zrVL97rycyKBYNr1EO5z",
+        "usage": {
+          "prompt_tokens": 1715,
+          "completion_tokens": 16,
+          "total_tokens": 1731,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0007116000000000001,
+        "seconds": 0.8084264160061139,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "f355b23c63c92b2c415d4eccff167c48ee2f489220e4c305e66877a20c526870",
+        "request_id": "chatcmpl-Ej9LSo49IKEOHnbG71TqKA8LzwSL6",
+        "usage": {
+          "prompt_tokens": 2551,
+          "completion_tokens": 16,
+          "total_tokens": 2567,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001046,
+        "seconds": 0.812412499995844,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "ea4f8bac63dcc120b441bd412ac53f5eff558ecab6deedd0aa10cedc124d039c",
+        "request_id": "chatcmpl-Ej9LTFV60ZEUdvT9G2GUbTsCZYjnQ",
+        "usage": {
+          "prompt_tokens": 2588,
+          "completion_tokens": 14,
+          "total_tokens": 2602,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010576000000000001,
+        "seconds": 0.7214254170030472,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "2421959c25ebd39239337dde95c7b5dfebcfafd4d8e3439a76d2c042d1e47bac",
+        "request_id": "chatcmpl-Ej9LUZyO7ABT9mhYeVKVikqtkM1CF",
+        "usage": {
+          "prompt_tokens": 1768,
+          "completion_tokens": 847,
+          "total_tokens": 2615,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020624000000000003,
+        "seconds": 5.892094374998123,
+        "retry_count": 0
+      }
+    ]
+  }
+}

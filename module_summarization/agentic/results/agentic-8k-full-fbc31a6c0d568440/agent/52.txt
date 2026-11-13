@@ -1,0 +1,102 @@
+Generalized Method of Moments (GMM) and Instrumental Variables Estimation
+==========================================================================
+
+Overview
+--------
+
+This module provides implementations for Generalized Method of Moments (GMM) estimation and Instrumental Variables (IV) estimation using Two-Stage Least Squares (2SLS). It includes classes and functions to estimate parameters in econometric models where endogeneity is a concern, and where instrumental variables are used to obtain consistent parameter estimates.
+
+Key Features
+------------
+
+- **IV2SLS Class**: Implements instrumental variables estimation using the Two-Stage Least Squares method. This class allows for estimation when some explanatory variables are endogenous and instruments are available. It supports both one-dimensional and two-dimensional endogenous and exogenous variables.
+
+- **DistQuantilesGMM Class**: Provides a specialized GMM estimator that estimates distribution parameters by matching empirical quantiles to theoretical quantiles. This is particularly useful when the optimal weighting matrix cannot be calculated numerically, such as when there is only one row of moment conditions.
+
+- **Moment Conditions and Weighting**: The module supports defining moment conditions for GMM estimation and allows for fitting models with or without an optimal weighting matrix. It includes functionality to handle cases where the weighting matrix is identity or analytically specified.
+
+- **Integration with Regression Tools**: Although GMM does not inherently know about the underlying regression model (e.g., linear regression or panel data models), the module is designed with the potential to reuse regression methods such as prediction, fitted values, and error term calculation through possible extensions or mixins.
+
+Usage Notes and Considerations
+------------------------------
+
+- **Parameters and Starting Values**: Care must be taken in specifying the number of parameters and their starting values for GMM estimation. Initially, starting values were taken from the global scope, which was identified as a bug.
+
+- **Weighting Matrix Challenges**: When the optimal weighting matrix cannot be computed numerically (e.g., in the DistQuantilesGMM with a single moment condition), the module provides methods to perform estimation using an identity weighting matrix or an analytically given weighting matrix.
+
+- **Degrees of Freedom and Statistical Tests**: The calculation of degrees of freedom in tests such as the Hausman test may differ depending on the method used (IV2SLS vs. GMM). Additionally, the normalization and scaling of test statistics like the J-test require careful consideration and validation.
+
+- **Covariance Estimation**: Estimation of covariance matrices for parameter estimates is implemented, but some cases (e.g., without optimal weighting matrix) require further refinement and testing.
+
+- **Extensibility**: The module is structured to allow future enhancements, including better integration with regression models and improved handling of moment conditions and weighting matrices.
+
+Classes and Functions
+---------------------
+
+### IV2SLS
+
+Instrumental variables estimation using Two-Stage Least Squares.
+
+**Parameters:**
+
+- `endog` : array-like  
+  Endogenous variable(s), either 1D or 2D array with shape (nobs, 1).
+
+- `exog` : array-like  
+  Explanatory variables, either 1D or 2D array with shape (nobs, k).
+
+- `instrument` : array-like  
+  Instruments for the explanatory variables. Must include all exogenous variables that are not instrumented as well as the instruments.
+
+**Notes:**
+
+- All variables in `exog` are instrumented in the calculations. Variables not to be instrumented must also be included in the `instrument` array.
+
+- Degrees of freedom for standard errors are calculated as `df_resid = nobs - k_vars`, consistent with the small-sample correction used in Stata's `ivreg2`.
+
+### DistQuantilesGMM
+
+Estimates distribution parameters by GMM based on matching empirical quantiles to theoretical quantiles.
+
+**Parameters:**
+
+- `endog` : array-like  
+  Observed data from the distribution.
+
+- `exog` : array-like  
+  Explanatory variables (if any).
+
+- `instrument` : array-like  
+  Instruments for the explanatory variables.
+
+- `distfn` : distribution function object  
+  A distribution object with methods such as `cdf` and optionally `_fitstart` for initial parameter estimation.
+
+- `pquant` : array-like, optional  
+  Probabilities at which quantiles are matched. Defaults to `[0.01, 0.05, 0.1, 0.4, 0.6, 0.9, 0.95, 0.99]`.
+
+**Methods:**
+
+- `momcond(params)`  
+  Returns the difference between theoretical and empirical quantiles for given parameters, forming the moment conditions.
+
+- `fitonce(start=None, weights=None, has_optimal_weights=False)`  
+  Fits the model without estimating an optimal weighting matrix, useful when the weighting matrix is known or cannot be computed.
+
+Additional Notes
+----------------
+
+- The module includes utility functions such as `maxabs` for numerical operations.
+
+- The implementation is under the BSD (3-clause) license and authored by Josef-Pktd.
+
+- Debugging and further development are ongoing, particularly in areas related to covariance estimation, weighting matrix specification, and integration with regression models.
+
+References
+----------
+
+- Greene, W. H. (Econometric Analysis) for theoretical background on IV and GMM estimation.
+
+- Stata's `ivreg2` for practical considerations on degrees of freedom and small-sample corrections.
+
+This module is intended for researchers and practitioners in econometrics and statistics who require flexible tools for instrumental variables and GMM estimation in Python.

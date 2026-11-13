@@ -1,0 +1,90 @@
+# Scale Schedule Module Documentation
+
+This module provides functionality for defining and managing learning rate schedules that scale the optimizer's learning rate during training. The schedules are designed to be flexible and composable, allowing for complex learning rate behaviors such as warmup periods, cosine annealing, and multiplicative stacking of multiple schedulers.
+
+## Overview
+
+Learning rate schedulers in this module produce a multiplier, denoted as :math:`\alpha`, which is applied to the optimizer's base learning rate :math:`\eta_i`. The effective learning rate at time :math:`t` is given by:
+
+\[
+\eta(t) = \eta_i \times \alpha(t)
+\]
+
+Multiple schedulers can be combined, with their effects stacking multiplicatively.
+
+### Scale Schedule Ratio (SSR)
+
+The module supports a concept called the **scale schedule ratio (SSR)**, denoted as :math:`\sigma`. This ratio "stretches" or "compresses" the schedule in time. Formally, if :math:`\alpha(t)` is the scheduler output at time :math:`t`, then the scaled scheduler output is:
+
+\[
+\alpha_{\sigma}(t) = \alpha\left(\frac{t}{\sigma}\right)
+\]
+
+This allows the schedule to be adjusted dynamically based on training duration or other factors.
+
+## Key Components
+
+### Time Conversion Utility
+
+The function `_convert_time` converts various time representations (strings, `Time` objects) into a consistent `Time` object aligned with the current training state and SSR. It handles conversions between epochs, batches, and durations, ensuring compatibility with the trainer's maximum duration and dataloader length.
+
+### Scheduler Compilation
+
+The function `compile_composer_scheduler` converts a stateless scheduler function into a PyTorch-compatible scheduler object. This compiled scheduler:
+
+- Provides a `.step()` interface similar to PyTorch schedulers.
+- Uses a bound reference to the current training `State` to compute learning rates dynamically.
+- Supports SSR scaling if the scheduler function accepts it.
+
+Note: Functional schedulers currently support only a single optimizer.
+
+## Provided Schedulers
+
+### LinearScheduler
+
+A scheduler that linearly interpolates the learning rate multiplier between an initial value and a final value over a specified duration.
+
+- **Parameters:**
+  - `t_warmup` (str | Time): Duration of the warmup period.
+  - `alpha_i` (float): Initial learning rate multiplier (default 1.0).
+  - `alpha_f` (float): Final learning rate multiplier (default 0.0).
+  - `t_max` (str | Time): Total duration of the scheduler (default "1dur").
+  - `scale_warmup` (bool): Whether to scale the warmup period with SSR (default False).
+
+- **Behavior:**
+  - During warmup, the learning rate multiplier increases linearly from 0 to `alpha_i`.
+  - After warmup, it decays linearly from `alpha_i` to `alpha_f` over the remaining duration.
+  - If `scale_warmup` is False, the warmup duration is not scaled by SSR, which may slightly distort the slope after warmup.
+  
+- **Warning:**
+  - By default, the warmup period is not scaled by SSR, which can cause unexpected slope changes unless `scale_warmup=True`.
+
+### CosineAnnealingWithWarmupScheduler
+
+A scheduler that applies a cosine annealing decay to the learning rate multiplier after an initial warmup period.
+
+- **Behavior:**
+  - During warmup, the learning rate multiplier increases linearly.
+  - After warmup, the multiplier follows the decreasing part of a cosine curve, decaying towards a final multiplier value.
+  
+- **Mathematical Form:**
+
+\[
+\alpha(t) = \begin{cases}
+\frac{t}{t_{warmup}}, & t < t_{warmup} \\
+\alpha_f + (1 - \alpha_f) \times \frac{1}{2} \left(1 + \cos(\pi \times \tau_w)\right), & t \geq t_{warmup}
+\end{cases}
+\]
+
+where :math:`\tau_w` is the fraction of post-warmup time elapsed, clipped to [0, 1].
+
+## Usage Notes
+
+- The module requires the training `State` to have `max_duration` set when schedulers are invoked.
+- When converting times, the module relies on the dataloader length to convert epochs to batches if necessary.
+- Multiple schedulers can be combined by multiplying their output multipliers.
+- The SSR parameter allows flexible scaling of schedules to accommodate different training durations or experimental setups.
+
+## Summary
+
+This module enables precise control over learning rate schedules with support for warmup, linear decay, cosine annealing, and schedule scaling. It integrates tightly with the training state and PyTorch optimizers, providing a robust foundation for advanced learning rate scheduling strategies.

@@ -1,0 +1,218 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "config module\n=============\n\nThis module provides methods for getting and setting global configuration options for ASDF (Advanced Scientific Data Format). It defines the `AsdfConfig` class, which acts as a container for ASDF configuration options, and provides functions to access and temporarily override these configurations.\n\nClasses\n-------\n\nAsdfConfig\n~~~~~~~~~~\n\nContainer for ASDF configuration options. Users are not intended to construct this object directly; instead, use the `get_config` and `config_context` module methods.\n\n**Attributes and Properties:**\n\n- `resource_mappings`  \n  Returns the list of registered resource mapping instances. Unless overridden by user configuration, this list contains every mapping registered with an entry point.\n\n**Methods:**\n\n- `add_resource_mapping(mapping)`  \n  Register a new resource mapping. The new mapping will take precedence over all previously registered mappings.\n\n  Parameters:  \n  `mapping` : collections.abc.Mapping  \n  A map of resource URI strings to bytes content.\n\n- `remove_resource_mapping(mapping=None, *, package=None)`  \n  Remove a registered resource mapping.\n\n  Parameters:  \n  `mapping` : collections.abc.Mapping, optional  \n  The mapping to remove.  \n  `package` : str, optional  \n  Remove only extensions provided by this package. If `mapping` is omitted, all mappings from this package will be removed.\n\n- `reset_resources()`  \n  Reset registered resource mappings to the default state.\n\nFunctions\n---------\n\nget_config()\n~~~~~~~~~~~~\n\nGet the current ASDF configuration, which may have been altered by one or more surrounding calls to `config_context`.\n\nReturns:  \n`AsdfConfig` instance representing the current configuration.\n\nconfig_context()\n~~~~~~~~~~~~~~~\n\nContext manager that temporarily overrides ASDF configuration. The context yields an `AsdfConfig` instance that can be modified without affecting code outside of the context.\n\nUsage example:\n\n```python\nwith config_context() as config:\n    config.add_resource_mapping(my_mapping)\n    # configuration changes here are temporary\n```\n\nConstants\n---------\n\n- `DEFAULT_VALIDATE_ON_READ` : bool  \n  Default setting for whether validation occurs on reading ASDF files (default: True).\n\n- `DEFAULT_DEFAULT_VERSION` : str  \n  Default ASDF version string.\n\n- `DEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS` : bool  \n  Default setting for legacy schema default filling (default: True).\n\n- `DEFAULT_IO_BLOCK_SIZE` : int  \n  Default block size for I/O operations (-1 means automatic).\n\n- `DEFAULT_ARRAY_INLINE_THRESHOLD` : Optional[int]  \n  Default threshold for inlining arrays (None means no threshold).\n\nThread Safety\n-------------\n\nThe `AsdfConfig` class uses a reentrant lock (`threading.RLock`) to ensure thread-safe access and modification of configuration options.\n\nUsage Notes\n-----------\n\n- Users should obtain the current configuration using `get_config()` rather than instantiating `AsdfConfig` directly.\n- Temporary configuration changes should be made within the `config_context()` context manager to avoid affecting global state.\n- Resource mappings can be added or removed dynamically to customize how ASDF resolves resource URIs.\n\nThis module is essential for managing global and context-specific configuration settings in ASDF workflows.",
+  "prediction_sha256": "72a33d23d69774f0eaedd4462fb4ad020b3002d82843bd429d9c7126da0a2c41",
+  "prompt_sha256": "ada96600a95a5b4f25a7f9ff638f54fdfbe5364d8f68a34a9cb68e022788ba03",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 5960,
+    "completion_tokens": 1200,
+    "total_tokens": 7160
+  },
+  "cost_usd": 0.0043040000000000005,
+  "generation_seconds": 10.878394083993044,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 3,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "config"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 13,
+              "start_char": 11012,
+              "end_char": 11824,
+              "code": "  self.legacy_fill_schema_defaults,\n            self.validate_on_read,\n        )\n\n\nclass _ConfigLocal(threading.local):\n    def __init__(self):\n        self.config_stack = []\n\n\n_global_config = AsdfConfig()\n_local = _ConfigLocal()\n\n\ndef get_config():\n    \"\"\"\n    Get the current config, which may have been altered by\n    one or more surrounding calls to `asdf.config_context`.\n\n    Returns\n    -------\n    asdf.config.AsdfConfig\n    \"\"\"\n    if len(_local.config_stack) == 0:\n        return _global_config\n    else:\n        return _local.config_stack[-1]\n\n\n@contextmanager\ndef config_context():\n    \"\"\"\n    Context manager that temporarily overrides asdf configuration.\n    The context yields an `asdf.config.AsdfConfig` instance that can be modified\n    without affecting code outside of the context.\n    \"\"\"\n  ",
+              "code_tokens": 300,
+              "score": 2.93819127514
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 11936,
+              "end_char": 12106,
+              "code": "config_stack[-1]\n\n    config = copy.copy(base_config)\n    _local.config_stack.append(config)\n\n    try:\n        yield config\n    finally:\n        _local.config_stack.pop()",
+              "code_tokens": 75,
+              "score": 2.891239413303
+            },
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 929,
+              "code": "\"\"\"\nMethods for getting and setting asdf global configuration\noptions.\n\"\"\"\nimport copy\nimport threading\nfrom contextlib import contextmanager\n\nfrom. import entry_points, util, versioning\nfrom._helpers import validate_version\nfrom.extension import ExtensionProxy\nfrom.resource import ResourceManager, ResourceMappingProxy\n\n__all__ = [\"AsdfConfig\", \"get_config\", \"config_context\"]\n\n\nDEFAULT_VALIDATE_ON_READ = True\nDEFAULT_DEFAULT_VERSION = str(versioning.default_version)\nDEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS = True\nDEFAULT_IO_BLOCK_SIZE = -1  # auto\nDEFAULT_ARRAY_INLINE_THRESHOLD = None\n\n\nclass AsdfConfig:\n    \"\"\"\n    Container for ASDF configuration options.  Users are not intended to\n    construct this object directly; instead, use the `asdf.get_config` and\n    `asdf.config_context` module methods.\n    \"\"\"\n\n    def __init__(self):\n        self._resource_mappings = None\n        self._resource_manager = None\n        self._",
+              "code_tokens": 300,
+              "score": 2.397447496275
+            }
+          ],
+          "code_tokens": 675
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3843,
+              "code": "\"\"\"\nMethods for getting and setting asdf global configuration\noptions.\n\"\"\"\nimport copy\nimport threading\nfrom contextlib import contextmanager\n\nfrom. import entry_points, util, versioning\nfrom._helpers import validate_version\nfrom.extension import ExtensionProxy\nfrom.resource import ResourceManager, ResourceMappingProxy\n\n__all__ = [\"AsdfConfig\", \"get_config\", \"config_context\"]\n\n\nDEFAULT_VALIDATE_ON_READ = True\nDEFAULT_DEFAULT_VERSION = str(versioning.default_version)\nDEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS = True\nDEFAULT_IO_BLOCK_SIZE = -1  # auto\nDEFAULT_ARRAY_INLINE_THRESHOLD = None\n\n\nclass AsdfConfig:\n    \"\"\"\n    Container for ASDF configuration options.  Users are not intended to\n    construct this object directly; instead, use the `asdf.get_config` and\n    `asdf.config_context` module methods.\n    \"\"\"\n\n    def __init__(self):\n        self._resource_mappings = None\n        self._resource_manager = None\n        self._extensions = None\n        self._validate_on_read = DEFAULT_VALIDATE_ON_READ\n        self._default_version = DEFAULT_DEFAULT_VERSION\n        self._legacy_fill_schema_defaults = DEFAULT_LEGACY_FILL_SCHEMA_DEFAULTS\n        self._io_block_size = DEFAULT_IO_BLOCK_SIZE\n        self._array_inline_threshold = DEFAULT_ARRAY_INLINE_THRESHOLD\n\n        self._lock = threading.RLock()\n\n    @property\n    def resource_mappings(self):\n        \"\"\"\n        Get the list of registered resource mapping instances.  Unless\n        overridden by user configuration, this list contains every mapping\n        registered with an entry point.\n\n        Returns\n        -------\n        list of asdf.resource.ResourceMappingProxy\n        \"\"\"\n        if self._resource_mappings is None:\n            with self._lock:\n                if self._resource_mappings is None:\n                    self._resource_mappings = entry_points.get_resource_mappings()\n        return self._resource_mappings\n\n    def add_resource_mapping(self, mapping):\n        \"\"\"\n        Register a new resource mapping.  The new mapping will\n        take precedence over all previously registered mappings.\n\n        Parameters\n        ----------\n        mapping : collections.abc.Mapping\n            Map of `str` resource URI to `bytes` content\n        \"\"\"\n        with self._lock:\n            mapping = ResourceMappingProxy.maybe_wrap(mapping)\n\n            # Insert at the beginning of the list so that\n            # ResourceManager uses the new mapping first.\n            resource_mappings = [mapping] + [r for r in self.resource_mappings if r!= mapping]\n            self._resource_mappings = resource_mappings\n            self._resource_manager = None\n\n    def remove_resource_mapping(self, mapping=None, *, package=None):\n        \"\"\"\n        Remove a registered resource mapping.\n\n        Parameters\n        ----------\n        mapping : collections.abc.Mapping, optional\n            Mapping to remove.\n        package : str, optional\n            Remove only extensions provided by this package.  If the ``mapping``\n            argument is omitted, then all mappings from this package will\n            be removed.\n        \"\"\"\n        if mapping is None and package is None:\n            raise ValueError(\"Must specify at least one of mapping or package\")\n\n        if mapping is not None:\n            mapping = ResourceMappingProxy.maybe_wrap(mapping)\n\n        def _remove_condition(m):\n            result = True\n            if mapping is not None:\n                result = result and m == mapping\n            if package is not None:\n                result = result and m.package_name == package\n            return result\n\n        with self._lock:\n            self._resource_mappings = [m for m in self.resource_mappings if not _remove_condition(m)]\n            self._resource_manager = None\n\n    def reset_resources(self):\n        \"\"\"\n        Reset registered resource m",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 13
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 13,
+              "start_char": 11012,
+              "end_char": 12106,
+              "code": "  self.legacy_fill_schema_defaults,\n            self.validate_on_read,\n        )\n\n\nclass _ConfigLocal(threading.local):\n    def __init__(self):\n        self.config_stack = []\n\n\n_global_config = AsdfConfig()\n_local = _ConfigLocal()\n\n\ndef get_config():\n    \"\"\"\n    Get the current config, which may have been altered by\n    one or more surrounding calls to `asdf.config_context`.\n\n    Returns\n    -------\n    asdf.config.AsdfConfig\n    \"\"\"\n    if len(_local.config_stack) == 0:\n        return _global_config\n    else:\n        return _local.config_stack[-1]\n\n\n@contextmanager\ndef config_context():\n    \"\"\"\n    Context manager that temporarily overrides asdf configuration.\n    The context yields an `asdf.config.AsdfConfig` instance that can be modified\n    without affecting code outside of the context.\n    \"\"\"\n    if len(_local.config_stack) == 0:\n        base_config = _global_config\n    else:\n        base_config = _local.config_stack[-1]\n\n    config = copy.copy(base_config)\n    _local.config_stack.append(config)\n\n    try:\n        yield config\n    finally:\n        _local.config_stack.pop()",
+              "code_tokens": 425
+            }
+          ],
+          "code_tokens": 425
+        }
+      }
+    ],
+    "code_tokens_returned": 2600,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "05bd86c6aeb5a8a72535515a8c0bc44c22a6956232b694c118a27ff7188d3773",
+        "request_id": "chatcmpl-Ej9cvBDHEaOSvkvfVYmlj3rPbIppk",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 14,
+          "total_tokens": 170,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.480000000000001e-05,
+        "seconds": 0.598021042002074,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "6ef51951ed90b7eca7c4a61338a113ad6d95cb6a8e50bce761d6eeb1c78fd8da",
+        "request_id": "chatcmpl-Ej9cwoEBWhM1jwgddcIsMta7riRsO",
+        "usage": {
+          "prompt_tokens": 825,
+          "completion_tokens": 15,
+          "total_tokens": 840,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000354,
+        "seconds": 0.6875999999974738,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "0d9827a3e95202c6add9cca741dead22c7a1270ce3400371c5378b1dec6660b6",
+        "request_id": "chatcmpl-Ej9cwstUygKFHV94SIQEp5OePU92M",
+        "usage": {
+          "prompt_tokens": 1760,
+          "completion_tokens": 15,
+          "total_tokens": 1775,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000728,
+        "seconds": 0.8238280419973307,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "ca8041d0335f00e792a66a0ace7cd4832741501f0952b5b6749f2589dd07c3f6",
+        "request_id": "chatcmpl-Ej9cxKMjxdzDCMIJv3g1sPbem52tZ",
+        "usage": {
+          "prompt_tokens": 2131,
+          "completion_tokens": 512,
+          "total_tokens": 2643,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0016716,
+        "seconds": 3.455381624997244,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "final",
+        "request_sha256": "75514dc16c18bf7219e9f75cafb53345a63849655ecf8f5e93f06b345f419a4c",
+        "request_id": "chatcmpl-Ej9d1hwPbJunE86ZTfnUtZGQIClwW",
+        "usage": {
+          "prompt_tokens": 1088,
+          "completion_tokens": 644,
+          "total_tokens": 1732,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014656,
+        "seconds": 5.313563374998921,
+        "retry_count": 0
+      }
+    ]
+  }
+}

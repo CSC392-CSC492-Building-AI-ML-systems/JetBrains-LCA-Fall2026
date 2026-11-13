@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Model Usage Documentation\n=========================\n\nOverview\n--------\n\nThe `Model` class provides an asynchronous ORM interface for interacting with database records. It supports querying, filtering, annotating, and managing relationships between models.\n\nQuerying and Filtering\n----------------------\n\nYou can generate querysets to retrieve data from the database using various class methods:\n\n- `filter(*args: Q, **kwargs) -> QuerySet`  \n  Returns a `QuerySet` with the specified filter constraints applied.  \n  Example:\n  ```python\n  users = await User.filter(age__gte=18)\n  ```\n\n- `exclude(*args: Q, **kwargs) -> QuerySet`  \n  Returns a `QuerySet` excluding records matching the given constraints.\n\n- `annotate(**kwargs: Function) -> QuerySet`  \n  Annotates the queryset with extra computed fields using functions or aggregations.\n\n- `all() -> QuerySet`  \n  Returns a `QuerySet` containing all records of the model.\n\nFetching Single Records\n-----------------------\n\n- `get(*args: Q, **kwargs) -> QuerySetSingle`  \n  Fetches a single record matching the filter parameters. Raises `MultipleObjectsReturned` if more than one record matches, or `DoesNotExist` if no record is found.  \n  Example:\n  ```python\n  user = await User.get(username=\"foo\")\n  ```\n\n- `get_or_none(*args: Q, **kwargs) -> QuerySetSingle[Optional[Model]]`  \n  Similar to `get()`, but returns `None` if no record matches instead of raising an exception.\n\nFetching Related Models\n-----------------------\n\n- `fetch_for_list(instance_list: List[Model], *args: str, using_db: Optional[BaseDBAsyncClient] = None) -> None`  \n  Asynchronously fetches related models for a list of model instances.  \n  Example:\n  ```python\n  await User.fetch_for_list(users, \"profile\", \"groups\")\n  ```\n\nModel Validation\n----------------\n\n- `check()`  \n  Validates the model configuration, including constraints like `unique_together` and indexes. Raises `ConfigurationError` if the model is misconfigured.\n\n- `_check_together(together: str)`  \n  Internal method to validate the `unique_together` or `indexes` options. Ensures these are tuples or lists of tuples and that fields exist and are not ManyToMany fields.\n\nModel Metadata\n--------------\n\nEach model has a `_meta` attribute containing metadata such as:\n\n- `abstract`  \n- `db_table`  \n- `app`  \n- `fields`  \n- `db_fields`  \n- `m2m_fields`  \n- `o2o_fields`  \n- `backward_o2o_fields`  \n- `fk_fields`  \n- `backward_fk_fields`  \n- `fetch_fields`  \n\nRelationship Handling\n---------------------\n\nThe model supports various types of relationships with helper methods:\n\n- Foreign Key setters and getters (`_fk_setter`, `_fk_getter`)  \n- Reverse Foreign Key getter (`_rfk_getter`)  \n- Reverse One-to-One getter (`_ro2o_getter`)  \n- Many-to-Many getter (`_m2m_getter`)  \n\nThese methods manage the loading and caching of related objects and relations.\n\nComments Extraction\n-------------------\n\nThe `_get_comments(cls)` function extracts documentation comments placed immediately before model attributes in the source code. Comments should be in the `#:` format and can include the placeholder `{model}` which will be replaced by the model class name.\n\nExample Usage\n-------------\n\n```python\n# Fetch all active users ordered by username\nusers = await User.filter(is_active=True).order_by(\"username\").all()\n\n# Get a single user by username\nuser = await User.get(username=\"johndoe\")\n\n# Get a user or None if not found\nuser = await User.get_or_none(username=\"janedoe\")\n\n# Annotate users with the count of related posts\nusers = await User.annotate(post_count=Count(\"posts\")).all()\n\n# Fetch related profiles for a list of users\nawait User.fetch_for_list(users, \"profile\")\n```\n\nExceptions\n----------\n\n- `MultipleObjectsReturned`  \n  Raised when `get()` finds more than one matching record.\n\n- `DoesNotExist`  \n  Raised when `get()` finds no matching record.\n\n- `ConfigurationError`  \n  Raised during model validation if the model is misconfigured.\n\nSummary\n-------\n\nThe `Model` class provides a powerful and flexible interface for asynchronous database operations, supporting complex queries, annotations, and relationship management with built-in validation and helpful error handling.",
+  "prediction_sha256": "1dfcfff7ce0b2f4b3b5271fd21bb92e78cea0982552ea1d2d917dfc38dcee003",
+  "prompt_sha256": "5a9a3eefee63e96f2202fd61f85276b9af5ea98064ecca2f98c96196b0749f99",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12374,
+    "completion_tokens": 1309,
+    "total_tokens": 13683
+  },
+  "cost_usd": 0.007044,
+  "generation_seconds": 12.424234375004744,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "model"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 53,
+              "start_char": 37705,
+              "end_char": 38452,
+              "code": "ate(**kwargs)\n\n    @classmethod\n    def all(cls: Type[MODEL]) -> QuerySet[MODEL]:\n        \"\"\"\n        Returns the complete QuerySet.\n        \"\"\"\n        return QuerySet(cls)\n\n    @classmethod\n    def get(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySetSingle[MODEL]:\n        \"\"\"\n        Fetches a single record for a Model type using the provided filter parameters.\n\n       .. code-block:: python3\n\n            user = await User.get(username=\"foo\")\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n\n        :raises MultipleObjectsReturned: If provided search returned more than one object.\n        :raises DoesNotExist: If object can not be found.\n        \"\"\"\n       ",
+              "code_tokens": 300,
+              "score": 0.557234936227
+            },
+            {
+              "chunk_id": 1,
+              "start_char": 1045,
+              "end_char": 1954,
+              "code": ".transactions import current_transaction_map, in_transaction\n\nMODEL = TypeVar(\"MODEL\", bound=\"Model\")\n\n\n# TODO: Define Filter type object. Possibly tuple?\n\n\ndef get_together(meta: \"Model.Meta\", together: str) -> Tuple[Tuple[str,...],...]:\n    _together = getattr(meta, together, ())\n\n    if _together and isinstance(_together, (list, tuple)) and isinstance(_together[0], str):\n        _together = (_together,)\n\n    # return without validation, validation will be done further in the code\n    return _together\n\n\ndef prepare_default_ordering(meta: \"Model.Meta\") -> Tuple[Tuple[str, Order],...]:\n    ordering_list = getattr(meta, \"ordering\", ())\n\n    parsed_ordering = tuple(\n        QuerySet._resolve_ordering_string(ordering) for ordering in ordering_list\n    )\n\n    return parsed_ordering\n\n\ndef _fk_setter(\n    self: \"Model\", value: \"Optional[Model]\", _key: str, relation_field: str, to_field: str\n) -> None:\n",
+              "code_tokens": 300,
+              "score": 0.545646947786
+            },
+            {
+              "chunk_id": 52,
+              "start_char": 36808,
+              "end_char": 37576,
+              "code": "     Generates a QuerySet with the filter applied.\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).filter(*args, **kwargs)\n\n    @classmethod\n    def exclude(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySet[MODEL]:\n        \"\"\"\n        Generates a QuerySet with the exclude applied.\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).exclude(*args, **kwargs)\n\n    @classmethod\n    def annotate(cls: Type[MODEL], **kwargs: Function) -> QuerySet[MODEL]:\n        \"\"\"\n        Annotates the result set with extra Functions/Aggregations.\n\n  ",
+              "code_tokens": 300,
+              "score": 0.538341318336
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 53
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 53,
+              "start_char": 37705,
+              "end_char": 41183,
+              "code": "ate(**kwargs)\n\n    @classmethod\n    def all(cls: Type[MODEL]) -> QuerySet[MODEL]:\n        \"\"\"\n        Returns the complete QuerySet.\n        \"\"\"\n        return QuerySet(cls)\n\n    @classmethod\n    def get(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySetSingle[MODEL]:\n        \"\"\"\n        Fetches a single record for a Model type using the provided filter parameters.\n\n       .. code-block:: python3\n\n            user = await User.get(username=\"foo\")\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n\n        :raises MultipleObjectsReturned: If provided search returned more than one object.\n        :raises DoesNotExist: If object can not be found.\n        \"\"\"\n        return QuerySet(cls).get(*args, **kwargs)\n\n    @classmethod\n    def get_or_none(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySetSingle[Optional[MODEL]]:\n        \"\"\"\n        Fetches a single record for a Model type using the provided filter parameters or None.\n\n       .. code-block:: python3\n\n            user = await User.get(username=\"foo\")\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).get_or_none(*args, **kwargs)\n\n    @classmethod\n    async def fetch_for_list(\n        cls, instance_list: \"List[Model]\", *args: Any, using_db: Optional[BaseDBAsyncClient] = None,\n    ) -> None:\n        \"\"\"\n        Fetches related models for provided list of Model objects.\n\n        :param instance_list: List of Model objects to fetch relations for.\n        :param args: Relation names to fetch.\n        :param using_db: DO NOT USE\n        \"\"\"\n        db = using_db or cls._meta.db\n        await db.executor_class(model=cls, db=db).fetch_for_list(instance_list, *args)\n\n    @classmethod\n    def check(cls) -> None:\n        \"\"\"\n        Calls various checks to validate the model.\n\n        :raises ConfigurationError: If the model has not been configured correctly.\n        \"\"\"\n        cls._check_together(\"unique_together\")\n        cls._check_together(\"indexes\")\n\n    @classmethod\n    def _check_together(cls, together: str) -> None:\n        \"\"\"\n        Check the value of \"unique_together\" option.\n\n        :raises ConfigurationError: If the model has not been configured correctly.\n        \"\"\"\n        _together = getattr(cls._meta, together)\n        if not isinstance(_together, (tuple, list)):\n            raise ConfigurationError(f\"'{cls.__name__}.{together}' must be a list or tuple.\")\n\n        if any(not isinstance(unique_fields, (tuple, list)) for unique_fields in _together):\n            raise ConfigurationError(\n                f\"All '{cls.__name__}.{together}' elements must be lists or tuples.\"\n            )\n\n        for fields_tuple in _together:\n            for field_name in fields_tuple:\n                field = cls._meta.fields_map.get(field_name)\n\n                if not field:\n                    raise ConfigurationError(\n                        f\"'{cls.__name__}.{together}' has no '{field_name}' field.\"\n                    )\n\n                if isinstance(field, ManyToManyFieldInstance):\n                    raise ConfigurationError(\n                        f\"'{cls.__name__}.{together}' '{field_name}' field refers\"\n                        \" to ManyToMany field.\"\n                    )\n\n    @classmethod\n    def describe(cls, serializable: bool = True) -> dict:\n        \"\"\"\n        Describes",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 1045,
+              "end_char": 4683,
+              "code": ".transactions import current_transaction_map, in_transaction\n\nMODEL = TypeVar(\"MODEL\", bound=\"Model\")\n\n\n# TODO: Define Filter type object. Possibly tuple?\n\n\ndef get_together(meta: \"Model.Meta\", together: str) -> Tuple[Tuple[str,...],...]:\n    _together = getattr(meta, together, ())\n\n    if _together and isinstance(_together, (list, tuple)) and isinstance(_together[0], str):\n        _together = (_together,)\n\n    # return without validation, validation will be done further in the code\n    return _together\n\n\ndef prepare_default_ordering(meta: \"Model.Meta\") -> Tuple[Tuple[str, Order],...]:\n    ordering_list = getattr(meta, \"ordering\", ())\n\n    parsed_ordering = tuple(\n        QuerySet._resolve_ordering_string(ordering) for ordering in ordering_list\n    )\n\n    return parsed_ordering\n\n\ndef _fk_setter(\n    self: \"Model\", value: \"Optional[Model]\", _key: str, relation_field: str, to_field: str\n) -> None:\n    setattr(self, relation_field, getattr(value, to_field) if value else None)\n    setattr(self, _key, value)\n\n\ndef _fk_getter(\n    self: \"Model\", _key: str, ftype: \"Type[Model]\", relation_field: str, to_field: str\n) -> Awaitable:\n    try:\n        return getattr(self, _key)\n    except AttributeError:\n        value = getattr(self, relation_field)\n        if value:\n            return ftype.filter(**{to_field: value}).first()\n        return NoneAwaitable\n\n\ndef _rfk_getter(\n    self: \"Model\", _key: str, ftype: \"Type[Model]\", frelfield: str, from_field: str\n) -> ReverseRelation:\n    val = getattr(self, _key, None)\n    if val is None:\n        val = ReverseRelation(ftype, frelfield, self, from_field)\n        setattr(self, _key, val)\n    return val\n\n\ndef _ro2o_getter(\n    self: \"Model\", _key: str, ftype: \"Type[Model]\", frelfield: str, from_field: str\n) -> \"QuerySetSingle[Optional[Model]]\":\n    if hasattr(self, _key):\n        return getattr(self, _key)\n\n    val = ftype.filter(**{frelfield: getattr(self, from_field)}).first()\n    setattr(self, _key, val)\n    return val\n\n\ndef _m2m_getter(\n    self: \"Model\", _key: str, field_object: ManyToManyFieldInstance\n) -> ManyToManyRelation:\n    val = getattr(self, _key, None)\n    if val is None:\n        val = ManyToManyRelation(self, field_object)\n        setattr(self, _key, val)\n    return val\n\n\ndef _get_comments(cls: \"Type[Model]\") -> Dict[str, str]:\n    \"\"\"\n    Get comments exactly before attributes\n\n    It can be multiline comment. The placeholder \"{model}\" will be replaced with the name of the\n    model class. We require that the comments are in #: (with a colon) format, so you can\n    differentiate between private and public comments.\n\n    :param cls: The class we need to extract comments from its source.\n    :return: The dictionary of comments by field name\n    \"\"\"\n    try:\n        source = inspect.getsource(cls)\n    except TypeError:  # pragma: nocoverage\n        return {}\n    comments = {}\n\n    for cls_ in reversed(cls.__mro__):\n        if cls_ is object:\n            continue\n        matches = re.findall(rf\"((?:(?!\\n|^)[^\\w\\n]*#:.*?\\n)+?)[^\\w\\n]*(\\w+)\\s*[:=]\", source)\n        for match in matches:\n            field_name = match[1]\n            # Extract text\n            comment = re.sub(r\"(^\\s*#:\\s*|\\s*$)\", \"\", match[0], flags=re.MULTILINE)\n            # Class name template\n            comments[field_name] = comment.replace(\"{model}\", cls_.__name__)\n\n    return comments\n\n\nclass MetaInfo:\n    __slots__ = (\n        \"abstract\",\n        \"db_table\",\n        \"app\",\n        \"fields\",\n        \"db_fields\",\n        \"m2m_fields\",\n        \"o2o_fields\",\n        \"backward_o2o_fields\",\n        \"fk_fields\",\n        \"backward_fk_fields\",\n        \"fetch_fields\",",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 52
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 52,
+              "start_char": 36808,
+              "end_char": 40556,
+              "code": "     Generates a QuerySet with the filter applied.\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).filter(*args, **kwargs)\n\n    @classmethod\n    def exclude(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySet[MODEL]:\n        \"\"\"\n        Generates a QuerySet with the exclude applied.\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).exclude(*args, **kwargs)\n\n    @classmethod\n    def annotate(cls: Type[MODEL], **kwargs: Function) -> QuerySet[MODEL]:\n        \"\"\"\n        Annotates the result set with extra Functions/Aggregations.\n\n        :param kwargs: Parameter name and the Function/Aggregation to annotate with.\n        \"\"\"\n        return QuerySet(cls).annotate(**kwargs)\n\n    @classmethod\n    def all(cls: Type[MODEL]) -> QuerySet[MODEL]:\n        \"\"\"\n        Returns the complete QuerySet.\n        \"\"\"\n        return QuerySet(cls)\n\n    @classmethod\n    def get(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySetSingle[MODEL]:\n        \"\"\"\n        Fetches a single record for a Model type using the provided filter parameters.\n\n       .. code-block:: python3\n\n            user = await User.get(username=\"foo\")\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n\n        :raises MultipleObjectsReturned: If provided search returned more than one object.\n        :raises DoesNotExist: If object can not be found.\n        \"\"\"\n        return QuerySet(cls).get(*args, **kwargs)\n\n    @classmethod\n    def get_or_none(cls: Type[MODEL], *args: Q, **kwargs: Any) -> QuerySetSingle[Optional[MODEL]]:\n        \"\"\"\n        Fetches a single record for a Model type using the provided filter parameters or None.\n\n       .. code-block:: python3\n\n            user = await User.get(username=\"foo\")\n\n        :param args: Q funtions containing constraints. Will be AND'ed.\n        :param kwargs: Simple filter constraints.\n        \"\"\"\n        return QuerySet(cls).get_or_none(*args, **kwargs)\n\n    @classmethod\n    async def fetch_for_list(\n        cls, instance_list: \"List[Model]\", *args: Any, using_db: Optional[BaseDBAsyncClient] = None,\n    ) -> None:\n        \"\"\"\n        Fetches related models for provided list of Model objects.\n\n        :param instance_list: List of Model objects to fetch relations for.\n        :param args: Relation names to fetch.\n        :param using_db: DO NOT USE\n        \"\"\"\n        db = using_db or cls._meta.db\n        await db.executor_class(model=cls, db=db).fetch_for_list(instance_list, *args)\n\n    @classmethod\n    def check(cls) -> None:\n        \"\"\"\n        Calls various checks to validate the model.\n\n        :raises ConfigurationError: If the model has not been configured correctly.\n        \"\"\"\n        cls._check_together(\"unique_together\")\n        cls._check_together(\"indexes\")\n\n    @classmethod\n    def _check_together(cls, together: str) -> None:\n        \"\"\"\n        Check the value of \"unique_together\" option.\n\n        :raises ConfigurationError: If the model has not been configured correctly.\n        \"\"\"\n        _together = getattr(cls._meta, together)\n        if not isinstance(_together, (tuple, list)):\n            raise ConfigurationError(f\"'{cls.__name__}.{together}' must be a list or tuple.\")\n\n        if any(not isinstance(unique_fields, (tuple, list)) for unique_fields in _together):\n            raise ConfigurationError(\n                f\"All '{cls.__name__}.{together}' elements must be lists or tuples.\"\n            )\n\n        for fields_tuple in _together:\n            for field_name in",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "20cf7448aabf1d1a686730b278ad0ed83926f5145c21fa5286eb7c920f32ea4c",
+        "request_id": "chatcmpl-Ej8KGHem6woDSkuNAcV8e4l9bfgBR",
+        "usage": {
+          "prompt_tokens": 153,
+          "completion_tokens": 14,
+          "total_tokens": 167,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.360000000000001e-05,
+        "seconds": 0.6618528750004771,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "41c713a323674d8e7680dbd471ccf1452765f6d21b88e0bb44d7038592673f03",
+        "request_id": "chatcmpl-Ej8KHE3AHYIKMzUtduXkmbwOZ0CEm",
+        "usage": {
+          "prompt_tokens": 987,
+          "completion_tokens": 15,
+          "total_tokens": 1002,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004188,
+        "seconds": 0.7484377500004484,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "42553d18b8d04be005851eab34b16c9292fca0de3bbba6cbcca8692d76b8fd4a",
+        "request_id": "chatcmpl-Ej8KHcieKlcB36SgJ8pCGXtSw5khA",
+        "usage": {
+          "prompt_tokens": 1951,
+          "completion_tokens": 15,
+          "total_tokens": 1966,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008044,
+        "seconds": 0.749700500000472,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "db2d114a5ae2741e56baafd42eeebb92029d5ca477aaa4867421cc47a4b11e6c",
+        "request_id": "chatcmpl-Ej8KIEYtSgMW1aLoDrm8Rj3xNHSWr",
+        "usage": {
+          "prompt_tokens": 3116,
+          "completion_tokens": 15,
+          "total_tokens": 3131,
+          "prompt_tokens_details": {
+            "cached_tokens": 1792,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0012704,
+        "seconds": 0.7712984159988991,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "addd42a2d843c31ace21dacbde10013872b1b2ba3ca1d9c26486eb766558d6d5",
+        "request_id": "chatcmpl-Ej8KJR3Rxi8UG19W83TJhZ7vpqM8U",
+        "usage": {
+          "prompt_tokens": 4173,
+          "completion_tokens": 305,
+          "total_tokens": 4478,
+          "prompt_tokens_details": {
+            "cached_tokens": 2944,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0021571999999999997,
+        "seconds": 2.6561660840015975,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "66d0e987c206e6c47e287d8a5ea9215d234a89a7316db221c4c54845fcf030e4",
+        "request_id": "chatcmpl-Ej8KMbg9GDlcjCWuJAueq6cX5ouSk",
+        "usage": {
+          "prompt_tokens": 1994,
+          "completion_tokens": 945,
+          "total_tokens": 2939,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0023095999999999998,
+        "seconds": 6.83677875000285,
+        "retry_count": 0
+      }
+    ]
+  }
+}

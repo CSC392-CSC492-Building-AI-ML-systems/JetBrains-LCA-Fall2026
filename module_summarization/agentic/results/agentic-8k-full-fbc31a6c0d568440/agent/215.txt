@@ -1,0 +1,128 @@
+Asynchronous Queues for Coroutines
+==================================
+
+The `tornado.queues` module provides asynchronous queue implementations designed to coordinate producer and consumer coroutines efficiently. These queues implement an asynchronous producer/consumer pattern, allowing coroutines to exchange data safely without blocking the event loop.
+
+Overview
+--------
+
+These queue classes are similar in concept to those found in Python's standard library `asyncio` package, but are tailored for use with Tornado's coroutine and IOLoop infrastructure. They are **not thread-safe**; to interact with these queues from other threads, use `.IOLoop.add_callback` to schedule queue operations on the IOLoop thread.
+
+Key Features
+------------
+
+- Support for asynchronous `put` and `get` operations that suspend coroutines until the queue is ready.
+- Optional maximum size (`maxsize`) to limit the number of items in the queue.
+- Support for task tracking with `task_done()` and `join()` methods to coordinate completion of queued tasks.
+- Iteration support with `async for` syntax to consume items from the queue.
+- Specialized queue types including FIFO (`Queue`), LIFO (`LifoQueue`), and priority queues (`PriorityQueue`).
+- Timeout support for `put` and `get` operations.
+
+Exceptions
+----------
+
+- `QueueEmpty`: Raised by `.Queue.get_nowait()` when the queue is empty.
+- `QueueFull`: Raised by `.Queue.put_nowait()` when the queue is full.
+
+Queue Classes
+-------------
+
+### Queue
+
+The base queue class implements a FIFO (first-in, first-out) queue.
+
+```python
+from tornado.queues import Queue
+
+q = Queue(maxsize=2)
+```
+
+- `maxsize` (default 0) controls the maximum number of items allowed in the queue. A value of 0 means the queue size is unbounded.
+- `put(item)` asynchronously adds an item to the queue, waiting if necessary until there is room.
+- `get()` asynchronously removes and returns an item from the queue, waiting if necessary until an item is available.
+- `task_done()` indicates that a formerly enqueued task is complete.
+- `join()` blocks until all items in the queue have been processed (i.e., `task_done()` has been called for each).
+- Supports asynchronous iteration:
+
+```python
+async for item in q:
+    # process item
+    q.task_done()
+```
+
+Example usage:
+
+```python
+import asyncio
+from tornado.ioloop import IOLoop
+from tornado.queues import Queue
+
+q = Queue(maxsize=2)
+
+async def consumer():
+    async for item in q:
+        try:
+            print('Doing work on %s' % item)
+            await asyncio.sleep(0.01)
+        finally:
+            q.task_done()
+
+async def producer():
+    for item in range(5):
+        await q.put(item)
+        print('Put %s' % item)
+
+async def main():
+    IOLoop.current().spawn_callback(consumer)
+    await producer()
+    await q.join()
+    print('Done')
+
+asyncio.run(main())
+```
+
+### LifoQueue
+
+A subclass of `Queue` that retrieves the most recently put items first (LIFO order).
+
+Example:
+
+```python
+import asyncio
+from tornado.queues import LifoQueue
+
+async def main():
+    q = LifoQueue()
+    await q.put(3)
+    await q.put(2)
+    await q.put(1)
+
+    print(await q.get())  # Outputs: 1
+    print(await q.get())  # Outputs: 2
+    print(await q.get())  # Outputs: 3
+
+asyncio.run(main())
+```
+
+### PriorityQueue
+
+A subclass of `Queue` that retrieves entries in priority order (lowest first).
+
+Items put into the queue must be comparable (e.g., tuples where the first element is the priority).
+
+Usage is similar to `Queue`.
+
+Timeouts
+--------
+
+Both `put` and `get` methods support an optional `timeout` parameter (float seconds or `datetime.timedelta`). If the operation cannot be completed within the timeout period, a `gen.TimeoutError` is raised.
+
+Thread Safety
+-------------
+
+These queues are **not thread-safe**. To interact with a queue from a different thread, schedule the operation on the Tornado IOLoop thread using `.IOLoop.add_callback`.
+
+Summary
+-------
+
+The `tornado.queues` module provides efficient, coroutine-friendly queue implementations to coordinate asynchronous producer and consumer tasks. They integrate seamlessly with Tornado's event loop and coroutine system, enabling robust asynchronous workflows with task tracking and timeout support.

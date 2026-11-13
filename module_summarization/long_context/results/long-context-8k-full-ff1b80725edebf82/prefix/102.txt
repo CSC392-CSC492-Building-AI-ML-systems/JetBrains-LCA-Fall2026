@@ -1,0 +1,130 @@
+Generate Documentation for the `autowrap` Module
+=================================================
+
+Overview
+--------
+
+The `autowrap` module provides a unified interface for compiling mathematical expressions into efficient binary Python callables using various external backends such as `f2py`, `Cython`, and a dummy backend for testing purposes. This allows users to seamlessly convert Diofant expressions into fast, compiled functions with minimal effort.
+
+The primary goal of this module is to enable users to evaluate computationally expensive expressions numerically without needing to learn the intricacies of different wrapping tools. It supports generating wrappers that produce Python-callable binaries, which can be used directly or integrated into symbolic expressions.
+
+Key Features
+------------
+
+- **Multiple Backend Support:** Currently supports `f2py` and `Cython` backends, with a dummy backend for testing.
+- **Automatic Language Inference:** Infers the appropriate programming language (C or Fortran) based on the selected backend.
+- **Temporary File Management:** Supports specifying a temporary directory to retain generated source and wrapper files for inspection or reuse.
+- **Helper Functions:** Allows inclusion of auxiliary expressions (helpers) that the main expression depends on.
+- **Integration with Diofant:** Provides functions that return either binary callables or Diofant `Function` objects linked to compiled binaries.
+- **Verbose Mode:** Optionally outputs compilation and wrapping process details for debugging.
+
+When to Use `autowrap`
+----------------------
+
+1. **Performance on Large Arrays:** When Python-level iteration is too slow and NumPy indexing is insufficient.
+2. **Repeated Evaluation of Complex Expressions:** For very long expressions called multiple times, compiled binaries offer significant speedups over Diofant's `evalf()`.
+3. **Code Generation for External Projects:** Quickly test generated code from Diofant's codegen utility within Python.
+4. **Creating Custom NumPy Ufuncs:** Facilitates the creation of customized universal functions for NumPy arrays.
+
+When Not to Use `autowrap`
+--------------------------
+
+- If you require fine-grained speed or memory optimizations, working directly with the wrapping tools and low-level code may yield better results.
+- If your computations can be efficiently handled by NumPy alone and you do not need compiled binaries for other projects.
+
+Main Components
+---------------
+
+### Exceptions
+
+- **`CodeWrapError`**: Generic exception raised for errors during the code wrapping process.
+
+### Classes
+
+#### `CodeWrapper`
+
+Base class for all code wrappers. Handles code generation, file preparation, compilation, and module import. Manages temporary working directories and module naming.
+
+- **Properties:**
+  - `filename`: Returns the base filename for generated code.
+  - `module_name`: Returns the Python module name for the compiled wrapper.
+  - `include_header`: Indicates whether to include header files (based on file path).
+  - `include_empty`: Indicates whether to include empty files (based on file path).
+  - `command`: Abstract property to be implemented by subclasses specifying the compilation command.
+
+- **Methods:**
+  - `_generate_code(main_routine, routines)`: Generates source code files.
+  - `_prepare_files(routine)`: Prepares necessary files before compilation (to be implemented by subclasses).
+  - `_process_files(routine)`: Executes the compilation command.
+  - `wrap_code(routine, helpers=[])`: Main method to generate, compile, and import the wrapped function.
+
+#### `DummyWrapper`
+
+A simple wrapper for testing purposes that generates a dummy Python module returning a string representation of the expression.
+
+#### `CythonCodeWrapper`
+
+Wraps code using Cython. Generates `.pyx` files and a `setup.py` script to build the extension module.
+
+- Supports automatic detection and inclusion of NumPy headers.
+- Generates Cython function wrappers that call the compiled C functions.
+- Handles argument partitioning into inputs, outputs, locals, and inferred dimensions.
+- Provides detailed Cython code generation for function prototypes and calls.
+
+#### `F2PyCodeWrapper`
+
+Wraps Fortran code using `f2py`. Generates the necessary command to compile and build the Python extension module.
+
+### Functions
+
+#### `_get_code_wrapper_class(backend)`
+
+Returns the appropriate `CodeWrapper` subclass for the specified backend (`'f2py'`, `'cython'`, or `'dummy'`).
+
+#### `_infer_language(backend)`
+
+Infers the preferred programming language (`'C'` or `'F95'`) for the given backend.
+
+#### `_validate_backend_language(backend, language)`
+
+Validates that the specified backend supports the given language, raising an error if incompatible.
+
+#### `autowrap(expr, language=None, backend='f2py', tempdir=None, args=None, flags=None, verbose=False, helpers=[])`
+
+Generates a Python callable binary from a Diofant expression.
+
+- **Parameters:**
+  - `expr`: Diofant expression to compile.
+  - `language`: Optional; specify `'C'` or `'F95'`. If `None`, inferred from backend.
+  - `backend`: Backend to use (`'f2py'` or `'cython'`).
+  - `tempdir`: Optional path to store temporary files; if not provided, files are deleted after compilation.
+  - `args`: Optional iterable specifying the argument order.
+  - `flags`: Optional iterable of additional flags passed to the backend compiler.
+  - `verbose`: If `True`, outputs compilation details.
+  - `helpers`: Optional iterable of helper routines as tuples `(name, expression, arguments)`.
+
+- **Returns:**
+  - A Python callable wrapping the compiled binary function.
+
+- **Example:**
+
+  ```python
+  >>> expr = ((x - y + z)**13).expand()
+  >>> binary_func = autowrap(expr)
+  >>> binary_func(1, 4, 2)
+  -1.0
+  ```
+
+Usage Notes
+-----------
+
+- The callable returned by `autowrap` is a native Python function backed by compiled code, not a Diofant symbolic object.
+- For symbolic usage, consider using `binary_function` which returns a Diofant `Function` object linked to the compiled binary.
+- Temporary files are cleaned up automatically unless a `tempdir` is specified.
+- Verbose mode is useful for debugging compilation issues.
+- Helper functions allow modularizing complex expressions by compiling auxiliary routines.
+
+Summary
+-------
+
+The `autowrap` module simplifies the process of compiling Diofant expressions into efficient, reusable Python callables by abstracting the complexities of different wrapping backends. It is particularly useful for accelerating numerical computations, integrating compiled code into symbolic workflows, and rapid prototyping of compiled mathematical functions.

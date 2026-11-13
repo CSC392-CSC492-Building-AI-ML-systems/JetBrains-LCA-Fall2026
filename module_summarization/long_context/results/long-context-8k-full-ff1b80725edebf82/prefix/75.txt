@@ -1,0 +1,147 @@
+Working with Text Data
+======================
+
+This tutorial provides an overview of how to work with text data using the utilities provided in the `sklearn.feature_extraction.text` submodule. This submodule offers tools to convert raw text documents into numerical feature vectors that can be used by machine learning algorithms.
+
+Overview
+--------
+
+Text data requires preprocessing and transformation before it can be used in machine learning models. The main steps involved in working with text data include:
+
+- Decoding and reading input text
+- Preprocessing text (e.g., lowercasing, accent stripping)
+- Tokenizing text into words or characters
+- Removing stop words
+- Generating n-grams (contiguous sequences of tokens)
+- Vectorizing text into numerical feature vectors
+
+The submodule provides classes and functions to facilitate these steps, including `CountVectorizer`, `TfidfVectorizer`, `HashingVectorizer`, and transformers like `TfidfTransformer`.
+
+Text Preprocessing
+------------------
+
+Text preprocessing involves cleaning and normalizing the input text. Common preprocessing steps include:
+
+- Lowercasing text
+- Removing accents from characters
+- Stripping HTML/XML tags
+
+The `_preprocess` function chains these steps together. Accent stripping can be done using either:
+
+- `strip_accents_ascii`: Transforms accented unicode symbols into ASCII characters (fast but only suitable for languages with direct ASCII transliterations).
+- `strip_accents_unicode`: Removes accents from unicode symbols more generally but is slower.
+
+HTML or XML tags can be removed using the `strip_tags` function, which uses a regular expression to replace tags with spaces.
+
+Decoding Input
+--------------
+
+Input text can be provided as strings, bytes, filenames, or file-like objects. The `decode` method handles reading and decoding input into unicode strings, supporting various input types and encodings.
+
+Tokenization and Analyzers
+--------------------------
+
+Tokenization is the process of splitting text into tokens (words or characters). The submodule supports several tokenization schemes:
+
+- **Word-level tokenization**: Splits text into words using a regular expression pattern.
+- **Character-level tokenization**: Splits text into character n-grams.
+- **Character-level tokenization within word boundaries**: Generates character n-grams only inside word boundaries, padding edges with spaces.
+
+The `build_tokenizer` method returns a callable that splits strings into tokens based on a token pattern or a custom tokenizer.
+
+Analyzers combine preprocessing, tokenization, and n-gram generation into a single callable. The `build_analyzer` method returns an analyzer function based on the specified analyzer type (`word`, `char`, `char_wb`, or a custom callable).
+
+Stop Words
+----------
+
+Stop words are common words that are often removed from text to reduce noise. The submodule supports:
+
+- Built-in English stop words (`ENGLISH_STOP_WORDS`)
+- Custom stop word lists
+- No stop words (default)
+
+The `get_stop_words` method returns the effective stop word list. The `_check_stop_words_consistency` method warns if stop words are inconsistent with the preprocessing and tokenization steps.
+
+N-grams
+-------
+
+N-grams are contiguous sequences of tokens used to capture context in text data. The submodule supports generating:
+
+- Word n-grams (e.g., unigrams, bigrams, trigrams)
+- Character n-grams
+- Character n-grams within word boundaries
+
+The `_word_ngrams`, `_char_ngrams`, and `_char_wb_ngrams` methods generate these n-grams respectively, based on the specified `ngram_range`.
+
+Vocabulary and Validation
+-------------------------
+
+A vocabulary is a mapping of tokens to feature indices. It can be:
+
+- Provided explicitly as a list, set, or mapping
+- Learned from the training data during fitting
+
+The `_validate_vocabulary` method checks the validity of the vocabulary, ensuring no duplicates and proper indexing. The `_check_vocabulary` method verifies that the vocabulary is fitted or provided before transforming data.
+
+The `_validate_ngram_range` method ensures the n-gram range parameter is valid (minimum less than or equal to maximum).
+
+Warnings and Parameter Consistency
+----------------------------------
+
+The submodule issues warnings when parameters are unused or inconsistent, such as:
+
+- Using both a custom tokenizer and a token pattern
+- Providing a preprocessor when a callable analyzer is used
+- Specifying n-gram ranges or stop words when the analyzer is not word-based
+
+These warnings help users avoid configuration mistakes.
+
+Summary of Key Functions and Classes
+------------------------------------
+
+- **`strip_accents_ascii(s)`**: Remove accents from unicode string `s` by transliterating to ASCII.
+- **`strip_accents_unicode(s)`**: Remove accents from unicode string `s` using unicode normalization.
+- **`strip_tags(s)`**: Remove HTML/XML tags from string `s`.
+- **`_preprocess(doc, accent_function=None, lower=False)`**: Apply accent stripping and lowercasing to `doc`.
+- **`_analyze(doc, analyzer=None, tokenizer=None, ngrams=None, preprocessor=None, decoder=None, stop_words=None)`**: Process a document through decoding, preprocessing, tokenizing, and n-gram generation.
+- **`_VectorizerMixin`**: Mixin class providing common methods for vectorizers, including decoding, tokenization, stop word handling, n-gram generation, and vocabulary validation.
+
+Using Vectorizers
+-----------------
+
+The submodule provides vectorizer classes such as `CountVectorizer` and `TfidfVectorizer` that inherit from `_VectorizerMixin`. These classes allow you to:
+
+- Fit a vocabulary from training data
+- Transform documents into sparse feature vectors
+- Customize preprocessing, tokenization, stop words, and n-gram ranges
+
+Example usage:
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer
+
+# Sample documents
+documents = [
+    "The quick brown fox jumps over the lazy dog.",
+    "Never jump over the lazy dog quickly."
+]
+
+# Initialize vectorizer
+vectorizer = CountVectorizer(lowercase=True, stop_words='english', ngram_range=(1, 2))
+
+# Fit and transform documents
+X = vectorizer.fit_transform(documents)
+
+# Feature names
+print(vectorizer.get_feature_names_out())
+
+# Feature vectors
+print(X.toarray())
+```
+
+This example converts the input documents into a matrix of token counts, ignoring English stop words and including unigrams and bigrams.
+
+Conclusion
+----------
+
+The `sklearn.feature_extraction.text` submodule provides a flexible and powerful framework for converting raw text into numerical features suitable for machine learning. By understanding and customizing preprocessing, tokenization, stop word removal, and n-gram generation, you can effectively prepare text data for your models.

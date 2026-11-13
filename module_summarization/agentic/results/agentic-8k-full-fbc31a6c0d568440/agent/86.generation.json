@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "PostgresEngine\n==============\n\nThe `PostgresEngine` class provides an asynchronous interface for connecting to and interacting with a PostgreSQL database using the `asyncpg` driver. It supports connection pooling, transaction management, and extension handling, making it suitable for high-performance applications requiring asynchronous database operations.\n\nInitialization\n--------------\n\nTo create an instance of `PostgresEngine`, provide a configuration dictionary with connection parameters such as host, port, user, password, and database name. Additional optional parameters allow customization of extensions, logging, and read replicas.\n\n```python\nengine = PostgresEngine(\n    config={\n        'host': 'localhost',\n        'port': 5432,\n        'user': 'username',\n        'password': 'password',\n        'database': 'mydb',\n    },\n    extensions=('uuid-ossp',),\n    log_queries=False,\n    log_responses=False,\n    extra_nodes=None,\n)\n```\n\nParameters:\n\n- **config** (`dict`): Connection parameters passed to `asyncpg`. Common keys include `host`, `port`, `user`, `password`, and `database`. See the [asyncpg documentation](https://magicstack.github.io/asyncpg/current/api/index.html#connection) for all options.\n\n- **extensions** (`Sequence[str]`, default `('uuid-ossp',)`): PostgreSQL extensions to create on startup. Set to an empty tuple `()` for read-only databases.\n\n- **log_queries** (`bool`, default `False`): If `True`, all SQL and DDL statements are logged before execution.\n\n- **log_responses** (`bool`, default `False`): If `True`, raw responses from queries are logged.\n\n- **extra_nodes** (`Mapping[str, PostgresEngine]`, optional): Additional database nodes such as read replicas. Each node is a mapping from a name to a `PostgresEngine` instance. Useful for directing queries to replicas.\n\nExample of using extra nodes:\n\n```python\nDB = PostgresEngine(\n    config={'database': 'main_db'},\n    extra_nodes={\n        'read_replica_1': PostgresEngine(\n            config={\n                'database': 'main_db',\n                'host': 'read_replicate.my_db.com',\n            },\n            extensions=(),\n        )\n    }\n)\n```\n\nYou can specify which node to run a query against by passing the `node` parameter:\n\n```python\nawait MyTable.select().run(node=\"read_replica_1\")\n```\n\nVersion Handling\n----------------\n\nThe engine provides a method to retrieve the PostgreSQL server version:\n\n```python\nversion = await engine.get_version()\n```\n\nThis method returns the major and minor version as a float (e.g., `12.4`). It handles different version string formats returned by PostgreSQL.\n\nTransaction Management\n======================\n\nThe `PostgresTransaction` class provides an asynchronous context manager for managing database transactions. It supports nested transactions via savepoints and ensures proper commit or rollback behavior.\n\nUsage:\n\n```python\nasync with engine.transaction():\n    # Run queries within the transaction\n    await Band.select().run()\n```\n\nFeatures:\n\n- Supports nested transactions by default. Nested transactions create savepoints to allow partial rollbacks.\n\n- Optionally disallow nested transactions by setting `allow_nested=False` when creating a transaction.\n\n- Automatically commits the transaction if no exceptions occur, otherwise rolls back.\n\n- Provides methods to manually commit, rollback, or rollback to a savepoint.\n\nExample:\n\n```python\nasync with engine.transaction():\n    # Perform database operations\n    await SomeTable.insert(...).run()\n```\n\nSavepoints\n----------\n\nWithin a transaction, savepoints can be created and managed to allow partial rollbacks:\n\n```python\nsavepoint = await transaction.savepoint(name=\"my_savepoint\")\n# ... perform some operations\nawait savepoint.rollback_to()\n```\n\nThis allows rolling back to a specific point within a transaction without aborting the entire transaction.\n\nConnection Handling\n===================\n\nThe engine manages connections via an optional connection pool. If a pool is configured, connections are acquired and released automatically. Otherwise, new connections are created and closed as needed.\n\nLogging\n=======\n\n- When `log_queries` is enabled, all SQL and DDL statements are printed before execution.\n\n- When `log_responses` is enabled, raw responses from queries are printed for debugging purposes.\n\nContext Variable\n================\n\nThe engine maintains a context variable `current_transaction` to track the active transaction within the current asynchronous context. This enables nested transaction support and proper transaction scoping.\n\nError Handling\n==============\n\n- Attempting to create a nested transaction when `allow_nested=False` raises a `TransactionError`.\n\n- Connection errors during version retrieval are caught and logged as warnings, preventing import-time failures.\n\nSummary\n=======\n\nThe `PostgresEngine` module provides a robust, asynchronous PostgreSQL client with support for:\n\n- Connection pooling and configuration\n\n- Extension management\n\n- Query and response logging\n\n- Multiple database nodes (e.g., read replicas)\n\n- Transaction management with nested transactions and savepoints\n\n- Version detection and error handling\n\nThis makes it a powerful tool for building scalable, asynchronous applications that interact with PostgreSQL databases.",
+  "prediction_sha256": "e143f682f071413a24f6252d3e9633e78a1bc30d224216ed1d4991834fa5d812",
+  "prompt_sha256": "43d2f4e4672bcfb9c6e30debb4760f2b20888a163ffd1244a1ac65b022c3826a",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 10163,
+    "completion_tokens": 1615,
+    "total_tokens": 11778
+  },
+  "cost_usd": 0.006649200000000001,
+  "generation_seconds": 13.807244583986176,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "postgres_engine"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8769,
+              "end_char": 9291,
+              "code": " replicas) for the\n        server, you can specify them here. It's a mapping of a memorable name\n        to a ``PostgresEngine`` instance. For example::\n\n            DB = PostgresEngine(\n                config={'database':'main_db'},\n                extra_nodes={\n                   'read_replica_1': PostgresEngine(\n                        config={\n                            'database':'main_db',\n                            host:'read_replicate.my_db.com'\n                        },\n                        extensions=",
+              "code_tokens": 300,
+              "score": 1.823715549789
+            },
+            {
+              "chunk_id": 8,
+              "start_char": 6956,
+              "end_char": 7689,
+              "code": "):\n        if self._parent:\n            return exception is None\n\n        if exception:\n            # The user may have manually rolled it back.\n            if not self._rolled_back:\n                await self.rollback()\n        else:\n            # The user may have manually committed it.\n            if not self._committed and not self._rolled_back:\n                await self.commit()\n\n        if self.engine.pool:\n            await self.engine.pool.release(self.connection)\n        else:\n            await self.connection.close()\n\n        self.engine.current_transaction.reset(self.context)\n\n        return exception is None\n\n\n###############################################################################\n\n\nclass PostgresEngine",
+              "code_tokens": 300,
+              "score": 1.678551334411
+            },
+            {
+              "chunk_id": 4,
+              "start_char": 3625,
+              "end_char": 4286,
+              "code": "VEPOINT {self.name}\"\n        )\n\n    async def release(self):\n        await self.transaction.connection.execute(\n            f\"RELEASE SAVEPOINT {self.name}\"\n        )\n\n\nclass PostgresTransaction:\n    \"\"\"\n    Used for wrapping queries in a transaction, using a context manager.\n    Currently it's async only.\n\n    Usage::\n\n        async with engine.transaction():\n            # Run some queries:\n            await Band.select().run()\n\n    \"\"\"\n\n    __slots__ = (\n        \"engine\",\n        \"transaction\",\n        \"context\",\n        \"connection\",\n        \"_savepoint_id\",\n        \"_parent\",\n        \"_committed\",\n        \"_rolled_back\",\n    )\n\n    def __init__(self",
+              "code_tokens": 300,
+              "score": 1.664694247876
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 10
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 10,
+              "start_char": 8769,
+              "end_char": 11924,
+              "code": " replicas) for the\n        server, you can specify them here. It's a mapping of a memorable name\n        to a ``PostgresEngine`` instance. For example::\n\n            DB = PostgresEngine(\n                config={'database':'main_db'},\n                extra_nodes={\n                   'read_replica_1': PostgresEngine(\n                        config={\n                            'database':'main_db',\n                            host:'read_replicate.my_db.com'\n                        },\n                        extensions=()\n                    )\n                }\n            )\n\n        Note how we set ``extensions=()``, because it's a read only database.\n\n        When executing a query, you can specify one of these nodes instead\n        of the main database. For example::\n\n            >>> await MyTable.select().run(node=\"read_replica_1\")\n\n    \"\"\"  # noqa: E501\n\n    __slots__ = (\n        \"config\",\n        \"extensions\",\n        \"log_queries\",\n        \"log_responses\",\n        \"extra_nodes\",\n        \"pool\",\n        \"current_transaction\",\n    )\n\n    engine_type = \"postgres\"\n    min_version_number = 10\n\n    def __init__(\n        self,\n        config: t.Dict[str, t.Any],\n        extensions: t.Sequence[str] = (\"uuid-ossp\",),\n        log_queries: bool = False,\n        log_responses: bool = False,\n        extra_nodes: t.Mapping[str, PostgresEngine] = None,\n    ) -> None:\n        if extra_nodes is None:\n            extra_nodes = {}\n\n        self.config = config\n        self.extensions = extensions\n        self.log_queries = log_queries\n        self.log_responses = log_responses\n        self.extra_nodes = extra_nodes\n        self.pool: t.Optional[Pool] = None\n        database_name = config.get(\"database\", \"Unknown\")\n        self.current_transaction = contextvars.ContextVar(\n            f\"pg_current_transaction_{database_name}\", default=None\n        )\n        super().__init__()\n\n    @staticmethod\n    def _parse_raw_version_string(version_string: str) -> float:\n        \"\"\"\n        The format of the version string isn't always consistent. Sometimes\n        it's just the version number e.g. '9.6.18', and sometimes\n        it contains specific build information e.g.\n        '12.4 (Ubuntu 12.4-0ubuntu0.20.04.1)'. Just extract the major and\n        minor version numbers.\n        \"\"\"\n        version_segment = version_string.split(\" \")[0]\n        major, minor = version_segment.split(\".\")[:2]\n        return float(f\"{major}.{minor}\")\n\n    async def get_version(self) -> float:\n        \"\"\"\n        Returns the version of Postgres being run.\n        \"\"\"\n        try:\n            response: t.Sequence[t.Dict] = await self._run_in_new_connection(\n                \"SHOW server_version\"\n            )\n        except ConnectionRefusedError as exception:\n            # Suppressing the exception, otherwise importing piccolo_conf.py\n            # containing an engine will raise an ImportError.\n            colored_warning(f\"Unable to connect to database - {exception}\")\n            return 0.0\n        else:\n            version_string = response[0][\"server_version\"]\n            return self._parse_raw_version_string(\n                version_string",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 8
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 8,
+              "start_char": 6956,
+              "end_char": 10309,
+              "code": "):\n        if self._parent:\n            return exception is None\n\n        if exception:\n            # The user may have manually rolled it back.\n            if not self._rolled_back:\n                await self.rollback()\n        else:\n            # The user may have manually committed it.\n            if not self._committed and not self._rolled_back:\n                await self.commit()\n\n        if self.engine.pool:\n            await self.engine.pool.release(self.connection)\n        else:\n            await self.connection.close()\n\n        self.engine.current_transaction.reset(self.context)\n\n        return exception is None\n\n\n###############################################################################\n\n\nclass PostgresEngine(Engine[t.Optional[PostgresTransaction]]):\n    \"\"\"\n    Used to connect to PostgreSQL.\n\n    :param config:\n        The config dictionary is passed to the underlying database adapter,\n        asyncpg. Common arguments you're likely to need are:\n\n        * host\n        * port\n        * user\n        * password\n        * database\n\n        For example, ``{'host': 'localhost', 'port': 5432}``.\n\n        See the `asyncpg docs <https://magicstack.github.io/asyncpg/current/api/index.html#connection>`_\n        for all available options.\n\n    :param extensions:\n        When the engine starts, it will try and create these extensions\n        in Postgres. If you're using a read only database, set this value to an\n        empty tuple ``()``.\n\n    :param log_queries:\n        If ``True``, all SQL and DDL statements are printed out before being\n        run. Useful for debugging.\n\n    :param log_responses:\n        If ``True``, the raw response from each query is printed out. Useful\n        for debugging.\n\n    :param extra_nodes:\n        If you have additional database nodes (e.g. read replicas) for the\n        server, you can specify them here. It's a mapping of a memorable name\n        to a ``PostgresEngine`` instance. For example::\n\n            DB = PostgresEngine(\n                config={'database':'main_db'},\n                extra_nodes={\n                   'read_replica_1': PostgresEngine(\n                        config={\n                            'database':'main_db',\n                            host:'read_replicate.my_db.com'\n                        },\n                        extensions=()\n                    )\n                }\n            )\n\n        Note how we set ``extensions=()``, because it's a read only database.\n\n        When executing a query, you can specify one of these nodes instead\n        of the main database. For example::\n\n            >>> await MyTable.select().run(node=\"read_replica_1\")\n\n    \"\"\"  # noqa: E501\n\n    __slots__ = (\n        \"config\",\n        \"extensions\",\n        \"log_queries\",\n        \"log_responses\",\n        \"extra_nodes\",\n        \"pool\",\n        \"current_transaction\",\n    )\n\n    engine_type = \"postgres\"\n    min_version_number = 10\n\n    def __init__(\n        self,\n        config: t.Dict[str, t.Any],\n        extensions: t.Sequence[str] = (\"uuid-ossp\",),\n        log_queries: bool = False,\n        log_responses: bool = False,\n        extra_nodes: t.Mapping[str, PostgresEngine] = None,\n    ) -> None:\n        if extra_nodes is None:\n            extra_nodes = {}\n\n        self.config = config\n        self.extensions = extensions\n        self.log_queries = log_qu",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 4
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 4,
+              "start_char": 3625,
+              "end_char": 7160,
+              "code": "VEPOINT {self.name}\"\n        )\n\n    async def release(self):\n        await self.transaction.connection.execute(\n            f\"RELEASE SAVEPOINT {self.name}\"\n        )\n\n\nclass PostgresTransaction:\n    \"\"\"\n    Used for wrapping queries in a transaction, using a context manager.\n    Currently it's async only.\n\n    Usage::\n\n        async with engine.transaction():\n            # Run some queries:\n            await Band.select().run()\n\n    \"\"\"\n\n    __slots__ = (\n        \"engine\",\n        \"transaction\",\n        \"context\",\n        \"connection\",\n        \"_savepoint_id\",\n        \"_parent\",\n        \"_committed\",\n        \"_rolled_back\",\n    )\n\n    def __init__(self, engine: PostgresEngine, allow_nested: bool = True):\n        \"\"\"\n        :param allow_nested:\n            If ``True`` then if we try creating a new transaction when another\n            is already active, we treat this as a no-op::\n\n                async with DB.transaction():\n                    async with DB.transaction():\n                        pass\n\n            If we want to disallow this behaviour, then setting\n            ``allow_nested=False`` will cause a ``TransactionError`` to be\n            raised.\n\n        \"\"\"\n        self.engine = engine\n        current_transaction = self.engine.current_transaction.get()\n\n        self._savepoint_id = 0\n        self._parent = None\n        self._committed = False\n        self._rolled_back = False\n\n        if current_transaction:\n            if allow_nested:\n                self._parent = current_transaction\n            else:\n                raise TransactionError(\n                    \"A transaction is already active - nested transactions \"\n                    \"aren't allowed.\"\n                )\n\n    async def __aenter__(self) -> PostgresTransaction:\n        if self._parent is not None:\n            return self._parent\n\n        self.connection = await self.get_connection()\n        self.transaction = self.connection.transaction()\n        await self.begin()\n        self.context = self.engine.current_transaction.set(self)\n        return self\n\n    async def get_connection(self):\n        if self.engine.pool:\n            return await self.engine.pool.acquire()\n        else:\n            return await self.engine.get_new_connection()\n\n    async def begin(self):\n        await self.transaction.start()\n\n    async def commit(self):\n        await self.transaction.commit()\n        self._committed = True\n\n    async def rollback(self):\n        await self.transaction.rollback()\n        self._rolled_back = True\n\n    async def rollback_to(self, savepoint_name: str):\n        \"\"\"\n        Used to rollback to a savepoint just using the name.\n        \"\"\"\n        await Savepoint(name=savepoint_name, transaction=self).rollback_to()\n\n    ###########################################################################\n\n    def get_savepoint_id(self) -> int:\n        self._savepoint_id += 1\n        return self._savepoint_id\n\n    async def savepoint(self, name: t.Optional[str] = None) -> Savepoint:\n        name = name or f\"savepoint_{self.get_savepoint_id()}\"\n        await self.connection.execute(f\"SAVEPOINT {name}\")\n        return Savepoint(name=name, transaction=self)\n\n    ###########################################################################\n\n    async def __aexit__(self, exception_type, exception, traceback):\n        if self._parent:\n            return exception is None\n\n        if exception:\n            # The user may have manually rolled it back.\n            if not self._rolled_back:\n                await",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "084a73a476941f7cd6a51af128fbfac6ddf37095fb0f323228dadd80c434a836",
+        "request_id": "chatcmpl-Ej8fIRdNuEdcpXuG33u7CaR7oYOCM",
+        "usage": {
+          "prompt_tokens": 157,
+          "completion_tokens": 15,
+          "total_tokens": 172,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 0.5783986669994192,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "c11c7447e3bb5899ad96c56fda81eb2c8ce99d2e0f7f830e74697da1ee74caf9",
+        "request_id": "chatcmpl-Ej8fIpqQ1Y27E8RUIfNRiJasulUdA",
+        "usage": {
+          "prompt_tokens": 770,
+          "completion_tokens": 15,
+          "total_tokens": 785,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000332,
+        "seconds": 0.7258126249944326,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "380d5ce52ecd8c8c45e99feac448aecd9543e1f1b665dfffede050d26018b7d5",
+        "request_id": "chatcmpl-Ej8fJSfABY452AAWpE7J31X3AiwaK",
+        "usage": {
+          "prompt_tokens": 1616,
+          "completion_tokens": 15,
+          "total_tokens": 1631,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006704000000000001,
+        "seconds": 0.7373782499998924,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "6f2661fd13fa7d2cf10a38b00f151bf11d74a0c3c28ad898a1dc7c189e5fc659",
+        "request_id": "chatcmpl-Ej8fK4tPk2pfxmP8OzKd1izRxJAfd",
+        "usage": {
+          "prompt_tokens": 2490,
+          "completion_tokens": 15,
+          "total_tokens": 2505,
+          "prompt_tokens_details": {
+            "cached_tokens": 1408,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00102,
+        "seconds": 0.6869376249960624,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "aaace88a5b32b4c837fa30ffee51f969b9696872c997a9f87bc67f559afdb1af",
+        "request_id": "chatcmpl-Ej8fLm9223CBoo5eA6KoPs8H9LRQg",
+        "usage": {
+          "prompt_tokens": 3384,
+          "completion_tokens": 512,
+          "total_tokens": 3896,
+          "prompt_tokens_details": {
+            "cached_tokens": 2304,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0021728000000000003,
+        "seconds": 3.723428666999098,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "f100a8ccc606ed09b467a022bd153c85d884e840ea253d01a4fa1b0b6c72e9f9",
+        "request_id": "chatcmpl-Ej8fOxzRWWhoRCUKTuqhLFvSx8PoN",
+        "usage": {
+          "prompt_tokens": 1746,
+          "completion_tokens": 1043,
+          "total_tokens": 2789,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0023672000000000003,
+        "seconds": 7.355288749997271,
+        "retry_count": 0
+      }
+    ]
+  }
+}

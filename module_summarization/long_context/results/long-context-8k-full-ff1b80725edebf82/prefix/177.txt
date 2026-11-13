@@ -1,0 +1,92 @@
+Pipelines and Composite Estimators
+==================================
+
+The `sklearn.pipeline` module provides utilities to build composite estimators by chaining together multiple transforms and a final estimator. This allows for assembling several processing steps into a single object that can be cross-validated and parameter-tuned as a whole.
+
+Pipeline
+--------
+
+A `Pipeline` is a sequence of transforms followed by a final estimator. Intermediate steps must implement both `fit` and `transform` methods, while the final estimator only needs to implement `fit`. This design enables the sequential application of data transformations and a final predictive model.
+
+### Key Features
+
+- **Sequential chaining:** Each step applies a transformation or fits a model, passing its output to the next step.
+- **Parameter setting:** Parameters of individual steps can be set using a double underscore (`'__'`) syntax, e.g., `pipeline.set_params(stepname__param=value)`.
+- **Caching:** Transformers can be cached to disk using the `memory` parameter to avoid recomputing expensive transformations.
+- **Flexibility:** Steps can be replaced or removed by setting them to another estimator, `'passthrough'`, or `None`.
+- **Integration:** Pipelines integrate seamlessly with tools like `GridSearchCV` for hyperparameter tuning.
+
+### Initialization
+
+```python
+Pipeline(steps, *, memory=None, verbose=False)
+```
+
+- `steps`: List of `(name, transform)` tuples. The last transform must be an estimator.
+- `memory`: Optional caching mechanism to store fitted transformers.
+- `verbose`: If `True`, prints timing information during fitting.
+
+### Attributes
+
+- `named_steps`: A dictionary-like object to access steps by name.
+- `classes_`: Class labels if the final estimator is a classifier.
+- `n_features_in_`: Number of features seen during fitting (if available).
+- `feature_names_in_`: Names of features seen during fitting (if available).
+
+### Methods
+
+- `fit(X, y=None, **params)`: Fits all transformers and the final estimator sequentially.
+- `fit_transform(X, y=None, **params)`: Fits all transformers and applies `fit_transform` on the final estimator.
+- `set_params(**params)`: Sets parameters of the pipeline or its steps.
+- `get_params(deep=True)`: Gets parameters of the pipeline and its steps.
+- `set_output(transform=None)`: Configures the output container of `transform` and `fit_transform` methods for all steps.
+
+### Example
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svc', SVC())
+])
+
+pipe.fit(X_train, y_train)
+score = pipe.score(X_test, y_test)
+print(score)  # e.g., 0.88
+
+pipe.set_params(svc__C=10).fit(X_train, y_train)
+print(pipe.score(X_test, y_test))  # e.g., 0.76
+```
+
+Composite Estimators
+--------------------
+
+Composite estimators are objects that combine multiple estimators into a single estimator. The `Pipeline` class is a primary example of a composite estimator, where multiple transformers and a final estimator are chained together.
+
+Composite estimators enable:
+
+- **Modular design:** Breaking down complex workflows into manageable steps.
+- **Parameter tuning:** Jointly tuning parameters of all steps.
+- **Cross-validation:** Evaluating the entire pipeline as a single estimator.
+- **Reusability:** Reusing common preprocessing or modeling steps across different workflows.
+
+By using composite estimators, users can build complex machine learning workflows that are clean, maintainable, and compatible with scikit-learn’s ecosystem.
+
+Further Reading
+---------------
+
+- User Guide on Pipelines: :ref:`pipeline`
+- Metadata Routing User Guide: :ref:`metadata_routing`
+- Examples:
+  - Comparing dimensionality reduction techniques with pipelines: :ref:`sphx_glr_auto_examples_compose_plot_compare_reduction.py`
+  - Grid searching on pipelines: :ref:`sphx_glr_auto_examples_compose_plot_digits_pipe.py`
+
+The `Pipeline` class and related utilities provide a powerful framework for building and managing composite estimators in scikit-learn.

@@ -42,7 +42,7 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def normalized_tokens(text: str) -> list[str]:
-    """One tokenizer for BOTH API names. """
+    """Use the same identifier normalization for API names and instructions."""
     return re.findall(r"[a-z0-9]+", _CAMEL_BOUNDARY.sub(" ", text).lower())
 
 
@@ -65,19 +65,31 @@ def reciprocal_rank_fusion(rankings: list[np.ndarray], rrf_k: int = 60) -> np.nd
 class RAGRetriever:
     """Retrieves the top-k API entries for an instruction. """
 
-    def __init__(self, apis: list[str], embedder, mode: str = "dense",
+    def __init__(self, apis: list[str], embedder=None, mode: str = "bm25",
                  docs: list[str] | None = None, rrf_k: int = 60,
-                 bm25_tokenizer: str = "official"):
-        assert mode in ("dense", "hybrid")
-        assert bm25_tokenizer in ("official", "normalized")
+                 bm25_tokenizer: str = "normalized"):
+        if mode not in ("bm25", "dense", "hybrid"):
+            raise ValueError("mode must be bm25, dense, or hybrid")
+        if bm25_tokenizer not in ("official", "normalized"):
+            raise ValueError("Unknown BM25 tokenizer")
+        if rrf_k <= 0:
+            raise ValueError("rrf_k must be positive")
+        if docs is not None and len(docs) != len(apis):
+            raise ValueError("docs must align with apis")
         self.apis, self.embedder, self.mode, self.rrf_k = apis, embedder, mode, rrf_k
         self.bm25_tokenizer = bm25_tokenizer
         texts = docs if docs is not None else [" ".join(split_identifier(a)) or a for a in apis]
-        self.matrix = _normalize(embedder.embed(texts))
+        self.matrix = None
+        if apis and mode != "bm25":
+            if embedder is None:
+                raise ValueError("Dense and hybrid retrieval require an embedder")
+            self.matrix = _normalize(embedder.embed(texts))
         self.bm25 = None
-        if mode == "hybrid":
+        if apis and mode in ("bm25", "hybrid"):
             index_tok = normalized_tokens if bm25_tokenizer == "normalized" else split_identifier
-            self.bm25 = BM25Okapi([index_tok(a) for a in apis])
+            corpus = [index_tok(a) for a in apis]
+            if any(corpus):
+                self.bm25 = BM25Okapi(corpus)
 
     def _query_tokens(self, instruction: str) -> list[str]:
         if self.bm25_tokenizer == "normalized":
@@ -85,12 +97,23 @@ class RAGRetriever:
         return official_query_tokens(instruction)
 
     def top_k(self, instruction: str, k: int = 20) -> list[str]:
+        if type(k) is not int or k < 0:
+            raise ValueError("k must be a nonnegative integer")
+        if not self.apis or k == 0:
+            return []
+        if self.mode == "bm25":
+            scores = (self.bm25.get_scores(self._query_tokens(instruction))
+                      if self.bm25 is not None else np.zeros(len(self.apis)))
+            order = np.argsort(-scores, kind="stable")[:k]
+            return [self.apis[i] for i in order]
         q = _normalize(self.embedder.embed([instruction])[0])
-        dense_rank = np.argsort(-(self.matrix @ q))
+        dense_rank = np.argsort(-(self.matrix @ q), kind="stable")
         if self.mode == "dense":
             order = dense_rank[:k]
         else:
-            bm25_rank = np.argsort(-self.bm25.get_scores(self._query_tokens(instruction)))
+            scores = (self.bm25.get_scores(self._query_tokens(instruction))
+                      if self.bm25 is not None else np.zeros(len(self.apis)))
+            bm25_rank = np.argsort(-scores, kind="stable")
             fused = reciprocal_rank_fusion([dense_rank, bm25_rank], self.rrf_k)
-            order = np.argsort(-fused)[:k]
+            order = np.argsort(-fused, kind="stable")[:k]
         return [self.apis[i] for i in order]

@@ -1,0 +1,86 @@
+Alchemical Transformations
+==========================
+
+Overview
+--------
+
+Alchemical transformations are a powerful technique used in molecular simulations to compute free energy differences between two states, such as different molecular species or conformations. This approach involves constructing a hybrid system that smoothly interpolates between an initial ("old") system and a final ("new") system by gradually turning on and off interactions through a coupling parameter, commonly denoted as lambda (λ).
+
+Hybrid Topology Factory
+-----------------------
+
+The core component enabling alchemical transformations in this framework is the **HybridTopologyFactory** class. This class generates a hybrid topology and system based on a proposed transformation between two molecular systems. It manages the mapping of atoms and interactions between the old and new systems and constructs a hybrid OpenMM system suitable for alchemical free energy calculations.
+
+Atom Classes
+~~~~~~~~~~~
+
+Atoms in the hybrid system are classified into four distinct groups, each treated differently during the alchemical transformation:
+
+- **unique_old_atom**: Atoms present only in the old system and not mapped to the new system. Their interactions are fully active at λ=0 and turned off at λ=1.
+- **unique_new_atom**: Atoms present only in the new system and not mapped to the old system. Their interactions are off at λ=0 and fully active at λ=1.
+- **core_atom**: Atoms that are mapped between old and new systems and belong to residues undergoing change. Their interactions interpolate between old and new states as λ varies from 0 to 1.
+- **environment_atom**: Atoms mapped between old and new systems but not part of the changing residues. Their interactions remain constant and are not alchemically modified.
+
+Key Features and Parameters
+---------------------------
+
+- **Softcore Potentials**: To avoid singularities and numerical instabilities during the transformation, softcore potentials are employed for Lennard-Jones and electrostatic interactions. Parameters such as `softcore_alpha`, `softcore_LJ_v2_alpha`, and `softcore_electrostatics_alpha` control the softness of these potentials.
+
+- **Force Scaling Functions**: Custom lambda-dependent scaling functions can be provided to control how different force terms (bonds, angles, torsions, sterics, electrostatics) are modulated during the alchemical process.
+
+- **Bond and Angle Softening**: Force constants for bonds and angles involving unique atoms can be softened to facilitate smoother transformations.
+
+- **Handling of Exceptions**: Special care is taken to manage exceptions in nonbonded interactions, ensuring that interactions involving unique and environment atoms are treated consistently.
+
+- **Constraints and Virtual Sites**: Constraints from the original systems are preserved if they do not involve changing atoms. Virtual sites are supported only in the environment region and are copied to the hybrid system.
+
+- **RMSD Restraints**: Optionally, RMSD restraints can be imposed between core heavy atoms and protein alpha carbons to maintain structural integrity during the transformation.
+
+Workflow Summary
+----------------
+
+1. **Initialization**: The factory is initialized with a topology proposal describing the mapping between old and new systems, along with their respective atomic positions.
+
+2. **Particle Addition and Mapping**: All particles from the old system are added to the hybrid system first, followed by unique new atoms. Mappings between old/new and hybrid atom indices are established.
+
+3. **Force Copying and Validation**: Forces from the old and new systems are inspected and validated to ensure compatibility. Known force types include bonds, angles, torsions, nonbonded forces, and barostats.
+
+4. **Hybrid System Construction**: The hybrid system is assembled by copying particles, constraints, virtual sites, and forces, with appropriate modifications to enable alchemical scaling.
+
+5. **Force Term Handling**: Bond, angle, torsion, and nonbonded force terms are added and modified to reflect the alchemical transformation, including softcore potentials and lambda-dependent scaling.
+
+6. **Exception Management**: Nonbonded exceptions are carefully handled to maintain physical consistency and avoid artifacts during the transformation.
+
+7. **Position and Topology Generation**: Hybrid atomic positions are computed, and a corresponding topology object is created for downstream simulation.
+
+Applications
+------------
+
+The HybridTopologyFactory and the alchemical transformation framework it supports are essential for:
+
+- Relative binding free energy calculations between ligands.
+- Mutational free energy calculations in proteins.
+- Solvation free energy computations.
+- Any scenario requiring smooth interpolation between molecular states.
+
+References
+----------
+
+- Gapsys, Vytautas, Daniel Seeliger, and Bert L. de Groot. "New soft-core potential function for molecular dynamics based alchemical free energy calculations." *Journal of Chemical Theory and Computation* 8.7 (2012): 2373-2382.
+
+Notes
+-----
+
+- This API is experimental and subject to change.
+- Annealing of omitted terms and certain advanced features are not currently supported.
+- Virtual sites in changing residues are not supported.
+- Proper validation of input systems and mappings is critical for successful alchemical transformations.
+
+Logging and Debugging
+---------------------
+
+The implementation includes detailed logging at the INFO level to trace the construction and validation steps of the hybrid system, aiding in debugging and development.
+
+---
+
+This documentation provides an overview of the alchemical transformation capabilities enabled by the HybridTopologyFactory class, facilitating rigorous and flexible free energy calculations in molecular simulations.

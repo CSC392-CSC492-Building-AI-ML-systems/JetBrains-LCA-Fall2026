@@ -1,0 +1,164 @@
+Image Extraction
+================
+
+Overview
+--------
+
+Image extraction algorithms are used to reduce the camera waveform data to one value per pixel, representing the extracted charge and pulse time. These algorithms integrate the waveform samples over a specified window to estimate the charge and determine the pulse timing, taking into account the camera's sampling rate.
+
+The extraction methods implemented provide various strategies for defining the integration window, including fixed windows, windows centered on global or local peaks, and summing the entire waveform.
+
+Key Concepts
+------------
+
+- **Waveforms**: The raw camera data, typically a 2D array with dimensions `(n_pixels, n_samples)`, where each entry is the signal amplitude at a given time sample for a pixel.
+- **Charge Extraction**: The process of integrating the waveform over a selected window to estimate the total charge.
+- **Pulse Time**: The timing of the pulse within the waveform, often calculated as a weighted average of the sample times within the integration window.
+- **Integration Window**: The range of samples over which the waveform is summed to extract the charge.
+- **Sampling Rate**: The rate at which the waveform is sampled, typically in GHz, used to convert sample indices to time units (nanoseconds).
+
+Extraction Functions
+--------------------
+
+### extract_around_peak(waveforms, peak_index, width, shift, sampling_rate_ghz)
+
+Extracts charge by summing waveform samples in a window defined relative to a peak position.
+
+- **Parameters**:
+  - `waveforms`: 1D array of waveform samples for a pixel.
+  - `peak_index`: Index of the peak sample.
+  - `width`: Width of the integration window (number of samples).
+  - `shift`: Shift of the integration window relative to the peak.
+  - `sampling_rate_ghz`: Sampling rate of the camera in GHz.
+
+- **Returns**:
+  - `charge`: Sum of waveform samples within the window.
+  - `peak_time`: Weighted average pulse time within the window (in ns).
+
+### extract_sliding_window(waveforms, width, sampling_rate_ghz)
+
+Finds the window of given width with the largest sum in the waveform and extracts charge and pulse time from that window.
+
+- **Parameters**:
+  - `waveforms`: 1D array of waveform samples for a pixel.
+  - `width`: Width of the sliding integration window.
+  - `sampling_rate_ghz`: Sampling rate of the camera in GHz.
+
+- **Returns**:
+  - `charge`: Maximum sum over any window of the specified width.
+  - `peak_time`: Weighted average pulse time within the window (in ns).
+
+### neighbor_average_maximum(waveforms, neighbors_indices, neighbors_indptr, local_weight, broken_pixels)
+
+Computes the average waveform from neighboring pixels and finds the peak position for each pixel.
+
+- **Parameters**:
+  - `waveforms`: 2D array of waveforms `(n_pixels, n_samples)`.
+  - `neighbors_indices`, `neighbors_indptr`: Sparse matrix representation of pixel neighbors.
+  - `local_weight`: Weight of the local pixel in the average.
+  - `broken_pixels`: Mask indicating broken pixels to exclude.
+
+- **Returns**:
+  - Array of peak indices for each pixel based on neighbor-averaged waveforms.
+
+### subtract_baseline(waveforms, baseline_start, baseline_end)
+
+Subtracts the baseline from waveforms, estimated as the mean value in a specified sample range.
+
+- **Parameters**:
+  - `waveforms`: 2D array of waveforms `(n_pixels, n_samples)`.
+  - `baseline_start`, `baseline_end`: Sample indices defining the baseline window.
+
+- **Returns**:
+  - Baseline-subtracted waveforms.
+
+### integration_correction(reference_pulse_shape, reference_pulse_sample_width_ns, sample_width_ns, window_width, window_shift)
+
+Calculates a correction factor for the integration window to account for pulse shape and window parameters.
+
+- **Parameters**:
+  - `reference_pulse_shape`: Pulse shape array(s) for each gain channel.
+  - `reference_pulse_sample_width_ns`: Time width of reference pulse samples.
+  - `sample_width_ns`: Time width of waveform samples.
+  - `window_width`: Width of the integration window (samples).
+  - `window_shift`: Shift of the integration window relative to the peak (samples).
+
+- **Returns**:
+  - Correction factors for each gain channel to normalize extracted charge.
+
+Image Extractor Classes
+-----------------------
+
+### ImageExtractor
+
+Abstract base class for image extraction components. Handles charge and pulse time extraction from waveform data, considering the sampling rate.
+
+- **Initialization Parameters**:
+  - `subarray`: Subarray description providing camera and telescope information.
+  - `config`: Optional configuration.
+  - `parent`: Optional parent component.
+
+- **Abstract Method**:
+  - `__call__(waveforms, tel_id, selected_gain_channel, broken_pixels)`: Extracts charge and pulse time, returning a `DL1CameraContainer`.
+
+### FullWaveformSum
+
+Extractor that sums the entire waveform for each pixel.
+
+- **Usage**:
+  - Sums all samples in the waveform without windowing.
+  - Returns extracted charge and pulse time.
+
+### FixedWindowSum
+
+Extractor that sums waveform samples within a fixed window defined by user parameters.
+
+- **Configurable Parameters**:
+  - `peak_index`: Index of the peak sample.
+  - `window_width`: Width of the integration window.
+  - `window_shift`: Shift of the integration window relative to the peak.
+  - `apply_integration_correction`: Whether to apply integration correction.
+
+- **Features**:
+  - Applies integration correction to normalize extracted charge.
+  - Uses cached correction factors per telescope.
+
+### GlobalPeakWindowSum
+
+Extractor that sums waveform samples in a window centered on the peak of the global average waveform.
+
+- **Configurable Parameters**:
+  - `window_width`: Width of the integration window.
+  - `window_shift`: Shift of the integration window relative to the peak.
+  - `apply_integration_correction`: Whether to apply integration correction.
+  - `pixel_fraction`: Fraction of brightest pixels used to determine the global peak.
+
+- **Features**:
+  - Reduces noise influence by averaging only the brightest pixels if `pixel_fraction` < 1.
+  - Applies integration correction with caching.
+
+### LocalPeakWindowSum
+
+Extractor that sums waveform samples in a window centered on the peak of each pixel's waveform individually.
+
+- **Configurable Parameters**:
+  - `window_width`: Width of the integration window.
+  - `window_shift`: Shift of the integration window relative to the peak.
+  - `apply_integration_correction`: Whether to apply integration correction.
+
+- **Features**:
+  - Determines peak position per pixel.
+  - Applies integration correction with caching.
+
+Usage Notes
+-----------
+
+- Integration window parameters (`window_width`, `window_shift`, `peak_index`) should be optimized to balance signal inclusion and noise exclusion.
+- Integration correction factors ensure that the extracted charge corresponds to the true pulse charge for a noise-less unit pulse.
+- Broken pixels should be masked appropriately to avoid biasing peak finding and charge extraction.
+- The sampling rate of the camera is critical for accurate pulse time calculation and integration correction.
+
+Summary
+-------
+
+This suite of image extraction tools provides flexible and configurable methods to convert raw waveform data into calibrated charge and timing information per pixel. By selecting appropriate extraction strategies and parameters, users can optimize the signal reconstruction for their specific camera and observational conditions.

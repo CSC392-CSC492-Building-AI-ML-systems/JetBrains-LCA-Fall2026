@@ -1,0 +1,133 @@
+Feature Extraction for Model Inspection
+=======================================
+
+Feature extraction is a powerful technique for inspecting intermediate representations within a model. It allows users to extract outputs from specified layers or nodes during the forward pass, facilitating model interpretability, debugging, and analysis.
+
+Overview
+--------
+
+The feature extraction utilities trace the model's computation graph in both training and evaluation modes to identify nodes (layers or operations) that can be used as feature extraction points. This dual tracing is necessary because the model's behavior and graph structure can differ between training and evaluation modes.
+
+Node Naming Conventions
+-----------------------
+
+Node names correspond to qualified names of modules or operations in the model's graph. However, these names are not always straightforward to obtain directly from the model code due to:
+
+1. Some submodules, especially those from `torch.nn`, may not be traced explicitly.
+2. Repeated applications of the same operation or leaf module are postfixed with an index (e.g., `_1`, `_2`) to distinguish them.
+
+For detailed information on node naming, refer to the official PyTorch documentation on feature extraction.
+
+Getting Available Node Names
+----------------------------
+
+To assist in selecting nodes for feature extraction, the utility function `get_graph_node_names` can be used. It returns two lists of node names obtained by tracing the model in training and evaluation modes respectively.
+
+```python
+from torchvision.models import resnet18
+train_nodes, eval_nodes = get_graph_node_names(resnet18())
+```
+
+This function accepts optional tracer keyword arguments to customize the tracing behavior, such as specifying additional leaf modules or functions that should not be traced through.
+
+Warning on Graph Differences
+----------------------------
+
+Since the training and evaluation graphs can differ, a warning is issued if discrepancies are detected between the nodes traced in each mode. This helps users understand potential differences in feature extraction points and adjust their node selections accordingly.
+
+Creating Feature Extractors
+---------------------------
+
+The main interface for feature extraction is the `create_feature_extractor` function. It allows specifying nodes whose outputs should be returned during the forward pass.
+
+Example usage with a ResNet model:
+
+```python
+from torchvision.models import resnet18
+from torchvision.models.feature_extraction import create_feature_extractor
+
+model = resnet18()
+# Extract features from 'layer1' and 'layer3', renaming outputs to 'feat1' and 'feat2'
+feature_extractor = create_feature_extractor(
+    model, return_nodes={'layer1': 'feat1', 'layer3': 'feat2'}
+)
+output = feature_extractor(torch.rand(1, 3, 224, 224))
+print([(k, v.shape) for k, v in output.items()])
+# Output:
+# [('feat1', torch.Size([1, 64, 56, 56])),
+#  ('feat2', torch.Size([1, 256, 14, 14]))]
+```
+
+Handling Training and Evaluation Modes Separately
+------------------------------------------------
+
+In some cases, the nodes available or relevant for feature extraction differ between training and evaluation modes. The API supports specifying separate sets of nodes for each mode:
+
+```python
+feature_extractor = create_feature_extractor(
+    model,
+    train_return_nodes={'layer1': 'feat1_train'},
+    eval_return_nodes={'layer1': 'feat1_eval'}
+)
+```
+
+This ensures that the correct nodes are extracted depending on the model's mode.
+
+Customizing Tracing Behavior
+----------------------------
+
+Tracing can be customized via `tracer_kwargs` passed to `create_feature_extractor` or `get_graph_node_names`. Common options include:
+
+- `leaf_modules`: List of module classes that should be treated as leaf nodes and not traced through.
+- `autowrap_modules`: Modules whose functions should be automatically wrapped during tracing.
+- `autowrap_functions`: Specific functions to wrap during tracing.
+
+This customization is useful when the model contains operations or modules that are not traceable by default, such as custom layers or functions that raise errors when traced.
+
+Example with custom leaf modules and functions:
+
+```python
+def leaf_function(x):
+    # This function cannot be traced through
+    return int(x)
+
+class LeafModule(torch.nn.Module):
+    def forward(self, x):
+        int(x.shape[0])  # Non-traceable operation
+        return torch.nn.functional.relu(x + 4)
+
+class MyModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 1, 3)
+        self.leaf_module = LeafModule()
+
+    def forward(self, x):
+        leaf_function(x.shape[0])
+        x = self.conv(x)
+        return self.leaf_module(x)
+
+model = create_feature_extractor(
+    MyModule(),
+    return_nodes=['leaf_module'],
+    tracer_kwargs={
+        'leaf_modules': [LeafModule],
+        'autowrap_functions': [leaf_function]
+    }
+)
+```
+
+DualGraphModule: Handling Train and Eval Graphs Internally
+----------------------------------------------------------
+
+Internally, feature extraction relies on a specialized `DualGraphModule` class, which extends `torch.fx.GraphModule`. It maintains separate graphs for training and evaluation modes and switches between them when the model's mode changes.
+
+This design ensures that feature extraction respects the differences in computation graphs between modes, providing accurate and consistent outputs.
+
+Summary
+-------
+
+Feature extraction utilities provide a flexible and robust way to inspect intermediate outputs of models by tracing their computation graphs in both training and evaluation modes. By selecting nodes of interest and optionally customizing tracing behavior, users can gain insights into model internals, aiding in debugging, visualization, and research.
+
+For more detailed usage and examples, please refer to the official PyTorch Vision feature extraction documentation:  
+https://pytorch.org/vision/stable/feature_extraction.html

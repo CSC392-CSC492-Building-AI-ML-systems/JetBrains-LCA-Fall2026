@@ -1,0 +1,63 @@
+How Mitogen Works
+=================
+
+Mitogen is a high-performance distributed execution library for Python that enables efficient remote code execution and management of multiple hosts. It achieves this by establishing lightweight communication channels and protocols over various transport mechanisms such as SSH, allowing Python code to be executed transparently on remote systems.
+
+Core Concepts
+-------------
+
+### Channels and Messaging
+
+Mitogen uses the concept of **Channels** to facilitate communication between different contexts (local or remote). Each channel represents a bidirectional communication path over which messages are sent and received asynchronously.
+
+Special message values such as `IS_DEAD` are used internally to signal disconnection or routing failures. When a message with `reply_to` set to `IS_DEAD` is received, it typically indicates that the remote receiver is disconnected, a message could not be routed, or a router is being torn down. This causes exceptions like `mitogen.core.ChannelError` to be raised, prompting cleanup and error handling.
+
+### Protocols and Streams
+
+A **Stream** in Mitogen represents one or two file descriptors (readable and optionally writable) aggregated with an associated **Protocol**. The protocol defines how to handle IO readiness events on these descriptors.
+
+Streams are managed by a central **Broker** that monitors IO events and dispatches callbacks accordingly. Protocols can change over the lifetime of a stream; for example, during connection setup, an initial protocol such as `BootstrapProtocol` handles authentication and environment setup, before handing off to `MitogenProtocol` once the remote process is ready.
+
+Streams connected to child processes are further managed by `mitogen.parent.Connection`, which handles child process lifecycle and may maintain separate streams for standard error output.
+
+### Routers and Importers
+
+Mitogen employs a **Router** to manage message routing between contexts. The router maintains knowledge of available routes and handlers, enabling messages to be forwarded efficiently.
+
+An **Importer** is integrated with Python’s import system (`sys.meta_path`) to allow transparent importing of modules on remote hosts. This enables remote code execution to seamlessly access required Python modules as if they were local.
+
+### Execution Contexts and Decorators
+
+Mitogen supports execution contexts that represent the environment in which code runs. Functions can be decorated with `@takes_econtext` or `@takes_router` to automatically receive references to the current external context or router when invoked remotely via Mitogen’s call mechanisms.
+
+This design allows remote functions to interact with the Mitogen runtime environment, facilitating advanced features such as dynamic routing and context-aware execution.
+
+### Standard IO Handling and Logging
+
+To ensure robust operation, Mitogen carefully manages standard input/output streams. It may temporarily redirect standard IO to `/dev/null` during startup to avoid interference, especially when running under privilege escalation tools like `sudo`.
+
+Mitogen also preserves TTY file descriptors when necessary to prevent premature termination signals (e.g., `SIGHUP`) when the process is executed in a terminal environment.
+
+Logging is integrated into the IO streams, with special protocols capturing and forwarding log messages through the Mitogen communication channels, ensuring that logs from remote executions are accessible locally.
+
+Startup and Initialization
+--------------------------
+
+During startup, Mitogen performs several key steps:
+
+- **Setup of the Master Context:** Initializes the master router and communication infrastructure.
+- **Logging Configuration:** Establishes logging protocols to capture output from remote processes.
+- **Importer Setup:** Inserts the Mitogen importer into Python’s import machinery to enable remote module loading.
+- **Package Initialization:** Creates a synthetic `mitogen` module in the runtime to expose core functionality.
+- **Standard IO Nullification:** Redirects standard input/output to `/dev/null` temporarily to avoid interference during initialization.
+- **TTY Preservation:** Keeps a duplicate of the TTY file descriptor open if necessary to prevent signal loss.
+- **Broker and Stream Management:** Starts the broker event loop and registers streams for communication.
+
+These steps ensure that Mitogen can reliably establish and maintain communication channels, manage remote processes, and execute Python code across multiple hosts with minimal overhead.
+
+Summary
+-------
+
+Mitogen’s architecture centers around lightweight, asynchronous communication channels managed by brokers and routers, combined with flexible protocols that handle connection setup and data transmission. Its integration with Python’s import system and execution contexts allows seamless remote code execution, making it a powerful tool for distributed Python applications and automation.
+
+By abstracting the complexities of remote communication and process management, Mitogen enables developers to write Python code that runs transparently across multiple machines, improving scalability and efficiency in distributed environments.

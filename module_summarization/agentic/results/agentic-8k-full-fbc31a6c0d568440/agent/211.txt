@@ -1,0 +1,153 @@
+Generalized Linear Mixed Effects Models
+========================================
+
+Overview
+--------
+
+Generalized Linear Mixed Effects Models (GLMMs) extend generalized linear models (GLMs) by incorporating random effects to account for correlation and non-independence in grouped or hierarchical data. These models are widely used in fields such as biostatistics, ecology, and social sciences where data are collected in clusters or repeated measures.
+
+The `mixed_glm` module provides Bayesian variational inference implementations for GLMMs with various response distributions, including binomial and Poisson families. The models allow specification of fixed effects and multiple variance components for random effects, enabling flexible modeling of complex data structures.
+
+Model Specification
+-------------------
+
+A GLMM consists of:
+
+- **Fixed effects**: Parameters associated with observed covariates that have a fixed influence on the response.
+- **Random effects**: Parameters associated with grouping factors or clusters, modeled as random variables to capture unobserved heterogeneity.
+- **Link function**: A function that relates the linear predictor (combination of fixed and random effects) to the mean of the response variable.
+- **Response distribution**: The distribution of the response variable conditional on the predictors, typically from the exponential family (e.g., binomial, Poisson).
+
+The general form of the model is:
+
+.. math::
+
+    g(\mu_i) = \mathbf{x}_i^\top \boldsymbol{\beta} + \mathbf{z}_i^\top \mathbf{b}
+
+where
+
+- :math:`g` is the link function,
+- :math:`\mu_i` is the expected value of the response for observation :math:`i`,
+- :math:`\mathbf{x}_i` is the vector of fixed effect covariates,
+- :math:`\boldsymbol{\beta}` is the vector of fixed effect coefficients,
+- :math:`\mathbf{z}_i` is the vector of random effect covariates,
+- :math:`\mathbf{b}` is the vector of random effects.
+
+Model Classes
+-------------
+
+The module provides the following main classes for Bayesian GLMMs using variational Bayes:
+
+- **BinomialBayesMixedGLM**
+
+  Implements a binomial GLMM with a logistic link function. Suitable for binary or proportion data.
+
+- **PoissonBayesMixedGLM**
+
+  Implements a Poisson GLMM with a log link function. Suitable for count data.
+
+Both classes inherit from a common base class that handles model construction, parameter initialization, and variational inference.
+
+Model Construction
+------------------
+
+Models can be constructed either by directly providing design matrices or by using formula interfaces.
+
+### From Formula
+
+The `from_formula` class method allows specifying the model using R-style formulas for fixed and random effects:
+
+```python
+model = BinomialBayesMixedGLM.from_formula(
+    'y ~ year_cen', 
+    {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}, 
+    data)
+```
+
+Here,
+
+- `'y ~ year_cen'` specifies the fixed effects formula,
+- The dictionary specifies random effects formulas keyed by variance component names,
+- `data` is a pandas DataFrame containing the variables.
+
+### Direct Initialization
+
+Alternatively, models can be initialized by providing:
+
+- `endog`: The response variable array,
+- `exog`: The fixed effects design matrix,
+- `exog_vc`: The random effects design matrix,
+- `ident`: An integer array identifying grouping factors for random effects,
+- Optional names for fixed effects and variance components.
+
+Model Fitting
+-------------
+
+Models are fit using variational Bayes methods, which approximate the posterior distribution of parameters efficiently.
+
+Example usage:
+
+```python
+result = model.fit_vb()
+```
+
+The `fit_vb` method returns an object containing parameter estimates and diagnostics.
+
+Prediction
+----------
+
+Predictions can be made using the `predict` method:
+
+```python
+predicted = model.predict(exog=new_data, linear=False)
+```
+
+- If `linear=True`, the method returns the linear predictor (fixed plus random effects).
+- If `linear=False`, the method returns the predicted mean response on the scale of the response variable.
+
+Evidence Lower Bound (ELBO)
+---------------------------
+
+The variational inference procedure optimizes the Evidence Lower Bound (ELBO), which balances model fit and complexity. The ELBO can be accessed via the `vb_elbo` method for diagnostic purposes.
+
+Examples
+--------
+
+### Binomial Model Example
+
+A logistic regression with random intercepts for villages:
+
+```python
+random = {"a": '0 + C(Village)'}
+model = BinomialBayesMixedGLM.from_formula(
+    'y ~ year_cen', random, data)
+result = model.fit_vb()
+```
+
+### Poisson Model Example
+
+A Poisson model with random intercepts and slopes for villages:
+
+```python
+random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+model = PoissonBayesMixedGLM.from_formula(
+    'y ~ year_cen', random, data)
+result = model.fit_vb()
+```
+
+Notes
+-----
+
+- The response variable for `BinomialBayesMixedGLM` must be binary (0 or 1).
+- The `ident` array must be one-dimensional and integer-typed, matching the columns of the random effects design matrix.
+- The module uses sparse matrices internally for efficiency when handling random effects design matrices.
+
+References
+----------
+
+For more details on the statistical theory and variational inference methods used, see:
+
+- Gelman, A., et al. (2013). Bayesian Data Analysis. CRC Press.
+- McCulloch, C. E., & Neuhaus, J. M. (2011). Generalized Linear Mixed Models. Wiley.
+
+This module provides a flexible and efficient framework for fitting Bayesian generalized linear mixed models with variational inference, suitable for complex hierarchical data structures.

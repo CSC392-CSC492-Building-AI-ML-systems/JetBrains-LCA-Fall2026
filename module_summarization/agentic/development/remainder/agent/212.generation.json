@@ -1,0 +1,286 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Linear Mixed Effects Models\n============================\n\nOverview\n--------\n\nLinear mixed effects models are regression models designed for dependent data. They allow estimation of regression relationships involving both means and variances. These models are also known as multilevel linear models or hierarchical linear models.\n\nThe `MixedLM` class fits linear mixed effects models to data and supports common post-estimation tasks. This implementation is group-based and is most efficient when data can be partitioned into independent groups. Some models with crossed effects can be handled by specifying a model with a single group.\n\nModel Specification\n-------------------\n\nThe data are partitioned into disjoint groups. For group *i*, the probability model is:\n\n.. math::\n\n   Y = X \\\\beta + Z \\\\gamma + \\\\epsilon\n\nwhere:\n\n- *n_i* is the number of observations in group *i*.\n- *Y* is an *n_i*-dimensional response vector (called `endog` in `MixedLM`).\n- *X* is an *n_i \\\\times k_{fe}* design matrix for the fixed effects (called `exog` in `MixedLM`).\n- *\\\\beta* is a *k_{fe}*-dimensional vector of fixed effects parameters (called `fe_params` in `MixedLM`).\n- *Z* is a design matrix for the random effects with *n_i* rows (called `exog_re` in `MixedLM`). The number of columns in *Z* can vary by group.\n- *\\\\gamma* is a random vector with mean zero. The covariance matrix for the first *k_{re}* elements of *\\\\gamma* (called `cov_re` in `MixedLM`) is common to all groups. The remaining elements of *\\\\gamma* are variance components. Each group receives its own independent realization of *\\\\gamma*.\n- *\\\\epsilon* is an *n_i*-dimensional vector of independent and identically distributed normal errors with mean zero and variance *\\\\sigma^2*. The *\\\\epsilon* values are independent both within and between groups.\n\nAll of *Y*, *X*, and *Z* must be fully observed. The parameters *\\\\beta*, *\\\\Psi* (covariance matrix of random effects), and *\\\\sigma^2* are estimated using maximum likelihood (ML) or restricted maximum likelihood (REML). The vectors *\\\\gamma* and *\\\\epsilon* are random and define the probability model.\n\nThe marginal mean structure is:\n\n.. math::\n\n   E[Y | X, Z] = X \\\\beta\n\nIf only the mean structure is of interest, generalized estimating equations (GEE) provide an alternative to linear mixed models.\n\nRandom Effects\n--------------\n\nTwo types of random effects are supported:\n\n1. **Standard random effects**: These are correlated with each other arbitrarily. Every group has the same number (*k_{re}*) of standard random effects, with the same joint distribution but independent realizations across groups.\n\n2. **Variance components**: These are uncorrelated with each other and with the standard random effects. Each variance component has mean zero, and all realizations of a given variance component share the same variance parameter. The number of realized variance components per variance parameter can differ across groups.\n\nParameterizations\n-----------------\n\nThree parameterizations are used in different contexts:\n\n- **User parameterization**: The covariance of the response is\n\n  .. math::\n\n     \\\\mathrm{cov}(Y) = \\\\sigma^2 I + Z \\\\Psi Z'\n\n  This is the main parameterization visible to the user.\n\n- **Profile parameterization**: The covariance is expressed as\n\n  .. math::\n\n     \\\\mathrm{cov}(Y) = I + Z \\\\Psi_1 Z'\n\n  where \\\\( \\\\Psi_1 = \\\\Psi / \\\\sigma^2 \\\\). This parameterization is used for the profile likelihood maximization.\n\n- **Square root parameterization**: The Cholesky factor of \\\\( \\\\Psi_1 \\\\) is used instead of \\\\( \\\\Psi \\\\) directly. This is hidden from the user.\n\nAll three parameterizations can be packed into a vector by concatenating the fixed effects parameters (`fe_params`), the lower triangle or Cholesky square root of the random effects covariance matrix, and the variance components parameters. When unpacking, it is important to square or reflect the dependence structure depending on the parameterization.\n\nEstimation and Inference\n------------------------\n\nThe parameters *\\\\beta*, *\\\\Psi*, and *\\\\sigma^2* are estimated using ML or REML methods. The likelihood, gradient, and Hessian calculations closely follow Lindstrom and Bates (1988), adapted to support variance components.\n\nTwo score methods are implemented:\n\n- One computes the score with respect to the elements of the random effects covariance matrix (used for inference after maximum likelihood estimation).\n- The other computes the score with respect to the parameters of the Cholesky square root of the random effects covariance matrix (used for optimization).\n\nNumerical optimization uses generalized least squares (GLS) to avoid explicitly optimizing over the fixed effects parameters. The likelihood optimized is profiled over both the scale parameter and the fixed effects.\n\nReferences\n----------\n\n- Lindstrom, M. J., & Bates, D. M. (1988). Newton-Raphson and EM algorithms for linear mixed-effects models for repeated measures data. *Journal of the American Statistical Association*, 83(404), 1014-1022.\n\n- http://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf\n\nAdditional User-Oriented Resources:\n\n- http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf\n\n- http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf\n\nNotation Summary\n----------------\n\n- `cov_re` (\\\\( \\\\Psi \\\\)) is the random effects covariance matrix.\n- `scale` (\\\\( \\\\sigma^2 \\\\)) is the scalar error variance.\n- For a single group, the marginal covariance matrix of the response given covariates is:\n\n  .. math::\n\n     \\\\sigma^2 I + Z \\\\Psi Z'\n\n- `vcomp` is a vector of variance parameters corresponding to variance components. Its length depends on the number of variance components specified in the model.\n\nAttributes of MixedLMResults\n----------------------------\n\nThe results of fitting a linear mixed effects model are contained in the `MixedLMResults` class, which inherits from `statsmodels.LikelihoodModelResults`. Important attributes include:\n\n- `model`: The `MixedLM` model instance used for fitting.\n- `params`: A packed parameter vector for the profile parameterization. The first `k_fe` elements are fixed effects coefficients; the remaining elements are variance parameters divided by `scale`.\n- `fe_params`: The estimated fixed effects coefficients.\n- `cov_re`: The estimated random effects covariance matrix.\n- `bse_fe`: Standard errors of the fixed effects coefficients.\n- `bse_re`: Standard errors of the random effects covariance matrix and variance components.\n\nSimulation from the Model\n-------------------------\n\nThe `get_distribution` class can be used to simulate data from a fitted mixed linear model. Given parameters, scale, and fixed effect covariates, it generates simulated response vectors incorporating fixed effects, random effects, variance components, and residual variance.\n\nSummary\n-------\n\nLinear mixed effects models provide a flexible framework for modeling data with complex dependence structures, incorporating both fixed and random effects. The `MixedLM` class and its associated results classes implement these models efficiently, supporting estimation, inference, and simulation.",
+  "prediction_sha256": "48fd7231b9f2956c94f36e3be119031d5f412af51869e6955d2e2018e6ade23b",
+  "prompt_sha256": "2e1dbab502acd35bebfda18fbf8562603755de3866233ea9921bf540c308f9b3",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15746,
+    "completion_tokens": 2118,
+    "total_tokens": 17864
+  },
+  "cost_usd": 0.0096872,
+  "generation_seconds": 18.766779377001512,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 5,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "mixed_linear"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1153,
+              "code": "\"\"\"\nLinear mixed effects models are regression models for dependent data.\nThey can be used to estimate regression relationships involving both\nmeans and variances.\n\nThese models are also known as multilevel linear models, and\nhierarchical linear models.\n\nThe MixedLM class fits linear mixed effects models to data, and\nprovides support for some common post-estimation tasks.  This is a\ngroup-based implementation that is most efficient for models in which\nthe data can be partitioned into independent groups.  Some models with\ncrossed effects can be handled by specifying a model with a single\ngroup.\n\nThe data are partitioned into disjoint groups.  The probability model\nfor group i is:\n\nY = X*beta + Z*gamma + epsilon\n\nwhere\n\n* n_i is the number of observations in group i\n\n* Y is a n_i dimensional response vector (called endog in MixedLM)\n\n* X is a n_i x k_fe dimensional design matrix for the fixed effects\n  (called exog in MixedLM)\n\n* beta is a k_fe-dimensional vector of fixed effects parameters\n  (called fe_params in MixedLM)\n\n* Z is a design matrix for the random effects with n_i rows (called\n  exog_re in MixedLM).  The number of columns in",
+              "code_tokens": 300,
+              "score": 4.913230630478
+            },
+            {
+              "chunk_id": 113,
+              "start_char": 78763,
+              "end_char": 79697,
+              "code": " a given mixed linear model.\n\n    Parameters\n    ----------\n    model : MixedLM instance\n        A mixed linear model\n    params : array_like\n        A parameter vector defining a mixed linear model.  See\n        notes for more information.\n    scale : scalar\n        The unexplained variance\n    exog : array_like\n        An array of fixed effect covariates.  If None, model.exog\n        is used.\n\n    Notes\n    -----\n    The params array is a vector containing fixed effects parameters,\n    random effects parameters, and variance component parameters, in\n    that order.  The lower triangle of the random effects covariance\n    matrix is stored.  The random effects and variance components\n    parameters are divided by the scale parameter.\n\n    This class is used in Mediation, and possibly elsewhere.\n    \"\"\"\n\n    def __init__(self, model, params, scale, exog):\n\n        self.model = model\n        self.exog = exog if exog is not",
+              "code_tokens": 300,
+              "score": 4.787743645562
+            },
+            {
+              "chunk_id": 112,
+              "start_char": 78000,
+              "end_char": 78615,
+              "code": "ults.vcomp = vcomp\n        results.scale = scale\n        results.cov_re_unscaled = cov_re_unscaled\n        results.method = \"REML\" if self.reml else \"ML\"\n        results.converged = converged\n        results.hist = hist\n        results.reml = self.reml\n        results.cov_pen = self.cov_pen\n        results.k_fe = self.k_fe\n        results.k_re = self.k_re\n        results.k_re2 = self.k_re2\n        results.k_vc = self.k_vc\n        results.use_sqrt = self.use_sqrt\n        results.freepat = self._freepat\n\n        return MixedLMResultsWrapper(results)\n\n    def get_distribution(self, params, scale, exog):\n       ",
+              "code_tokens": 300,
+              "score": 4.250652551112
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 5747,
+              "code": "\"\"\"\nLinear mixed effects models are regression models for dependent data.\nThey can be used to estimate regression relationships involving both\nmeans and variances.\n\nThese models are also known as multilevel linear models, and\nhierarchical linear models.\n\nThe MixedLM class fits linear mixed effects models to data, and\nprovides support for some common post-estimation tasks.  This is a\ngroup-based implementation that is most efficient for models in which\nthe data can be partitioned into independent groups.  Some models with\ncrossed effects can be handled by specifying a model with a single\ngroup.\n\nThe data are partitioned into disjoint groups.  The probability model\nfor group i is:\n\nY = X*beta + Z*gamma + epsilon\n\nwhere\n\n* n_i is the number of observations in group i\n\n* Y is a n_i dimensional response vector (called endog in MixedLM)\n\n* X is a n_i x k_fe dimensional design matrix for the fixed effects\n  (called exog in MixedLM)\n\n* beta is a k_fe-dimensional vector of fixed effects parameters\n  (called fe_params in MixedLM)\n\n* Z is a design matrix for the random effects with n_i rows (called\n  exog_re in MixedLM).  The number of columns in Z can vary by group\n  as discussed below.\n\n* gamma is a random vector with mean 0.  The covariance matrix for the\n  first `k_re` elements of `gamma` (called cov_re in MixedLM) is\n  common to all groups.  The remaining elements of `gamma` are\n  variance components as discussed in more detail below. Each group\n  receives its own independent realization of gamma.\n\n* epsilon is a n_i dimensional vector of iid normal\n  errors with mean 0 and variance sigma^2; the epsilon\n  values are independent both within and between groups\n\nY, X and Z must be entirely observed.  beta, Psi, and sigma^2 are\nestimated using ML or REML estimation, and gamma and epsilon are\nrandom so define the probability model.\n\nThe marginal mean structure is E[Y | X, Z] = X*beta.  If only the mean\nstructure is of interest, GEE is an alternative to using linear mixed\nmodels.\n\nTwo types of random effects are supported.  Standard random effects\nare correlated with each other in arbitrary ways.  Every group has the\nsame number (`k_re`) of standard random effects, with the same joint\ndistribution (but with independent realizations across the groups).\n\nVariance components are uncorrelated with each other, and with the\nstandard random effects.  Each variance component has mean zero, and\nall realizations of a given variance component have the same variance\nparameter.  The number of realized variance components per variance\nparameter can differ across the groups.\n\nThe primary reference for the implementation details is:\n\nMJ Lindstrom, DM Bates (1988).  \"Newton Raphson and EM algorithms for\nlinear mixed effects models for repeated measures data\".  Journal of\nthe American Statistical Association. Volume 83, Issue 404, pages\n1014-1022.\n\nSee also this more recent document:\n\nhttp://econ.ucsb.edu/~doug/245a/Papers/Mixed%20Effects%20Implement.pdf\n\nAll the likelihood, gradient, and Hessian calculations closely follow\nLindstrom and Bates 1988, adapted to support variance components.\n\nThe following two documents are written more from the perspective of\nusers:\n\nhttp://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf\n\nhttp://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf\n\nNotation:\n\n* `cov_re` is the random effects covariance matrix (referred to above\n  as Psi) and `scale` is the (scalar) error variance.  For a single\n  group, the marginal covariance matrix of endog given exog is scale*I\n  + Z * cov_re * Z', where Z is the design matrix for the random\n  effects in one group.\n\n* `vcomp` is a vector of variance parameters.  The length of `vcomp`\n  is determined by the number of keys in either the `exog_vc` argument\n  to ``MixedLM``, or the `vc_formula` argument when using formulas to\n  fit a model.\n\nNotes:\n\n1. Three different parameterizations are used in different places.\nThe regression slopes (usually called `fe_params`) are identical in\nall three parameterizations, but the variance parameters differ.  The\nparameterizations are:\n\n* The \"user parameterization\" in which cov(endog) = scale*I + Z *\n  cov_re * Z', as described above.  This is the main parameterization\n  visible to the user.\n\n* The \"profile parameterization\" in which cov(endog) = I +\n  Z * cov_re1 * Z'.  This is the parameterization of the profile\n  likelihood that is maximized to produce parameter estimates.\n  (see Lindstrom and Bates for details).  The \"user\" cov_re is\n  equal to the \"profile\" cov_re1 times the scale.\n\n* The \"square root parameterization\" in which we work with the Cholesky\n  factor of cov_re1 instead of cov_re directly.  This is hidden from the\n  user.\n\nAll three parameterizations can be packed into a vector by\n(optionally) concatenating `fe_params` together with the lower\ntriangle or Cholesky square root of the dependence structure, followed\nby the variance parameters for the variance components.  The are\nstored as square roots if (and only if) the random effects covariance\nmatrix is stored as its Choleky factor.  Note that when unpacking, it\nis important to either square or reflect the dependence structure\ndepending on which parameterization is being used.\n\nTwo score methods are implemented.  One takes the score with respect\nto the elements of the random effects covariance matrix (used for\ninference once the MLE is reached), and the other takes the score with\nrespect to the parameters of the Choleky square root of the random\neffects covariance matrix (used for optimization).\n\nThe numerical optimization uses GLS to avoid explicitly optimizing\nover the fixed effects parameters.  The likelihood that is optimized\nis profiled over both the scale parameter (a scalar) and",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 113
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 113,
+              "start_char": 78763,
+              "end_char": 82576,
+              "code": " a given mixed linear model.\n\n    Parameters\n    ----------\n    model : MixedLM instance\n        A mixed linear model\n    params : array_like\n        A parameter vector defining a mixed linear model.  See\n        notes for more information.\n    scale : scalar\n        The unexplained variance\n    exog : array_like\n        An array of fixed effect covariates.  If None, model.exog\n        is used.\n\n    Notes\n    -----\n    The params array is a vector containing fixed effects parameters,\n    random effects parameters, and variance component parameters, in\n    that order.  The lower triangle of the random effects covariance\n    matrix is stored.  The random effects and variance components\n    parameters are divided by the scale parameter.\n\n    This class is used in Mediation, and possibly elsewhere.\n    \"\"\"\n\n    def __init__(self, model, params, scale, exog):\n\n        self.model = model\n        self.exog = exog if exog is not None else model.exog\n\n        po = MixedLMParams.from_packed(\n                params, model.k_fe, model.k_re, False, True)\n\n        self.fe_params = po.fe_params\n        self.cov_re = scale * po.cov_re\n        self.vcomp = scale * po.vcomp\n        self.scale = scale\n\n        group_idx = np.zeros(model.nobs, dtype=np.int)\n        for k, g in enumerate(model.group_labels):\n            group_idx[model.row_indices[g]] = k\n        self.group_idx = group_idx\n\n    def rvs(self, n):\n        \"\"\"\n        Return a vector of simulated values from a mixed linear\n        model.\n\n        The parameter n is ignored, but required by the interface\n        \"\"\"\n\n        model = self.model\n\n        # Fixed effects\n        y = np.dot(self.exog, self.fe_params)\n\n        # Random effects\n        u = np.random.normal(size=(model.n_groups, model.k_re))\n        u = np.dot(u, np.linalg.cholesky(self.cov_re).T)\n        y += (u[self.group_idx, :] * model.exog_re).sum(1)\n\n        # Variance components\n        for j, _ in enumerate(model.exog_vc.names):\n            ex = model.exog_vc.mats[j]\n            v = self.vcomp[j]\n            for i, g in enumerate(model.group_labels):\n                exg = ex[i]\n                ii = model.row_indices[g]\n                u = np.random.normal(size=exg.shape[1])\n                y[ii] += np.sqrt(v) * np.dot(exg, u)\n\n        # Residual variance\n        y += np.sqrt(self.scale) * np.random.normal(size=len(y))\n\n        return y\n\n\nclass MixedLMResults(base.LikelihoodModelResults, base.ResultMixin):\n    '''\n    Class to contain results of fitting a linear mixed effects model.\n\n    MixedLMResults inherits from statsmodels.LikelihoodModelResults\n\n    Parameters\n    ----------\n    See statsmodels.LikelihoodModelResults\n\n    Attributes\n    ----------\n    model : class instance\n        Pointer to MixedLM model instance that called fit.\n    normalized_cov_params : array\n        The sampling covariance matrix of the estimates\n    params : array\n        A packed parameter vector for the profile parameterization.\n        The first `k_fe` elements are the estimated fixed effects\n        coefficients.  The remaining elements are the estimated\n        variance parameters.  The variance parameters are all divided\n        by `scale` and are not the variance parameters shown\n        in the summary.\n    fe_params : array\n        The fitted fixed-effects coefficients\n    cov_re : array\n        The fitted random-effects covariance matrix\n    bse_fe : array\n        The standard errors of the fitted fixed effects coefficients\n    bse_re : array\n        The standard errors of the fitted random effects covariance\n        matrix and variance components.  The first `k_re * (k_re + 1)`\n        parameters are the standard errors for the lower triangle of\n        `cov_re`, the remaining elements are the standard errors for\n        the variance components",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 113
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "d3fae7e0d04c2e5868116e1fbcb234f1bf677d79eae7b931914e88de4100b0e0",
+        "request_id": "chatcmpl-Ej8FCbaOtgvBm1Ydo6mtJ5x5LXlzu",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.6935289169996395,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "d44dd1a6d9c7be400173b1d0b7a533d580bba540d135fdf2e907070c0d2f79c8",
+        "request_id": "chatcmpl-Ej8FDbcpGOid6aiYLY4BYvbqAQxZA",
+        "usage": {
+          "prompt_tokens": 1006,
+          "completion_tokens": 15,
+          "total_tokens": 1021,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0004264,
+        "seconds": 0.8140785420000611,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "14cb3abcf704e92a0560b5beda9d05052669e93d82f890d66799a25c205c457a",
+        "request_id": "chatcmpl-Ej8FEWRjLcwrH5alPr58j4J67odow",
+        "usage": {
+          "prompt_tokens": 2502,
+          "completion_tokens": 15,
+          "total_tokens": 2517,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010248000000000002,
+        "seconds": 0.6426759999994829,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "3539f281409c9a8360399b07cf1a25f5253dcf7b039ac1056d7dfabd8237eb7f",
+        "request_id": "chatcmpl-Ej8FEOdSpCJwcWe1omh64ajUQ30xP",
+        "usage": {
+          "prompt_tokens": 2538,
+          "completion_tokens": 15,
+          "total_tokens": 2553,
+          "prompt_tokens_details": {
+            "cached_tokens": 2304,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0010392,
+        "seconds": 0.7461510419998376,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "be196021febe53a4bef4c7a5823218ada93320bf355a326e6a8b4f256612ef85",
+        "request_id": "chatcmpl-Ej8FFU5jtLPiu51yq9It8YIDDkvpc",
+        "usage": {
+          "prompt_tokens": 3540,
+          "completion_tokens": 15,
+          "total_tokens": 3555,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00144,
+        "seconds": 0.7426423340002657,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "dd49bbbe57a912eeb856c29f99747c99158a336d22d3d39a4764c03a6eaf1056",
+        "request_id": "chatcmpl-Ej8FGwNkxurFzuGbbGHLSkRWMO6Iq",
+        "usage": {
+          "prompt_tokens": 3576,
+          "completion_tokens": 482,
+          "total_tokens": 4058,
+          "prompt_tokens_details": {
+            "cached_tokens": 3328,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0022016,
+        "seconds": 4.182171542001015,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "784f1c9048290c7a6755ba2133bf5a36442cabeb3c405eb769f98564493ac824",
+        "request_id": "chatcmpl-Ej8FKlXeXEYLSE16UoZoD4V5vhlij",
+        "usage": {
+          "prompt_tokens": 2428,
+          "completion_tokens": 1561,
+          "total_tokens": 3989,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0034688,
+        "seconds": 10.94553100000121,
+        "retry_count": 0
+      }
+    ]
+  }
+}

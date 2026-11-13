@@ -1,0 +1,119 @@
+Generalized Linear Mixed Effects Models
+========================================
+
+Overview
+--------
+
+Generalized Linear Mixed Effects Models (GLMMs) extend generalized linear models by incorporating random effects to account for correlation and heterogeneity in grouped or clustered data. Bayesian inference methods provide a flexible framework for estimating these models, allowing for uncertainty quantification in both fixed and random effects.
+
+This implementation supports GLMMs with families that do not have additional scale or shape parameters, specifically binomial and Poisson families. Two Bayesian estimation approaches are available:
+
+- **Laplace approximation** (maximum a posteriori estimation)
+- **Variational Bayes** (mean field approximation to the posterior distribution)
+
+Random effects are modeled as mutually independent Gaussian realizations with mean zero and unknown standard deviations. The standard deviations are constrained to be equal within subsets of random effects, defined by grouping labels.
+
+Model Specification
+-------------------
+
+The joint density of the observed data and parameters factors as:
+
+.. math::
+
+    p(y \mid vc, fep) \, p(vc \mid vcp) \, p(vcp) \, p(fe)
+
+where:
+
+- :math:`y` is the observed response vector.
+- :math:`fe` (fixed effects) are regression coefficients associated with observed covariates.
+- :math:`vc` (random effects realizations) correspond to random effect terms.
+- :math:`vcp` are variance component parameters (log standard deviations of random effects).
+
+The prior distributions are Gaussian:
+
+- Fixed effects parameters (:math:`fe`) have Gaussian priors with mean zero and specified standard deviation.
+- Variance component parameters (:math:`vcp`) are on the log scale and have Gaussian priors, implying log-normal priors on the standard deviations.
+- Random effects realizations (:math:`vc`) are independent Gaussian variables conditional on variance components.
+
+Random Effects Design
+---------------------
+
+The random effects design matrix, denoted as `exog_vc`, encodes the random effects structure:
+
+- Each column corresponds to an independent realization of a random effect.
+- The grouping of columns sharing the same variance parameter is specified by an integer label array `ident`.
+- Columns with the same `ident` value share the same standard deviation parameter.
+- When using formulas, `ident` is constructed automatically based on the random effects terms.
+
+Sparse matrices are supported for `exog_vc` to efficiently handle large models.
+
+Estimation Methods
+------------------
+
+### Laplace Approximation (`fit_map`)
+
+This method finds the posterior mode of the parameters using numerical optimization (e.g., BFGS). The Laplace approximation approximates the posterior distribution by a Gaussian centered at the mode with covariance given by the inverse Hessian of the negative log posterior.
+
+- Supports optional scaling and centering of fixed effects covariates for numerical stability.
+- Returns parameter estimates and covariance matrices.
+
+### Variational Bayes (`fit_vb`)
+
+An alternative approach approximates the posterior distribution using a mean field variational Bayes method, providing a fully Bayesian posterior approximation.
+
+Model Parameters
+----------------
+
+- **Fixed Effects Parameters (fep):** Coefficients for the fixed effects design matrix `exog`.
+- **Random Effects Realizations (vc):** Realized values of random effects corresponding to columns of `exog_vc`.
+- **Variance Component Parameters (vcp):** Log standard deviations of random effects grouped by `ident`.
+
+Priors:
+
+- Fixed effects parameters have Gaussian priors with mean zero and standard deviation `fe_p`.
+- Variance component parameters have Gaussian priors on the log scale with standard deviation `vcp_p`.
+
+Usage Examples
+--------------
+
+### Logistic Random Effects Model (Binomial Family)
+
+A model with random intercepts for villages and random slopes for each year within each village:
+
+.. code-block:: python
+
+    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    model = BinomialBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+    result = model.fit_vb()
+
+### Poisson Random Effects Model
+
+A model with random intercepts for villages and random slopes for each year within each village:
+
+.. code-block:: python
+
+    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
+    model = PoissonBayesMixedGLM.from_formula('y ~ year_cen', random, data)
+    result = model.fit_vb()
+
+References
+----------
+
+- Introduction to generalized linear mixed models:  
+  https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-generalized-linear-mixed-models
+
+- SAS documentation on mixed models:  
+  https://support.sas.com/documentation/cdl/en/statug/63033/HTML/default/viewer.htm#statug_intromix_a0000000215.htm
+
+- An assessment of estimation methods for generalized linear mixed models with binary outcomes:  
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3866838/
+
+Notes
+-----
+
+- The posterior mode for some families (e.g., Binomial) may be difficult to find numerically if the prior standard deviation for variance components (`vcp_p`) is too large. A value around 0.5 is recommended.
+- Random effects are assumed independent given variance components.
+- The model supports sparse random effects design matrices for computational efficiency.
+- Fixed effects and variance component parameter names can be specified or automatically generated.
+
+This framework provides a flexible and computationally efficient approach to Bayesian inference in generalized linear mixed models, suitable for a variety of applications involving hierarchical or grouped data.

@@ -1,0 +1,305 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Asynchronous Queues for Coroutines\n==================================\n\nThe `tornado.queues` module provides asynchronous queue implementations designed to coordinate producer and consumer coroutines efficiently. These queues implement an asynchronous producer/consumer pattern, allowing coroutines to exchange data safely without blocking the event loop.\n\nOverview\n--------\n\nThese queue classes are similar in concept to those found in Python's standard library `asyncio` package, but are tailored for use with Tornado's coroutine and IOLoop infrastructure. They are **not thread-safe**; to interact with these queues from other threads, use `.IOLoop.add_callback` to schedule queue operations on the IOLoop thread.\n\nKey Features\n------------\n\n- Support for asynchronous `put` and `get` operations that suspend coroutines until the queue is ready.\n- Optional maximum size (`maxsize`) to limit the number of items in the queue.\n- Support for task tracking with `task_done()` and `join()` methods to coordinate completion of queued tasks.\n- Iteration support with `async for` syntax to consume items from the queue.\n- Specialized queue types including FIFO (`Queue`), LIFO (`LifoQueue`), and priority queues (`PriorityQueue`).\n- Timeout support for `put` and `get` operations.\n\nExceptions\n----------\n\n- `QueueEmpty`: Raised by `.Queue.get_nowait()` when the queue is empty.\n- `QueueFull`: Raised by `.Queue.put_nowait()` when the queue is full.\n\nQueue Classes\n-------------\n\n### Queue\n\nThe base queue class implements a FIFO (first-in, first-out) queue.\n\n```python\nfrom tornado.queues import Queue\n\nq = Queue(maxsize=2)\n```\n\n- `maxsize` (default 0) controls the maximum number of items allowed in the queue. A value of 0 means the queue size is unbounded.\n- `put(item)` asynchronously adds an item to the queue, waiting if necessary until there is room.\n- `get()` asynchronously removes and returns an item from the queue, waiting if necessary until an item is available.\n- `task_done()` indicates that a formerly enqueued task is complete.\n- `join()` blocks until all items in the queue have been processed (i.e., `task_done()` has been called for each).\n- Supports asynchronous iteration:\n\n```python\nasync for item in q:\n    # process item\n    q.task_done()\n```\n\nExample usage:\n\n```python\nimport asyncio\nfrom tornado.ioloop import IOLoop\nfrom tornado.queues import Queue\n\nq = Queue(maxsize=2)\n\nasync def consumer():\n    async for item in q:\n        try:\n            print('Doing work on %s' % item)\n            await asyncio.sleep(0.01)\n        finally:\n            q.task_done()\n\nasync def producer():\n    for item in range(5):\n        await q.put(item)\n        print('Put %s' % item)\n\nasync def main():\n    IOLoop.current().spawn_callback(consumer)\n    await producer()\n    await q.join()\n    print('Done')\n\nasyncio.run(main())\n```\n\n### LifoQueue\n\nA subclass of `Queue` that retrieves the most recently put items first (LIFO order).\n\nExample:\n\n```python\nimport asyncio\nfrom tornado.queues import LifoQueue\n\nasync def main():\n    q = LifoQueue()\n    await q.put(3)\n    await q.put(2)\n    await q.put(1)\n\n    print(await q.get())  # Outputs: 1\n    print(await q.get())  # Outputs: 2\n    print(await q.get())  # Outputs: 3\n\nasyncio.run(main())\n```\n\n### PriorityQueue\n\nA subclass of `Queue` that retrieves entries in priority order (lowest first).\n\nItems put into the queue must be comparable (e.g., tuples where the first element is the priority).\n\nUsage is similar to `Queue`.\n\nTimeouts\n--------\n\nBoth `put` and `get` methods support an optional `timeout` parameter (float seconds or `datetime.timedelta`). If the operation cannot be completed within the timeout period, a `gen.TimeoutError` is raised.\n\nThread Safety\n-------------\n\nThese queues are **not thread-safe**. To interact with a queue from a different thread, schedule the operation on the Tornado IOLoop thread using `.IOLoop.add_callback`.\n\nSummary\n-------\n\nThe `tornado.queues` module provides efficient, coroutine-friendly queue implementations to coordinate asynchronous producer and consumer tasks. They integrate seamlessly with Tornado's event loop and coroutine system, enabling robust asynchronous workflows with task tracking and timeout support.",
+  "prediction_sha256": "82fe36c7795e6d04f9bf2b4a5ee9316ef09cd37882b2351a49246c9a5bb7a219",
+  "prompt_sha256": "bb21160c3c40c18203ccf084298def9011bc8c3ffa34b36088dd3979e99ebe3b",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 13984,
+    "completion_tokens": 1025,
+    "total_tokens": 15009
+  },
+  "cost_usd": 0.007233600000000001,
+  "generation_seconds": 11.432458624996798,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "queues"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1119,
+              "code": "# Copyright 2015 The Tornado Authors\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\"); you may\n# not use this file except in compliance with the License. You may obtain\n# a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS, WITHOUT\n# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the\n# License for the specific language governing permissions and limitations\n# under the License.\n\n\"\"\"Asynchronous queues for coroutines. These classes are very similar\nto those provided in the standard library's `asyncio package\n<https://docs.python.org/3/library/asyncio-queue.html>`_.\n\n.. warning::\n\n   Unlike the standard library's `queue` module, the classes defined here\n   are *not* thread-safe. To use these queues from another thread,\n   use `.IOLoop.add_callback` to transfer control to the `.IOLoop` thread\n   before calling any queue methods.\n\n\"\"\"\n\nimport collections\nimport datetime\nimport heapq\n\nfrom tornado import gen,",
+              "code_tokens": 300,
+              "score": 1.569463024986
+            },
+            {
+              "chunk_id": 2,
+              "start_char": 2191,
+              "end_char": 2819,
+              "code": " def __init__(self, q: \"Queue[_T]\") -> None:\n        self.q = q\n\n    def __anext__(self) -> Awaitable[_T]:\n        return self.q.get()\n\n\nclass Queue(Generic[_T]):\n    \"\"\"Coordinate producer and consumer coroutines.\n\n    If maxsize is 0 (the default) the queue size is unbounded.\n\n    .. testcode::\n\n        import asyncio\n        from tornado.ioloop import IOLoop\n        from tornado.queues import Queue\n\n        q = Queue(maxsize=2)\n\n        async def consumer():\n            async for item in q:\n                try:\n                    print('Doing work on %s' % item)\n                    await asyncio.sleep(0.01)\n         ",
+              "code_tokens": 300,
+              "score": 1.539014639391
+            },
+            {
+              "chunk_id": 14,
+              "start_char": 11631,
+              "end_char": 12227,
+              "code": "    self._queue = []\n\n    def _put(self, item: _T) -> None:\n        heapq.heappush(self._queue, item)\n\n    def _get(self) -> _T:  # type: ignore[type-var]\n        return heapq.heappop(self._queue)\n\n\nclass LifoQueue(Queue):\n    \"\"\"A `.Queue` that retrieves the most recently put items first.\n\n    .. testcode::\n\n        import asyncio\n        from tornado.queues import LifoQueue\n\n        async def main():\n            q = LifoQueue()\n            q.put(3)\n            q.put(2)\n            q.put(1)\n\n            print(await q.get())\n            print(await q.get())\n            print(await q.get())",
+              "code_tokens": 300,
+              "score": 1.407572880345
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 0
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 3817,
+              "code": "# Copyright 2015 The Tornado Authors\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\"); you may\n# not use this file except in compliance with the License. You may obtain\n# a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS, WITHOUT\n# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the\n# License for the specific language governing permissions and limitations\n# under the License.\n\n\"\"\"Asynchronous queues for coroutines. These classes are very similar\nto those provided in the standard library's `asyncio package\n<https://docs.python.org/3/library/asyncio-queue.html>`_.\n\n.. warning::\n\n   Unlike the standard library's `queue` module, the classes defined here\n   are *not* thread-safe. To use these queues from another thread,\n   use `.IOLoop.add_callback` to transfer control to the `.IOLoop` thread\n   before calling any queue methods.\n\n\"\"\"\n\nimport collections\nimport datetime\nimport heapq\n\nfrom tornado import gen, ioloop\nfrom tornado.concurrent import Future, future_set_result_unless_cancelled\nfrom tornado.locks import Event\n\nfrom typing import Union, TypeVar, Generic, Awaitable, Optional\nimport typing\n\nif typing.TYPE_CHECKING:\n    from typing import Deque, Tuple, Any  # noqa: F401\n\n_T = TypeVar(\"_T\")\n\n__all__ = [\"Queue\", \"PriorityQueue\", \"LifoQueue\", \"QueueFull\", \"QueueEmpty\"]\n\n\nclass QueueEmpty(Exception):\n    \"\"\"Raised by `.Queue.get_nowait` when the queue has no items.\"\"\"\n\n    pass\n\n\nclass QueueFull(Exception):\n    \"\"\"Raised by `.Queue.put_nowait` when a queue is at its maximum size.\"\"\"\n\n    pass\n\n\ndef _set_timeout(\n    future: Future, timeout: Union[None, float, datetime.timedelta]\n) -> None:\n    if timeout:\n\n        def on_timeout() -> None:\n            if not future.done():\n                future.set_exception(gen.TimeoutError())\n\n        io_loop = ioloop.IOLoop.current()\n        timeout_handle = io_loop.add_timeout(timeout, on_timeout)\n        future.add_done_callback(lambda _: io_loop.remove_timeout(timeout_handle))\n\n\nclass _QueueIterator(Generic[_T]):\n    def __init__(self, q: \"Queue[_T]\") -> None:\n        self.q = q\n\n    def __anext__(self) -> Awaitable[_T]:\n        return self.q.get()\n\n\nclass Queue(Generic[_T]):\n    \"\"\"Coordinate producer and consumer coroutines.\n\n    If maxsize is 0 (the default) the queue size is unbounded.\n\n    .. testcode::\n\n        import asyncio\n        from tornado.ioloop import IOLoop\n        from tornado.queues import Queue\n\n        q = Queue(maxsize=2)\n\n        async def consumer():\n            async for item in q:\n                try:\n                    print('Doing work on %s' % item)\n                    await asyncio.sleep(0.01)\n                finally:\n                    q.task_done()\n\n        async def producer():\n            for item in range(5):\n                await q.put(item)\n                print('Put %s' % item)\n\n        async def main():\n            # Start consumer without waiting (since it never finishes).\n            IOLoop.current().spawn_callback(consumer)\n            await producer()     # Wait for producer to put all tasks.\n            await q.join()       # Wait for consumer to finish all tasks.\n            print('Done')\n\n        asyncio.run(main())\n\n    .. testoutput::\n\n        Put 0\n        Put 1\n        Doing work on 0\n        Put 2\n        Doing work on 1\n        Put 3\n        Doing work on 2\n        Put 4\n        Doing work on 3\n        Doing work on 4\n        Done\n\n\n    In versions of Python without native coroutines (before 3.5),\n    ``consumer()`` could be written as::\n\n        @gen.coroutine\n        def consumer():\n            while True:\n                item = yield q.get()\n              ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 2
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 2191,
+              "end_char": 5399,
+              "code": " def __init__(self, q: \"Queue[_T]\") -> None:\n        self.q = q\n\n    def __anext__(self) -> Awaitable[_T]:\n        return self.q.get()\n\n\nclass Queue(Generic[_T]):\n    \"\"\"Coordinate producer and consumer coroutines.\n\n    If maxsize is 0 (the default) the queue size is unbounded.\n\n    .. testcode::\n\n        import asyncio\n        from tornado.ioloop import IOLoop\n        from tornado.queues import Queue\n\n        q = Queue(maxsize=2)\n\n        async def consumer():\n            async for item in q:\n                try:\n                    print('Doing work on %s' % item)\n                    await asyncio.sleep(0.01)\n                finally:\n                    q.task_done()\n\n        async def producer():\n            for item in range(5):\n                await q.put(item)\n                print('Put %s' % item)\n\n        async def main():\n            # Start consumer without waiting (since it never finishes).\n            IOLoop.current().spawn_callback(consumer)\n            await producer()     # Wait for producer to put all tasks.\n            await q.join()       # Wait for consumer to finish all tasks.\n            print('Done')\n\n        asyncio.run(main())\n\n    .. testoutput::\n\n        Put 0\n        Put 1\n        Doing work on 0\n        Put 2\n        Doing work on 1\n        Put 3\n        Doing work on 2\n        Put 4\n        Doing work on 3\n        Doing work on 4\n        Done\n\n\n    In versions of Python without native coroutines (before 3.5),\n    ``consumer()`` could be written as::\n\n        @gen.coroutine\n        def consumer():\n            while True:\n                item = yield q.get()\n                try:\n                    print('Doing work on %s' % item)\n                    yield gen.sleep(0.01)\n                finally:\n                    q.task_done()\n\n    .. versionchanged:: 4.3\n       Added ``async for`` support in Python 3.5.\n\n    \"\"\"\n\n    # Exact type depends on subclass. Could be another generic\n    # parameter and use protocols to be more precise here.\n    _queue = None  # type: Any\n\n    def __init__(self, maxsize: int = 0) -> None:\n        if maxsize is None:\n            raise TypeError(\"maxsize can't be None\")\n\n        if maxsize < 0:\n            raise ValueError(\"maxsize can't be negative\")\n\n        self._maxsize = maxsize\n        self._init()\n        self._getters = collections.deque([])  # type: Deque[Future[_T]]\n        self._putters = collections.deque([])  # type: Deque[Tuple[_T, Future[None]]]\n        self._unfinished_tasks = 0\n        self._finished = Event()\n        self._finished.set()\n\n    @property\n    def maxsize(self) -> int:\n        \"\"\"Number of items allowed in the queue.\"\"\"\n        return self._maxsize\n\n    def qsize(self) -> int:\n        \"\"\"Number of items in the queue.\"\"\"\n        return len(self._queue)\n\n    def empty(self) -> bool:\n        return not self._queue\n\n    def full(self) -> bool:\n        if self.maxsize == 0:\n            return False\n        else:\n            return self.qsize() >= self.maxsize\n\n    def put(\n        self, item: _T, timeout: Optional[Union[float, datetime.timedelta]] = None\n    ) -> \"Future[None]\":\n        \"\"\"Put an item into the queue, perhaps waiting until there is room.\n\n        Returns a",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 3
+        },
+        "response": {
+          "status": "unknown_chunk",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "unknown_chunk",
+          "excerpts": []
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 14
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 14,
+              "start_char": 11631,
+              "end_char": 12529,
+              "code": "    self._queue = []\n\n    def _put(self, item: _T) -> None:\n        heapq.heappush(self._queue, item)\n\n    def _get(self) -> _T:  # type: ignore[type-var]\n        return heapq.heappop(self._queue)\n\n\nclass LifoQueue(Queue):\n    \"\"\"A `.Queue` that retrieves the most recently put items first.\n\n    .. testcode::\n\n        import asyncio\n        from tornado.queues import LifoQueue\n\n        async def main():\n            q = LifoQueue()\n            q.put(3)\n            q.put(2)\n            q.put(1)\n\n            print(await q.get())\n            print(await q.get())\n            print(await q.get())\n\n        asyncio.run(main())\n\n    .. testoutput::\n\n        1\n        2\n        3\n    \"\"\"\n\n    def _init(self) -> None:\n        self._queue = []\n\n    def _put(self, item: _T) -> None:\n        self._queue.append(item)\n\n    def _get(self) -> _T:  # type: ignore[type-var]\n        return self._queue.pop()",
+              "code_tokens": 454
+            }
+          ],
+          "code_tokens": 454
+        }
+      }
+    ],
+    "code_tokens_returned": 4354,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "2ac91bb1a8cd93acb5e7727c0d1b9fd761054a756abb8aa00af53cd6c9224034",
+        "request_id": "chatcmpl-Ej8MMqLcJfDwIIOfgrRphoeBfB7nA",
+        "usage": {
+          "prompt_tokens": 161,
+          "completion_tokens": 14,
+          "total_tokens": 175,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.680000000000001e-05,
+        "seconds": 0.6495433329982916,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "4648fc2bd55bb13b1ddb5f601422295820cb8715761f13ae834213525d1f0f59",
+        "request_id": "chatcmpl-Ej8MNTaXlojRSsRh0yk7EM2VkoWXI",
+        "usage": {
+          "prompt_tokens": 976,
+          "completion_tokens": 15,
+          "total_tokens": 991,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00041440000000000004,
+        "seconds": 0.7238397500004794,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "194b93a353857804f4aa280d3027a69b33a54afd771646a71a509943a4ccb9ed",
+        "request_id": "chatcmpl-Ej8MNOlssjlC6IAHjfRxzYd6tTeko",
+        "usage": {
+          "prompt_tokens": 2066,
+          "completion_tokens": 15,
+          "total_tokens": 2081,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008504000000000001,
+        "seconds": 0.790932874999271,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "f8760eaeef54e1dab28c2462a8802b0c9e018c85023379651456c1f0e7f41a21",
+        "request_id": "chatcmpl-Ej8MON4vFR5tOvfbm4FuAOYwbpEXA",
+        "usage": {
+          "prompt_tokens": 3025,
+          "completion_tokens": 15,
+          "total_tokens": 3040,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001234,
+        "seconds": 0.6625820420013042,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "fd043599bdaf62be35d2b86d211470e76fdc4fc364aa0c5d576c03a2225283c5",
+        "request_id": "chatcmpl-Ej8MPbZE4AwOGLmCVGUQAo0E4I6J8",
+        "usage": {
+          "prompt_tokens": 3060,
+          "completion_tokens": 15,
+          "total_tokens": 3075,
+          "prompt_tokens_details": {
+            "cached_tokens": 2816,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001248,
+        "seconds": 0.9696202499981155,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "1c9a49a1d95b32c692a89768ba16f908261fb70fd1f5b132ee8d45a7693dd274",
+        "request_id": "chatcmpl-Ej8MQdCVKZB9SG4p9CCMeCWo3dBMn",
+        "usage": {
+          "prompt_tokens": 3095,
+          "completion_tokens": 15,
+          "total_tokens": 3110,
+          "prompt_tokens_details": {
+            "cached_tokens": 2944,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001262,
+        "seconds": 1.0612278749977122,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "41383e3edeb1289c387b196d8c40f72bc7f0030b4f13448cae0ddb9faa6e1c6a",
+        "request_id": "chatcmpl-Ej8MRjE8OP4nDkcwqTVmo30SGjUkv",
+        "usage": {
+          "prompt_tokens": 1601,
+          "completion_tokens": 936,
+          "total_tokens": 2537,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.002138,
+        "seconds": 6.574712500001624,
+        "retry_count": 0
+      }
+    ]
+  }
+}

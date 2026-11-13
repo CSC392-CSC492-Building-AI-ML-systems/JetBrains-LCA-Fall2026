@@ -1,0 +1,98 @@
+Partial Dependence and Individual Conditional Expectation Plots
+=================================================================
+
+Overview
+--------
+
+Partial Dependence (PD) and Individual Conditional Expectation (ICE) plots are powerful tools for interpreting machine learning models. They help visualize the relationship between one or more features and the predicted outcome of a fitted model, marginalizing over the values of all other features.
+
+Partial Dependence Plots
+------------------------
+
+Partial Dependence plots show the average effect of one or two features on the predicted outcome of a model. They are computed by marginalizing the model predictions over the distribution of the other features in the dataset.
+
+Given a fitted estimator and a dataset, the partial dependence function for a feature (or a set of features) is defined as the expected prediction when the feature(s) of interest are fixed to certain values, and the other features vary according to their empirical distribution.
+
+Key points about Partial Dependence plots:
+
+- They provide a global interpretation of the model by averaging out the effects of all other features.
+- They can be computed for regression and classification models.
+- They are especially useful for understanding complex, non-linear models such as ensemble methods and gradient boosting machines.
+- Partial dependence can be computed using different methods, including a brute-force approach and a recursion method optimized for tree-based models.
+
+Individual Conditional Expectation Plots
+----------------------------------------
+
+Individual Conditional Expectation plots complement Partial Dependence plots by showing the dependence of the prediction on a feature for individual instances rather than averaging over the dataset.
+
+Key points about ICE plots:
+
+- They display one curve per instance in the dataset, showing how the prediction changes as the feature of interest varies.
+- ICE plots reveal heterogeneity in the feature effect that may be masked by the averaging in PD plots.
+- They are useful for detecting interactions between features and identifying subgroups with different behaviors.
+
+Computing Partial Dependence and ICE
+------------------------------------
+
+The computation involves the following steps:
+
+1. **Grid Generation**: For each feature of interest, a grid of values is generated. This grid can be based on percentiles of the feature values or the unique values if the feature is categorical or has low cardinality.
+
+2. **Prediction Averaging**: For each point in the grid, the model predictions are computed by fixing the feature(s) of interest to the grid value(s) and averaging over the other features in the dataset.
+
+3. **Visualization**: The averaged predictions are plotted against the grid values to produce the Partial Dependence plot. For ICE plots, predictions for individual instances are plotted separately.
+
+Implementation Details
+----------------------
+
+- The grid of feature values is generated using percentiles to capture the range of the data while avoiding outliers.
+- For categorical features or features with fewer unique values than the grid resolution, the unique values are used directly.
+- The Partial Dependence computation supports multi-output models and can handle both regression and classification tasks.
+- For tree-based models, a recursion method can be used to efficiently compute partial dependence without explicit averaging over the dataset.
+- Feature names can be specified or inferred from the input data to improve interpretability.
+- The computation supports validation of feature names and indices to ensure correct mapping between features and their values.
+
+Usage Example
+-------------
+
+```python
+from sklearn.inspection import partial_dependence, PartialDependenceDisplay
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+
+# Load data
+X, y = fetch_california_housing(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+# Fit model
+est = GradientBoostingRegressor().fit(X_train, y_train)
+
+# Compute partial dependence for feature 0
+pdp_results = partial_dependence(est, X_test, features=[0])
+
+# Plot partial dependence
+PartialDependenceDisplay.from_estimator(est, X_test, features=[0])
+```
+
+References
+----------
+
+- Friedman, J. H. (2001). Greedy function approximation: A gradient boosting machine. *Annals of Statistics*, 29(5), 1189–1232.
+- Goldstein, A., Kapelner, A., Bleich, J., & Pitkin, E. (2015). Peeking inside the black box: Visualizing statistical learning with plots of individual conditional expectation. *Journal of Computational and Graphical Statistics*, 24(1), 44–65.
+
+See Also
+--------
+
+- :func:`sklearn.inspection.partial_dependence`
+- :class:`sklearn.inspection.PartialDependenceDisplay`
+- :func:`sklearn.inspection.permutation_importance`
+
+Notes
+-----
+
+- Partial Dependence plots assume that the features are not correlated. When features are strongly correlated, the plots may be misleading.
+- ICE plots can help diagnose such issues by showing individual prediction curves.
+- The computational cost of partial dependence increases with the number of features and grid resolution; efficient implementations use optimized methods for tree-based models.
+
+This documentation provides an overview of Partial Dependence and Individual Conditional Expectation plots as implemented in scikit-learn's inspection module, enabling users to interpret complex models effectively.

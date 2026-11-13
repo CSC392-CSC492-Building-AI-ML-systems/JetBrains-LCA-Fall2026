@@ -1,0 +1,348 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "# General HDF5 File Reader\n\nThis document provides an overview of the general `HDF5` file reader functionality implemented in the `HDF5Reader` class, along with a collection of predefined transformation functions designed to facilitate flexible and robust data extraction from HDF5 files.\n\n---\n\n## Overview\n\nThe `HDF5Reader` class is a versatile tool for reading and processing data stored in HDF5 files. It supports handling datasets in multiple forms, including:\n\n1. **h5py.Dataset objects**: Direct datasets from the HDF5 file.\n2. **NumPy arrays**: Datasets that have already been loaded into memory as arrays.\n3. **Dictionaries of datasets**: Used to represent groups or collections of datasets where keys correspond to dataset names.\n\nThis flexibility allows the reader to work seamlessly with complex HDF5 file structures, including nested groups and heterogeneous datasets.\n\n---\n\n## Transformations\n\nTo enhance data processing capabilities, the reader supports a set of **transformation functions**. These transformations can be applied to datasets to extract or manipulate data in a standardized way. Each transformation function is registered with the `HDF5Reader` class and can be applied during the reading process.\n\n### Transformation Requirements\n\nAll transformation functions must be capable of handling the three dataset cases mentioned above (h5py.Dataset, NumPy array, and dictionary of datasets). They should either successfully process the input or fail gracefully by raising a clear and informative error.\n\n### Registering Transformations\n\nTransformation functions are registered using the `@hdf5_transformation` decorator. This decorator ensures that:\n\n- The function is added to the internal transformation registry of the `HDF5Reader`.\n- Errors during transformation are caught and re-raised as `HDF5TransformationError` with detailed messages.\n- Functions that require previously processed attribute values are marked accordingly.\n\n---\n\n## Predefined Transformations\n\nBelow is a summary of the predefined transformation functions available:\n\n### `get_first_element(dataset)`\n\n- **Description**: Retrieves the first element of the dataset.\n- **Parameters**:\n  - `dataset`: The dataset to transform.\n- **Returns**: The first element of the dataset or a dictionary of first elements if the input is a dictionary.\n\n### `index_dataset(dataset, index)`\n\n- **Description**: Retrieves the element at the specified index from the dataset.\n- **Parameters**:\n  - `dataset`: The dataset to transform.\n  - `index`: The index of the element to retrieve.\n- **Returns**: The element at the given index or a dictionary of elements if the input is a dictionary.\n\n### `slice_dataset(dataset, slice_arg)`\n\n- **Description**: Applies a slice operation to the dataset.\n- **Parameters**:\n  - `dataset`: The dataset to transform.\n  - `slice_arg`: The slice object or slice parameters to apply.\n- **Returns**: The sliced dataset or a dictionary of sliced datasets.\n\n### `get_shape(dataset)`\n\n- **Description**: Retrieves the shape of the dataset.\n- **Parameters**:\n  - `dataset`: The dataset to query.\n- **Returns**: The shape of the dataset or a dictionary of shapes if the input is a dictionary.\n\n### `get_name(dataset, full_path=False)`\n\n- **Description**: Retrieves the name of the dataset.\n- **Parameters**:\n  - `dataset`: The dataset to query (must be an `h5py.Dataset` or dictionary of such).\n  - `full_path`: If `True`, returns the full path of the dataset within the HDF5 file; otherwise, returns only the dataset name.\n- **Returns**: The dataset name or a dictionary of names.\n- **Notes**: Raises a `ValueError` if the dataset is a list or NumPy array, as these do not have names.\n\n### `tile_array(dataset, n_repeats)`\n\n- **Description**: Repeats the dataset array `n_repeats` times using `numpy.tile`.\n- **Parameters**:\n  - `dataset`: The dataset to transform.\n  - `n_repeats`: Number of times to repeat the array.\n- **Returns**: The tiled dataset array.\n\n---\n\n## Error Handling\n\nAll transformation functions are wrapped to catch exceptions and raise a specialized `HDF5TransformationError`. This ensures that errors during data transformation are clearly communicated and can be handled appropriately by users of the `HDF5Reader`.\n\n---\n\n## Usage Notes\n\n- Transformations that require access to previously processed attribute values are marked with `attribute_needed=True` in their decorator.\n- The reader and its transformations are designed to be extensible; users can define and register additional transformations following the established pattern.\n- When working with dictionaries of datasets, transformations are applied to each dataset individually, and results are returned in a corresponding dictionary structure.\n\n---\n\nFor more detailed information and advanced usage, please refer to the source code and the API documentation of the `HDF5Reader` class and its transformation functions.",
+  "prediction_sha256": "df34ac4258ec72acf4afd623acf4e4f2a553fa65c33b3b264b545087352cf256",
+  "prompt_sha256": "eb733cbbfedaccb7e8d3b46bd2d7323262b5a3bf3c55cb5d5f5e23ea91e488e1",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 15396,
+    "completion_tokens": 1115,
+    "total_tokens": 16511
+  },
+  "cost_usd": 0.007942400000000002,
+  "generation_seconds": 12.931330497995077,
+  "agent_trace": {
+    "stop_reason": "tool_limit",
+    "tool_calls": 6,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "HDF5"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 1698,
+              "end_char": 2526,
+              "code": "Error(Exception):\n    pass\n\n\nF = TypeVar('F', bound=Callable[..., Any])\n\"\"\"Generic Callable type\"\"\"\n\n\ndef hdf5_transformation(*, attribute_needed: bool) -> Callable[[F], F]:\n    \"\"\"\n    Decorator for registering a function as a transformation functions\n    on the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\n    :param attribute_needed: bool if True this function takes a previously processed\n                             attribute value and is therefore only available for the entries in datasets\n    \"\"\"\n\n    def hdf5_transformation_decorator(func: F) -> F:\n        \"\"\"\n        Return decorated HDF5Reader object with _transforms dict and\n        _attribute_transforms set attribute\n        Here all registered transforms are inserted\n        \"\"\"\n        #pylint: disable=protected-access\n\n        @wraps",
+              "code_tokens": 300,
+              "score": 2.337453081668
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2641,
+              "end_char": 3390,
+              "code": "     try:\n                return func(*args, **kwargs)\n            except Exception as exc:\n                raise HDF5TransformationError(f'The HDF5 transformation {func.__name__} failed with {exc}') from exc\n\n        HDF5Reader._transforms[func.__name__] = transform_func\n\n        if attribute_needed:\n            HDF5Reader._attribute_transforms.add(func.__name__)\n\n        return cast(F, transform_func)\n\n    return hdf5_transformation_decorator\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_first_element(dataset):\n    \"\"\"\n    Get the first element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    return index_dataset(dataset, 0)\n\n\n@hdf5_transformation(attribute_needed=",
+              "code_tokens": 300,
+              "score": 2.231994956462
+            },
+            {
+              "chunk_id": 1,
+              "start_char": 653,
+              "end_char": 1516,
+              "code": " information please visit http://judft.de/.                      #\n#                                                                             #\n###############################################################################\n\"\"\"\nCollection of predefined transformations for the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\nAll Transformation have to be able to handle (or fail gracefully with a clear error)\nfor the following 3 cases:\n\n    1. The dataset is still a h5py.Dataset and might need to be transformed to a numpy array\n    2. The dataset is a numpy array\n    3. The dataset is a dict. This is needed to read arbitrary child dataset, where not all labels\n       are known. Two options can be chosen apply the transformation to all keys in the dict\n       or throw an error\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import",
+              "code_tokens": 300,
+              "score": 2.182755612059
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 2
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 2,
+              "start_char": 1698,
+              "end_char": 5699,
+              "code": "Error(Exception):\n    pass\n\n\nF = TypeVar('F', bound=Callable[..., Any])\n\"\"\"Generic Callable type\"\"\"\n\n\ndef hdf5_transformation(*, attribute_needed: bool) -> Callable[[F], F]:\n    \"\"\"\n    Decorator for registering a function as a transformation functions\n    on the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\n    :param attribute_needed: bool if True this function takes a previously processed\n                             attribute value and is therefore only available for the entries in datasets\n    \"\"\"\n\n    def hdf5_transformation_decorator(func: F) -> F:\n        \"\"\"\n        Return decorated HDF5Reader object with _transforms dict and\n        _attribute_transforms set attribute\n        Here all registered transforms are inserted\n        \"\"\"\n        #pylint: disable=protected-access\n\n        @wraps(func)\n        def transform_func(*args, **kwargs):\n            \"\"\"Decorator for transformation function\"\"\"\n            try:\n                return func(*args, **kwargs)\n            except Exception as exc:\n                raise HDF5TransformationError(f'The HDF5 transformation {func.__name__} failed with {exc}') from exc\n\n        HDF5Reader._transforms[func.__name__] = transform_func\n\n        if attribute_needed:\n            HDF5Reader._attribute_transforms.add(func.__name__)\n\n        return cast(F, transform_func)\n\n    return hdf5_transformation_decorator\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_first_element(dataset):\n    \"\"\"\n    Get the first element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    return index_dataset(dataset, 0)\n\n\n@hdf5_transformation(attribute_needed=False)\ndef index_dataset(dataset, index):\n    \"\"\"\n    Get the n-th element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    if isinstance(dataset, dict):\n        transformed = {key: data[index] for key, data in dataset.items()}\n    else:\n        transformed = dataset[index]\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef slice_dataset(dataset, slice_arg):\n    \"\"\"\n    Slice the dataset with the given slice argument.\n\n    :param dataset: dataset to transform\n    :param slice_arg: slice to apply to the dataset\n\n    :returns: first element of the dataset\n    \"\"\"\n    if isinstance(dataset, dict):\n        transformed = {key: data[slice_arg] for key, data in dataset.items()}\n    else:\n        transformed = dataset[slice_arg]\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_shape(dataset):\n    \"\"\"\n    Get the shape of the dataset.\n\n    :param dataset: dataset to get the shape\n\n    :returns: shape of the dataset\n    \"\"\"\n\n    if isinstance(dataset, dict):\n        transformed = {key: data.shape for key, data in dataset.items()}\n    else:\n        transformed = dataset.shape\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_name(dataset, full_path=False):\n    \"\"\"\n    Get the name of the dataset.\n\n    :param dataset: dataset to get the shape\n    :param full_path: bool, if True the full path to the dataset is returned\n\n    :returns: name of the dataset\n    \"\"\"\n\n    if isinstance(dataset, (list, np.ndarray)):\n        raise ValueError('Dataset has to be a h5py.Dataset for get_name')\n\n    if isinstance(dataset, dict):\n        if full_path:\n            transformed = {key: data.name for key, data in dataset.items()}\n        else:\n            transformed = {key: data.name.split('/')[-1] for key, data in dataset.items()}\n    elif full_path:\n        transformed = dataset.name\n    else:\n        transformed = dataset.name.split('/')[-1]\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef tile_array(dataset, n_repeats):\n    \"\"\"\n    Use numpy.tile to repeat array n-times\n\n    :param dataset: dataset to transform\n    :param attribute_shape: int, time sto repeat the given array\n\n    :returns: dataset repeated n-times\n    \"\"\"\n ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "HDF5Reader"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 653,
+              "end_char": 1516,
+              "code": " information please visit http://judft.de/.                      #\n#                                                                             #\n###############################################################################\n\"\"\"\nCollection of predefined transformations for the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\nAll Transformation have to be able to handle (or fail gracefully with a clear error)\nfor the following 3 cases:\n\n    1. The dataset is still a h5py.Dataset and might need to be transformed to a numpy array\n    2. The dataset is a numpy array\n    3. The dataset is a dict. This is needed to read arbitrary child dataset, where not all labels\n       are known. Two options can be chosen apply the transformation to all keys in the dict\n       or throw an error\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import",
+              "code_tokens": 300,
+              "score": 7.03841851912
+            },
+            {
+              "chunk_id": 2,
+              "start_char": 1698,
+              "end_char": 2526,
+              "code": "Error(Exception):\n    pass\n\n\nF = TypeVar('F', bound=Callable[..., Any])\n\"\"\"Generic Callable type\"\"\"\n\n\ndef hdf5_transformation(*, attribute_needed: bool) -> Callable[[F], F]:\n    \"\"\"\n    Decorator for registering a function as a transformation functions\n    on the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\n    :param attribute_needed: bool if True this function takes a previously processed\n                             attribute value and is therefore only available for the entries in datasets\n    \"\"\"\n\n    def hdf5_transformation_decorator(func: F) -> F:\n        \"\"\"\n        Return decorated HDF5Reader object with _transforms dict and\n        _attribute_transforms set attribute\n        Here all registered transforms are inserted\n        \"\"\"\n        #pylint: disable=protected-access\n\n        @wraps",
+              "code_tokens": 300,
+              "score": 7.006494045844
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2641,
+              "end_char": 3390,
+              "code": "     try:\n                return func(*args, **kwargs)\n            except Exception as exc:\n                raise HDF5TransformationError(f'The HDF5 transformation {func.__name__} failed with {exc}') from exc\n\n        HDF5Reader._transforms[func.__name__] = transform_func\n\n        if attribute_needed:\n            HDF5Reader._attribute_transforms.add(func.__name__)\n\n        return cast(F, transform_func)\n\n    return hdf5_transformation_decorator\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_first_element(dataset):\n    \"\"\"\n    Get the first element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    return index_dataset(dataset, 0)\n\n\n@hdf5_transformation(attribute_needed=",
+              "code_tokens": 300,
+              "score": 6.307041554833
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "class HDF5Reader"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 653,
+              "end_char": 1516,
+              "code": " information please visit http://judft.de/.                      #\n#                                                                             #\n###############################################################################\n\"\"\"\nCollection of predefined transformations for the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\nAll Transformation have to be able to handle (or fail gracefully with a clear error)\nfor the following 3 cases:\n\n    1. The dataset is still a h5py.Dataset and might need to be transformed to a numpy array\n    2. The dataset is a numpy array\n    3. The dataset is a dict. This is needed to read arbitrary child dataset, where not all labels\n       are known. Two options can be chosen apply the transformation to all keys in the dict\n       or throw an error\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import",
+              "code_tokens": 300,
+              "score": 11.216426342655
+            },
+            {
+              "chunk_id": 2,
+              "start_char": 1698,
+              "end_char": 2526,
+              "code": "Error(Exception):\n    pass\n\n\nF = TypeVar('F', bound=Callable[..., Any])\n\"\"\"Generic Callable type\"\"\"\n\n\ndef hdf5_transformation(*, attribute_needed: bool) -> Callable[[F], F]:\n    \"\"\"\n    Decorator for registering a function as a transformation functions\n    on the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\n    :param attribute_needed: bool if True this function takes a previously processed\n                             attribute value and is therefore only available for the entries in datasets\n    \"\"\"\n\n    def hdf5_transformation_decorator(func: F) -> F:\n        \"\"\"\n        Return decorated HDF5Reader object with _transforms dict and\n        _attribute_transforms set attribute\n        Here all registered transforms are inserted\n        \"\"\"\n        #pylint: disable=protected-access\n\n        @wraps",
+              "code_tokens": 300,
+              "score": 10.773973603166
+            },
+            {
+              "chunk_id": 3,
+              "start_char": 2641,
+              "end_char": 3390,
+              "code": "     try:\n                return func(*args, **kwargs)\n            except Exception as exc:\n                raise HDF5TransformationError(f'The HDF5 transformation {func.__name__} failed with {exc}') from exc\n\n        HDF5Reader._transforms[func.__name__] = transform_func\n\n        if attribute_needed:\n            HDF5Reader._attribute_transforms.add(func.__name__)\n\n        return cast(F, transform_func)\n\n    return hdf5_transformation_decorator\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_first_element(dataset):\n    \"\"\"\n    Get the first element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    return index_dataset(dataset, 0)\n\n\n@hdf5_transformation(attribute_needed=",
+              "code_tokens": 300,
+              "score": 6.307041554833
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 1
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 1,
+              "start_char": 653,
+              "end_char": 4792,
+              "code": " information please visit http://judft.de/.                      #\n#                                                                             #\n###############################################################################\n\"\"\"\nCollection of predefined transformations for the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\nAll Transformation have to be able to handle (or fail gracefully with a clear error)\nfor the following 3 cases:\n\n    1. The dataset is still a h5py.Dataset and might need to be transformed to a numpy array\n    2. The dataset is a numpy array\n    3. The dataset is a dict. This is needed to read arbitrary child dataset, where not all labels\n       are known. Two options can be chosen apply the transformation to all keys in the dict\n       or throw an error\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Callable, TypeVar, Any, cast\nimport h5py\nimport numpy as np\nfrom functools import wraps\nfrom collections import defaultdict\nfrom .reader import HDF5Reader\n\n\nclass HDF5TransformationError(Exception):\n    pass\n\n\nF = TypeVar('F', bound=Callable[..., Any])\n\"\"\"Generic Callable type\"\"\"\n\n\ndef hdf5_transformation(*, attribute_needed: bool) -> Callable[[F], F]:\n    \"\"\"\n    Decorator for registering a function as a transformation functions\n    on the :py:class:`~masci_tools.io.parsers.hdf5.reader.HDF5Reader` class\n\n    :param attribute_needed: bool if True this function takes a previously processed\n                             attribute value and is therefore only available for the entries in datasets\n    \"\"\"\n\n    def hdf5_transformation_decorator(func: F) -> F:\n        \"\"\"\n        Return decorated HDF5Reader object with _transforms dict and\n        _attribute_transforms set attribute\n        Here all registered transforms are inserted\n        \"\"\"\n        #pylint: disable=protected-access\n\n        @wraps(func)\n        def transform_func(*args, **kwargs):\n            \"\"\"Decorator for transformation function\"\"\"\n            try:\n                return func(*args, **kwargs)\n            except Exception as exc:\n                raise HDF5TransformationError(f'The HDF5 transformation {func.__name__} failed with {exc}') from exc\n\n        HDF5Reader._transforms[func.__name__] = transform_func\n\n        if attribute_needed:\n            HDF5Reader._attribute_transforms.add(func.__name__)\n\n        return cast(F, transform_func)\n\n    return hdf5_transformation_decorator\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_first_element(dataset):\n    \"\"\"\n    Get the first element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    return index_dataset(dataset, 0)\n\n\n@hdf5_transformation(attribute_needed=False)\ndef index_dataset(dataset, index):\n    \"\"\"\n    Get the n-th element of the dataset.\n\n    :param dataset: dataset to transform\n\n    :returns: first element of the dataset\n    \"\"\"\n    if isinstance(dataset, dict):\n        transformed = {key: data[index] for key, data in dataset.items()}\n    else:\n        transformed = dataset[index]\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef slice_dataset(dataset, slice_arg):\n    \"\"\"\n    Slice the dataset with the given slice argument.\n\n    :param dataset: dataset to transform\n    :param slice_arg: slice to apply to the dataset\n\n    :returns: first element of the dataset\n    \"\"\"\n    if isinstance(dataset, dict):\n        transformed = {key: data[slice_arg] for key, data in dataset.items()}\n    else:\n        transformed = dataset[slice_arg]\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_shape(dataset):\n    \"\"\"\n    Get the shape of the dataset.\n\n    :param dataset: dataset to get the shape\n\n    :returns: shape of the dataset\n    \"\"\"\n\n    if isinstance(dataset, dict):\n        transformed = {key: data.shape for key, data in dataset.items()}\n    else:\n        transformed = dataset.shape\n\n    return transformed\n\n\n@hdf5_transformation(attribute_needed=False)\ndef get_name(dataset, full_path=False):\n    \"\"\"\n    Get the name of the dataset.\n\n    :param dataset: dataset to get the shape\n   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "class HDF5Reader"
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 5700,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "d2dadc959da0e427a14e7871d1229081c8e3efa6ef8e1dba81ac6378a762ec10",
+        "request_id": "chatcmpl-Ej9fTNQjUjEy8TNiWy0JRIlGi9bPp",
+        "usage": {
+          "prompt_tokens": 161,
+          "completion_tokens": 16,
+          "total_tokens": 177,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 9e-05,
+        "seconds": 0.6337746659992263,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "2c27511140589ac0683b232f804fb599fe4b4a8f1167437ec0f87121788fc960",
+        "request_id": "chatcmpl-Ej9fULUEMKSWtRbhc7WP5h0SDhgCt",
+        "usage": {
+          "prompt_tokens": 925,
+          "completion_tokens": 15,
+          "total_tokens": 940,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000394,
+        "seconds": 0.8424337499964167,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "0686890efdbb6b535793db084f79f5556684f2b4004088c7b9e391dfd3c7f8bd",
+        "request_id": "chatcmpl-Ej9fUge2oQyYST2GgeOCUxFiX8k3N",
+        "usage": {
+          "prompt_tokens": 2048,
+          "completion_tokens": 17,
+          "total_tokens": 2065,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0008464000000000001,
+        "seconds": 0.8340168750000885,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "e17cfa4e787073e2a399cf976cf9290072690cd4f4297452b50e2a936e4ddb0b",
+        "request_id": "chatcmpl-Ej9fVagOFl6NbKf9n6Q6aaQ29JPgZ",
+        "usage": {
+          "prompt_tokens": 2813,
+          "completion_tokens": 18,
+          "total_tokens": 2831,
+          "prompt_tokens_details": {
+            "cached_tokens": 1920,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001154,
+        "seconds": 0.7054800409969175,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "4bc79268072b136a27768374546a693b42ac5d33aaafaf7d5b809d674aa55c20",
+        "request_id": "chatcmpl-Ej9fW3mAuL8E48bYhK7AAQctwc5V8",
+        "usage": {
+          "prompt_tokens": 3579,
+          "completion_tokens": 15,
+          "total_tokens": 3594,
+          "prompt_tokens_details": {
+            "cached_tokens": 2688,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0014556,
+        "seconds": 0.9115072909989976,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "search",
+        "request_sha256": "facc93beabcb19162d07187f6074c6f15992a9df1a9bc735ecc20bbd69ffee1f",
+        "request_id": "chatcmpl-Ej9fXLe67pfkOPu0uoPOeKWScfeCy",
+        "usage": {
+          "prompt_tokens": 4688,
+          "completion_tokens": 18,
+          "total_tokens": 4706,
+          "prompt_tokens_details": {
+            "cached_tokens": 3456,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001904,
+        "seconds": 0.8271551249999902,
+        "retry_count": 0
+      },
+      {
+        "turn": 7,
+        "kind": "final",
+        "request_sha256": "3050d73198405b75cdf2c4c534c265bf37da58d1feaf04b1812c5731727939e8",
+        "request_id": "chatcmpl-Ej9fYoRfZ91eq24boaJjr4sUPMqTm",
+        "usage": {
+          "prompt_tokens": 1182,
+          "completion_tokens": 1016,
+          "total_tokens": 2198,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0020984000000000003,
+        "seconds": 8.17696275000344,
+        "retry_count": 0
+      }
+    ]
+  }
+}

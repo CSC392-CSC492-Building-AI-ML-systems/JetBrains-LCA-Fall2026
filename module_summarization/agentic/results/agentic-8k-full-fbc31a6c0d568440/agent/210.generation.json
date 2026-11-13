@@ -1,0 +1,252 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Empirical Likelihood\n====================\n\nOverview\n--------\nThe empirical likelihood (EL) method provides a nonparametric approach to statistical inference, allowing hypothesis testing and confidence interval construction without specifying a full parametric model. This module implements empirical likelihood inference on descriptive statistics and linear regression models, including regression forced through the origin.\n\nKey Features\n------------\n- Hypothesis tests and confidence intervals for descriptive statistics such as mean, variance, skewness, kurtosis, and correlation.\n- Multivariate confidence region plots and mean-variance contour plots (if matplotlib is installed).\n- Empirical likelihood regression forced through the origin, providing more precise parameter estimates and narrower confidence intervals compared to standard regression methods.\n- Optimization-based inference using likelihood ratio statistics.\n\nReferences\n----------\nOwen, A. B. (2001). *Empirical Likelihood*. Chapman and Hall.\n\n---\n\nEmpirical Likelihood on Descriptive Statistics\n----------------------------------------------\nThis module enables empirical likelihood inference on univariate and multivariate descriptive statistics.\n\n### DescStat Class\n\nThe `DescStat` function returns an instance for conducting inference on descriptive statistics via empirical likelihood.\n\n**Parameters:**\n\n- `endog` : ndarray  \n  Array of data.\n\n**Returns:**\n\n- `DescStat` instance  \n  - If the data is univariate (k=1), returns a `DescStatUV` instance.  \n  - If multivariate (k>1), returns a `DescStatMV` instance.\n\nThese classes provide methods to perform hypothesis tests and construct confidence intervals for:\n\n- Mean  \n- Variance  \n- Skewness  \n- Kurtosis  \n- Correlation  \n\nAdditionally, if matplotlib is installed, the module can generate:\n\n- Multivariate confidence region plots  \n- Mean-variance contour plots  \n\nFor technical details and optimization variable definitions, see the `_OptFuncts` documentation.\n\n---\n\nEmpirical Likelihood Regression Through the Origin\n-------------------------------------------------\n\nThis module implements empirical likelihood regression models constrained to pass through the origin (i.e., intercept fixed at zero). This differs from standard regression models by restricting the intercept parameter, resulting in more precise estimates and narrower confidence intervals.\n\n### ELOriginRegress Class\n\nProvides empirical likelihood inference and estimation for linear regression models forced through the origin.\n\n**Parameters:**\n\n- `endog` : nx1 array  \n  Response variable observations.\n\n- `exog` : nxk array  \n  Exogenous variables (without a column of ones).\n\n**Attributes:**\n\n- `endog` : nx1 array  \n  Response variables.\n\n- `exog` : nxk array  \n  Exogenous variables.\n\n- `nobs` : float  \n  Number of observations.\n\n- `nvar` : float  \n  Number of regressors.\n\n**Methods:**\n\n- `fit()`  \n  Fits the empirical likelihood regression model through the origin and returns an `OriginResults` instance containing parameter estimates and inference results.\n\n- `predict(params, exog=None)`  \n  Predicts response values given parameters and optional exogenous variables.\n\n### OriginResults Class\n\nHolds results from empirical likelihood regression through the origin.\n\n**Parameters:**\n\n- `model` : OLS model instance with intercept.  \n- `params` : 1d array  \n  Estimated parameters (intercept fixed at zero).  \n- `est_llr` : float  \n  Log likelihood ratio statistic for the fitted model.  \n- `llf_el` : float  \n  Log likelihood of the fitted model with intercept restricted to zero.\n\n**Attributes:**\n\n- `model` : OLS model instance.  \n- `params` : 1d array of fitted parameters (first element is intercept, fixed at zero).  \n- `llr` : float  \n  Log likelihood ratio statistic.  \n- `llf_el` : float  \n  Log likelihood of the fitted model.\n\n**Notes:**\n\n- The intercept parameter is fixed at zero but included in the parameter vector for consistency.\n- Inference is conducted via empirical likelihood methods; covariance matrix-based inference is not applicable.\n- Use `el_test` and `conf_int_el` methods for hypothesis testing and confidence intervals.\n\n**Methods:**\n\n- `el_test(b0_vals, param_nums, method='nm', stochastic_exog=1, return_weights=0)`  \n  Performs hypothesis testing for specified parameter values using empirical likelihood ratio tests.\n\n  **Parameters:**\n\n  - `b0_vals` : 1d array  \n    Hypothesized parameter values to test.\n\n  - `param_nums` : 1d array  \n    Indices of parameters to test (Python indexing; 0 corresponds to intercept fixed at zero).\n\n  - `method` : str  \n    Optimization method for nuisance parameters ('nm' for Nelder-Mead, 'powell' for Powell). Default is 'nm'.\n\n  - `stochastic_exog` : bool  \n    Indicates if exogenous variables are stochastic (default True). Non-stochastic regressors impose additional moment conditions.\n\n  - `return_weights` : bool  \n    If True, returns the optimized weights for the likelihood ratio at `b0_vals`.\n\n  **Returns:**\n\n  - Tuple containing likelihood ratio statistic and p-value (and optionally weights).\n\n- `conf_int_el(param_num, alpha=0.05)`  \n  Constructs empirical likelihood confidence intervals for specified parameters.\n\n---\n\nUsage Example\n-------------\n\n```python\nimport numpy as np\nimport statsmodels.api as sm\n\n# Load data\ndata = sm.datasets.bc.load(as_pandas=False)\n\n# Empirical likelihood regression through the origin\nmodel = sm.emplike.ELOriginRegress(data.endog, data.exog)\nresults = model.fit()\n\n# Parameter estimates (intercept fixed at zero)\nprint(results.params)\n\n# Hypothesis test for parameter value\nllr, pvalue = results.el_test(np.array([0.0034]), np.array([1]))\nprint(f\"Likelihood ratio: {llr}, p-value: {pvalue}\")\n\n# Confidence interval for parameter 1\nconf_int = results.conf_int_el(1)\nprint(f\"Confidence interval: {conf_int}\")\n```\n\n---\n\nNotes\n-----\n\n- Empirical likelihood methods provide a flexible, nonparametric alternative to classical inference, relying on likelihood ratio statistics without assuming specific distributional forms.\n- The regression through the origin model implemented here differs from standard OLS by restricting the intercept to zero and optimizing the empirical likelihood accordingly.\n- Covariance matrix-based inference methods are not applicable; use empirical likelihood-based tests and confidence intervals instead.\n- For multivariate descriptive statistics, empirical likelihood can be used to construct joint confidence regions and perform simultaneous inference.\n\n---\n\nFor further technical details and optimization specifics, refer to the internal documentation of `_OptFuncts` and related classes within the module.",
+  "prediction_sha256": "43d256c88a52db27687e32749201fc02e2298df3fcb45e70ca6528d29df59a30",
+  "prompt_sha256": "5281f6793639e19e9bde8dd91ea609959a5fc9e790704f3e45ea1976fa5a3253",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 11814,
+    "completion_tokens": 1934,
+    "total_tokens": 13748
+  },
+  "cost_usd": 0.00782,
+  "generation_seconds": 17.046946792004746,
+  "agent_trace": {
+    "stop_reason": "search_output_limit",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "empirical likelihood"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 56,
+              "start_char": 38847,
+              "end_char": 40007,
+              "code": "est)\n        ulim = optimize.brenth(self._ci_limits_corr, point_est, upper_bound)\n        return llim, ulim\n\n\n\"\"\"\nThis module implements empirical likelihood regression that is forced through\nthe origin.\n\nThis is different than regression not forced through the origin because the\nmaximum empirical likelihood estimate is calculated with a vector of ones in\nthe exogenous matrix but restricts the intercept parameter to be 0.  This\nresults in significantly more narrow confidence intervals and different\nparameter estimates.\n\nFor notes on regression not forced through the origin, see empirical likelihood\nmethods in the OLSResults class.\n\nGeneral References\n------------------\nOwen, A.B. (2001). Empirical Likelihood.  Chapman and Hall. p. 82.\n\n\"\"\"\nimport numpy as np\nfrom scipy.stats import chi2\nfrom scipy import optimize\n# When descriptive merged, this will be changed\nfrom statsmodels.tools.tools import add_constant\nfrom statsmodels.regression.linear_model import OLS, RegressionResults\n\n\nclass ELOriginRegress(object):\n    \"\"\"\n    Empirical Likelihood inference and estimation for linear regression\n    through the origin.\n\n    Parameters\n    ----------",
+              "code_tokens": 300,
+              "score": 5.623417319694
+            },
+            {
+              "chunk_id": 59,
+              "start_char": 41714,
+              "end_char": 42678,
+              "code": " with an intercept.\n\n    params : 1darray\n        Fitted parameters.\n\n    est_llr : float\n        The log likelihood ratio of the model with the intercept restricted to\n        0 at the maximum likelihood estimates of the parameters.\n        llr_restricted/llr_unrestricted\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Attributes\n    ----------\n    model : class\n        An OLS model with an intercept.\n\n    params : 1darray\n        Fitted parameter.\n\n    llr : float\n        The log likelihood ratio of the maximum empirical likelihood estimate.\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Notes\n    -----\n    IMPORTANT.  Since EL estimation does not drop the intercept parameter but\n    instead estimates the slope parameters conditional on the slope parameter\n    being 0, the first element for params will be the intercept, which is\n",
+              "code_tokens": 300,
+              "score": 4.800128499819
+            },
+            {
+              "chunk_id": 0,
+              "start_char": 0,
+              "end_char": 1086,
+              "code": "\"\"\"\nEmpirical likelihood inference on descriptive statistics\n\nThis module conducts hypothesis tests and constructs confidence\nintervals for the mean, variance, skewness, kurtosis and correlation.\n\nIf matplotlib is installed, this module can also generate multivariate\nconfidence region plots as well as mean-variance contour plots.\n\nSee _OptFuncts docstring for technical details and optimization variable\ndefinitions.\n\nGeneral References:\n------------------\nOwen, A. (2001). \"Empirical Likelihood.\" Chapman and Hall\n\n\"\"\"\nimport numpy as np\nfrom scipy import optimize\nfrom scipy.stats import chi2, skew, kurtosis\nfrom statsmodels.base.optimizer import _fit_newton\nimport itertools\nfrom statsmodels.graphics import utils\n\n\ndef DescStat(endog):\n    \"\"\"\n    Returns an instance to conduct inference on descriptive statistics\n    via empirical likelihood.  See DescStatUV and DescStatMV for more\n    information.\n\n    Parameters\n    ----------\n    endog : ndarray\n         Array of data\n\n    Returns : DescStat instance\n        If k=1, the function returns a univariate instance, DescStatUV",
+              "code_tokens": 300,
+              "score": 4.658931994997
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 56
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 56,
+              "start_char": 38847,
+              "end_char": 43154,
+              "code": "est)\n        ulim = optimize.brenth(self._ci_limits_corr, point_est, upper_bound)\n        return llim, ulim\n\n\n\"\"\"\nThis module implements empirical likelihood regression that is forced through\nthe origin.\n\nThis is different than regression not forced through the origin because the\nmaximum empirical likelihood estimate is calculated with a vector of ones in\nthe exogenous matrix but restricts the intercept parameter to be 0.  This\nresults in significantly more narrow confidence intervals and different\nparameter estimates.\n\nFor notes on regression not forced through the origin, see empirical likelihood\nmethods in the OLSResults class.\n\nGeneral References\n------------------\nOwen, A.B. (2001). Empirical Likelihood.  Chapman and Hall. p. 82.\n\n\"\"\"\nimport numpy as np\nfrom scipy.stats import chi2\nfrom scipy import optimize\n# When descriptive merged, this will be changed\nfrom statsmodels.tools.tools import add_constant\nfrom statsmodels.regression.linear_model import OLS, RegressionResults\n\n\nclass ELOriginRegress(object):\n    \"\"\"\n    Empirical Likelihood inference and estimation for linear regression\n    through the origin.\n\n    Parameters\n    ----------\n    endog: nx1 array\n        Array of response variables.\n\n    exog: nxk array\n        Array of exogenous variables.  Assumes no array of ones\n\n    Attributes\n    ----------\n    endog : nx1 array\n        Array of response variables\n\n    exog : nxk array\n        Array of exogenous variables.  Assumes no array of ones.\n\n    nobs : float\n        Number of observations.\n\n    nvar : float\n        Number of exogenous regressors.\n    \"\"\"\n    def __init__(self, endog, exog):\n        self.endog = endog\n        self.exog = exog\n        self.nobs = self.exog.shape[0]\n        try:\n            self.nvar = float(exog.shape[1])\n        except IndexError:\n            self.nvar = 1.\n\n    def fit(self):\n        \"\"\"\n        Fits the model and provides regression results.\n\n        Returns\n        -------\n        Results : class\n            Empirical likelihood regression class.\n        \"\"\"\n        exog_with = add_constant(self.exog, prepend=True)\n        restricted_model = OLS(self.endog, exog_with)\n        restricted_fit = restricted_model.fit()\n        restricted_el = restricted_fit.el_test(\n        np.array([0]), np.array([0]), ret_params=1)\n        params = np.squeeze(restricted_el[3])\n        beta_hat_llr = restricted_el[0]\n        llf = np.sum(np.log(restricted_el[2]))\n        return OriginResults(restricted_model, params, beta_hat_llr, llf)\n\n    def predict(self, params, exog=None):\n        if exog is None:\n            exog = self.exog\n        return np.dot(add_constant(exog, prepend=True), params)\n\n\nclass OriginResults(RegressionResults):\n    \"\"\"\n    A Results class for empirical likelihood regression through the origin.\n\n    Parameters\n    ----------\n    model : class\n        An OLS model with an intercept.\n\n    params : 1darray\n        Fitted parameters.\n\n    est_llr : float\n        The log likelihood ratio of the model with the intercept restricted to\n        0 at the maximum likelihood estimates of the parameters.\n        llr_restricted/llr_unrestricted\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Attributes\n    ----------\n    model : class\n        An OLS model with an intercept.\n\n    params : 1darray\n        Fitted parameter.\n\n    llr : float\n        The log likelihood ratio of the maximum empirical likelihood estimate.\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Notes\n    -----\n    IMPORTANT.  Since EL estimation does not drop the intercept parameter but\n    instead estimates the slope parameters conditional on the slope parameter\n    being 0, the first element for params will be the intercept, which is\n    restricted to 0.\n\n    IMPORTANT.  This class inherits from RegressionResults but inference is\n    conducted via empirical likelihood.  Therefore, any methods that\n    require an estimate of the covariance matrix will not function.  Instead\n    use el_test and conf_int_el to conduct inference.\n\n    Examples\n    --------\n    >>> import statsmodels.api as sm\n    >>> data = sm.datasets.bc.load(as_pandas=False)\n    >>> model = sm.emplike.ELOriginRegress(data.endog, data.ex",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 59
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 59,
+              "start_char": 41714,
+              "end_char": 45504,
+              "code": " with an intercept.\n\n    params : 1darray\n        Fitted parameters.\n\n    est_llr : float\n        The log likelihood ratio of the model with the intercept restricted to\n        0 at the maximum likelihood estimates of the parameters.\n        llr_restricted/llr_unrestricted\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Attributes\n    ----------\n    model : class\n        An OLS model with an intercept.\n\n    params : 1darray\n        Fitted parameter.\n\n    llr : float\n        The log likelihood ratio of the maximum empirical likelihood estimate.\n\n    llf_el : float\n        The log likelihood of the fitted model with the intercept restricted to 0.\n\n    Notes\n    -----\n    IMPORTANT.  Since EL estimation does not drop the intercept parameter but\n    instead estimates the slope parameters conditional on the slope parameter\n    being 0, the first element for params will be the intercept, which is\n    restricted to 0.\n\n    IMPORTANT.  This class inherits from RegressionResults but inference is\n    conducted via empirical likelihood.  Therefore, any methods that\n    require an estimate of the covariance matrix will not function.  Instead\n    use el_test and conf_int_el to conduct inference.\n\n    Examples\n    --------\n    >>> import statsmodels.api as sm\n    >>> data = sm.datasets.bc.load(as_pandas=False)\n    >>> model = sm.emplike.ELOriginRegress(data.endog, data.exog)\n    >>> fitted = model.fit()\n    >>> fitted.params #  0 is the intercept term.\n    array([ 0.        ,  0.00351813])\n\n    >>> fitted.el_test(np.array([.0034]), np.array([1]))\n    (3.6696503297979302, 0.055411808127497755)\n    >>> fitted.conf_int_el(1)\n    (0.0033971871114706867, 0.0036373150174892847)\n\n    # No covariance matrix so normal inference is not valid\n    >>> fitted.conf_int()\n    TypeError: unsupported operand type(s) for *: 'instancemethod' and 'float'\n    \"\"\"\n    def __init__(self, model, params, est_llr, llf_el):\n        self.model = model\n        self.params = np.squeeze(params)\n        self.llr = est_llr\n        self.llf_el = llf_el\n    def el_test(self, b0_vals, param_nums, method='nm',\n                            stochastic_exog=1, return_weights=0):\n        \"\"\"\n        Returns the llr and p-value for a hypothesized parameter value\n        for a regression that goes through the origin.\n\n        Parameters\n        ----------\n        b0_vals : 1darray\n            The hypothesized value to be tested.\n\n        param_num : 1darray\n            Which parameters to test.  Note this uses python\n            indexing but the '0' parameter refers to the intercept term,\n            which is assumed 0.  Therefore, param_num should be > 0.\n\n        return_weights : bool\n            If true, returns the weights that optimize the likelihood\n            ratio at b0_vals.  Default is False.\n\n        method : str\n            Can either be 'nm' for Nelder-Mead or 'powell' for Powell.  The\n            optimization method that optimizes over nuisance parameters.\n            Default is 'nm'.\n\n        stochastic_exog : bool\n            When TRUE, the exogenous variables are assumed to be stochastic.\n            When the regressors are nonstochastic, moment conditions are\n            placed on the exogenous variables.  Confidence intervals for\n            stochastic regressors are at least as large as non-stochastic\n            regressors.  Default is TRUE.\n\n        Returns\n        -------\n        res : tuple\n            pvalue and likelihood ratio.\n        \"\"\"\n        b0_vals = np.hstack((0, b0_vals))\n        param_nums = np.hstack((0, param_nums))\n        test_res = self.model.fit().el_test(b0_vals, param_nums, method=method,\n                                  stochastic_exog=stochastic_exog,\n                   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 59
+        },
+        "response": {
+          "status": "repeated_call",
+          "excerpts": []
+        }
+      }
+    ],
+    "code_tokens_returned": 3900,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "e17c22b7c20c02d01502fd5169c1c29b05f0b213af13e8fe4a930a8cb7c03bd8",
+        "request_id": "chatcmpl-Ej8eGRTkMnM24Ez0zQ33bRyEfRsgy",
+        "usage": {
+          "prompt_tokens": 155,
+          "completion_tokens": 16,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.759999999999999e-05,
+        "seconds": 0.7354531250020955,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "67ec86504d8657f7707563985783321b9608826b586f3f7984a9966454024f32",
+        "request_id": "chatcmpl-Ej8eGQVvNMGMniebkn7Nx5BetS7xX",
+        "usage": {
+          "prompt_tokens": 1075,
+          "completion_tokens": 15,
+          "total_tokens": 1090,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.000454,
+        "seconds": 0.6584039169974858,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "ed4354d268244a7e1f8fa9b0b21afec96069d79273f73f286a332b2e1803fe23",
+        "request_id": "chatcmpl-Ej8eHMBNNisjoYAFkJkGhsgIW1TP5",
+        "usage": {
+          "prompt_tokens": 2222,
+          "completion_tokens": 15,
+          "total_tokens": 2237,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0009128000000000001,
+        "seconds": 0.8607636670058127,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "4c3d41cd35ab3e799e59338dce01e4fe820e1dddded81dd74f052589758df766",
+        "request_id": "chatcmpl-Ej8eIc0UQHmAAew2nVu2Hlplj3gJv",
+        "usage": {
+          "prompt_tokens": 3255,
+          "completion_tokens": 15,
+          "total_tokens": 3270,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001326,
+        "seconds": 0.701305875001708,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "cadfcdf8b2f1e0f31d51cbff89699161d01792e17e769ec3ea59fce7566725ef",
+        "request_id": "chatcmpl-Ej8eJwgtk8pjnPOmtWqdYQbxtv3lU",
+        "usage": {
+          "prompt_tokens": 3291,
+          "completion_tokens": 512,
+          "total_tokens": 3803,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0021356000000000005,
+        "seconds": 4.1696928329984075,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "0922bfb67400690d77a1508f6a12a9a2701a7d50d519cc69923c85d71b3a202f",
+        "request_id": "chatcmpl-Ej8eNxNTDvt4IMNwzhXXiLb4GfrWk",
+        "usage": {
+          "prompt_tokens": 1816,
+          "completion_tokens": 1361,
+          "total_tokens": 3177,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.002904,
+        "seconds": 9.921327374999237,
+        "retry_count": 0
+      }
+    ]
+  }
+}

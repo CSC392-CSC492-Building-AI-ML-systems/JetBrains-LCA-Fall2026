@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for experiment scripts. Source this file.
-export PROJECT=/mnt/c/Users/Adriana/Documents/School/CSC398/JetBrains-LCA-Fall2026/project_level_code_completion
+export PROJECT="${PROJECT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PY=~/.cache/pypoetry/virtualenvs/lca-L6V1CIw0-py3.11/bin/python
 ART=$HOME/lca_artifacts
 export WANDB_MODE=disabled PYTHONDONTWRITEBYTECODE=1 TOKENIZERS_PARALLELISM=false

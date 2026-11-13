@@ -1,0 +1,112 @@
+Memory Alignment
+================
+
+Memory alignment is a fundamental concept in low-level programming and data handling, ensuring that data is stored in memory according to certain boundaries. Proper alignment can improve performance and is often required by hardware architectures.
+
+Alignment Basics
+----------------
+
+Alignment refers to arranging data in memory at addresses that are multiples of a particular power of two. For example, a 4-byte integer might be aligned on a 4-byte boundary, meaning its address is a multiple of 4.
+
+In C, the `_Alignof(type)` operator (or compiler-specific macros) can be used to determine the alignment requirement of a type. For example:
+
+```c
+#define NPY_ALIGNOF_UINT(type) npy_uint_alignment(sizeof(type))
+```
+
+This macro returns the alignment for unsigned integer types of a given size.
+
+Checking Pointer Alignment
+--------------------------
+
+To check if a pointer is aligned to a specific boundary, the following inline function is used:
+
+```c
+static inline int npy_is_aligned(const void *p, const npy_uintp alignment)
+{
+    /*
+     * Assumes alignment is a power of two.
+     * Uses bitwise AND to check alignment efficiently.
+     * Returns true if pointer p is aligned to 'alignment'.
+     */
+    return ((npy_uintp)(p) & ((alignment) - 1)) == 0;
+}
+```
+
+This function assumes that the alignment is a power of two and that casting a pointer to an integer type (`npy_uintp`) yields a usable representation for bitwise operations.
+
+Determining Alignment from Item Size
+------------------------------------
+
+The function `npy_uint_alignment` returns the equivalent unsigned integer alignment for a given item size:
+
+```c
+static inline npy_uintp npy_uint_alignment(int itemsize)
+{
+    npy_uintp alignment = 0; /* 0 means unaligned */
+
+    switch(itemsize){
+        case 1:
+            return 1;
+        case 2:
+            alignment = NPY_ALIGNOF(npy_uint16);
+            break;
+        case 4:
+            alignment = NPY_ALIGNOF(npy_uint32);
+            break;
+        case 8:
+            alignment = NPY_ALIGNOF(npy_uint64);
+            break;
+        case 16:
+            /*
+             * 16-byte types are copied using two uint64 assignments.
+             */
+            alignment = NPY_ALIGNOF(npy_uint64);
+            break;
+        default:
+            break;
+    }
+
+    return alignment;
+}
+```
+
+This function helps in determining the alignment requirements for copying data efficiently.
+
+Alignment in Structured Data Types
+----------------------------------
+
+Structured data types (structs) may contain multiple fields with different alignments. To ensure proper alignment:
+
+- Each field's offset is rounded up to the nearest multiple of its alignment.
+- The total size of the struct is rounded up to the maximum alignment of its fields.
+- Empty or zero-length fields have an alignment of 1.
+- The overall alignment of the struct is the maximum alignment of its fields.
+
+For example, given a structured dtype, the aligned offset for each field is computed as:
+
+```python
+def aligned_offset(offset, alignment):
+    # Round up offset to the next multiple of alignment
+    return -(-offset // alignment) * alignment
+```
+
+This ensures that each field starts at a properly aligned address within the struct.
+
+Memory Access and Performance
+-----------------------------
+
+Proper alignment is critical for performance and correctness on many architectures. Misaligned accesses can cause hardware exceptions or degrade performance.
+
+The code also includes optimized memory search functions (`npy_memchr`) that take alignment and stride into account to improve performance when scanning memory blocks.
+
+Summary
+-------
+
+- Alignment is typically a power of two.
+- Use bitwise operations to check pointer alignment efficiently.
+- Structured types require careful calculation of field offsets and total size to maintain alignment.
+- Proper alignment improves performance and avoids hardware faults.
+- Functions like `npy_uint_alignment` and `npy_is_aligned` provide utilities to handle alignment in low-level code.
+
+Understanding and correctly implementing memory alignment is essential for writing efficient and portable low-level code, especially when dealing with complex data structures and interfacing with hardware or external libraries.

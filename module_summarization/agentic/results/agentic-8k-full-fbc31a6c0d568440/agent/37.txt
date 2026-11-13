@@ -1,0 +1,111 @@
+w_trace Command
+===============
+
+Overview
+--------
+
+The `w_trace` command traces individual WEST trajectories and emits (or calculates) quantities along the trajectory.
+
+Trajectories are specified as `N_ITER:SEG_ID` pairs. Each segment is traced back to its initial point, and various quantities—most notably `n_iter` and `seg_id`—are printed in order from the initial point up to the given segment in the specified iteration.
+
+Output
+------
+
+Output is stored in several files, all named according to the pattern given by the `-o`/`--output-pattern` parameter. The default output pattern is:
+
+```
+traj_%d_%d
+```
+
+where the printf-style format codes are replaced by the iteration number and segment ID of the terminal segment of the trajectory being traced.
+
+Datasets
+--------
+
+Individual datasets can be selected for writing using the `-d`/`--dataset` option, which may be specified multiple times. The simplest form is:
+
+```
+-d dsname
+```
+
+which causes data from dataset `dsname` along the trace to be stored to HDF5. The dataset is assumed to be stored on a per-iteration basis, with the first dimension corresponding to `seg_id` and the second dimension corresponding to time within the segment.
+
+Extended dataset options can be specified as comma-separated key=value pairs after the dataset name, for example:
+
+```
+-d dsname,alias=newname,index=idsname,file=otherfile.h5,slice=[100,...]
+```
+
+The following options are supported:
+
+- **alias=newname**  
+  When writing this data to HDF5 or text files, use `newname` instead of `dsname` to identify the dataset. This is useful in conjunction with the `slice` option to retrieve different slices of a dataset and store them with different names.
+
+- **index=idsname**  
+  The dataset is not stored on a per-iteration basis for all segments, but instead as a single dataset whose first dimension indexes `n_iter`/`seg_id` pairs. The index to these pairs is given by `idsname`.
+
+- **file=otherfile.h5**  
+  Instead of reading data from the main WEST HDF5 file (usually `west.h5`), read data from `otherfile.h5`.
+
+- **slice=[100,...]**  
+  Retrieve only the specified slice from the dataset. This can be used to pick a subset of interest to minimize I/O.
+
+Output Format
+-------------
+
+The trace output includes summary information about each segment in the trajectory. The columns in the output text file are separated by at least one space and include:
+
+- Column 0: iteration number (`n_iter`), where 0 corresponds to the initial state
+- Column 1: segment ID (`seg_id`) or initial state ID
+- Column 2: weight of the segment
+- Column 3: wallclock time (seconds)
+- Column 4: CPU time (seconds)
+- Columns 5 and onward: final progress coordinate values
+
+If the progress coordinate is one-dimensional, column 5 contains the final progress coordinate value. For multi-dimensional progress coordinates, columns 5 through N contain the final progress coordinate values.
+
+Example Header of Trace Output File:
+
+```
+# Trace of trajectory ending in n_iter:seg_id 123:45 (endpoint type <type>)
+# column  0: iteration (0 => initial state)
+# column  1: seg_id (or initial state ID)
+# column  2: weight
+# column  3: wallclock time (s)
+# column  4: CPU time (s)
+# column  5: final progress coordinate value
+```
+
+or for multi-dimensional progress coordinates:
+
+```
+# columns 5 -- 7: final progress coordinate value
+```
+
+Usage
+-----
+
+Typical usage involves specifying one or more trajectories to trace, datasets to include, and output patterns. The command reads data from the WEST HDF5 files and writes trace information to text and/or HDF5 files according to the specified options.
+
+The `w_trace` tool supports flexible data retrieval and output customization, enabling detailed analysis of WEST trajectories.
+
+Progress Coordinate Formatting
+------------------------------
+
+The formatting of progress coordinate values in the output is controlled by data type, with formats such as:
+
+- Unsigned 8-byte integer (`u8`): `%20d`
+- Signed 8-byte integer (`i8`): `%20d`
+- Unsigned 4-byte integer (`u4`): `%10d`
+- Signed 4-byte integer (`i4`): `%11d`
+- Unsigned 2-byte integer (`u2`): `%5d`
+- Signed 2-byte integer (`i2`): `%6d`
+- 4-byte float (`f4`): `%14.7g`
+- 8-byte float (`f8`): `%023.15g`
+
+These formats ensure aligned and readable output for progress coordinate values.
+
+Summary
+-------
+
+The `w_trace` command is a powerful tool for tracing WEST simulation trajectories, extracting detailed segment information, and exporting selected datasets for further analysis. Its flexible dataset selection and output formatting options make it suitable for a wide range of trajectory analysis tasks.

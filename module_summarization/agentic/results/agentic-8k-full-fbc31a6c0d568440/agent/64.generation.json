@@ -1,0 +1,261 @@
+{
+  "model_requested": "gpt-4.1-mini-2025-04-14",
+  "model_returned": "gpt-4.1-mini-2025-04-14",
+  "prediction": "Operations Module Documentation\n===============================\n\nThis module provides a comprehensive set of classes and methods to represent and execute database schema migration operations. These operations are designed to be used within migration contexts, supporting both immediate execution and batch migration scenarios.\n\nOperation Classes\n-----------------\n\n### CreateTableOp\n\nRepresents a **create table** operation.\n\n**Constructor:**\n\n```python\nCreateTableOp(\n    table_name: str,\n    columns: Sequence[SchemaItem],\n    *,\n    schema: Optional[str] = None,\n    _namespace_metadata: Optional[MetaData] = None,\n    _constraints_included: bool = False,\n    **kw: Any,\n)\n```\n\n- `table_name`: Name of the table to create.\n- `columns`: List of columns and constraints for the table.\n- `schema`: Optional schema name.\n- `_namespace_metadata`: Optional metadata namespace.\n- `_constraints_included`: Indicates if constraints are included in columns.\n- Additional keyword arguments supported.\n\n**Methods:**\n\n- `reverse() -> DropTableOp`: Returns the reverse operation (drop table).\n- `to_diff_tuple() -> Tuple[str, Table]`: Returns a tuple representing the operation for diffing.\n- `from_table(cls, table: Table, *, _namespace_metadata: Optional[MetaData] = None) -> CreateTableOp`: Creates an operation from a SQLAlchemy Table object.\n- `to_table(migration_context: Optional[MigrationContext] = None) -> Table`: Converts the operation back to a Table object.\n\n### AlterColumnOp\n\nRepresents an **alter column** operation.\n\n**Constructor:**\n\n```python\nAlterColumnOp(\n    table_name: str,\n    column_name: str,\n    *,\n    schema: Optional[str] = None,\n    existing_type: Optional[Any] = None,\n    existing_server_default: Any = False,\n    existing_nullable: Optional[bool] = None,\n    existing_comment: Optional[str] = None,\n    modify_nullable: Optional[bool] = None,\n    modify_comment: Optional[Union[str, Literal[False]]] = False,\n    modify_server_default: Any = False,\n    modify_name: Optional[str] = None,\n    modify_type: Optional[Any] = None,\n    **kw: Any,\n)\n```\n\n- `table_name`: Name of the table containing the column.\n- `column_name`: Name of the column to alter.\n- `schema`: Optional schema name.\n- `existing_type`: Existing column type.\n- `existing_server_default`: Existing server default value.\n- `existing_nullable`: Existing nullable state.\n- `existing_comment`: Existing comment on the column.\n- `modify_nullable`: New nullable state.\n- `modify_comment`: New comment or False to remove.\n- `modify_server_default`: New server default or False to remove.\n- `modify_name`: New column name.\n- `modify_type`: New column type.\n- Additional keyword arguments supported.\n\n**Methods:**\n\n- `to_diff_tuple()`: Returns a representation of the column alteration for diffing.\n\n### BulkInsertOp\n\nRepresents a **bulk insert** operation.\n\n**Constructor:**\n\n```python\nBulkInsertOp(\n    table: Union[Table, TableClause],\n    rows: List[dict],\n    *,\n    multiinsert: bool = True,\n)\n```\n\n- `table`: The target table or table clause.\n- `rows`: List of dictionaries representing rows to insert.\n- `multiinsert`: Whether to use multi-row insert syntax.\n\n**Class Methods:**\n\n- `bulk_insert(cls, operations: Operations, table: Union[Table, TableClause], rows: List[dict], *, multiinsert: bool = True) -> None`\n\n  Issues a bulk insert operation using the current migration context.\n\n  This method supports inserting multiple rows efficiently and works both in live execution and SQL script generation contexts.\n\n  Example usage:\n\n  ```python\n  from alembic import op\n  from datetime import date\n  from sqlalchemy.sql import table, column\n  from sqlalchemy import String, Integer, Date\n\n  accounts_table = table(\n      \"account\",\n      column(\"id\", Integer),\n      column(\"name\", String),\n      column(\"create_date\", Date),\n  )\n\n  op.bulk_insert(\n      accounts_table,\n      [\n          {\"id\": 1, \"name\": \"John Smith\", \"create_date\": date(2010, 10, 5)},\n          {\"id\": 2, \"name\": \"Ed Williams\", \"create_date\": date(2007, 5, 27)},\n          {\"id\": 3, \"name\": \"Wendy Jones\", \"create_date\": date(2008, 8, 15)},\n      ],\n  )\n  ```\n\n  When using SQL script generation mode (`--sql`), some datatypes may not render inline automatically (e.g., dates). In such cases, use `Operations.inline_literal` to assist rendering.\n\nBatch Operations\n----------------\n\nSeveral operations support batch mode, allowing multiple schema changes to be grouped and executed atomically.\n\n### batch_drop_index\n\nIssues a **drop index** instruction using the current batch migration context.\n\n**Parameters:**\n\n- `operations`: The batch operations context.\n- `index_name`: Name of the index to drop.\n- Additional keyword arguments.\n\n**See Also:**\n\n- `Operations.drop_index`\n\n### batch_drop_table_comment\n\nIssues a **drop table comment** operation to remove an existing comment on a table using the current batch operations context.\n\n**Parameters:**\n\n- `operations`: The batch operations context.\n- `existing_comment`: Optional existing comment string to remove.\n\n**See Also:**\n\n- `Operations.create_table_comment`\n- `Operations.alter_column.comment`\n\nOperation Invocation\n--------------------\n\nOperations are typically instantiated and then invoked via the `operations.invoke()` method, which executes the operation within the current migration context.\n\nExample:\n\n```python\nop = CreateTableOp(table_name, columns, schema=schema)\noperations.invoke(op)\n```\n\nReverse Operations\n------------------\n\nMany operations provide a `reverse()` method that returns the inverse operation, enabling automatic generation of downgrade migrations.\n\nExample:\n\n- `CreateTableOp.reverse()` returns a `DropTableOp`.\n- `CreateTableCommentOp.reverse()` returns a `CreateTableCommentOp` to restore the comment.\n\nAdditional Notes\n----------------\n\n- Operations support carrying additional metadata such as comments, prefixes, and info dictionaries.\n- The module integrates with SQLAlchemy schema constructs such as `Table`, `Column`, `MetaData`, and constraints.\n- Operations are registered with the `Operations` and `BatchOperations` registries to enable dispatching and execution.\n\nThis module is a core component for managing database schema migrations programmatically, providing a rich API for defining, executing, and reversing schema changes.",
+  "prediction_sha256": "f38a88724cb69e0a677d308b7040d429c97f393c574f9a4519a6efa3895c9735",
+  "prompt_sha256": "28e3f4cb926ce843bde5eb209db82f6afd00a6c2acee741dc0df891c4ed7ebd4",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 10518,
+    "completion_tokens": 1852,
+    "total_tokens": 12370
+  },
+  "cost_usd": 0.0071704,
+  "generation_seconds": 16.159967124003742,
+  "agent_trace": {
+    "stop_reason": "model_finished_search",
+    "tool_calls": 4,
+    "tools": [
+      {
+        "name": "search_code",
+        "arguments": {
+          "query": "module operations"
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 68,
+              "start_char": 52489,
+              "end_char": 53257,
+              "code": " optional string value of a comment already\n         registered on the specified table.\n\n       .. seealso::\n\n            :meth:`.Operations.create_table_comment`\n\n            :paramref:`.Operations.alter_column.comment`\n\n        \"\"\"\n\n        op = cls(table_name, existing_comment=existing_comment, schema=schema)\n        return operations.invoke(op)\n\n    @classmethod\n    def batch_drop_table_comment(\n        cls,\n        operations: BatchOperations,\n        *,\n        existing_comment: Optional[str] = None,\n    ) -> None:\n        \"\"\"Issue a \"drop table comment\" operation to\n        remove an existing comment set on a table using the current\n        batch operations context.\n\n        :param existing_comment: An optional string value of a comment already\n      ",
+              "code_tokens": 300,
+              "score": 1.246118974478
+            },
+            {
+              "chunk_id": 47,
+              "start_char": 36900,
+              "end_char": 37499,
+              "code": "ref:`dialect_toplevel` for detail on documented arguments.\n\n        \"\"\"\n        op = cls(\n            index_name,\n            table_name=table_name,\n            schema=schema,\n            if_exists=if_exists,\n            **kw,\n        )\n        return operations.invoke(op)\n\n    @classmethod\n    def batch_drop_index(\n        cls, operations: BatchOperations, index_name: str, **kw: Any\n    ) -> None:\n        \"\"\"Issue a \"drop index\" instruction using the\n        current batch migration context.\n\n       .. seealso::\n\n            :meth:`.Operations.drop_index`\n\n        \"\"\"\n\n        op = cls(\n     ",
+              "code_tokens": 300,
+              "score": 1.243673226484
+            },
+            {
+              "chunk_id": 101,
+              "start_char": 77436,
+              "end_char": 78075,
+              "code": " **kw: Any\n    ) -> None:\n        \"\"\"Issue a \"drop column\" instruction using the current\n        batch migration context.\n\n       .. seealso::\n\n            :meth:`.Operations.drop_column`\n\n        \"\"\"\n        op = cls(\n            operations.impl.table_name,\n            column_name,\n            schema=operations.impl.schema,\n            **kw,\n        )\n        return operations.invoke(op)\n\n\n@Operations.register_operation(\"bulk_insert\")\nclass BulkInsertOp(MigrateOperation):\n    \"\"\"Represent a bulk insert operation.\"\"\"\n\n    def __init__(\n        self,\n        table: Union[Table, TableClause],\n        rows: List[dict],\n        *,\n    ",
+              "code_tokens": 300,
+              "score": 1.236792943917
+            }
+          ],
+          "code_tokens": 900
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 68
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 68,
+              "start_char": 52489,
+              "end_char": 55882,
+              "code": " optional string value of a comment already\n         registered on the specified table.\n\n       .. seealso::\n\n            :meth:`.Operations.create_table_comment`\n\n            :paramref:`.Operations.alter_column.comment`\n\n        \"\"\"\n\n        op = cls(table_name, existing_comment=existing_comment, schema=schema)\n        return operations.invoke(op)\n\n    @classmethod\n    def batch_drop_table_comment(\n        cls,\n        operations: BatchOperations,\n        *,\n        existing_comment: Optional[str] = None,\n    ) -> None:\n        \"\"\"Issue a \"drop table comment\" operation to\n        remove an existing comment set on a table using the current\n        batch operations context.\n\n        :param existing_comment: An optional string value of a comment already\n         registered on the specified table.\n\n        \"\"\"\n\n        op = cls(\n            operations.impl.table_name,\n            existing_comment=existing_comment,\n            schema=operations.impl.schema,\n        )\n        return operations.invoke(op)\n\n    def reverse(self):\n        \"\"\"Reverses the COMMENT ON operation against a table.\"\"\"\n        return CreateTableCommentOp(\n            self.table_name, self.existing_comment, schema=self.schema\n        )\n\n    def to_table(self, migration_context=None):\n        schema_obj = schemaobj.SchemaObjects(migration_context)\n\n        return schema_obj.table(self.table_name, schema=self.schema)\n\n    def to_diff_tuple(self):\n        return (\"remove_table_comment\", self.to_table())\n\n\n@Operations.register_operation(\"alter_column\")\n@BatchOperations.register_operation(\"alter_column\", \"batch_alter_column\")\nclass AlterColumnOp(AlterTableOp):\n    \"\"\"Represent an alter column operation.\"\"\"\n\n    def __init__(\n        self,\n        table_name: str,\n        column_name: str,\n        *,\n        schema: Optional[str] = None,\n        existing_type: Optional[Any] = None,\n        existing_server_default: Any = False,\n        existing_nullable: Optional[bool] = None,\n        existing_comment: Optional[str] = None,\n        modify_nullable: Optional[bool] = None,\n        modify_comment: Optional[Union[str, Literal[False]]] = False,\n        modify_server_default: Any = False,\n        modify_name: Optional[str] = None,\n        modify_type: Optional[Any] = None,\n        **kw: Any,\n    ) -> None:\n        super().__init__(table_name, schema=schema)\n        self.column_name = column_name\n        self.existing_type = existing_type\n        self.existing_server_default = existing_server_default\n        self.existing_nullable = existing_nullable\n        self.existing_comment = existing_comment\n        self.modify_nullable = modify_nullable\n        self.modify_comment = modify_comment\n        self.modify_server_default = modify_server_default\n        self.modify_name = modify_name\n        self.modify_type = modify_type\n        self.kw = kw\n\n    def to_diff_tuple(self) -> Any:\n        col_diff = []\n        schema, tname, cname = self.schema, self.table_name, self.column_name\n\n        if self.modify_type is not None:\n            col_diff.append(\n                (\n                    \"modify_type\",\n                    schema,\n                    tname,\n                    cname,\n                    {\n                        \"existing_nullable\": self.existing_nullable,\n                        \"existing_server_default\": (\n                            self.existing_server_default\n ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 47
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 47,
+              "start_char": 36900,
+              "end_char": 40145,
+              "code": "ref:`dialect_toplevel` for detail on documented arguments.\n\n        \"\"\"\n        op = cls(\n            index_name,\n            table_name=table_name,\n            schema=schema,\n            if_exists=if_exists,\n            **kw,\n        )\n        return operations.invoke(op)\n\n    @classmethod\n    def batch_drop_index(\n        cls, operations: BatchOperations, index_name: str, **kw: Any\n    ) -> None:\n        \"\"\"Issue a \"drop index\" instruction using the\n        current batch migration context.\n\n       .. seealso::\n\n            :meth:`.Operations.drop_index`\n\n        \"\"\"\n\n        op = cls(\n            index_name,\n            table_name=operations.impl.table_name,\n            schema=operations.impl.schema,\n            **kw,\n        )\n        return operations.invoke(op)\n\n\n@Operations.register_operation(\"create_table\")\nclass CreateTableOp(MigrateOperation):\n    \"\"\"Represent a create table operation.\"\"\"\n\n    def __init__(\n        self,\n        table_name: str,\n        columns: Sequence[SchemaItem],\n        *,\n        schema: Optional[str] = None,\n        _namespace_metadata: Optional[MetaData] = None,\n        _constraints_included: bool = False,\n        **kw: Any,\n    ) -> None:\n        self.table_name = table_name\n        self.columns = columns\n        self.schema = schema\n        self.info = kw.pop(\"info\", {})\n        self.comment = kw.pop(\"comment\", None)\n        self.prefixes = kw.pop(\"prefixes\", None)\n        self.kw = kw\n        self._namespace_metadata = _namespace_metadata\n        self._constraints_included = _constraints_included\n\n    def reverse(self) -> DropTableOp:\n        return DropTableOp.from_table(\n            self.to_table(), _namespace_metadata=self._namespace_metadata\n        )\n\n    def to_diff_tuple(self) -> Tuple[str, Table]:\n        return (\"add_table\", self.to_table())\n\n    @classmethod\n    def from_table(\n        cls, table: Table, *, _namespace_metadata: Optional[MetaData] = None\n    ) -> CreateTableOp:\n        if _namespace_metadata is None:\n            _namespace_metadata = table.metadata\n\n        return cls(\n            table.name,\n            list(table.c) + list(table.constraints),  # type:ignore[arg-type]\n            schema=table.schema,\n            _namespace_metadata=_namespace_metadata,\n            # given a Table() object, this Table will contain full Index()\n            # and UniqueConstraint objects already constructed in response to\n            # each unique=True / index=True flag on a Column.  Carry this\n            # state along so that when we re-convert back into a Table, we\n            # skip unique=True/index=True so that these constraints are\n            # not doubled up. see #844 #848\n            _constraints_included=True,\n            comment=table.comment,\n            info=dict(table.info),\n            prefixes=list(table._prefixes),\n            **table.kwargs,\n        )\n\n    def to_table(\n        self, migration_context: Optional[MigrationContext] = None\n    ) -> Table:\n        schema_obj = schemaobj.SchemaObjects(migration_context)\n\n        return schema_obj.table(\n            self.table_name,\n            *self.columns,\n            schema=self.schema,\n            prefixes=list(self.prefixes) if self.prefixes else [],\n            comment=self.",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      },
+      {
+        "name": "read_code",
+        "arguments": {
+          "chunk_id": 101
+        },
+        "response": {
+          "status": "ok",
+          "excerpts": [
+            {
+              "chunk_id": 101,
+              "start_char": 77436,
+              "end_char": 80287,
+              "code": " **kw: Any\n    ) -> None:\n        \"\"\"Issue a \"drop column\" instruction using the current\n        batch migration context.\n\n       .. seealso::\n\n            :meth:`.Operations.drop_column`\n\n        \"\"\"\n        op = cls(\n            operations.impl.table_name,\n            column_name,\n            schema=operations.impl.schema,\n            **kw,\n        )\n        return operations.invoke(op)\n\n\n@Operations.register_operation(\"bulk_insert\")\nclass BulkInsertOp(MigrateOperation):\n    \"\"\"Represent a bulk insert operation.\"\"\"\n\n    def __init__(\n        self,\n        table: Union[Table, TableClause],\n        rows: List[dict],\n        *,\n        multiinsert: bool = True,\n    ) -> None:\n        self.table = table\n        self.rows = rows\n        self.multiinsert = multiinsert\n\n    @classmethod\n    def bulk_insert(\n        cls,\n        operations: Operations,\n        table: Union[Table, TableClause],\n        rows: List[dict],\n        *,\n        multiinsert: bool = True,\n    ) -> None:\n        \"\"\"Issue a \"bulk insert\" operation using the current\n        migration context.\n\n        This provides a means of representing an INSERT of multiple rows\n        which works equally well in the context of executing on a live\n        connection as well as that of generating a SQL script.   In the\n        case of a SQL script, the values are rendered inline into the\n        statement.\n\n        e.g.::\n\n            from alembic import op\n            from datetime import date\n            from sqlalchemy.sql import table, column\n            from sqlalchemy import String, Integer, Date\n\n            # Create an ad-hoc table to use for the insert statement.\n            accounts_table = table(\n                \"account\",\n                column(\"id\", Integer),\n                column(\"name\", String),\n                column(\"create_date\", Date),\n            )\n\n            op.bulk_insert(\n                accounts_table,\n                [\n                    {\n                        \"id\": 1,\n                        \"name\": \"John Smith\",\n                        \"create_date\": date(2010, 10, 5),\n                    },\n                    {\n                        \"id\": 2,\n                        \"name\": \"Ed Williams\",\n                        \"create_date\": date(2007, 5, 27),\n                    },\n                    {\n                        \"id\": 3,\n                        \"name\": \"Wendy Jones\",\n                        \"create_date\": date(2008, 8, 15),\n                    },\n                ],\n            )\n\n        When using --sql mode, some datatypes may not render inline\n        automatically, such as dates and other special types.   When this\n        issue is present, :meth:`.Operations.inline_literal` may be used::\n\n            op.bulk_insert(\n                accounts_table,\n                [\n                    {\n                   ",
+              "code_tokens": 1500
+            }
+          ],
+          "code_tokens": 1500
+        }
+      }
+    ],
+    "code_tokens_returned": 5400,
+    "turns": [
+      {
+        "turn": 1,
+        "kind": "search",
+        "request_sha256": "20cd267a7c60be5ce8416d2ad9c5f38d62de11c5dfe1d6b78b67d8f2bd1d409e",
+        "request_id": "chatcmpl-Ej9L7zbZaSZOAAmAcTG4uLXeVrCuW",
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 15,
+          "total_tokens": 171,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 8.64e-05,
+        "seconds": 0.8920230830044602,
+        "retry_count": 0
+      },
+      {
+        "turn": 2,
+        "kind": "search",
+        "request_sha256": "e67f72d71eeb53a0bf8c47a98f77e84fb5152aea75a2da31b00db364a47ff447",
+        "request_id": "chatcmpl-Ej9L84Dnd4B7XONUdSCjrA0PXPGhE",
+        "usage": {
+          "prompt_tokens": 841,
+          "completion_tokens": 15,
+          "total_tokens": 856,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.00036040000000000003,
+        "seconds": 0.8525085410001338,
+        "retry_count": 0
+      },
+      {
+        "turn": 3,
+        "kind": "search",
+        "request_sha256": "f5eb42a470ee9ef5597541a1f662fd43fb621e05574f6cdf8bad610817d14bb3",
+        "request_id": "chatcmpl-Ej9L9dSzcX3SwOZZi55sm9X3gmwPg",
+        "usage": {
+          "prompt_tokens": 1689,
+          "completion_tokens": 15,
+          "total_tokens": 1704,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0006996,
+        "seconds": 0.6914352079984383,
+        "retry_count": 0
+      },
+      {
+        "turn": 4,
+        "kind": "search",
+        "request_sha256": "91c903f167abab359c61598fd5f066a52031dfe1e093dc5a7a55548560f303c8",
+        "request_id": "chatcmpl-Ej9LAURu7KgnlHfYCUpvjxEKoiciL",
+        "usage": {
+          "prompt_tokens": 2550,
+          "completion_tokens": 15,
+          "total_tokens": 2565,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.001044,
+        "seconds": 0.7754513750041951,
+        "retry_count": 0
+      },
+      {
+        "turn": 5,
+        "kind": "search",
+        "request_sha256": "5d257d7eb9128f77e389483d7a744976453f554542d215693ca1b04deb230115",
+        "request_id": "chatcmpl-Ej9LAR9qAP4KKqApgQSIlYV00Mp2f",
+        "usage": {
+          "prompt_tokens": 3301,
+          "completion_tokens": 424,
+          "total_tokens": 3725,
+          "prompt_tokens_details": {
+            "cached_tokens": 2432,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0019988000000000002,
+        "seconds": 3.104435166998883,
+        "retry_count": 0
+      },
+      {
+        "turn": 6,
+        "kind": "final",
+        "request_sha256": "790a0cb986d849b7c31482d2ce0200b8851f5125110e492fd93d5ffc4e677e48",
+        "request_id": "chatcmpl-Ej9LE51jHyDTTPr0H9pYj72G3eXIo",
+        "usage": {
+          "prompt_tokens": 1981,
+          "completion_tokens": 1368,
+          "total_tokens": 3349,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost_usd": 0.0029812000000000003,
+        "seconds": 9.844113749997632,
+        "retry_count": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,149 @@
+Metrics Module
+==============
+
+This module provides utilities and functions to compute pairwise distances between samples in datasets, including support for missing values and sparse data. It is designed for efficiency and flexibility, handling various input types and formats.
+
+Authors
+-------
+- Alexandre Gramfort <alexandre.gramfort@inria.fr>
+- Mathieu Blondel <mathieu@mblondel.org>
+- Robert Layton <robertlayton@gmail.com>
+- Andreas Mueller <amueller@ais.uni-bonn.de>
+- Philippe Gervais <philippe.gervais@inria.fr>
+- Lars Buitinck
+- Joel Nothman <joel.nothman@gmail.com>
+
+License
+-------
+BSD 3-Clause License
+
+Overview
+--------
+The module includes functions to validate and preprocess input arrays for pairwise distance computations, as well as implementations of distance metrics optimized for both dense and sparse data. It supports handling missing values gracefully and provides utilities to ensure input consistency.
+
+Key Functions
+-------------
+
+_check_pairwise_arrays
+~~~~~~~~~~~~~~~~~~~~~~
+```python
+check_pairwise_arrays(X, Y, *, precomputed=False, dtype=None, accept_sparse='csr', force_all_finite=True, copy=False)
+```
+Validates and prepares input arrays `X` and `Y` for pairwise distance computations. Ensures arrays are of compatible shapes and types, supports sparse matrices, and handles precomputed distance matrices.
+
+Parameters:
+- `X`, `Y`: Input arrays or sparse matrices.
+- `precomputed`: If True, treats `X` as a precomputed distance matrix.
+- `dtype`: Desired data type for the arrays.
+- `accept_sparse`: Allowed sparse formats.
+- `force_all_finite`: Whether to allow NaN or infinite values.
+- `copy`: Whether to copy the data.
+
+Returns:
+- Validated and possibly converted arrays `X` and `Y`.
+
+_check_paired_arrays
+~~~~~~~~~~~~~~~~~~~
+```python
+check_paired_arrays(X, Y)
+```
+Validates input arrays `X` and `Y` for paired distance computations, ensuring they have the same shape and are suitable for paired distance metrics.
+
+euclidean_distances
+~~~~~~~~~~~~~~~~~~~
+```python
+euclidean_distances(X, Y=None, *, Y_norm_squared=None, squared=False, X_norm_squared=None)
+```
+Computes the Euclidean distance matrix between each pair of samples in `X` and `Y`.
+
+Features:
+- Efficient computation using the formula:  
+  `dist(x, y) = sqrt(dot(x, x) - 2 * dot(x, y) + dot(y, y))`
+- Supports sparse data.
+- Allows precomputed norms for efficiency.
+- Optionally returns squared distances.
+
+Parameters:
+- `X`, `Y`: Input arrays or sparse matrices.
+- `Y_norm_squared`, `X_norm_squared`: Precomputed squared norms.
+- `squared`: If True, returns squared distances.
+
+Returns:
+- Distance matrix of shape `(n_samples_X, n_samples_Y)`.
+
+nan_euclidean_distances
+~~~~~~~~~~~~~~~~~~~~~~~
+```python
+nan_euclidean_distances(X, Y=None, *, squared=False, missing_values=np.nan, copy=True)
+```
+Computes Euclidean distances between samples in the presence of missing values.
+
+Features:
+- Ignores missing feature coordinates in distance calculation.
+- Scales distances to account for missing data.
+- Returns NaN if no common present coordinates exist between samples.
+
+Parameters:
+- `X`, `Y`: Input arrays.
+- `squared`: If True, returns squared distances.
+- `missing_values`: Representation of missing values (default `np.nan`).
+- `copy`: Whether to copy input arrays.
+
+Returns:
+- Distance matrix with missing values handled appropriately.
+
+Internal Utilities
+------------------
+
+_return_float_dtype
+~~~~~~~~~~~~~~~~~~~
+Determines the appropriate floating-point dtype for inputs `X` and `Y`.
+
+_euclidean_distances
+~~~~~~~~~~~~~~~~~~~
+Core computational function for Euclidean distances, assuming inputs are validated.
+
+_euclidean_distances_upcast
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Computes Euclidean distances for float32 inputs by processing chunks upcast to float64 to minimize precision loss.
+
+Usage Notes
+-----------
+- All distance computations expect input arrays where rows correspond to samples and columns to features.
+- Sparse matrices are supported and handled efficiently.
+- Functions validate inputs rigorously to prevent shape and type mismatches.
+- Missing values are handled explicitly in `nan_euclidean_distances`.
+- Precomputed norms can be supplied to optimize repeated distance calculations.
+
+References
+----------
+- Dixon, J. K. (1979). Pattern Recognition with Partly Missing Data. IEEE Transactions on Systems, Man, and Cybernetics, 9(10), 617-621.
+
+Examples
+--------
+Compute Euclidean distances between samples:
+
+```python
+from sklearn.metrics.pairwise import euclidean_distances
+
+X = [[0, 1], [1, 1]]
+dist_matrix = euclidean_distances(X)
+```
+
+Compute Euclidean distances with missing values:
+
+```python
+from sklearn.metrics.pairwise import nan_euclidean_distances
+import numpy as np
+
+nan = float('NaN')
+X = [[0, 1], [1, nan]]
+dist_matrix = nan_euclidean_distances(X)
+```
+
+See Also
+--------
+- `paired_distances`: Compute distances between pairs of samples.
+- `normalize`: Preprocessing utility for scaling input data.
+
+This module is a core component for distance-based metrics and clustering algorithms, providing robust and efficient implementations suitable for a wide range of data types and scenarios.

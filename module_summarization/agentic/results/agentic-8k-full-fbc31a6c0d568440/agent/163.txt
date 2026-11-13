@@ -1,0 +1,73 @@
+Tensor Attributes
+=================
+
+This document provides an overview of the tensor attributes used within the OneFlow MLIR integration and framework. These attributes describe the properties and metadata associated with tensors, facilitating their manipulation, conversion, and interoperability between OneFlow and MLIR.
+
+Data Type Attributes
+--------------------
+
+Tensor data types are represented using OneFlow's internal `DataType` enumeration. Conversion utilities exist to map between MLIR types and OneFlow data types:
+
+- `FromMLIRTypeToOFDataType(Type mlir_type)`: Converts an MLIR type to a OneFlow `DataType`.
+- `FromMLIRDataTypeToOFDataType(::mlir::oneflow::DataType data_type)`: Converts an MLIR OneFlow dialect data type to OneFlow `DataType`.
+- `FromMLIRAttrToOFDataType(Attribute attr)`: Converts an MLIR attribute representing a data type to OneFlow `DataType`.
+
+Shape Attributes
+----------------
+
+Tensor shapes are represented using OneFlow's `ShapeProto` and related protobuf messages. Attributes related to shapes include:
+
+- `getAttrAsShape(mlir::Attribute& attr)`: Extracts a `ShapeProto` from an MLIR attribute.
+- `getAttrAsStride(mlir::Attribute& attr)`: Extracts stride information as an `Int64ListProto` from an MLIR attribute.
+
+These utilities allow the conversion of MLIR attributes into OneFlow's shape and stride representations.
+
+Tensor Conversion Utilities
+---------------------------
+
+To facilitate interoperability between MLIR and OneFlow tensors, the following conversion functions are provided:
+
+- `TensorToDenseElementsAttr(const std::shared_ptr<::oneflow::one::Tensor>& tensor, MLIRContext* ctx)`: Converts a OneFlow tensor to an MLIR `DenseElementsAttr`.
+- `DenseElementsAttrToTensor(const mlir::Attribute& attr, const mlir::Attribute& device_tag, const mlir::Attribute& device_name)`: Converts an MLIR `DenseElementsAttr` back to a OneFlow tensor, considering device attributes.
+- Overloaded version: `DenseElementsAttrToTensor(const mlir::Attribute& attr, const mlir::Attribute& device_tag, const mlir::Attribute& device_name, std::shared_ptr<::oneflow::one::Tensor>& tensor)`: Converts and stores the result in the provided tensor pointer.
+
+Parallel and Device Attributes
+------------------------------
+
+Tensor attributes also include device and parallelism information:
+
+- `getParallelConfFromAttrDictionary(DictionaryAttr attributes)`: Extracts a `ParallelConf` protobuf message from a dictionary of MLIR attributes.
+- `getParallelConfFromAttrs(Attribute device_name_attr, Attribute device_tag_attr)`: Constructs a `ParallelConf` from device name and tag attributes.
+- `getDeviceTypeFromAttrDictionary(DictionaryAttr attributes)`: Retrieves the device type from MLIR attribute dictionaries.
+
+User Operation Attributes
+-------------------------
+
+User operations in OneFlow use attributes to describe inputs, outputs, and other configuration parameters:
+
+- `queryAttrType(const std::string& op_type_name, const std::string& attr_name)`: Queries the attribute type for a given operation and attribute name.
+- `saveAttrDictionaryToOpConf(DictionaryAttr attributes, ::oneflow::OperatorConf* op_conf)`: Saves MLIR attribute dictionaries into OneFlow operator configuration protobufs.
+- `ConvertUserOpAttributes(...)`: Multiple overloads exist to convert MLIR user operation attributes into OneFlow operator configurations, supporting various input forms such as `ValueRange` and `Operation*`.
+
+Tensor Type Construction
+------------------------
+
+Tensor types in MLIR are constructed using the shape and data type information extracted from OneFlow's `BlobDesc`:
+
+```cpp
+if (auto type = getTypeFromOneFlowDataType(context, blob_desc->data_type())) {
+  return RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(
+          {blob_desc->shape().dim_vec().begin(), blob_desc->shape().dim_vec().end()}),
+      type);
+} else {
+  return Type{};
+}
+```
+
+This snippet demonstrates how to create an MLIR ranked tensor type from OneFlow's blob descriptor, capturing both shape and element type.
+
+Summary
+-------
+
+Tensor attributes in OneFlow's MLIR integration encapsulate essential metadata such as data types, shapes, strides, device placement, and parallelism configurations. The provided utilities enable seamless conversion between MLIR representations and OneFlow's internal protobuf-based formats, ensuring consistent and efficient tensor handling across the compilation and runtime stack.
