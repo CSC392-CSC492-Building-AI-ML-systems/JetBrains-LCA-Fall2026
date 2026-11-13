@@ -22,6 +22,7 @@ class Limits:
     search_results: int = 5
     read_lines: int = 80  # longest range read_file returns or an added range may have
     tool_output_tokens: int = 1200  # a tool result is cut to this many tokens, by whole lines
+    result_chunk_tokens: int = 1200  # each chunk in a search or definition result is cut to this many tokens
     seed_chunk_tokens: int = 300  # each default chunk is shown to the planner cut to this many tokens
     definition_lines: int = 25  # lines shown for a definition found by text search
     query_characters: int = 300
@@ -103,7 +104,8 @@ class RepoTools:
         chunk = self.builder.chunks[chunk_id]
         self.seen.add(chunk_id)
         return {"chunk": chunk_id, **extra, "path": chunk.path, "start_line": chunk.start_line + 1,
-                "end_line": chunk.end_line + 1, "symbol": chunk.symbol, "text": self._clip(chunk.text, clip)}
+                "end_line": chunk.end_line + 1, "symbol": chunk.symbol,
+                "text": self._clip(chunk.text, clip or self.limits.result_chunk_tokens)}
 
     def seed_view(self, default_chunks: list[Chunk]) -> list[dict]:
         """The default context as the planner sees it: best first, each chunk with its id and rank."""
