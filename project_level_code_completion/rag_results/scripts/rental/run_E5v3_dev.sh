@@ -21,7 +21,9 @@ P7=Qwen/Qwen2.5-Coder-7B-Instruct
 P32=Qwen/Qwen2.5-Coder-32B-Instruct
 GPU_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
 
-anchor_check   # hashes must equal 8fe8932f... (zero) and 6941beca... (v1), as on every earlier machine
+# hashes must equal 8fe8932f... (zero) and 6941beca... (v1) on 5090 boxes (the RTX PRO 6000 differs on 11 of 316 line-runs, log 8.96).
+# SKIP_ANCHOR=1 is for a second parallel stream on a machine whose first stream already ran the check.
+[ -n "${SKIP_ANCHOR:-}" ] || anchor_check
 
 (cd ~/ts_test && $PY -c "import bitsandbytes" > /dev/null 2>&1) || (cd $PROJECT && poetry run pip install bitsandbytes >> $LOG 2>&1)
 (cd ~/ts_test && $PY -c "import bitsandbytes; print('bitsandbytes', bitsandbytes.__version__)" 2>&1 | tee -a $LOG) \
