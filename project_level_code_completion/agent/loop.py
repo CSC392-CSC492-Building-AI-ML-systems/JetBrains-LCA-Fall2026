@@ -60,8 +60,10 @@ Reply with exactly one JSON object per turn and nothing else. Actions:
 {"action":"find_usages","name":"function, class or variable name"}
 {"action":"file_outline","path":"file path"}
 {"action":"read_file","path":"file path","start_line":1,"end_line":40}
-{"action":"submit_context","add":[{"chunk":ID},{"path":"file path","start_line":1,"end_line":40}],"drop":[ID]}
-search_code finds code by meaning and by words. find_usages shows places where a name is used, with the lines around
+{"action":"submit_context","add":[{"chunk":ID},{"path":"file path","start_line":1,"end_line":40}],"drop":[ID],"missing":["name"]}
+"missing" lists the names (functions, classes, methods, attributes) that the next line probably uses and that are not
+visible in the current context or in the code before the line. Your additions are used only if they contain one of these
+names. search_code finds code by meaning and by words. find_usages shows places where a name is used, with the lines around
 them. file_outline lists the definitions of a file with line numbers. Line numbers start at 1. submit_context ends the
 work. "add" lists code to add: at most 2 items, chunk ids returned by tools, or file ranges of at most 80 lines. "drop"
 lists ids of current-context chunks to give up to make room: at most 2, and only used together with "add". Added code is
@@ -80,6 +82,7 @@ class LLMReply:
 @dataclass
 class PlanResult:
     add: list = field(default_factory=list)  # raw items the planner wants added
+    missing: list = field(default_factory=list)  # names it says are missing from the context (checked by the gate)
     drop: list = field(default_factory=list)  # ids of default chunks it wants removed
     status: str = "running"  # submitted | no_submit | invalid_replies
     steps: int = 0  # planner model calls
@@ -103,9 +106,11 @@ def parse_action(raw: str) -> Optional[dict]:
     return None
 
 
-def task_message(completion_path: str, prefix: str, file_paths: list[str], current_context: list[dict]) -> str:
+def task_message(completion_path: str, prefix: str, file_paths: list[str], current_context: list[dict],
+                 imported: Optional[list[dict]] = None) -> str:
     listing = "\n".join(file_paths)
-    return (f"File being completed: {completion_path}\n\nRepository files (nearest first):\n{listing}\n\n"
+    imports = f"FILES IMPORTED BY THE CODE BELOW (from this repository):\n{json_text(imported)}\n\n" if imported else ""
+    return (f"File being completed: {completion_path}\n\nRepository files (nearest first):\n{listing}\n\n{imports}"
             f"CURRENT CONTEXT (best first):\n{json_text(current_context)}\n\n"
             f"Code before the line to complete:\n{prefix}\n")
 
@@ -138,6 +143,8 @@ def plan(task: str, tools: RepoTools, llm: Callable[[list[dict]], LLMReply], lim
             add, drop = action.get("add", []), action.get("drop", [])
             result.add = add if isinstance(add, list) else []
             result.drop = drop if isinstance(drop, list) and limits.edit_mode != "append" else []
+            missing = action.get("missing", [])
+            result.missing = [m for m in missing if isinstance(m, str)] if isinstance(missing, list) else []
             result.status = "submitted"
             return result
         if forced:  # asked to submit and tried another tool

@@ -42,6 +42,10 @@ class Limits:
     usage_context: int = 2  # lines before and after a usage
     outline_symbols: int = 80  # most definitions listed by file_outline
     dedupe_searches: bool = False  # an exact repeat of an earlier search is answered with a note, not with results
+    # do-no-harm gate (8.93 amendment): an edit is used only if the planner names (in "missing") an identifier that an added
+    # chunk contains and that neither the current context nor the file prefix contains; otherwise the RAG context is kept
+    gate: bool = False
+    imports_view: bool = False  # show the planner the repository files the code imports, with their top-level definitions
 
 
 def covers(outer: Chunk, inner: Chunk) -> bool:
@@ -117,6 +121,17 @@ class RepoTools:
             fused = reciprocal_rank_fusion([ranked[:n], self.dense_ranker(query)[:n]])
             ranked = [chunk_id for chunk_id, _ in fused]
         return {"results": [self._chunk_view(chunk_id) for chunk_id in ranked[:self.limits.search_results]]}
+
+    def imported_view(self, prefix: str, max_files: int = 8, max_names: int = 12) -> list[dict]:
+        """Repository files that the code above the line imports (as RAG resolves imports), nearest first, each with the names
+        of its top-level functions and classes, so the planner need not spend tool calls to find them."""
+        paths = sorted({self.builder.chunks[i].path for i in self.builder._imported_chunk_ids(prefix)},
+                       key=lambda p: (-self.builder._path_proximity(p), p))[:max_files]
+        view = []
+        for path in paths:
+            names = [m.group(3) for m in map(DEFINITION_LINE.match, self.builder.file_lines[path]) if m and not m.group(1)]
+            view.append({"path": path, "defines": names[:max_names]})
+        return view
 
     def find_usages(self, name) -> dict:
         """Where a function, class, method or variable is used (not defined or imported): one place per file, files

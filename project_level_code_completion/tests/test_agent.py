@@ -2,7 +2,8 @@ import unittest
 
 from agent.llm import ReplayModel, ScriptedLLM
 from agent.loop import parse_action, plan, task_message
-from agent.provider import assemble_context, make_agent_provider_factory
+from agent.provider import assemble_context, gate_passes, make_agent_provider_factory
+from rag.chunker import Chunk
 from agent.tools import DenseSearch, Limits, RepoTools, json_text
 from data_classes.datapoint_base import DatapointBase
 from rag.builder import RagContextBuilder
@@ -599,6 +600,58 @@ class SwapModeTests(unittest.TestCase):
         self.assertTrue(info["changed"])
         self.assertEqual(info["paths"][-1], "lib/c.txt")
         self.assertLessEqual(count(prompt), 1000)
+
+    def gated(self, missing, **extra):
+        provider, _ = self.provider([submit([self.C]).replace('"drop":[]', f'"drop":[],"missing":{json_text(missing)}')],
+                                    gate=True, **extra)
+        return provider(make_datapoint(), 2)
+
+    def test_the_gate_keeps_the_rag_prompt_unless_a_really_missing_name_is_added(self):
+        rag_prompt = self.rag_info()[0]
+        passed = self.gated(["unrelated"])  # in the added chunk, nowhere in the prefix or the current context
+        self.assertEqual((passed[2]["gate"], passed[2]["changed"]), ("passed", True))
+        for missing in ([], ["alpha_func"], ["nosuchname"], ["un"], ["not an identifier"], [7]):
+            prompt, _, info = self.gated(missing)
+            self.assertEqual((info["gate"], info["changed"], prompt), ("rejected", False, rag_prompt), missing)
+            self.assertEqual(info["paths"], self.rag_info()[2]["paths"])
+
+    def test_the_gate_state_is_recorded_for_every_outcome(self):
+        provider, _ = self.provider([submit()], gate=True)
+        self.assertEqual(provider(make_datapoint(), 2)[2]["gate"], "none")  # the planner proposed nothing
+        provider, _ = self.provider([submit([self.C])])
+        self.assertEqual(provider(make_datapoint(), 2)[2]["gate"], "off")  # no gate configured
+
+    def test_gate_passes_only_for_a_name_that_is_added_and_not_yet_visible(self):
+        builder = make_builder()
+        added = [Chunk("lib/c.txt", "alpha_func zeta_name", 0, 0, "range", 3)]
+        shown = [Chunk("app/a.txt", "gamma_func lives here", 0, 0, "range", 3)]
+        prefix = "alpha_func beta_func"
+        self.assertTrue(gate_passes(["zeta_name"], added, shown, prefix, builder))
+        self.assertFalse(gate_passes(["alpha_func"], added, shown, prefix, builder))  # already in the prefix
+        self.assertFalse(gate_passes(["gamma_func"], added, shown, prefix, builder))  # already in the current context, and not added
+        self.assertFalse(gate_passes(["zeta_name"], added, shown, "zeta_name appears here", builder))  # visible in the prefix
+        self.assertFalse(gate_passes(["zeta_name"], [], shown, prefix, builder))  # nothing added
+        self.assertTrue(gate_passes(["x1", "zeta_name"], added, shown, prefix, builder))  # one good name is enough
+        self.assertFalse(gate_passes(["zeta"], added, shown, prefix, builder))  # whole words only
+
+    def test_the_planner_is_shown_the_files_the_code_imports(self):
+        files = {"app/target.py": "from app.a import helper\nx = helper(1)\ny = 2", **{k: v for k, v in PY_FILES.items() if k != "app/target.py"}}
+        datapoint = DatapointBase(repo_id=1, repo_name="repo", completion_lines={}, context_dict=files,
+                                  completion_dict={"app/target.py": files["app/target.py"]})
+        for on in (True, False):
+            llm = ScriptedLLM([submit()])
+            make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS, lang_sep=LANG, meta_sep=META,
+                                        limits=Limits(edit_mode="swap", imports_view=on))(datapoint)(datapoint, 2)
+            user = llm.calls[0][1]["content"]
+            self.assertEqual("FILES IMPORTED BY THE CODE BELOW" in user, on)
+            if on:
+                self.assertIn('"path":"app/a.py","defines":["helper","Thing"]', user)
+
+    def test_imported_view_lists_top_level_definitions_nearest_first(self):
+        builder = make_builder(PY_FILES, "app/target.py")
+        view = RepoTools(builder, Limits(edit_mode="swap"), count).imported_view("from app.a import helper\nimport lib.c\n")
+        self.assertEqual(view, [{"path": "app/a.py", "defines": ["helper", "Thing"]}, {"path": "lib/c.py", "defines": ["unrelated"]}])
+        self.assertEqual(RepoTools(builder, Limits(edit_mode="swap"), count).imported_view("x = 1\n"), [])
 
     def test_the_hybrid_search_runs_through_the_provider_and_is_replayable(self):
         provider, _ = self.provider([search("alpha_func"), submit([self.C])], embedder=FakeEmbedder(), search_mode="hybrid")

@@ -1,3 +1,4 @@
+import re
 from typing import Callable, Optional
 
 from agent.loop import LLMReply, plan, task_message
@@ -52,6 +53,20 @@ def fit_additions(builder: RagContextBuilder, kept: list, added: list, prefix: s
     return None
 
 
+def gate_passes(missing: list, added: list, default_chunks: list, prefix: str, builder: RagContextBuilder,
+                continuation_lines: int = 0) -> bool:
+    """The do-no-harm gate: True if the planner named an identifier (3 or more characters) that some added chunk contains and
+    that neither the file prefix nor any default chunk, as it appears in the prompt, contains."""
+    visible = prefix + "\n" + "\n".join(builder._format(chunk, continuation_lines) for chunk in default_chunks)
+    for name in missing:
+        if len(name) < 3 or not re.fullmatch(r"[A-Za-z_]\w*", name):
+            continue
+        pattern = re.compile(rf"\b{re.escape(name)}\b")
+        if not pattern.search(visible) and any(pattern.search(chunk.text) for chunk in added):
+            return True
+    return False
+
+
 def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int, llm: Callable[[list], LLMReply],
                                 rag_options: Optional[dict] = None, limits: Limits = Limits(),
                                 planner_prefix_tokens: int = 1500, max_listed_files: int = 100, extension: str = "",
@@ -90,12 +105,20 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
         def provider(dp: DatapointBase, line_num: int):
             default = builder.context_for(dp.get_prefix(line_num), budget=budget, **options)
             tools = RepoTools(builder, limits, count_tokens, dense_ranker)
+            imported = tools.imported_view(default.prefix) if limits.imports_view else None
             task = task_message(completion_path, crop_prefix(default.prefix, planner_prefix_tokens, count_tokens),
-                                listed, tools.seed_view(default.chunks))
+                                listed, tools.seed_view(default.chunks), imported)
             planned = plan(task, tools, llm, limits)
             context, used, fallback, changed = default.context, default.chunks, planned.status != "submitted", False
+            gate = "off" if not limits.gate else "none"  # none = the planner proposed no change
             if not fallback:
                 final = tools.apply_edit(default.chunks, planned.add, planned.drop)
+                if limits.gate and [id(c) for c in final] != [id(c) for c in default.chunks]:
+                    added = [c for c in final if not any(c is d for d in default.chunks)]
+                    if gate_passes(planned.missing, added, default.chunks, default.prefix, builder, continuation_lines):
+                        gate = "passed"
+                    else:
+                        gate, final = "rejected", default.chunks  # keep RAG's context: no named, really missing name was added
                 if [id(c) for c in final] != [id(c) for c in default.chunks]:
                     if adds_only:
                         n_kept = sum(1 for c in final if any(c is d for d in default.chunks))
@@ -120,6 +143,7 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
                 "tool_calls": planned.tool_calls, "planner_input_tokens": planned.input_tokens,
                 "planner_output_tokens": planned.output_tokens, "planner_ms": round(planned.planner_ms, 1),
                 "actions": [turn["action"] for turn in planned.trace],  # what the planner did, to replay and analyse
+                "gate": gate, "missing": planned.missing,
             }
             return context + "\n" + default.prefix, dp.get_line(line_num), info
 
