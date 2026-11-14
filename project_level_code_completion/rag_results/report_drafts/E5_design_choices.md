@@ -53,6 +53,17 @@ and +9.8 over `path_distance`. It uses 6.8 times the tokens and about 16 times t
 context (31% of lines) it breaks 136 lines RAG F got right and fixes 34. No line class improves; the largest loss, -2.2 points, is on
 lines that need names from other project files.
 
+## Follow-up: the stronger agent (v3), design and outcome
+
+Design choices, each tied to a failure of v2 (details in log 8.93 to 8.104): a 32B planner (the 7B lost 4 lines for every line it fixed);
+hybrid search and tools for usages, file outlines and imports (the 7B used `read_file` almost never and `search_code` on nearly every call);
+a swap mode (add-only could not fix a bad default chunk); a prompt that asks for a stated hypothesis ("which name is missing"); and a mechanical
+gate so that an edit is used only when the planner names a missing symbol that the added code supplies and the prefix does not show.
+Two revisions were allowed and both were used: R1 (remind the planner once to name the missing symbol when it proposed an addition without one)
+and the gate-free variant. Outcome on 24 development datapoints: 7B with the E5 tools -1.72 points; 32B with the E5 tools -0.01; v3 +0.00 with and
+without the gate; the full arm was therefore not run (rule fixed in advance, +0.5 points needed). The 32B planner removes the harm, not the
+lack of gain. Table, numbers and caveats: `E5_agent.md`, section "Follow-up".
+
 ## What to keep in mind (limitations and honest caveats)
 
 - **It is one agent setup, not "agents".** A 7B planner, 8-bit, add-only edits, a small tool budget, a writer that cannot ask for more context.
@@ -72,4 +83,4 @@ lines that need names from other project files.
 ## Questions for the mentor
 
 1. How should we frame an honest "does not beat RAG, costs 7x" result in the report?
-2. Is one more agent experiment (a stronger planner, or letting the writer ask for context) worth it, or should the remaining time go to the write-up?
+2. (Answered by the follow-up above: the stronger planner did not help on the development set.) Is another experiment, for example letting the writer ask for context, worth it, or should the remaining time go to the write-up?

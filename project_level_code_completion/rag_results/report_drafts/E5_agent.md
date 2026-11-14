@@ -88,12 +88,43 @@ the line, the truth, both predictions, the needed names missing from each prompt
 - It shows that this setup, a 7B planner with a small tool budget that may only add context, does not improve on a well-tuned retrieval
   recipe on this benchmark, and that it costs several times more. Development runs said the same on 8 datapoints (-0.9 points for v2), and
   the first version, which could also drop context, was much worse (-11.4 points on 4 datapoints).
-- It does not show that agents cannot help: a stronger or trained planner, other writers, other budgets and giving the writer a way to ask
-  for more context were not tested. We also did not test why the changes hurt; one reading, not tested here, is that BM25 on the last lines
+- It does not show that agents cannot help: a trained planner, other writers, other budgets and giving the writer a way to ask
+  for more context were not tested. A stronger planner (32B, better tools) was tested on 24 development datapoints only; see the next
+  section. We also did not test why the changes hurt; one reading, not tested here, is that BM25 on the last lines
   already puts the likeliest chunk first and extra code mostly adds distraction for a model that was given a good context.
 - Statistical power is that of 224 datapoints: differences under about 0.5 points are not distinguishable from 0 here.
 
+## Follow-up: a stronger planner on 24 development datapoints (not run on all 224)
+
+After E5 the mentor approved a larger planner (Qwen2.5-Coder-32B-Instruct, 4-bit) and we built the strongest agent we could ("v3"):
+hybrid search (BM25 plus a dense embedding model, merged by rank), tools to find usages of a name, outline a file and view the imports,
+a mode that can swap context instead of only adding, a prompt that asks the planner to state which name is missing, and a mechanical
+do-no-harm gate (an addition is kept only if the missing name it names appears in the added code and is not already visible). The plan, the
+predictions and the rule for going to a full run were written down before any result (log 8.93, 8.99): run the full arm only if the
+development gain is at least +0.5 points, the interval's lower bound at least -1.0, and the lines the agent breaks at most twice the lines it fixes.
+Development set: 24 datapoints of the medium set (1,372 lines), one machine for every arm, the same writer and token budget as E5.
+
+| arm | EM (mean over datapoints) | vs RAG F (95% CI) | lines whose context changed | broke : fixed |
+|---|---:|---:|---:|---|
+| RAG F | 0.5037 | reference | none | none |
+| 7B planner, E5 tools | 0.4865 | -1.72 [-3.90, -0.33] | 416 (30%) | 12 : 1 |
+| 32B planner, E5 tools | 0.5036 | -0.01 [-0.58, +0.45] | 173 (13%) | 1 : 2 |
+| 32B planner, v3 | 0.5037 | +0.00 | 3 (0.2%) | none |
+| 32B planner, v3, one tool call | 0.5037 | +0.00 | 3 (0.2%) | none |
+| 32B planner, v3 without the gate | 0.5037 | +0.00 | 44 (3.2%) | 0 : 0 |
+
+What the table says. (1) The 7B agent of E5 reproduces its loss on these 24 datapoints (-1.72 here, -1.24 on all 224). (2) Making the planner
+larger removes the harm (12 : 1 becomes 1 : 2) but adds no gain. (3) With the v3 tools and prompt, the 32B planner submits the unchanged
+context on about two lines in three and almost never edits; removing the gate lets 44 lines through and none of them changes the line
+CodeLlama writes. RAG F already has the needed name in its context on about 98% of lines, so the room for a context editor is small.
+The decision rule says no-go, so v3 was not run on all 224 datapoints. These arms also cost 8 to 22 seconds per line against 1.2 for RAG F.
+Caveats: 24 datapoints resolve about +-1 point; the 7B planner with the v3 tools was started and stopped after 174 lines (it changed 1 line
+and took 64 s per line), so that combination has no result; the dev machine (RTX PRO 6000) gives different greedy predictions from the RTX 5090
+on 2.9% of lines, so every dev arm, including RAG F, ran on the same card (RAG F on this card is +0.29 points [+0.01, +0.69] from the 5090 run on the same
+lines). Log sections 8.96 to 8.104; table and analysis in `rag_results/reports/E5v3/dev_analysis.md`.
+
 ## Reproduce
 
+`python rag_results/scripts/analyze_e5v3_dev.py` (dev arms) and `python rag_results/scripts/check_d0_vs_e4.py` (reproduction check), and
 `python rag_results/scripts/analyze_e5_full.py` and `python rag_results/scripts/make_e5_figures.py` from `project_level_code_completion/`
 (they read the arms kept in `rag_results/agent/E5_full/arms`). Layout of the raw results: `rag_results/agent/README.md`.
