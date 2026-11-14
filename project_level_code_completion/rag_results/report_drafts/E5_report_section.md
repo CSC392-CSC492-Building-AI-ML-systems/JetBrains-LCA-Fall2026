@@ -44,19 +44,25 @@ Two revisions of the design were allowed and both were used (a reminder to name 
 
 Development set: 24 datapoints (1,372 lines), the same machine for every arm.
 
-| arm | EM | vs RAG F | lines changed | broke : fixed |
-|---|---:|---:|---:|---|
-| RAG F | 0.5037 | reference | none | none |
-| 7B planner, experiment 1 tools | 0.4865 | -1.72 [-3.90, -0.33] | 416 (30%) | 12 : 1 |
-| 32B planner, experiment 1 tools | 0.5036 | -0.01 [-0.58, +0.45] | 173 (13%) | 1 : 2 |
-| 32B planner, new tools, gate | 0.5037 | +0.00 | 3 (0.2%) | none |
-| 32B planner, new tools, one tool call | 0.5037 | +0.00 | 3 (0.2%) | none |
-| 32B planner, new tools, no gate | 0.5037 | +0.00 | 44 (3.2%) | 0 : 0 |
+| arm | EM | vs RAG F | lines changed | broke : fixed | tokens per line (planner + writer prompt) | vs RAG F |
+|---|---:|---:|---:|---|---:|---:|
+| RAG F | 0.5037 | reference | none | none | 5,047 | 1.0x |
+| 7B planner, experiment 1 tools | 0.4865 | -1.72 [-3.90, -0.33] | 416 (30%) | 12 : 1 | 34,465 | 6.8x |
+| 32B planner, experiment 1 tools | 0.5036 | -0.01 [-0.58, +0.45] | 173 (13%) | 1 : 2 | 21,519 | 4.3x |
+| 32B planner, new tools, gate | 0.5037 | +0.00 | 3 (0.2%) | none | 13,969 | 2.8x |
+| 32B planner, new tools, one tool call | 0.5037 | +0.00 | 3 (0.2%) | none | 10,656 | 2.1x |
+| 32B planner, new tools, no gate | 0.5037 | +0.00 | 44 (3.2%) | 0 : 0 | 13,610 | 2.7x |
+
+Tokens are the mean per line of planner input plus output plus the writer's input prompt (the writer's output, about 20 tokens, is left out);
+planner tokens are 29,493, 16,507, 8,923, 5,610 and 8,573 per line in the five agent rows. The new tools cost fewer tokens than the old ones
+because the planner submits at once on about two lines in three, but they spend them on almost no edits.
 
 The 7B agent reproduces its loss (-1.72 here, -1.24 on all 224). A larger planner removes the harm (12 : 1 becomes 1 : 2) but adds no gain.
 With the new tools and prompt, the 32B planner submits the unchanged context on about two lines in three and almost never edits; without the
 gate it edits 44 lines and none of those edits changes what the writer produces. The decision rule says no, so we did **not** run the stronger
-agent on all 224 datapoints. These arms also cost 8 to 22 seconds per line against 1.2 for RAG F.
+agent on all 224 datapoints. In tokens the stronger agents cost 2.1 to 4.3 times RAG F per line and the 7B agent 6.8 times (the same ratio as on
+all 224 datapoints); in time they took 4 to 22 seconds per line against 1.2 for RAG F, with two arms sharing the GPU, so read the seconds as an
+order of magnitude.
 
 ## Conclusion and limits
 
