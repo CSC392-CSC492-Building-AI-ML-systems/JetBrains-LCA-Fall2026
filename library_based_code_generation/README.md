@@ -27,7 +27,18 @@ In order to evaluate models, run the [evaluation script](src/evaluation/evaluate
 The script will generate code with the available models and compute the metrics (`ChrF` and `API Recall`). 
 If the code for the specific model is already available in the `results` directory, the evaluation script will just compute the metrics.
 
+## Long-context comparison
+
+The [long-context runner](long_context/README.md) compares instruction-only,
+direct API-name context and BM25-retrieved API-name context at matched 8K/64K
+budgets. It supports offline prompt preparation, resumable generation, saved
+per-example scores and paired confidence intervals.
+
 ## RAG comparison
+
+To evaluate the existing completed RAG runs without generating code, run
+`python -m src.evaluation.rag_analysis`. See [saved RAG evaluation](RAG_EVALUATION.md)
+for paired confidence intervals, coverage checks, per-example metrics and reports.
 
 Run `python -m src.evaluation.compare` from this directory to compare the same
 generator on plain instructions, the unchanged official BM25 baseline, normalized
