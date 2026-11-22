@@ -93,3 +93,7 @@ the original dataset checksum, source implementation hashes, prediction payload
 checksums, identities, raw-response replacements, baseline-only prompts, exact
 failed source revisions, and independently recomputed scores. It does not verify
 the original inference execution by rerunning the model.
+
+## Explicit generation identity
+
+Checkpoint: `mlx-community/Mistral-7B-Instruct-v0.2-4bit` (7B, four-bit, local MLX). Seeds: **0, 1, 2**; effective seed = configured seed + dataset ID; temperature **0.2**; total context **8,192** tokens and output cap **2,048** tokens. This report audits the original standard arm, not the later improved-composition variant. See the [experiment registry](../../RESULTS.md#models-seeds-and-experiment-registry) for all later configurations.

@@ -45,3 +45,7 @@ model fixed in both arms and use a different set of records. Expand local
 fail/reference controls for other reproducible checks; do not extrapolate
 this one-file check or edit F1 to the paper's CI Pass@1. The Mistral
 replication track is unchanged.
+
+## Recorded model and seeds
+
+Model: `mlx-community/Qwen2.5-Coder-7B-Instruct-4bit` (7B, four-bit, MLX); revision `019cc73c45c770444708a6dd8690c66243cc5c80`. Seeds: **0, 1, 2**, effective seed = configured seed + dataset ID. Temperature: **0.2**. Total context: **8192** tokens; output cap: **2048** tokens. These pilot settings differ from the full 32,768/8,192-token experiments.
