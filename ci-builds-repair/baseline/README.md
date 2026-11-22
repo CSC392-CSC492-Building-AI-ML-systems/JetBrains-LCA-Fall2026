@@ -6,6 +6,15 @@ audit the baseline and the subsequent pilots. The
 [published metrics](results/published_metrics.json) can be read without
 downloading models or accessing the ignored run cache.
 
+The latest [repair pipeline comparison](results/REPAIR_PIPELINE_IMPROVEMENT.md)
+measures improved marker handling and source whitespace preservation against
+the unchanged saved answers, using complete local workflows.
+
+For execution-based validation of saved model repairs, see the
+[local CI workflow evaluator](local_ci/README.md). It runs complete supported
+workflows in isolated Linux containers, with failed/reference controls and
+explicit unresolved coverage. It does not submit GitHub Actions.
+
 The historical manifests retain exact source checksums from before the
 documentation cleanup. To audit all published Mistral and Qwen runs from
 their original source in a temporary directory, use the local environment:
