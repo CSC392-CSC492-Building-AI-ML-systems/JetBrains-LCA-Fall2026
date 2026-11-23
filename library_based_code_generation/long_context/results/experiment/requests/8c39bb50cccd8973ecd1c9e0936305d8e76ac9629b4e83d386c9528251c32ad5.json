@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 81,
+    "task_sha256": "75df077177cae67bd9d411700e97648e3bf1509de54917a57f1d113ed833b99b",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a number of calculations using sounding data from the MetPy library. The code should define a function to determine the effective inflow layer for a convective sounding, using the default values of Thompison et al. (2004) for CAPE (100 J/kg) and CIN (-250 J/kg). The code should also read in sample data, isolate needed variables and attach units, compute wind components, compute common sounding index parameters, compute the parcel profile for a surface-based parcel, compute corresponding LI, CAPE, CIN values for a surface parcel, determine the LCL, LFC, and EL for the surface parcel, compute characteristics of a mean layer parcel and the most unstable parcel, compute the Bunkers Storm Motion vector and use it to calculate the critical angle, compute the characteristics needed to compute the significant tornado parameter, compute the supercell composite parameter if possible, and finally print out the important sounding parameters.\n\nYou can find the following APIs from the library helpful:\nreturn_the_kwargs, most_unstable_parcel, parcel_profile, test_most_unstable_parcel, parcel_profile_with_lcl, test_parcel_profile_lcl, _parcel_profile_helper, test_parcel_profile, mixed_parcel, test_parcel_profile_below_lcl, test_parcel_profile_saturated, test_lfc_and_el_below_lcl, test_mixed_parcel, bits_to_code, test_most_unstable_cape_cin_surface, test_parcel_profile_lcl_not_monotonic, parcel_profile_with_lcl_as_dataset, preprocess_and_wrap, check_and_drop_units, most_unstable_cape_cin"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5WZTE4qCjLUD6OAuvqpRTTPfibW",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport metpy.calc as mpcalc\nfrom metpy.units import units\nfrom metpy.io import parse_metar_to_dataframe\nfrom metpy.cbook import get_test_data\nfrom metpy.calc import wind_components, dewpoint_from_relative_humidity, bunkers_storm_motion, critical_angle, significant_tornado, supercell_composite\nimport pandas as pd\n\ndef effective_inflow_layer(p, T, Td, u, v, cape_thresh=100 * units('joule / kilogram'), cin_thresh=-250 * units('joule / kilogram')):\n    \"\"\"\n    Determine the effective inflow layer following Thompson et al. (2004).\n    Returns the pressure bounds (top, bottom) of the effective inflow layer.\n    \"\"\"\n    # Compute CAPE and CIN for each level as a parcel\n    cape = []\n    cin = []\n    for i in range(len(p)):\n        prof_p = p[i:]\n        prof_T = T[i:]\n        prof_Td = Td[i:]\n        if len(prof_p) < 3:\n            cape.append(np.nan)\n            cin.append(np.nan)\n            continue\n        prof = mpcalc.parcel_profile(prof_p, prof_T[0], prof_Td[0])\n        this_cape, this_cin = mpcalc.cape_cin(prof_p, prof_T, prof_Td, prof)\n        cape.append(this_cape)\n        cin.append(this_cin)\n    cape = np.array(cape) * units('joule / kilogram')\n    cin = np.array(cin) * units('joule / kilogram')\n    # Find layers where CAPE >= threshold and CIN >= threshold\n    mask = (cape >= cape_thresh) & (cin >= cin_thresh)\n    if not np.any(mask):\n        return None, None\n    indices = np.where(mask)[0]\n    bottom = p[indices[0]]\n    top = p[indices[-1]]\n    return top, bottom\n\n# Read in sample data (using MetPy's test data)\ndata = pd.read_csv(get_test_data('sounding_data.txt', as_file_obj=False), delim_whitespace=True, comment='#', header=None,\n                   names=['pressure', 'height', 'temperature', 'dewpoint', 'direction', 'speed'])\n\n# Isolate needed variables and attach units\np = data['pressure'].values * units.hPa\nT = data['temperature'].values * units.degC\nTd = data['dewpoint'].values * units.degC\nu, v = mpcalc.wind_components(data['speed'].values * units.knots, data['direction'].values * units.degrees)\n\n# Compute common sounding index parameters\nml_p, ml_T, ml_Td = mpcalc.mixed_layer(p, T, Td, depth=100 * units.hPa)\nmu_p, mu_T, mu_Td = mpcalc.most_unstable_parcel(p, T, Td, depth=300 * units.hPa)\n\n# Surface-based parcel\nsfcp = p[0]\nsfcT = T[0]\nsfcTd = Td[0]\n\n# Parcel profile for surface-based parcel\nparcel_prof = mpcalc.parcel_profile(p, sfcT, sfcTd)\n\n# LI, CAPE, CIN for surface parcel\nli = mpcalc.lifted_index(p, T, parcel_prof)\ncape, cin = mpcalc.cape_cin(p, T, Td, parcel_prof)\n\n# LCL, LFC, EL for surface parcel\nlcl_pressure, lcl_temperature = mpcalc.lcl(sfcp, sfcT, sfcTd)\nlfc_pressure, lfc_temperature = mpcalc.lfc(p, T, Td)\nel_pressure, el_temperature = mpcalc.el(p, T, Td)\n\n# Mean layer parcel (100 hPa)\nml_parcel_prof = mpcalc.parcel_profile(p, ml_T, ml_Td)\nml_cape, ml_cin = mpcalc.cape_cin(p, T, Td, ml_parcel_prof)\n\n# Most unstable parcel\nmu_parcel_prof = mpcalc.parcel_profile(p, mu_T, mu_Td)\nmu_cape, mu_cin = mpcalc.cape_cin(p, T, Td, mu_parcel_prof)\n\n# Bunkers Storm Motion vector\nright_mover, left_mover = bunkers_storm_motion(p, u, v, T, Td)\nrm_u, rm_v = right_mover\nlm_u, lm_v = left_mover\n\n# Critical angle\ncrit_angle = critical_angle(p, u, v, T, Td)\n\n# Effective inflow layer\neff_top, eff_bottom = effective_inflow_layer(p, T, Td, u, v)\n\n# Significant Tornado Parameter (STP)\nstp = significant_tornado(p, T, Td, u, v)\n\n# Supercell Composite Parameter (SCP)\nscp = supercell_composite(p, T, Td, u, v)\n\n# Print out important sounding parameters\nprint(f\"Surface Pressure: {sfcp:.1f}\")\nprint(f\"Surface Temperature: {sfcT:.1f}\")\nprint(f\"Surface Dewpoint: {sfcTd:.1f}\")\nprint(f\"LCL Pressure: {lcl_pressure:.1f}, LCL Temperature: {lcl_temperature:.1f}\")\nprint(f\"LFC Pressure: {lfc_pressure:.1f}, LFC Temperature: {lfc_temperature:.1f}\")\nprint(f\"EL Pressure: {el_pressure:.1f}, EL Temperature: {el_temperature:.1f}\")\nprint(f\"Surface-based CAPE: {cape:.1f}\")\nprint(f\"Surface-based CIN: {cin:.1f}\")\nprint(f\"Lifted Index: {li:.1f}\")\nprint(f\"Mean Layer CAPE: {ml_cape:.1f}\")\nprint(f\"Mean Layer CIN: {ml_cin:.1f}\")\nprint(f\"Most Unstable CAPE: {mu_cape:.1f}\")\nprint(f\"Most Unstable CIN: {mu_cin:.1f}\")\nprint(f\"Bunkers Right Mover: u={rm_u:.1f}, v={rm_v:.1f}\")\nprint(f\"Bunkers Left Mover: u={lm_u:.1f}, v={lm_v:.1f}\")\nprint(f\"Critical Angle: {crit_angle:.1f}\")\nprint(f\"Effective Inflow Layer: Top={eff_top}, Bottom={eff_bottom}\")\nprint(f\"Significant Tornado Parameter: {stp:.2f}\")\nprint(f\"Supercell Composite Parameter: {scp:.2f}\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129687,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_381463323f",
+    "usage": {
+      "completion_tokens": 1371,
+      "prompt_tokens": 362,
+      "total_tokens": 1733,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport metpy.calc as mpcalc\nfrom metpy.units import units\nfrom metpy.io import parse_metar_to_dataframe\nfrom metpy.cbook import get_test_data\nfrom metpy.calc import wind_components, dewpoint_from_relative_humidity, bunkers_storm_motion, critical_angle, significant_tornado, supercell_composite\nimport pandas as pd\n\ndef effective_inflow_layer(p, T, Td, u, v, cape_thresh=100 * units('joule / kilogram'), cin_thresh=-250 * units('joule / kilogram')):\n    \"\"\"\n    Determine the effective inflow layer following Thompson et al. (2004).\n    Returns the pressure bounds (top, bottom) of the effective inflow layer.\n    \"\"\"\n    # Compute CAPE and CIN for each level as a parcel\n    cape = []\n    cin = []\n    for i in range(len(p)):\n        prof_p = p[i:]\n        prof_T = T[i:]\n        prof_Td = Td[i:]\n        if len(prof_p) < 3:\n            cape.append(np.nan)\n            cin.append(np.nan)\n            continue\n        prof = mpcalc.parcel_profile(prof_p, prof_T[0], prof_Td[0])\n        this_cape, this_cin = mpcalc.cape_cin(prof_p, prof_T, prof_Td, prof)\n        cape.append(this_cape)\n        cin.append(this_cin)\n    cape = np.array(cape) * units('joule / kilogram')\n    cin = np.array(cin) * units('joule / kilogram')\n    # Find layers where CAPE >= threshold and CIN >= threshold\n    mask = (cape >= cape_thresh) & (cin >= cin_thresh)\n    if not np.any(mask):\n        return None, None\n    indices = np.where(mask)[0]\n    bottom = p[indices[0]]\n    top = p[indices[-1]]\n    return top, bottom\n\n# Read in sample data (using MetPy's test data)\ndata = pd.read_csv(get_test_data('sounding_data.txt', as_file_obj=False), delim_whitespace=True, comment='#', header=None,\n                   names=['pressure', 'height', 'temperature', 'dewpoint', 'direction', 'speed'])\n\n# Isolate needed variables and attach units\np = data['pressure'].values * units.hPa\nT = data['temperature'].values * units.degC\nTd = data['dewpoint'].values * units.degC\nu, v = mpcalc.wind_components(data['speed'].values * units.knots, data['direction'].values * units.degrees)\n\n# Compute common sounding index parameters\nml_p, ml_T, ml_Td = mpcalc.mixed_layer(p, T, Td, depth=100 * units.hPa)\nmu_p, mu_T, mu_Td = mpcalc.most_unstable_parcel(p, T, Td, depth=300 * units.hPa)\n\n# Surface-based parcel\nsfcp = p[0]\nsfcT = T[0]\nsfcTd = Td[0]\n\n# Parcel profile for surface-based parcel\nparcel_prof = mpcalc.parcel_profile(p, sfcT, sfcTd)\n\n# LI, CAPE, CIN for surface parcel\nli = mpcalc.lifted_index(p, T, parcel_prof)\ncape, cin = mpcalc.cape_cin(p, T, Td, parcel_prof)\n\n# LCL, LFC, EL for surface parcel\nlcl_pressure, lcl_temperature = mpcalc.lcl(sfcp, sfcT, sfcTd)\nlfc_pressure, lfc_temperature = mpcalc.lfc(p, T, Td)\nel_pressure, el_temperature = mpcalc.el(p, T, Td)\n\n# Mean layer parcel (100 hPa)\nml_parcel_prof = mpcalc.parcel_profile(p, ml_T, ml_Td)\nml_cape, ml_cin = mpcalc.cape_cin(p, T, Td, ml_parcel_prof)\n\n# Most unstable parcel\nmu_parcel_prof = mpcalc.parcel_profile(p, mu_T, mu_Td)\nmu_cape, mu_cin = mpcalc.cape_cin(p, T, Td, mu_parcel_prof)\n\n# Bunkers Storm Motion vector\nright_mover, left_mover = bunkers_storm_motion(p, u, v, T, Td)\nrm_u, rm_v = right_mover\nlm_u, lm_v = left_mover\n\n# Critical angle\ncrit_angle = critical_angle(p, u, v, T, Td)\n\n# Effective inflow layer\neff_top, eff_bottom = effective_inflow_layer(p, T, Td, u, v)\n\n# Significant Tornado Parameter (STP)\nstp = significant_tornado(p, T, Td, u, v)\n\n# Supercell Composite Parameter (SCP)\nscp = supercell_composite(p, T, Td, u, v)\n\n# Print out important sounding parameters\nprint(f\"Surface Pressure: {sfcp:.1f}\")\nprint(f\"Surface Temperature: {sfcT:.1f}\")\nprint(f\"Surface Dewpoint: {sfcTd:.1f}\")\nprint(f\"LCL Pressure: {lcl_pressure:.1f}, LCL Temperature: {lcl_temperature:.1f}\")\nprint(f\"LFC Pressure: {lfc_pressure:.1f}, LFC Temperature: {lfc_temperature:.1f}\")\nprint(f\"EL Pressure: {el_pressure:.1f}, EL Temperature: {el_temperature:.1f}\")\nprint(f\"Surface-based CAPE: {cape:.1f}\")\nprint(f\"Surface-based CIN: {cin:.1f}\")\nprint(f\"Lifted Index: {li:.1f}\")\nprint(f\"Mean Layer CAPE: {ml_cape:.1f}\")\nprint(f\"Mean Layer CIN: {ml_cin:.1f}\")\nprint(f\"Most Unstable CAPE: {mu_cape:.1f}\")\nprint(f\"Most Unstable CIN: {mu_cin:.1f}\")\nprint(f\"Bunkers Right Mover: u={rm_u:.1f}, v={rm_v:.1f}\")\nprint(f\"Bunkers Left Mover: u={lm_u:.1f}, v={lm_v:.1f}\")\nprint(f\"Critical Angle: {crit_angle:.1f}\")\nprint(f\"Effective Inflow Layer: Top={eff_top}, Bottom={eff_bottom}\")\nprint(f\"Significant Tornado Parameter: {stp:.2f}\")\nprint(f\"Supercell Composite Parameter: {scp:.2f}\")\n```",
+  "latency_seconds": 8.249202914001216,
+  "usage": {
+    "completion_tokens": 1371,
+    "prompt_tokens": 362,
+    "total_tokens": 1733,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11692,
+  "response_sha256": "caaf5e098cc08fd884edbf3cb998f7d56cf8e7f4b800439c484f017d97403b8d",
+  "artifact_sha256": "4f2643fa5fc9a71ceaf5a5bea8526c802291c0343c036bc5cd17e03c71394e43"
+}

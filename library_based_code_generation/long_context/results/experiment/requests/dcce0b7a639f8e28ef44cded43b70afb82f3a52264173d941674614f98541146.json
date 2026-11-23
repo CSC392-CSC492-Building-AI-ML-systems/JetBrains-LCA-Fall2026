@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 1,
+    "task_sha256": "865caec50afb0c6c3ea3e11d2f07a3f36e66807c663f216a6d400c976866fd75",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves the heat conduction equation using the adaptive finite element method on a triangular mesh. The code should allow the user to specify the number of spatial and temporal divisions, the adaptive refinement stop threshold, and the adaptive refinement and coarsening parameters. The code should use the 2D equation model from the fealpy library for the heat conduction equation, and the lagrange finite element space. The code should also handle Dirichlet boundary conditions. The code should iteratively refine the mesh based on the recovery estimate until the error is below the specified threshold. The code should also coarsen the mesh after each time step. The code should save a plot of the mesh at each refinement and coarsening step. The code should also print the error at each time step and plot the numerical solution at specified time steps.\n\nYou can find the following APIs from the library helpful:\nget_code, __and__, test_dirichlet_and_neumann_bc_on_interval_mesh, test_dirichlte_and_neumann_bc_on_tetrahedron_mesh, time_mesh, LagrangeFiniteElementSpaceOnEdgeMesh, get_current_time_step, current_time_step_length, get_time_step_length, ParametricLagrangeFiniteElementSpaceOnWedgeMesh, adaptive_coarsen, get_number_of_time_steps, step, get_quadrature_points_and_weights, get_gauss_point_and_weight, get_quadrature_point_and_weight, adaptive_refine, boundary_adaptive_refine, adaptive, adaptive_model"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4cssyYrVxFAL03L0C14UUE2aSNC",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegratoralg import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace2d\nfrom fealpy.model.heat_conduction_model_2d import HeatConductionModel2d\nfrom fealpy.tools.show import showmultirate\n\ndef main(\n    nx=10, ny=10,           # spatial divisions\n    nt=20,                  # temporal divisions\n    theta=0.2,              # adaptive refinement stop threshold\n    refine_fraction=0.3,    # fraction of elements to refine\n    coarsen_fraction=0.1,   # fraction of elements to coarsen\n    T=0.1,                  # final time\n    plot_steps=[0, 5, 10, 15, 20] # time steps to plot solution\n):\n    # Domain and mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx=nx, ny=ny)\n    model = HeatConductionModel2d()\n    timeline = UniformTimeLine(0, T, nt)\n    dt = timeline.current_time_step_length()\n    space = LagrangeFiniteElementSpace2d(mesh, p=1)\n    u = space.function()  # initial solution\n\n    # Initial condition\n    node = mesh.node\n    u[:] = model.u0(node[:, 0], node[:, 1])\n\n    # Dirichlet boundary condition\n    def dirichlet_bc(p):\n        return model.dirichlet(p[:, 0], p[:, 1], 0)\n\n    # Time stepping\n    for k in range(0, timeline.number_of_time_steps()):\n        t1 = timeline.next_time_level()\n        t0 = timeline.current_time_level()\n        dt = t1 - t0\n\n        # Assemble system\n        A = space.stiff_matrix()\n        M = space.mass_matrix()\n        F = space.source_vector(lambda x, y: model.f(x, y, t1))\n\n        # Implicit Euler: (M + dt*A) u1 = M u0 + dt*F\n        lhs = M + dt * A\n        rhs = M @ u + dt * F\n\n        # Apply Dirichlet BC\n        bc = space.dirichlet_bc(dirichlet_bc)\n        u1 = space.function()\n        space.set_dirichlet_bc(lhs, rhs, bc, dirichlet_bc)\n\n        # Solve\n        u1[:] = np.linalg.solve(lhs, rhs)\n\n        # Error estimation and adaptive refinement\n        eta = space.recovery_estimate(u1)\n        max_eta = np.max(eta)\n        print(f\"Time step {k+1}, t={t1:.4f}, error estimator: {max_eta:.4e}\")\n\n        # Save mesh plot before refinement\n        plt.figure()\n        mesh.add_plot(plt)\n        plt.title(f\"Mesh before refinement, step {k+1}\")\n        plt.savefig(f\"mesh_before_refine_step_{k+1}.png\")\n        plt.close()\n\n        # Adaptive refinement\n        while max_eta > theta:\n            marked = eta > refine_fraction * max_eta\n            if not np.any(marked):\n                break\n            mesh, idx = mesh.adaptive_refine(marked)\n            space = LagrangeFiniteElementSpace2d(mesh, p=1)\n            u1 = space.interpolate(u1)\n            eta = space.recovery_estimate(u1)\n            max_eta = np.max(eta)\n            # Save mesh plot after each refinement\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh after refinement, step {k+1}\")\n            plt.savefig(f\"mesh_after_refine_step_{k+1}.png\")\n            plt.close()\n\n        # Adaptive coarsening\n        eta = space.recovery_estimate(u1)\n        min_eta = np.min(eta)\n        marked_coarse = eta < coarsen_fraction * max_eta\n        if np.any(marked_coarse):\n            mesh, idx = mesh.adaptive_coarsen(marked_coarse)\n            space = LagrangeFiniteElementSpace2d(mesh, p=1)\n            u1 = space.interpolate(u1)\n            # Save mesh plot after coarsening\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh after coarsening, step {k+1}\")\n            plt.savefig(f\"mesh_after_coarsen_step_{k+1}.png\")\n            plt.close()\n\n        # Plot solution at specified steps\n        if (k+1) in plot_steps:\n            fig = plt.figure()\n            ax = fig.add_subplot(111)\n            mesh.add_plot(ax)\n            space.plot(u1, ax=ax, shading='gouraud')\n            plt.title(f\"Numerical solution at t={t1:.4f}\")\n            plt.savefig(f\"solution_step_{k+1}.png\")\n            plt.close()\n\n        # Prepare for next step\n        u = u1.copy()\n        timeline.advance()\n\nif __name__ == '__main__':\n    main(\n        nx=10,\n        ny=10,\n        nt=20,\n        theta=0.01,\n        refine_fraction=0.3,\n        coarsen_fraction=0.1,\n        T=0.1,\n        plot_steps=[0, 5, 10, 15, 20]\n    )\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126234,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_019fa6b647",
+    "usage": {
+      "completion_tokens": 1153,
+      "prompt_tokens": 332,
+      "total_tokens": 1485,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegratoralg import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace2d\nfrom fealpy.model.heat_conduction_model_2d import HeatConductionModel2d\nfrom fealpy.tools.show import showmultirate\n\ndef main(\n    nx=10, ny=10,           # spatial divisions\n    nt=20,                  # temporal divisions\n    theta=0.2,              # adaptive refinement stop threshold\n    refine_fraction=0.3,    # fraction of elements to refine\n    coarsen_fraction=0.1,   # fraction of elements to coarsen\n    T=0.1,                  # final time\n    plot_steps=[0, 5, 10, 15, 20] # time steps to plot solution\n):\n    # Domain and mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx=nx, ny=ny)\n    model = HeatConductionModel2d()\n    timeline = UniformTimeLine(0, T, nt)\n    dt = timeline.current_time_step_length()\n    space = LagrangeFiniteElementSpace2d(mesh, p=1)\n    u = space.function()  # initial solution\n\n    # Initial condition\n    node = mesh.node\n    u[:] = model.u0(node[:, 0], node[:, 1])\n\n    # Dirichlet boundary condition\n    def dirichlet_bc(p):\n        return model.dirichlet(p[:, 0], p[:, 1], 0)\n\n    # Time stepping\n    for k in range(0, timeline.number_of_time_steps()):\n        t1 = timeline.next_time_level()\n        t0 = timeline.current_time_level()\n        dt = t1 - t0\n\n        # Assemble system\n        A = space.stiff_matrix()\n        M = space.mass_matrix()\n        F = space.source_vector(lambda x, y: model.f(x, y, t1))\n\n        # Implicit Euler: (M + dt*A) u1 = M u0 + dt*F\n        lhs = M + dt * A\n        rhs = M @ u + dt * F\n\n        # Apply Dirichlet BC\n        bc = space.dirichlet_bc(dirichlet_bc)\n        u1 = space.function()\n        space.set_dirichlet_bc(lhs, rhs, bc, dirichlet_bc)\n\n        # Solve\n        u1[:] = np.linalg.solve(lhs, rhs)\n\n        # Error estimation and adaptive refinement\n        eta = space.recovery_estimate(u1)\n        max_eta = np.max(eta)\n        print(f\"Time step {k+1}, t={t1:.4f}, error estimator: {max_eta:.4e}\")\n\n        # Save mesh plot before refinement\n        plt.figure()\n        mesh.add_plot(plt)\n        plt.title(f\"Mesh before refinement, step {k+1}\")\n        plt.savefig(f\"mesh_before_refine_step_{k+1}.png\")\n        plt.close()\n\n        # Adaptive refinement\n        while max_eta > theta:\n            marked = eta > refine_fraction * max_eta\n            if not np.any(marked):\n                break\n            mesh, idx = mesh.adaptive_refine(marked)\n            space = LagrangeFiniteElementSpace2d(mesh, p=1)\n            u1 = space.interpolate(u1)\n            eta = space.recovery_estimate(u1)\n            max_eta = np.max(eta)\n            # Save mesh plot after each refinement\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh after refinement, step {k+1}\")\n            plt.savefig(f\"mesh_after_refine_step_{k+1}.png\")\n            plt.close()\n\n        # Adaptive coarsening\n        eta = space.recovery_estimate(u1)\n        min_eta = np.min(eta)\n        marked_coarse = eta < coarsen_fraction * max_eta\n        if np.any(marked_coarse):\n            mesh, idx = mesh.adaptive_coarsen(marked_coarse)\n            space = LagrangeFiniteElementSpace2d(mesh, p=1)\n            u1 = space.interpolate(u1)\n            # Save mesh plot after coarsening\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh after coarsening, step {k+1}\")\n            plt.savefig(f\"mesh_after_coarsen_step_{k+1}.png\")\n            plt.close()\n\n        # Plot solution at specified steps\n        if (k+1) in plot_steps:\n            fig = plt.figure()\n            ax = fig.add_subplot(111)\n            mesh.add_plot(ax)\n            space.plot(u1, ax=ax, shading='gouraud')\n            plt.title(f\"Numerical solution at t={t1:.4f}\")\n            plt.savefig(f\"solution_step_{k+1}.png\")\n            plt.close()\n\n        # Prepare for next step\n        u = u1.copy()\n        timeline.advance()\n\nif __name__ == '__main__':\n    main(\n        nx=10,\n        ny=10,\n        nt=20,\n        theta=0.01,\n        refine_fraction=0.3,\n        coarsen_fraction=0.1,\n        T=0.1,\n        plot_steps=[0, 5, 10, 15, 20]\n    )\n```",
+  "latency_seconds": 6.67110464399957,
+  "usage": {
+    "completion_tokens": 1153,
+    "prompt_tokens": 332,
+    "total_tokens": 1485,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9888,
+  "response_sha256": "271ac2f57fbf6cda098c0537b997a16139a7287ae38c5d930e52602158a8e5e1",
+  "artifact_sha256": "75c638d626c63282d6d3eb2cea480179cd8813ff5cd363f17fc34427672f4cae"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 96,
+    "task_sha256": "ea7fc74379f283b34fe04a74b0ec896d1e748c0915190f82f3970a45fcebab8c",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary libraries and modules from the porepy library. The code should define two functions, `add_data_darcy` and `add_data_advection`, which add data to a given grid bucket (`gb`) and domain with a specified tolerance (`tol`). The `add_data_darcy` function should add parameters related to Darcy's law, including permeability, source, aperture, and boundary conditions. The `add_data_advection` function should add parameters related to advection, including source, porosity, discharge, and boundary conditions. \n\nThe code should then define variables for tolerance, export folder, time, number of time steps, time step size, export frequency, and a boolean for coarsening. It should also define a dictionary for mesh size and a dictionary for domain boundaries. \n\nThe code should import a grid from a CSV file, compute its geometry, coarsen it if necessary, and assign node ordering. It should then create a Darcy solver, add Darcy data to the grid bucket, solve the Darcy problem, and extract and project the discharge and pressure. It should also compute the total flow rate and export the results to a VTK file.\n\nThe code should then define variables for physics, create advection and mass matrix solvers, add advection data to the grid bucket, and add a time step property to the grid bucket. It should then create matrices and right-hand sides for the advection and mass matrix problems, and perform an LU factorization to speed up the solver. \n\nThe code should then initialize a solution vector and arrays for time and production, and loop over the time steps to update the solution, compute the production, and export the solution to a VTK file every specified number of time steps. Finally, it should export the time steps to a PVD file and save the times and absolute production values to a text file.\n\nYou can find the following APIs from the library helpful:\nDarcyAndTransport, test_ismember_rows_double_occurence_a_and_b, _point_and_edge_lists, TestGettersAndSetters, _uniquify_points_and_edges, test_round_up_and_down, test_many_points_and_segments, test_single_point_and_segment, test_one_cell_a_time_node_keyword, _a_in_b, to_vtk, snap_to_grid, time_step, to_gmsh, map_subgrid_to_grid, SnapToGridTest, apply_function_to_nodes, apply_function_to_edges, fracture_to_plane, _face_vector_to_scalar"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5fiU3lClycVgTwJoJz1uvhuHNhK",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport porepy as pp\nfrom porepy.models.darcy_and_transport import DarcyAndTransport\nfrom porepy.io import to_vtk\n\ndef add_data_darcy(gb, domain, tol):\n    for g, d in gb:\n        perm = 1.0 * np.ones(g.num_cells)\n        source = np.zeros(g.num_cells)\n        aperture = 1.0 * np.ones(g.num_cells)\n        bc_type = 'dir'\n        bc_faces = g.get_boundary_faces()\n        bc_val = np.zeros(g.num_faces)\n        if g.dim == gb.dim_max():\n            left = np.where(np.abs(g.face_centers[0] - domain['xmin']) < tol)[0]\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            bc_val[left] = 1.0\n            bc_val[right] = 0.0\n            bc = pp.BoundaryCondition(g, faces=np.hstack([left, right]), cond=bc_type)\n        else:\n            bc = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_type)\n        d['permeability'] = perm\n        d['source'] = source\n        d['aperture'] = aperture\n        d['bc'] = bc\n        d['bc_values'] = bc_val\n    for e, d in gb.edges():\n        d['aperture'] = 1.0\n\ndef add_data_advection(gb, domain, tol):\n    for g, d in gb:\n        source = np.zeros(g.num_cells)\n        porosity = 1.0 * np.ones(g.num_cells)\n        discharge = np.zeros((g.dim, g.num_cells))\n        bc_type = 'dir'\n        bc_faces = g.get_boundary_faces()\n        bc_val = np.zeros(g.num_faces)\n        if g.dim == gb.dim_max():\n            left = np.where(np.abs(g.face_centers[0] - domain['xmin']) < tol)[0]\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            bc_val[left] = 1.0\n            bc_val[right] = 0.0\n            bc = pp.BoundaryCondition(g, faces=np.hstack([left, right]), cond=bc_type)\n        else:\n            bc = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_type)\n        d['source'] = source\n        d['porosity'] = porosity\n        d['discharge'] = discharge\n        d['bc'] = bc\n        d['bc_values'] = bc_val\n\ntol = 1e-5\nexport_folder = \"results\"\ntime = 1.0\nnum_time_steps = 100\ndt = time / num_time_steps\nexport_frequency = 10\ncoarsening = False\n\nmesh_size = {'xmin': 0.05, 'xmax': 0.05, 'ymin': 0.05, 'ymax': 0.05}\ndomain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}\n\ncsv_file = \"grid.csv\"\ngb = pp.io.grid_bucket_from_csv(csv_file)\ngb.compute_geometry()\nif coarsening:\n    gb = pp.coarsen(gb)\npp.assign_node_ordering(gb)\n\ndarcy_solver = DarcyAndTransport(gb)\nadd_data_darcy(gb, domain, tol)\ndarcy_solver.discretize()\ndarcy_solver.assemble_matrix_rhs()\ndarcy_solver.solve()\ndarcy_solver.extract_and_project_discharge()\ndarcy_solver.extract_and_project_pressure()\n\ntotal_flow = 0.0\nfor g, d in gb:\n    if g.dim == gb.dim_max():\n        right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n        total_flow += np.sum(d['flux'][right] * g.face_areas[right])\nto_vtk(gb, export_folder + \"/darcy\", {\"pressure\": \"pressure\", \"flux\": \"flux\"})\n\nphysics = DarcyAndTransport(gb)\nadvection_solver = pp.advection.Upwind(gb)\nmass_matrix_solver = pp.MassMatrix(gb)\nadd_data_advection(gb, domain, tol)\nfor g, d in gb:\n    d['time_step'] = dt\n\nadvection_solver.discretize()\nadvection_solver.assemble_matrix_rhs()\nA_adv, b_adv = advection_solver.A, advection_solver.b\nmass_matrix_solver.discretize()\nmass_matrix_solver.assemble_matrix_rhs()\nM, _ = mass_matrix_solver.A, mass_matrix_solver.b\n\nfrom scipy.sparse.linalg import splu\nlu = splu(M + dt * A_adv)\n\nsolution = np.zeros(M.shape[0])\ntimes = np.zeros(num_time_steps + 1)\nproduction = np.zeros(num_time_steps + 1)\n\nfor step in range(num_time_steps + 1):\n    t = step * dt\n    times[step] = t\n    if step > 0:\n        rhs = M @ solution + dt * b_adv\n        solution = lu.solve(rhs)\n    prod = 0.0\n    for g, d in gb:\n        if g.dim == gb.dim_max():\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            prod += np.sum(d['flux'][right] * g.face_areas[right])\n    production[step] = np.abs(prod)\n    if step % export_frequency == 0:\n        for g, d in gb:\n            d['solution'] = solution[:g.num_cells]\n            solution = solution[g.num_cells:]\n        to_vtk(gb, f\"{export_folder}/advection_{step}\", {\"solution\": \"solution\"})\n\nwith open(f\"{export_folder}/advection.pvd\", \"w\") as f:\n    for step in range(num_time_steps + 1):\n        if step % export_frequency == 0:\n            f.write(f'<DataSet timestep=\"{times[step]}\" group=\"\" part=\"0\" file=\"advection_{step}.vtu\"/>\\n')\n\nnp.savetxt(f\"{export_folder}/production.txt\", np.vstack((times, production)).T)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130254,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 1339,
+      "prompt_tokens": 538,
+      "total_tokens": 1877,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport porepy as pp\nfrom porepy.models.darcy_and_transport import DarcyAndTransport\nfrom porepy.io import to_vtk\n\ndef add_data_darcy(gb, domain, tol):\n    for g, d in gb:\n        perm = 1.0 * np.ones(g.num_cells)\n        source = np.zeros(g.num_cells)\n        aperture = 1.0 * np.ones(g.num_cells)\n        bc_type = 'dir'\n        bc_faces = g.get_boundary_faces()\n        bc_val = np.zeros(g.num_faces)\n        if g.dim == gb.dim_max():\n            left = np.where(np.abs(g.face_centers[0] - domain['xmin']) < tol)[0]\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            bc_val[left] = 1.0\n            bc_val[right] = 0.0\n            bc = pp.BoundaryCondition(g, faces=np.hstack([left, right]), cond=bc_type)\n        else:\n            bc = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_type)\n        d['permeability'] = perm\n        d['source'] = source\n        d['aperture'] = aperture\n        d['bc'] = bc\n        d['bc_values'] = bc_val\n    for e, d in gb.edges():\n        d['aperture'] = 1.0\n\ndef add_data_advection(gb, domain, tol):\n    for g, d in gb:\n        source = np.zeros(g.num_cells)\n        porosity = 1.0 * np.ones(g.num_cells)\n        discharge = np.zeros((g.dim, g.num_cells))\n        bc_type = 'dir'\n        bc_faces = g.get_boundary_faces()\n        bc_val = np.zeros(g.num_faces)\n        if g.dim == gb.dim_max():\n            left = np.where(np.abs(g.face_centers[0] - domain['xmin']) < tol)[0]\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            bc_val[left] = 1.0\n            bc_val[right] = 0.0\n            bc = pp.BoundaryCondition(g, faces=np.hstack([left, right]), cond=bc_type)\n        else:\n            bc = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_type)\n        d['source'] = source\n        d['porosity'] = porosity\n        d['discharge'] = discharge\n        d['bc'] = bc\n        d['bc_values'] = bc_val\n\ntol = 1e-5\nexport_folder = \"results\"\ntime = 1.0\nnum_time_steps = 100\ndt = time / num_time_steps\nexport_frequency = 10\ncoarsening = False\n\nmesh_size = {'xmin': 0.05, 'xmax': 0.05, 'ymin': 0.05, 'ymax': 0.05}\ndomain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}\n\ncsv_file = \"grid.csv\"\ngb = pp.io.grid_bucket_from_csv(csv_file)\ngb.compute_geometry()\nif coarsening:\n    gb = pp.coarsen(gb)\npp.assign_node_ordering(gb)\n\ndarcy_solver = DarcyAndTransport(gb)\nadd_data_darcy(gb, domain, tol)\ndarcy_solver.discretize()\ndarcy_solver.assemble_matrix_rhs()\ndarcy_solver.solve()\ndarcy_solver.extract_and_project_discharge()\ndarcy_solver.extract_and_project_pressure()\n\ntotal_flow = 0.0\nfor g, d in gb:\n    if g.dim == gb.dim_max():\n        right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n        total_flow += np.sum(d['flux'][right] * g.face_areas[right])\nto_vtk(gb, export_folder + \"/darcy\", {\"pressure\": \"pressure\", \"flux\": \"flux\"})\n\nphysics = DarcyAndTransport(gb)\nadvection_solver = pp.advection.Upwind(gb)\nmass_matrix_solver = pp.MassMatrix(gb)\nadd_data_advection(gb, domain, tol)\nfor g, d in gb:\n    d['time_step'] = dt\n\nadvection_solver.discretize()\nadvection_solver.assemble_matrix_rhs()\nA_adv, b_adv = advection_solver.A, advection_solver.b\nmass_matrix_solver.discretize()\nmass_matrix_solver.assemble_matrix_rhs()\nM, _ = mass_matrix_solver.A, mass_matrix_solver.b\n\nfrom scipy.sparse.linalg import splu\nlu = splu(M + dt * A_adv)\n\nsolution = np.zeros(M.shape[0])\ntimes = np.zeros(num_time_steps + 1)\nproduction = np.zeros(num_time_steps + 1)\n\nfor step in range(num_time_steps + 1):\n    t = step * dt\n    times[step] = t\n    if step > 0:\n        rhs = M @ solution + dt * b_adv\n        solution = lu.solve(rhs)\n    prod = 0.0\n    for g, d in gb:\n        if g.dim == gb.dim_max():\n            right = np.where(np.abs(g.face_centers[0] - domain['xmax']) < tol)[0]\n            prod += np.sum(d['flux'][right] * g.face_areas[right])\n    production[step] = np.abs(prod)\n    if step % export_frequency == 0:\n        for g, d in gb:\n            d['solution'] = solution[:g.num_cells]\n            solution = solution[g.num_cells:]\n        to_vtk(gb, f\"{export_folder}/advection_{step}\", {\"solution\": \"solution\"})\n\nwith open(f\"{export_folder}/advection.pvd\", \"w\") as f:\n    for step in range(num_time_steps + 1):\n        if step % export_frequency == 0:\n            f.write(f'<DataSet timestep=\"{times[step]}\" group=\"\" part=\"0\" file=\"advection_{step}.vtu\"/>\\n')\n\nnp.savetxt(f\"{export_folder}/production.txt\", np.vstack((times, production)).T)\n```",
+  "latency_seconds": 38.44707240199932,
+  "usage": {
+    "completion_tokens": 1339,
+    "prompt_tokens": 538,
+    "total_tokens": 1877,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11788,
+  "response_sha256": "86962e7e46c85b64fbf31f81b1af3fd69aac9a92d65944f1220204f60b5e7a23",
+  "artifact_sha256": "65896fff69b91e235bd4ba9930ad91f6b90d8962c2459c19d2f85eea7264b92a"
+}

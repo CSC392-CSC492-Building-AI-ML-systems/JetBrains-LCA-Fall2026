@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 130,
+    "task_sha256": "3698dedda3b66265467a5f8030f62b174ae6d9791340627709128cdb07203baf",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary modules and functions from the mpi-sppy library and other necessary libraries. The code should define a function to parse arguments from the command line and set up a configuration object with various parameters. Then, it should define a main function that uses the parsed arguments to set up a scenario creator and a list of scenario names. The main function should also check if the number of scenarios is in a predefined list of available scenarios. Depending on the configuration, the main function should set up different extensions and spokes for the scenario. The main function should also create a WheelSpinner object with the hub and spokes, spin the wheel, and write the solution to a file if a solution directory is provided. Finally, the code should call the main function if the script is run as the main program.\n\nYou can find the following APIs from the library helpful:\nspin_the_wheel, write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution, main, production_cost_function, ph_main, fwph_main, APH_main, _main_body, _set_weights_and_solve, calculate_spinning_reserve_available_rule_part_a, enforce_storage_output_limits_rule_part_a, enforce_storage_input_limits_rule_part_a, setUp, add_and_assign, _look_and_leap, _write_W_and_xbar, _add_data_and_write, _disable_W_and_prox, _update_weights_and_solve"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5yig2CqhcPqQuSLpWWL9NuAySHn",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport os\nfrom mpi4py import MPI\nfrom mpi_sppy.utils import spin_the_wheel\nfrom mpi_sppy.utils import write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution\nfrom mpi_sppy.spin_the_wheel import WheelSpinner\nfrom mpi_sppy.extensions.fixer import Fixer\nfrom mpi_sppy.extensions.xhatlooper import XhatLooper\nfrom mpi_sppy.extensions.xhatshuffler import XhatShuffler\nfrom mpi_sppy.extensions.xhatclosest import XhatClosest\nfrom mpi_sppy.extensions.cross_scen_extension import CrossScenarioExtension\nfrom mpi_sppy.utils import baseparsers\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Run mpi-sppy scenario optimization.\")\n    parser.add_argument(\"--num-scenarios\", type=int, required=True, help=\"Number of scenarios\")\n    parser.add_argument(\"--solver\", type=str, default=\"gurobi\", help=\"Solver to use\")\n    parser.add_argument(\"--solution-dir\", type=str, default=None, help=\"Directory to write solution\")\n    parser.add_argument(\"--extension\", type=str, choices=[\"fixer\", \"xhatlooper\", \"xhatshuffler\", \"xhatclosest\", \"cross\"], default=None, help=\"Extension to use\")\n    parser.add_argument(\"--spokes\", nargs=\"*\", choices=[\"fwph\", \"ph\", \"aph\"], default=[], help=\"Spokes to use\")\n    parser.add_argument(\"--available-scenarios\", nargs=\"+\", type=int, default=[2, 4, 8, 16, 32], help=\"Available scenario counts\")\n    parser.add_argument(\"--seed\", type=int, default=42, help=\"Random seed\")\n    parser.add_argument(\"--default-rho\", type=float, default=1.0, help=\"Default PH rho\")\n    return parser.parse_args()\n\nclass Config:\n    def __init__(self, args):\n        self.num_scenarios = args.num_scenarios\n        self.solver = args.solver\n        self.solution_dir = args.solution_dir\n        self.extension = args.extension\n        self.spokes = args.spokes\n        self.available_scenarios = args.available_scenarios\n        self.seed = args.seed\n        self.default_rho = args.default_rho\n\ndef scenario_creator(scenario_name, **kwargs):\n    # Placeholder for actual scenario creation logic\n    import random\n    random.seed(kwargs.get(\"seed\", 42))\n    return {\"name\": scenario_name, \"data\": random.random()}\n\ndef main():\n    args = parse_args()\n    config = Config(args)\n\n    if config.num_scenarios not in config.available_scenarios:\n        raise ValueError(f\"Number of scenarios {config.num_scenarios} not in available scenarios {config.available_scenarios}\")\n\n    scenario_names = [f\"Scenario{i+1}\" for i in range(config.num_scenarios)]\n\n    scenario_creator_kwargs = {\"seed\": config.seed}\n\n    extensions = None\n    if config.extension == \"fixer\":\n        extensions = Fixer\n    elif config.extension == \"xhatlooper\":\n        extensions = XhatLooper\n    elif config.extension == \"xhatshuffler\":\n        extensions = XhatShuffler\n    elif config.extension == \"xhatclosest\":\n        extensions = XhatClosest\n    elif config.extension == \"cross\":\n        extensions = CrossScenarioExtension\n\n    spokes = []\n    if \"fwph\" in config.spokes:\n        from mpi_sppy.spoke_fwph import FWPHSpoke\n        spokes.append(FWPHSpoke)\n    if \"ph\" in config.spokes:\n        from mpi_sppy.spoke_ph import PHSpoke\n        spokes.append(PHSpoke)\n    if \"aph\" in config.spokes:\n        from mpi_sppy.spoke_aph import APHSpoke\n        spokes.append(APHSpoke)\n\n    hub_dict = {\n        \"hub_class\": None,\n        \"hub_kwargs\": {\n            \"scen_creator\": scenario_creator,\n            \"scen_creator_kwargs\": scenario_creator_kwargs,\n            \"all_scenario_names\": scenario_names,\n            \"solvername\": config.solver,\n            \"PH_extensions\": extensions,\n            \"defaultPHrho\": config.default_rho,\n        }\n    }\n\n    spoke_dict_list = []\n    for spoke in spokes:\n        spoke_dict = {\n            \"spoke_class\": spoke,\n            \"spoke_kwargs\": {\n                \"scen_creator\": scenario_creator,\n                \"scen_creator_kwargs\": scenario_creator_kwargs,\n                \"all_scenario_names\": scenario_names,\n                \"solvername\": config.solver,\n                \"defaultPHrho\": config.default_rho,\n            }\n        }\n        spoke_dict_list.append(spoke_dict)\n\n    spinner = WheelSpinner(hub_dict, spoke_dict_list)\n    spin_the_wheel(spinner)\n\n    if config.solution_dir is not None:\n        os.makedirs(config.solution_dir, exist_ok=True)\n        write_spin_the_wheel_first_stage_solution(spinner, config.solution_dir)\n        write_spin_the_wheel_tree_solution(spinner, config.solution_dir)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131432,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1069,
+      "prompt_tokens": 317,
+      "total_tokens": 1386,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport os\nfrom mpi4py import MPI\nfrom mpi_sppy.utils import spin_the_wheel\nfrom mpi_sppy.utils import write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution\nfrom mpi_sppy.spin_the_wheel import WheelSpinner\nfrom mpi_sppy.extensions.fixer import Fixer\nfrom mpi_sppy.extensions.xhatlooper import XhatLooper\nfrom mpi_sppy.extensions.xhatshuffler import XhatShuffler\nfrom mpi_sppy.extensions.xhatclosest import XhatClosest\nfrom mpi_sppy.extensions.cross_scen_extension import CrossScenarioExtension\nfrom mpi_sppy.utils import baseparsers\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Run mpi-sppy scenario optimization.\")\n    parser.add_argument(\"--num-scenarios\", type=int, required=True, help=\"Number of scenarios\")\n    parser.add_argument(\"--solver\", type=str, default=\"gurobi\", help=\"Solver to use\")\n    parser.add_argument(\"--solution-dir\", type=str, default=None, help=\"Directory to write solution\")\n    parser.add_argument(\"--extension\", type=str, choices=[\"fixer\", \"xhatlooper\", \"xhatshuffler\", \"xhatclosest\", \"cross\"], default=None, help=\"Extension to use\")\n    parser.add_argument(\"--spokes\", nargs=\"*\", choices=[\"fwph\", \"ph\", \"aph\"], default=[], help=\"Spokes to use\")\n    parser.add_argument(\"--available-scenarios\", nargs=\"+\", type=int, default=[2, 4, 8, 16, 32], help=\"Available scenario counts\")\n    parser.add_argument(\"--seed\", type=int, default=42, help=\"Random seed\")\n    parser.add_argument(\"--default-rho\", type=float, default=1.0, help=\"Default PH rho\")\n    return parser.parse_args()\n\nclass Config:\n    def __init__(self, args):\n        self.num_scenarios = args.num_scenarios\n        self.solver = args.solver\n        self.solution_dir = args.solution_dir\n        self.extension = args.extension\n        self.spokes = args.spokes\n        self.available_scenarios = args.available_scenarios\n        self.seed = args.seed\n        self.default_rho = args.default_rho\n\ndef scenario_creator(scenario_name, **kwargs):\n    # Placeholder for actual scenario creation logic\n    import random\n    random.seed(kwargs.get(\"seed\", 42))\n    return {\"name\": scenario_name, \"data\": random.random()}\n\ndef main():\n    args = parse_args()\n    config = Config(args)\n\n    if config.num_scenarios not in config.available_scenarios:\n        raise ValueError(f\"Number of scenarios {config.num_scenarios} not in available scenarios {config.available_scenarios}\")\n\n    scenario_names = [f\"Scenario{i+1}\" for i in range(config.num_scenarios)]\n\n    scenario_creator_kwargs = {\"seed\": config.seed}\n\n    extensions = None\n    if config.extension == \"fixer\":\n        extensions = Fixer\n    elif config.extension == \"xhatlooper\":\n        extensions = XhatLooper\n    elif config.extension == \"xhatshuffler\":\n        extensions = XhatShuffler\n    elif config.extension == \"xhatclosest\":\n        extensions = XhatClosest\n    elif config.extension == \"cross\":\n        extensions = CrossScenarioExtension\n\n    spokes = []\n    if \"fwph\" in config.spokes:\n        from mpi_sppy.spoke_fwph import FWPHSpoke\n        spokes.append(FWPHSpoke)\n    if \"ph\" in config.spokes:\n        from mpi_sppy.spoke_ph import PHSpoke\n        spokes.append(PHSpoke)\n    if \"aph\" in config.spokes:\n        from mpi_sppy.spoke_aph import APHSpoke\n        spokes.append(APHSpoke)\n\n    hub_dict = {\n        \"hub_class\": None,\n        \"hub_kwargs\": {\n            \"scen_creator\": scenario_creator,\n            \"scen_creator_kwargs\": scenario_creator_kwargs,\n            \"all_scenario_names\": scenario_names,\n            \"solvername\": config.solver,\n            \"PH_extensions\": extensions,\n            \"defaultPHrho\": config.default_rho,\n        }\n    }\n\n    spoke_dict_list = []\n    for spoke in spokes:\n        spoke_dict = {\n            \"spoke_class\": spoke,\n            \"spoke_kwargs\": {\n                \"scen_creator\": scenario_creator,\n                \"scen_creator_kwargs\": scenario_creator_kwargs,\n                \"all_scenario_names\": scenario_names,\n                \"solvername\": config.solver,\n                \"defaultPHrho\": config.default_rho,\n            }\n        }\n        spoke_dict_list.append(spoke_dict)\n\n    spinner = WheelSpinner(hub_dict, spoke_dict_list)\n    spin_the_wheel(spinner)\n\n    if config.solution_dir is not None:\n        os.makedirs(config.solution_dir, exist_ok=True)\n        write_spin_the_wheel_first_stage_solution(spinner, config.solution_dir)\n        write_spin_the_wheel_tree_solution(spinner, config.solution_dir)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 4.880818493998959,
+  "usage": {
+    "completion_tokens": 1069,
+    "prompt_tokens": 317,
+    "total_tokens": 1386,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9186,
+  "response_sha256": "94b2894e6665d2d47e502f36df23d5f71aaf475a5d2c05ff4864117a9ebd49de",
+  "artifact_sha256": "e57b69eda77cf6cb022a3cb863ecdf3159b3d5856e3f63a021e2cb7f1d638c66"
+}

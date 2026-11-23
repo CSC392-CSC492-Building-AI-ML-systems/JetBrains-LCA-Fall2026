@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 99,
+    "task_sha256": "fa24aadce18cc25d7bed54523fa6a7eeb30f9a780bf484df8daeff711c1520b3",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the moviepy library:\n\n1. Checks if the required video files exist in the current directory. If not, it attempts to download them using the youtube-dl command-line tool. If the download fails, it outputs an error message and exits the program.\n2. Loads an audio file, extracts a subclip from it, and applies fade-in and fade-out effects. It then analyzes the audio to find its period.\n3. Loads a video file, extracts a subclip from it, and crops it. It then analyzes the video to find a segment that loops well.\n4. Extracts the looping segment from the video, slows it down to match the audio tempo, and makes it loop for the duration of the audio. It then creates a mirrored version of this segment.\n5. Combines the original and mirrored video segments side by side, applies fade-in and fade-out effects, and adds the audio to the video.\n6. Creates a title screen with text overlay on the video and a credits screen with text on a black background.\n7. Concatenates the title screen, video, and credits screen into a final video.\n8. Writes the final video to a file with specified fps, audio bitrate, and bitrate.\n\nYou can find the following APIs from the library helpful:\n__and__, mask_and, test_and, test_mask_and, audio_video_fx, video, to_file, VideoFileClip, ffmpeg_merge_video_audio, apply_to_audio, test_stream_square_brackets_and_language, test_Trajectory_from_to_file, find_video_period, audio_fadeout, audio_fadein, file_to_subtitles, from_file, VideoClip, get_video, with_audio"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5hZaBrWYWibH4aZT21z2yzCsUEW",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport sys\nimport subprocess\nfrom moviepy.editor import (\n    VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip,\n    TextClip, ColorClip, clips_array, vfx, afx\n)\nimport numpy as np\n\n# Configurations\nVIDEO_FILENAME = \"input_video.mp4\"\nAUDIO_FILENAME = \"input_audio.mp3\"\nTITLE_TEXT = \"My Awesome Video\"\nCREDITS_TEXT = \"Thanks for watching!\\nCreated by MoviePy\"\nFINAL_OUTPUT = \"final_output.mp4\"\nFPS = 24\nAUDIO_BITRATE = \"192k\"\nVIDEO_BITRATE = \"4000k\"\n\n# Helper: Download file using youtube-dl\ndef download_with_youtubedl(url, output):\n    try:\n        subprocess.check_call([\n            \"youtube-dl\", \"-f\", \"best\", \"-o\", output, url\n        ])\n        return os.path.exists(output)\n    except Exception:\n        return False\n\n# 1. Check for required files, download if missing\ndef ensure_file(filename, ytdl_url):\n    if not os.path.exists(filename):\n        print(f\"{filename} not found. Attempting to download...\")\n        if not download_with_youtubedl(ytdl_url, filename):\n            print(f\"Error: Could not download {filename}. Exiting.\")\n            sys.exit(1)\n\n# Provide URLs for demo purposes (replace with actual URLs)\nVIDEO_URL = \"https://www.youtube.com/watch?v=BaW_jenozKc\"\nAUDIO_URL = \"https://www.youtube.com/watch?v=2Vv-BfVoq4g\"\n\nensure_file(VIDEO_FILENAME, VIDEO_URL)\nensure_file(AUDIO_FILENAME, AUDIO_URL)\n\n# 2. Load audio, extract subclip, fade in/out, analyze period\naudio = AudioFileClip(AUDIO_FILENAME).subclip(10, 40)\naudio = afx.audio_fadein(audio, 2).fx(afx.audio_fadeout, 2)\n\n# Find period (simple autocorrelation-based estimation)\ndef find_audio_period(audio_clip, min_period=0.5, max_period=4.0, sr=22050):\n    arr = audio_clip.to_soundarray(fps=sr)\n    arr = arr.mean(axis=1)\n    arr = arr - arr.mean()\n    corr = np.correlate(arr, arr, mode='full')\n    corr = corr[len(corr)//2:]\n    min_idx = int(min_period * sr)\n    max_idx = int(max_period * sr)\n    peak_idx = np.argmax(corr[min_idx:max_idx]) + min_idx\n    period = peak_idx / sr\n    return period\n\naudio_period = find_audio_period(audio)\n\n# 3. Load video, extract subclip, crop, analyze for loop segment\nvideo = VideoFileClip(VIDEO_FILENAME).subclip(5, 25)\nvideo = video.crop(x1=50, y1=50, x2=video.w-50, y2=video.h-50)\n\n# Find looping segment (simple: find segment with minimal difference between start and end frames)\ndef find_video_loop_segment(clip, seg_duration=2.0, step=0.5):\n    min_diff = float('inf')\n    best_start = 0\n    for t in np.arange(0, clip.duration - seg_duration, step):\n        f1 = clip.get_frame(t)\n        f2 = clip.get_frame(t + seg_duration)\n        diff = np.mean(np.abs(f1.astype(float) - f2.astype(float)))\n        if diff < min_diff:\n            min_diff = diff\n            best_start = t\n    return best_start, best_start + seg_duration\n\nloop_start, loop_end = find_video_loop_segment(video, seg_duration=audio_period, step=0.2)\n\n# 4. Extract loop, slow down to match audio tempo, loop for audio duration, mirror\nloop_clip = video.subclip(loop_start, loop_end)\nspeed_factor = (loop_end - loop_start) / audio_period\nloop_clip = loop_clip.fx(vfx.speedx, speed_factor)\nn_loops = int(np.ceil(audio.duration / loop_clip.duration))\nlooped_clip = concatenate_videoclips([loop_clip] * n_loops).subclip(0, audio.duration)\nmirrored_clip = looped_clip.fx(vfx.mirror_x)\n\n# 5. Combine original and mirrored side by side, fade in/out, add audio\ncombined = clips_array([[looped_clip, mirrored_clip]])\ncombined = combined.fx(vfx.fadein, 1).fx(vfx.fadeout, 1)\ncombined = combined.set_audio(audio)\n\n# 6. Title and credits screens\ntitle_clip = TextClip(TITLE_TEXT, fontsize=70, color='white', font='Arial-Bold', size=(combined.w, combined.h), method='caption', align='center')\ntitle_bg = ColorClip(size=(combined.w, combined.h), color=(0,0,0), duration=3)\ntitle_screen = CompositeVideoClip([title_bg, title_clip.set_pos('center')]).set_duration(3)\n\ncredits_clip = TextClip(CREDITS_TEXT, fontsize=40, color='white', font='Arial', size=(combined.w, combined.h), method='caption', align='center')\ncredits_bg = ColorClip(size=(combined.w, combined.h), color=(0,0,0), duration=3)\ncredits_screen = CompositeVideoClip([credits_bg, credits_clip.set_pos('center')]).set_duration(3)\n\n# 7. Concatenate all\nfinal_video = concatenate_videoclips([title_screen, combined, credits_screen], method=\"compose\")\n\n# 8. Write to file\nfinal_video.write_videofile(\n    FINAL_OUTPUT,\n    fps=FPS,\n    audio_bitrate=AUDIO_BITRATE,\n    bitrate=VIDEO_BITRATE,\n    codec=\"libx264\",\n    audio_codec=\"aac\"\n)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130369,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0c9884ecfa",
+    "usage": {
+      "completion_tokens": 1236,
+      "prompt_tokens": 379,
+      "total_tokens": 1615,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport sys\nimport subprocess\nfrom moviepy.editor import (\n    VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip,\n    TextClip, ColorClip, clips_array, vfx, afx\n)\nimport numpy as np\n\n# Configurations\nVIDEO_FILENAME = \"input_video.mp4\"\nAUDIO_FILENAME = \"input_audio.mp3\"\nTITLE_TEXT = \"My Awesome Video\"\nCREDITS_TEXT = \"Thanks for watching!\\nCreated by MoviePy\"\nFINAL_OUTPUT = \"final_output.mp4\"\nFPS = 24\nAUDIO_BITRATE = \"192k\"\nVIDEO_BITRATE = \"4000k\"\n\n# Helper: Download file using youtube-dl\ndef download_with_youtubedl(url, output):\n    try:\n        subprocess.check_call([\n            \"youtube-dl\", \"-f\", \"best\", \"-o\", output, url\n        ])\n        return os.path.exists(output)\n    except Exception:\n        return False\n\n# 1. Check for required files, download if missing\ndef ensure_file(filename, ytdl_url):\n    if not os.path.exists(filename):\n        print(f\"{filename} not found. Attempting to download...\")\n        if not download_with_youtubedl(ytdl_url, filename):\n            print(f\"Error: Could not download {filename}. Exiting.\")\n            sys.exit(1)\n\n# Provide URLs for demo purposes (replace with actual URLs)\nVIDEO_URL = \"https://www.youtube.com/watch?v=BaW_jenozKc\"\nAUDIO_URL = \"https://www.youtube.com/watch?v=2Vv-BfVoq4g\"\n\nensure_file(VIDEO_FILENAME, VIDEO_URL)\nensure_file(AUDIO_FILENAME, AUDIO_URL)\n\n# 2. Load audio, extract subclip, fade in/out, analyze period\naudio = AudioFileClip(AUDIO_FILENAME).subclip(10, 40)\naudio = afx.audio_fadein(audio, 2).fx(afx.audio_fadeout, 2)\n\n# Find period (simple autocorrelation-based estimation)\ndef find_audio_period(audio_clip, min_period=0.5, max_period=4.0, sr=22050):\n    arr = audio_clip.to_soundarray(fps=sr)\n    arr = arr.mean(axis=1)\n    arr = arr - arr.mean()\n    corr = np.correlate(arr, arr, mode='full')\n    corr = corr[len(corr)//2:]\n    min_idx = int(min_period * sr)\n    max_idx = int(max_period * sr)\n    peak_idx = np.argmax(corr[min_idx:max_idx]) + min_idx\n    period = peak_idx / sr\n    return period\n\naudio_period = find_audio_period(audio)\n\n# 3. Load video, extract subclip, crop, analyze for loop segment\nvideo = VideoFileClip(VIDEO_FILENAME).subclip(5, 25)\nvideo = video.crop(x1=50, y1=50, x2=video.w-50, y2=video.h-50)\n\n# Find looping segment (simple: find segment with minimal difference between start and end frames)\ndef find_video_loop_segment(clip, seg_duration=2.0, step=0.5):\n    min_diff = float('inf')\n    best_start = 0\n    for t in np.arange(0, clip.duration - seg_duration, step):\n        f1 = clip.get_frame(t)\n        f2 = clip.get_frame(t + seg_duration)\n        diff = np.mean(np.abs(f1.astype(float) - f2.astype(float)))\n        if diff < min_diff:\n            min_diff = diff\n            best_start = t\n    return best_start, best_start + seg_duration\n\nloop_start, loop_end = find_video_loop_segment(video, seg_duration=audio_period, step=0.2)\n\n# 4. Extract loop, slow down to match audio tempo, loop for audio duration, mirror\nloop_clip = video.subclip(loop_start, loop_end)\nspeed_factor = (loop_end - loop_start) / audio_period\nloop_clip = loop_clip.fx(vfx.speedx, speed_factor)\nn_loops = int(np.ceil(audio.duration / loop_clip.duration))\nlooped_clip = concatenate_videoclips([loop_clip] * n_loops).subclip(0, audio.duration)\nmirrored_clip = looped_clip.fx(vfx.mirror_x)\n\n# 5. Combine original and mirrored side by side, fade in/out, add audio\ncombined = clips_array([[looped_clip, mirrored_clip]])\ncombined = combined.fx(vfx.fadein, 1).fx(vfx.fadeout, 1)\ncombined = combined.set_audio(audio)\n\n# 6. Title and credits screens\ntitle_clip = TextClip(TITLE_TEXT, fontsize=70, color='white', font='Arial-Bold', size=(combined.w, combined.h), method='caption', align='center')\ntitle_bg = ColorClip(size=(combined.w, combined.h), color=(0,0,0), duration=3)\ntitle_screen = CompositeVideoClip([title_bg, title_clip.set_pos('center')]).set_duration(3)\n\ncredits_clip = TextClip(CREDITS_TEXT, fontsize=40, color='white', font='Arial', size=(combined.w, combined.h), method='caption', align='center')\ncredits_bg = ColorClip(size=(combined.w, combined.h), color=(0,0,0), duration=3)\ncredits_screen = CompositeVideoClip([credits_bg, credits_clip.set_pos('center')]).set_duration(3)\n\n# 7. Concatenate all\nfinal_video = concatenate_videoclips([title_screen, combined, credits_screen], method=\"compose\")\n\n# 8. Write to file\nfinal_video.write_videofile(\n    FINAL_OUTPUT,\n    fps=FPS,\n    audio_bitrate=AUDIO_BITRATE,\n    bitrate=VIDEO_BITRATE,\n    codec=\"libx264\",\n    audio_codec=\"aac\"\n)\n```",
+  "latency_seconds": 7.0499364839997725,
+  "usage": {
+    "completion_tokens": 1236,
+    "prompt_tokens": 379,
+    "total_tokens": 1615,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10646,
+  "response_sha256": "180a6d05814afe316b05cc30c522d057a1d2112bdc2eb241568a81f0a0cb3a16",
+  "artifact_sha256": "4fe5bff4e7dbfd913877ca90d24b3f637fb09bdd676c98828da628497a4d527c"
+}

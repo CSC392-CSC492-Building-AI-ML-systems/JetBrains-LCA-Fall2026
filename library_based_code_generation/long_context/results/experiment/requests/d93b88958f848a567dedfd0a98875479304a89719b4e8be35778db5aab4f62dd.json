@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 119,
+    "task_sha256": "931f3afea10fb61f5a8977ba2ce6fc1b16d71759b55fb9baee2ddacf4cbb7be1",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates an emulation environment using the seed-emulator library. The environment should include a ransomware service, a Tor service, and a DNS layer. \n\nFor the ransomware service, create a ransomware attacker and 16 ransomware victims. The attacker should be installed on a host in an autonomous system and should not support botnet or Tor. The victims should be installed on hosts and should not support botnet. \n\nFor the Tor service, create different types of Tor nodes including directory authorities, clients, relays, exits, and a hidden service. The hidden service should be linked to the ransomware attacker. \n\nFor the DNS layer, create a root server, TLD and ccTLD servers, second-level zone servers, and a local DNS server. The servers should have appropriate zones and records. \n\nFinally, compile the emulator using a Docker compiler with custom base images for the victim and attacker nodes. Copy necessary files to the output directory and make a script executable."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5rsaeqJZE7WkexPC9RWmsQg3auK",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom seedemu.core import Emulator, Layer, Host, AutonomousSystem, Service\nfrom seedemu.services.ransomware import RansomwareAttacker, RansomwareVictim\nfrom seedemu.services.tor import TorDirectoryAuthority, TorRelay, TorExit, TorClient, TorHiddenService\nfrom seedemu.services.dns import DnsServer, DnsZone, DnsRecord\nfrom seedemu.compiler.docker import DockerCompiler\nimport shutil\nimport os\n\n# Create the emulator and layers\nemu = Emulator()\nnetwork = emu.createLayer('network')\nservice = emu.createLayer('service')\ntor_layer = emu.createLayer('tor')\ndns_layer = emu.createLayer('dns')\n\n# Autonomous System for attacker and victims\nas1 = AutonomousSystem(1)\nnetwork.addComponent(as1)\n\n# Create ransomware attacker host (no botnet, no Tor)\nattacker_host = Host('attacker')\nas1.addHost(attacker_host)\nransomware_attacker = RansomwareAttacker(\n    supportBotnet=False,\n    supportTor=False\n)\nservice.addService(ransomware_attacker, attacker_host.getId())\n\n# Create 16 ransomware victim hosts (no botnet)\nvictim_hosts = []\nfor i in range(1, 17):\n    victim = Host(f'victim{i}')\n    as1.addHost(victim)\n    victim_hosts.append(victim)\n    ransomware_victim = RansomwareVictim(\n        supportBotnet=False\n    )\n    service.addService(ransomware_victim, victim.getId())\n\n# Tor Service\n# Directory Authorities\ndir_auths = []\nfor i in range(3):\n    dir_auth = TorDirectoryAuthority(f'dirauth{i+1}')\n    tor_layer.addService(dir_auth)\n    dir_auths.append(dir_auth)\n\n# Relays\nrelays = []\nfor i in range(3):\n    relay = TorRelay(f'relay{i+1}')\n    tor_layer.addService(relay)\n    relays.append(relay)\n\n# Exits\nexits = []\nfor i in range(2):\n    exit_node = TorExit(f'exit{i+1}')\n    tor_layer.addService(exit_node)\n    exits.append(exit_node)\n\n# Clients\nclients = []\nfor i in range(2):\n    client = TorClient(f'client{i+1}')\n    tor_layer.addService(client)\n    clients.append(client)\n\n# Hidden Service linked to ransomware attacker\nhidden_service = TorHiddenService('ransomware_hidden', hostId=attacker_host.getId())\ntor_layer.addService(hidden_service)\n\n# DNS Layer\n# Root Server\nroot_zone = DnsZone('.', [\n    DnsRecord('com', 'NS', 'a.gtld-servers.net.'),\n    DnsRecord('net', 'NS', 'b.gtld-servers.net.'),\n    DnsRecord('us', 'NS', 'a.cctld-servers.net.'),\n])\nroot_server = DnsServer('root', zones=[root_zone])\ndns_layer.addService(root_server)\n\n# TLD Servers\ncom_zone = DnsZone('com.', [\n    DnsRecord('example.com.', 'NS', 'ns1.example.com.'),\n])\ncom_server = DnsServer('a.gtld-servers.net.', zones=[com_zone])\ndns_layer.addService(com_server)\n\nnet_zone = DnsZone('net.', [\n    DnsRecord('example.net.', 'NS', 'ns1.example.net.'),\n])\nnet_server = DnsServer('b.gtld-servers.net.', zones=[net_zone])\ndns_layer.addService(net_server)\n\nus_zone = DnsZone('us.', [\n    DnsRecord('example.us.', 'NS', 'ns1.example.us.'),\n])\nus_server = DnsServer('a.cctld-servers.net.', zones=[us_zone])\ndns_layer.addService(us_server)\n\n# Second-level zone servers\nexample_com_zone = DnsZone('example.com.', [\n    DnsRecord('ns1.example.com.', 'A', '192.0.2.1'),\n    DnsRecord('www.example.com.', 'A', '192.0.2.2'),\n])\nexample_com_server = DnsServer('ns1.example.com.', zones=[example_com_zone])\ndns_layer.addService(example_com_server)\n\nexample_net_zone = DnsZone('example.net.', [\n    DnsRecord('ns1.example.net.', 'A', '198.51.100.1'),\n    DnsRecord('www.example.net.', 'A', '198.51.100.2'),\n])\nexample_net_server = DnsServer('ns1.example.net.', zones=[example_net_zone])\ndns_layer.addService(example_net_server)\n\nexample_us_zone = DnsZone('example.us.', [\n    DnsRecord('ns1.example.us.', 'A', '203.0.113.1'),\n    DnsRecord('www.example.us.', 'A', '203.0.113.2'),\n])\nexample_us_server = DnsServer('ns1.example.us.', zones=[example_us_zone])\ndns_layer.addService(example_us_server)\n\n# Local DNS server\nlocal_zone = DnsZone('local.', [\n    DnsRecord('host1.local.', 'A', '10.0.0.1'),\n    DnsRecord('host2.local.', 'A', '10.0.0.2'),\n])\nlocal_dns_server = DnsServer('localdns', zones=[local_zone])\ndns_layer.addService(local_dns_server)\n\n# Compile with DockerCompiler and custom base images\ncompiler = DockerCompiler()\ncompiler.setBaseImage('attacker', 'custom/attacker-base:latest')\nfor victim in victim_hosts:\n    compiler.setBaseImage(victim.getName(), 'custom/victim-base:latest')\n\noutput_dir = 'output'\ncompiler.compile(emu, output_dir)\n\n# Copy necessary files to output directory\nshutil.copy('start.sh', os.path.join(output_dir, 'start.sh'))\nos.chmod(os.path.join(output_dir, 'start.sh'), 0o755)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131008,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1248,
+      "prompt_tokens": 226,
+      "total_tokens": 1474,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom seedemu.core import Emulator, Layer, Host, AutonomousSystem, Service\nfrom seedemu.services.ransomware import RansomwareAttacker, RansomwareVictim\nfrom seedemu.services.tor import TorDirectoryAuthority, TorRelay, TorExit, TorClient, TorHiddenService\nfrom seedemu.services.dns import DnsServer, DnsZone, DnsRecord\nfrom seedemu.compiler.docker import DockerCompiler\nimport shutil\nimport os\n\n# Create the emulator and layers\nemu = Emulator()\nnetwork = emu.createLayer('network')\nservice = emu.createLayer('service')\ntor_layer = emu.createLayer('tor')\ndns_layer = emu.createLayer('dns')\n\n# Autonomous System for attacker and victims\nas1 = AutonomousSystem(1)\nnetwork.addComponent(as1)\n\n# Create ransomware attacker host (no botnet, no Tor)\nattacker_host = Host('attacker')\nas1.addHost(attacker_host)\nransomware_attacker = RansomwareAttacker(\n    supportBotnet=False,\n    supportTor=False\n)\nservice.addService(ransomware_attacker, attacker_host.getId())\n\n# Create 16 ransomware victim hosts (no botnet)\nvictim_hosts = []\nfor i in range(1, 17):\n    victim = Host(f'victim{i}')\n    as1.addHost(victim)\n    victim_hosts.append(victim)\n    ransomware_victim = RansomwareVictim(\n        supportBotnet=False\n    )\n    service.addService(ransomware_victim, victim.getId())\n\n# Tor Service\n# Directory Authorities\ndir_auths = []\nfor i in range(3):\n    dir_auth = TorDirectoryAuthority(f'dirauth{i+1}')\n    tor_layer.addService(dir_auth)\n    dir_auths.append(dir_auth)\n\n# Relays\nrelays = []\nfor i in range(3):\n    relay = TorRelay(f'relay{i+1}')\n    tor_layer.addService(relay)\n    relays.append(relay)\n\n# Exits\nexits = []\nfor i in range(2):\n    exit_node = TorExit(f'exit{i+1}')\n    tor_layer.addService(exit_node)\n    exits.append(exit_node)\n\n# Clients\nclients = []\nfor i in range(2):\n    client = TorClient(f'client{i+1}')\n    tor_layer.addService(client)\n    clients.append(client)\n\n# Hidden Service linked to ransomware attacker\nhidden_service = TorHiddenService('ransomware_hidden', hostId=attacker_host.getId())\ntor_layer.addService(hidden_service)\n\n# DNS Layer\n# Root Server\nroot_zone = DnsZone('.', [\n    DnsRecord('com', 'NS', 'a.gtld-servers.net.'),\n    DnsRecord('net', 'NS', 'b.gtld-servers.net.'),\n    DnsRecord('us', 'NS', 'a.cctld-servers.net.'),\n])\nroot_server = DnsServer('root', zones=[root_zone])\ndns_layer.addService(root_server)\n\n# TLD Servers\ncom_zone = DnsZone('com.', [\n    DnsRecord('example.com.', 'NS', 'ns1.example.com.'),\n])\ncom_server = DnsServer('a.gtld-servers.net.', zones=[com_zone])\ndns_layer.addService(com_server)\n\nnet_zone = DnsZone('net.', [\n    DnsRecord('example.net.', 'NS', 'ns1.example.net.'),\n])\nnet_server = DnsServer('b.gtld-servers.net.', zones=[net_zone])\ndns_layer.addService(net_server)\n\nus_zone = DnsZone('us.', [\n    DnsRecord('example.us.', 'NS', 'ns1.example.us.'),\n])\nus_server = DnsServer('a.cctld-servers.net.', zones=[us_zone])\ndns_layer.addService(us_server)\n\n# Second-level zone servers\nexample_com_zone = DnsZone('example.com.', [\n    DnsRecord('ns1.example.com.', 'A', '192.0.2.1'),\n    DnsRecord('www.example.com.', 'A', '192.0.2.2'),\n])\nexample_com_server = DnsServer('ns1.example.com.', zones=[example_com_zone])\ndns_layer.addService(example_com_server)\n\nexample_net_zone = DnsZone('example.net.', [\n    DnsRecord('ns1.example.net.', 'A', '198.51.100.1'),\n    DnsRecord('www.example.net.', 'A', '198.51.100.2'),\n])\nexample_net_server = DnsServer('ns1.example.net.', zones=[example_net_zone])\ndns_layer.addService(example_net_server)\n\nexample_us_zone = DnsZone('example.us.', [\n    DnsRecord('ns1.example.us.', 'A', '203.0.113.1'),\n    DnsRecord('www.example.us.', 'A', '203.0.113.2'),\n])\nexample_us_server = DnsServer('ns1.example.us.', zones=[example_us_zone])\ndns_layer.addService(example_us_server)\n\n# Local DNS server\nlocal_zone = DnsZone('local.', [\n    DnsRecord('host1.local.', 'A', '10.0.0.1'),\n    DnsRecord('host2.local.', 'A', '10.0.0.2'),\n])\nlocal_dns_server = DnsServer('localdns', zones=[local_zone])\ndns_layer.addService(local_dns_server)\n\n# Compile with DockerCompiler and custom base images\ncompiler = DockerCompiler()\ncompiler.setBaseImage('attacker', 'custom/attacker-base:latest')\nfor victim in victim_hosts:\n    compiler.setBaseImage(victim.getName(), 'custom/victim-base:latest')\n\noutput_dir = 'output'\ncompiler.compile(emu, output_dir)\n\n# Copy necessary files to output directory\nshutil.copy('start.sh', os.path.join(output_dir, 'start.sh'))\nos.chmod(os.path.join(output_dir, 'start.sh'), 0o755)\n```",
+  "latency_seconds": 5.476766815001611,
+  "usage": {
+    "completion_tokens": 1248,
+    "prompt_tokens": 226,
+    "total_tokens": 1474,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10436,
+  "response_sha256": "dbd583a09c52f61def11359715a6178d4a4eac6bc87b5483e15d649c41d98829",
+  "artifact_sha256": "a79315ff8226832882cdf867e57abd713ab6fc24964c768a913a4554e729c16c"
+}

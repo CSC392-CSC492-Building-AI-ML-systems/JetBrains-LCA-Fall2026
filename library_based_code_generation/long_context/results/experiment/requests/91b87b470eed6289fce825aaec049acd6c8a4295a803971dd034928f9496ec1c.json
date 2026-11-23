@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 53,
+    "task_sha256": "0ec3ac625a8d9b11d25937c2cfae5531e0fc26d852d5185fe9956d6a1497e342",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the simpa library to create a simulation of a tissue structure. The tissue structure should include a background, a muscle layer, an epidermis layer, and two blood vessels. The simulation should be set up with specific global parameters such as volume dimensions, spacing, and wavelengths. The code should also include a function to create the tissue structure with specific properties for each component. The simulation should be run for all wavelengths specified and include a linear unmixing component. The results of the simulation and the linear unmixing should be loaded and visualized."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5Eyg0LdgKJ6e7agZ7a3y1OFeT2l",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport simpa as sp\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport os\n\n# Global simulation parameters\nVOLUME_WIDTH_MM = 20\nVOLUME_HEIGHT_MM = 10\nVOLUME_DEPTH_MM = 20\nSPACING_MM = 0.2\nWAVELENGTHS = [700, 800, 900]  # nm\n\n# Simulation path\nSIMULATION_PATH = \"simpa_tissue_simulation\"\n\n# Define global settings\nsettings = {\n    sp.ExperimentSettings.VOLUME_NAME: \"TissueVolume\",\n    sp.ExperimentSettings.SIMULATION_PATH: SIMULATION_PATH,\n    sp.ExperimentSettings.VOLUME_EXTENT_MM: np.array([VOLUME_WIDTH_MM, VOLUME_HEIGHT_MM, VOLUME_DEPTH_MM]),\n    sp.ExperimentSettings.SPACING_MM: SPACING_MM,\n    sp.ExperimentSettings.WAVELENGTHS: WAVELENGTHS,\n    sp.ExperimentSettings.PULSE_ENERGY: 1e-6,\n    sp.ExperimentSettings.DETECTOR_POSITIONS: sp.detectors.create_rectangular_detector_grid(\n        x_count=int(VOLUME_WIDTH_MM / SPACING_MM),\n        y_count=1,\n        z_count=int(VOLUME_DEPTH_MM / SPACING_MM),\n        spacing_mm=SPACING_MM,\n        offset_mm=[0, VOLUME_HEIGHT_MM, 0]\n    ),\n    sp.ExperimentSettings.RANDOM_SEED: 42,\n    sp.ExperimentSettings.NUMBER_OF_PHOTONS: 1e6,\n    sp.ExperimentSettings.DO_FILE_COMPRESSION: False,\n}\n\n# Function to create tissue structure\ndef create_tissue_structure(settings):\n    background = sp.TissueStructure(\n        tissue_type=sp.TissueTypes.BACKGROUND,\n        structure_type=sp.StructureType.BACKGROUND,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.01,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.33\n        )\n    )\n    muscle = sp.LayerStructure(\n        start_mm=2,\n        thickness_mm=6,\n        tissue_type=sp.TissueTypes.MUSCLE,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.03,\n            scattering_coefficient_mm=1.2,\n            anisotropy=0.9,\n            refractive_index=1.37\n        )\n    )\n    epidermis = sp.LayerStructure(\n        start_mm=0,\n        thickness_mm=0.5,\n        tissue_type=sp.TissueTypes.EPIDERMIS,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.1,\n            scattering_coefficient_mm=1.5,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    blood_vessel_1 = sp.CylinderStructure(\n        start_mm=[5, 4, 10],\n        end_mm=[5, 8, 10],\n        radius_mm=1,\n        tissue_type=sp.TissueTypes.BLOOD_VESSEL,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.2,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    blood_vessel_2 = sp.CylinderStructure(\n        start_mm=[15, 4, 15],\n        end_mm=[15, 8, 15],\n        radius_mm=1.5,\n        tissue_type=sp.TissueTypes.BLOOD_VESSEL,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.25,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    structures = [background, muscle, epidermis, blood_vessel_1, blood_vessel_2]\n    return sp.TissueList(structures)\n\n# Add tissue structure to settings\nsettings[sp.ExperimentSettings.TISSUE_STRUCTURES] = create_tissue_structure(settings)\n\n# Define pipeline\npipeline = [\n    sp.ModelBasedVolumeCreationAdapter(settings),\n    sp.MonteCarloLightTransportAdapter(settings),\n    sp.OpticalForwardModelAdapter(settings),\n    sp.AcousticForwardModelAdapter(settings),\n    sp.ReconstructionAdapter(settings),\n    sp.LinearUnmixingAdapter(settings)\n]\n\n# Run simulation\ndevice = sp.SimulationDevice(settings)\nsp.simulate(settings, pipeline, device)\n\n# Load and visualize results\nfor wl in WAVELENGTHS:\n    pa_data = sp.load_data_field(SIMULATION_PATH, sp.Tags.SIMULATION_OUTPUT_NAME, wavelength=wl)\n    plt.figure()\n    plt.imshow(pa_data[:, int(pa_data.shape[1] // 2), :], cmap='hot')\n    plt.title(f'PA Signal at {wl} nm')\n    plt.colorbar()\n    plt.show()\n\n# Load and visualize linear unmixing results\nunmixing = sp.load_data_field(SIMULATION_PATH, sp.Tags.LINEAR_UNMIXING_RESULT)\nfor i, chromophore in enumerate(unmixing.keys()):\n    plt.figure()\n    plt.imshow(unmixing[chromophore][:, int(unmixing[chromophore].shape[1] // 2), :], cmap='hot')\n    plt.title(f'Linear Unmixing: {chromophore}')\n    plt.colorbar()\n    plt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128596,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_00d362a4f3",
+    "usage": {
+      "completion_tokens": 1146,
+      "prompt_tokens": 145,
+      "total_tokens": 1291,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport simpa as sp\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport os\n\n# Global simulation parameters\nVOLUME_WIDTH_MM = 20\nVOLUME_HEIGHT_MM = 10\nVOLUME_DEPTH_MM = 20\nSPACING_MM = 0.2\nWAVELENGTHS = [700, 800, 900]  # nm\n\n# Simulation path\nSIMULATION_PATH = \"simpa_tissue_simulation\"\n\n# Define global settings\nsettings = {\n    sp.ExperimentSettings.VOLUME_NAME: \"TissueVolume\",\n    sp.ExperimentSettings.SIMULATION_PATH: SIMULATION_PATH,\n    sp.ExperimentSettings.VOLUME_EXTENT_MM: np.array([VOLUME_WIDTH_MM, VOLUME_HEIGHT_MM, VOLUME_DEPTH_MM]),\n    sp.ExperimentSettings.SPACING_MM: SPACING_MM,\n    sp.ExperimentSettings.WAVELENGTHS: WAVELENGTHS,\n    sp.ExperimentSettings.PULSE_ENERGY: 1e-6,\n    sp.ExperimentSettings.DETECTOR_POSITIONS: sp.detectors.create_rectangular_detector_grid(\n        x_count=int(VOLUME_WIDTH_MM / SPACING_MM),\n        y_count=1,\n        z_count=int(VOLUME_DEPTH_MM / SPACING_MM),\n        spacing_mm=SPACING_MM,\n        offset_mm=[0, VOLUME_HEIGHT_MM, 0]\n    ),\n    sp.ExperimentSettings.RANDOM_SEED: 42,\n    sp.ExperimentSettings.NUMBER_OF_PHOTONS: 1e6,\n    sp.ExperimentSettings.DO_FILE_COMPRESSION: False,\n}\n\n# Function to create tissue structure\ndef create_tissue_structure(settings):\n    background = sp.TissueStructure(\n        tissue_type=sp.TissueTypes.BACKGROUND,\n        structure_type=sp.StructureType.BACKGROUND,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.01,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.33\n        )\n    )\n    muscle = sp.LayerStructure(\n        start_mm=2,\n        thickness_mm=6,\n        tissue_type=sp.TissueTypes.MUSCLE,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.03,\n            scattering_coefficient_mm=1.2,\n            anisotropy=0.9,\n            refractive_index=1.37\n        )\n    )\n    epidermis = sp.LayerStructure(\n        start_mm=0,\n        thickness_mm=0.5,\n        tissue_type=sp.TissueTypes.EPIDERMIS,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.1,\n            scattering_coefficient_mm=1.5,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    blood_vessel_1 = sp.CylinderStructure(\n        start_mm=[5, 4, 10],\n        end_mm=[5, 8, 10],\n        radius_mm=1,\n        tissue_type=sp.TissueTypes.BLOOD_VESSEL,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.2,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    blood_vessel_2 = sp.CylinderStructure(\n        start_mm=[15, 4, 15],\n        end_mm=[15, 8, 15],\n        radius_mm=1.5,\n        tissue_type=sp.TissueTypes.BLOOD_VESSEL,\n        optical_properties=sp.TissueProperties(\n            absorption_coefficient_mm=0.25,\n            scattering_coefficient_mm=1.0,\n            anisotropy=0.9,\n            refractive_index=1.4\n        )\n    )\n    structures = [background, muscle, epidermis, blood_vessel_1, blood_vessel_2]\n    return sp.TissueList(structures)\n\n# Add tissue structure to settings\nsettings[sp.ExperimentSettings.TISSUE_STRUCTURES] = create_tissue_structure(settings)\n\n# Define pipeline\npipeline = [\n    sp.ModelBasedVolumeCreationAdapter(settings),\n    sp.MonteCarloLightTransportAdapter(settings),\n    sp.OpticalForwardModelAdapter(settings),\n    sp.AcousticForwardModelAdapter(settings),\n    sp.ReconstructionAdapter(settings),\n    sp.LinearUnmixingAdapter(settings)\n]\n\n# Run simulation\ndevice = sp.SimulationDevice(settings)\nsp.simulate(settings, pipeline, device)\n\n# Load and visualize results\nfor wl in WAVELENGTHS:\n    pa_data = sp.load_data_field(SIMULATION_PATH, sp.Tags.SIMULATION_OUTPUT_NAME, wavelength=wl)\n    plt.figure()\n    plt.imshow(pa_data[:, int(pa_data.shape[1] // 2), :], cmap='hot')\n    plt.title(f'PA Signal at {wl} nm')\n    plt.colorbar()\n    plt.show()\n\n# Load and visualize linear unmixing results\nunmixing = sp.load_data_field(SIMULATION_PATH, sp.Tags.LINEAR_UNMIXING_RESULT)\nfor i, chromophore in enumerate(unmixing.keys()):\n    plt.figure()\n    plt.imshow(unmixing[chromophore][:, int(unmixing[chromophore].shape[1] // 2), :], cmap='hot')\n    plt.title(f'Linear Unmixing: {chromophore}')\n    plt.colorbar()\n    plt.show()\n```",
+  "latency_seconds": 6.291497406000417,
+  "usage": {
+    "completion_tokens": 1146,
+    "prompt_tokens": 145,
+    "total_tokens": 1291,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9458,
+  "response_sha256": "9f7fb931aa43393d3ef3138d39c023399645c69778a858b01c30a4adacffed39",
+  "artifact_sha256": "d10e529a3eca2acbf92e3d27fb33a4b1d0374ffa58cb016393e625d2fe75520e"
+}

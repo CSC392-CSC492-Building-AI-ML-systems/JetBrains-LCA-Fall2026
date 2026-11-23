@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 62,
+    "task_sha256": "dd4a72d4906bbd9b2251456207233cde6738b0926de914199e33d5265a0b4330",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the triplet and quintet energy gap of an Iron-Porphyrin molecule using DMRG-CASSCF and DMRG-NEVPT2 methods from the pyscf library. The code should first define the DMET active space, then calculate the quintet and triplet energies separately. The active space should include the Fe double d-shell, 4s shell, and the ligand N 2pz orbitals to describe metal-ligand pi bond and pi backbond. The code should also output the active space orbitals to molden format.\n\nYou can find the following APIs from the library helpful:\n__and__, _load_and_unpack, sign_and_symbs, add_and_permute, format_xc_code, _get_intor_and_comp, test_des_and_cre, rsh_and_hybrid_coeff, symmetrize_space_pyscf, test_spin_and_pointgroup_sa4, MakePiSystemOrbitals, _index_frozen_active, _stand_sym_code, index_frozen_active, test_spin_and_pointgroup_sa4_newton, entire_space, AuxiliarySpace, symmetrize_space, enlarge_space, SpaceGroup"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5K01E67FrEDzUGPQ05HC0MjOGF1",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mcscf, dmrgscf, lo, molden\nfrom pyscf.nevpt2 import DMRG_NEVPT2\n\n# Define Iron-Porphyrin molecule geometry (example geometry)\nmol = gto.Mole()\nmol.atom = '''\nFe    0.0000   0.0000   0.0000\nN     1.9340   0.0000   0.0000\nN    -1.9340   0.0000   0.0000\nN     0.0000   1.9340   0.0000\nN     0.0000  -1.9340   0.0000\nC     2.8000   1.2000   0.0000\nC     2.8000  -1.2000   0.0000\nC    -2.8000   1.2000   0.0000\nC    -2.8000  -1.2000   0.0000\nC     1.2000   2.8000   0.0000\nC    -1.2000   2.8000   0.0000\nC     1.2000  -2.8000   0.0000\nC    -1.2000  -2.8000   0.0000\n'''\nmol.basis = 'def2-svp'\nmol.charge = 0\nmol.spin = 4  # Quintet (2S = 4, S=2)\nmol.symmetry = True\nmol.build()\n\n# SCF calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Localize orbitals for active space selection\npmol = mol.copy()\npmol.build()\nmf_c = scf.RHF(pmol).run()\nmo = mf_c.mo_coeff\n\n# Use Pipek-Mezey localization for easier selection\nloc_orb = lo.PM(pmol).kernel(mo)\n\n# Define DMET active space: Fe double d-shell (10), Fe 4s (1), 4 N 2pz (4) = 15 orbitals\n# For Fe: d-shell AO indices, 4s AO index\n# For N: 2pz AO indices for each N atom\n# Find AO indices for Fe 3d, 4s, and N 2pz\nao_labels = pmol.ao_labels()\nfe_d_idx = [i for i, s in enumerate(ao_labels) if 'Fe' in s and ('3d' in s or '4d' in s)]\nfe_4s_idx = [i for i, s in enumerate(ao_labels) if 'Fe' in s and '4s' in s]\nn_2pz_idx = []\nfor n in range(1, 5):\n    n_label = f'N {n}'\n    n_2pz_idx += [i for i, s in enumerate(ao_labels) if s.startswith('N') and '2pz' in s]\n\n# Combine all AO indices for projection\nactive_ao_idx = fe_d_idx + fe_4s_idx + n_2pz_idx\n\n# Project localized orbitals onto selected AO indices to get active space\nncas = len(active_ao_idx)\nnelec_quintet = 10 + 2 + 4  # Fe d:10, 4s:2, N 2pz:4 electrons (approximate, adjust as needed)\nnelec_triplet = nelec_quintet\n\n# Find the corresponding MO indices with largest AO contributions\nproj = np.abs(loc_orb[active_ao_idx, :])\nmo_active_idx = np.argsort(-proj.sum(axis=0))[:ncas]\nmo_active_idx = np.sort(mo_active_idx)\ncas_mo = loc_orb[:, mo_active_idx]\n\n# Output active space orbitals to molden\nwith open('iron_porphyrin_active.molden', 'w') as f:\n    molden.header(mol, f)\n    molden.orbital_coeff(mol, f, cas_mo)\n\n# Function to run DMRG-CASSCF and DMRG-NEVPT2 for a given spin multiplicity\ndef run_dmrg_casscf(mol, mf, ncas, nelec, cas_mo, spin):\n    mol.spin = spin\n    mf = scf.RHF(mol)\n    mf.kernel()\n    mc = dmrgscf.DMRGSCF(mf, ncas, nelec)\n    mc.fcisolver.maxM = 1000\n    mc.fcisolver.nproc = 4\n    mc.mo_coeff = cas_mo\n    mc.kernel()\n    nevpt2 = DMRG_NEVPT2(mc)\n    e_nevpt2 = nevpt2.kernel()\n    return mc.e_tot, e_nevpt2\n\n# Quintet state (S=2, spin=4)\nmol.spin = 4\ne_casscf_5, e_nevpt2_5 = run_dmrg_casscf(mol, mf, ncas, nelec_quintet, cas_mo, 4)\n\n# Triplet state (S=1, spin=2)\nmol.spin = 2\ne_casscf_3, e_nevpt2_3 = run_dmrg_casscf(mol, mf, ncas, nelec_triplet, cas_mo, 2)\n\n# Output energy gaps\nprint(f\"DMRG-CASSCF Quintet Energy: {e_casscf_5:.8f} Hartree\")\nprint(f\"DMRG-CASSCF Triplet Energy: {e_casscf_3:.8f} Hartree\")\nprint(f\"DMRG-CASSCF Triplet-Quintet Gap: {(e_casscf_3 - e_casscf_5)*27.2114:.4f} eV\")\n\nprint(f\"DMRG-NEVPT2 Quintet Energy: {e_nevpt2_5:.8f} Hartree\")\nprint(f\"DMRG-NEVPT2 Triplet Energy: {e_nevpt2_3:.8f} Hartree\")\nprint(f\"DMRG-NEVPT2 Triplet-Quintet Gap: {(e_nevpt2_3 - e_nevpt2_5)*27.2114:.4f} eV\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128908,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1398,
+      "prompt_tokens": 266,
+      "total_tokens": 1664,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mcscf, dmrgscf, lo, molden\nfrom pyscf.nevpt2 import DMRG_NEVPT2\n\n# Define Iron-Porphyrin molecule geometry (example geometry)\nmol = gto.Mole()\nmol.atom = '''\nFe    0.0000   0.0000   0.0000\nN     1.9340   0.0000   0.0000\nN    -1.9340   0.0000   0.0000\nN     0.0000   1.9340   0.0000\nN     0.0000  -1.9340   0.0000\nC     2.8000   1.2000   0.0000\nC     2.8000  -1.2000   0.0000\nC    -2.8000   1.2000   0.0000\nC    -2.8000  -1.2000   0.0000\nC     1.2000   2.8000   0.0000\nC    -1.2000   2.8000   0.0000\nC     1.2000  -2.8000   0.0000\nC    -1.2000  -2.8000   0.0000\n'''\nmol.basis = 'def2-svp'\nmol.charge = 0\nmol.spin = 4  # Quintet (2S = 4, S=2)\nmol.symmetry = True\nmol.build()\n\n# SCF calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Localize orbitals for active space selection\npmol = mol.copy()\npmol.build()\nmf_c = scf.RHF(pmol).run()\nmo = mf_c.mo_coeff\n\n# Use Pipek-Mezey localization for easier selection\nloc_orb = lo.PM(pmol).kernel(mo)\n\n# Define DMET active space: Fe double d-shell (10), Fe 4s (1), 4 N 2pz (4) = 15 orbitals\n# For Fe: d-shell AO indices, 4s AO index\n# For N: 2pz AO indices for each N atom\n# Find AO indices for Fe 3d, 4s, and N 2pz\nao_labels = pmol.ao_labels()\nfe_d_idx = [i for i, s in enumerate(ao_labels) if 'Fe' in s and ('3d' in s or '4d' in s)]\nfe_4s_idx = [i for i, s in enumerate(ao_labels) if 'Fe' in s and '4s' in s]\nn_2pz_idx = []\nfor n in range(1, 5):\n    n_label = f'N {n}'\n    n_2pz_idx += [i for i, s in enumerate(ao_labels) if s.startswith('N') and '2pz' in s]\n\n# Combine all AO indices for projection\nactive_ao_idx = fe_d_idx + fe_4s_idx + n_2pz_idx\n\n# Project localized orbitals onto selected AO indices to get active space\nncas = len(active_ao_idx)\nnelec_quintet = 10 + 2 + 4  # Fe d:10, 4s:2, N 2pz:4 electrons (approximate, adjust as needed)\nnelec_triplet = nelec_quintet\n\n# Find the corresponding MO indices with largest AO contributions\nproj = np.abs(loc_orb[active_ao_idx, :])\nmo_active_idx = np.argsort(-proj.sum(axis=0))[:ncas]\nmo_active_idx = np.sort(mo_active_idx)\ncas_mo = loc_orb[:, mo_active_idx]\n\n# Output active space orbitals to molden\nwith open('iron_porphyrin_active.molden', 'w') as f:\n    molden.header(mol, f)\n    molden.orbital_coeff(mol, f, cas_mo)\n\n# Function to run DMRG-CASSCF and DMRG-NEVPT2 for a given spin multiplicity\ndef run_dmrg_casscf(mol, mf, ncas, nelec, cas_mo, spin):\n    mol.spin = spin\n    mf = scf.RHF(mol)\n    mf.kernel()\n    mc = dmrgscf.DMRGSCF(mf, ncas, nelec)\n    mc.fcisolver.maxM = 1000\n    mc.fcisolver.nproc = 4\n    mc.mo_coeff = cas_mo\n    mc.kernel()\n    nevpt2 = DMRG_NEVPT2(mc)\n    e_nevpt2 = nevpt2.kernel()\n    return mc.e_tot, e_nevpt2\n\n# Quintet state (S=2, spin=4)\nmol.spin = 4\ne_casscf_5, e_nevpt2_5 = run_dmrg_casscf(mol, mf, ncas, nelec_quintet, cas_mo, 4)\n\n# Triplet state (S=1, spin=2)\nmol.spin = 2\ne_casscf_3, e_nevpt2_3 = run_dmrg_casscf(mol, mf, ncas, nelec_triplet, cas_mo, 2)\n\n# Output energy gaps\nprint(f\"DMRG-CASSCF Quintet Energy: {e_casscf_5:.8f} Hartree\")\nprint(f\"DMRG-CASSCF Triplet Energy: {e_casscf_3:.8f} Hartree\")\nprint(f\"DMRG-CASSCF Triplet-Quintet Gap: {(e_casscf_3 - e_casscf_5)*27.2114:.4f} eV\")\n\nprint(f\"DMRG-NEVPT2 Quintet Energy: {e_nevpt2_5:.8f} Hartree\")\nprint(f\"DMRG-NEVPT2 Triplet Energy: {e_nevpt2_3:.8f} Hartree\")\nprint(f\"DMRG-NEVPT2 Triplet-Quintet Gap: {(e_nevpt2_3 - e_nevpt2_5)*27.2114:.4f} eV\")\n```",
+  "latency_seconds": 9.751207506000355,
+  "usage": {
+    "completion_tokens": 1398,
+    "prompt_tokens": 266,
+    "total_tokens": 1664,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11716,
+  "response_sha256": "f1e3e2025b84cf31b4a1318884228f53fecf66815254f65863af4919834c29d4",
+  "artifact_sha256": "dda2f7f3ad98b5bff3963e43208b2863bc4f4feccaed1a3b46f29a0e256c3089"
+}

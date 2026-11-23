@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 49,
+    "task_sha256": "25c0d8267dd260f1d973eea16c8e1fba0b81cbcc9cbb384f9412afd3a57e91cc",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a custom graph using the pyqtgraph library. The graph should be displayed in a GraphicsLayoutWidget with the title 'pyqtgraph example: CustomGraphItem'. The graph should be a subclass of GraphItem and include methods for setting data, updating the graph, handling mouse drag events, and responding to clicks on the graph. The graph should be populated with nodes at specified positions, connected by lines with specified styles, and each node should be labeled with a text. The nodes should be draggable, and the graph should update in real time as nodes are dragged. The program should print a message to the console when a node is clicked. The graph should be displayed when the script is run."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5Bx69lJ9fL6hZS3M30GCpw2h95U",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport numpy as np\nfrom PyQt5 import QtWidgets, QtCore, QtGui\nimport pyqtgraph as pg\nfrom pyqtgraph import GraphItem, GraphicsLayoutWidget\n\nclass CustomGraphItem(GraphItem):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.dragged_node = None\n        self.offset = None\n        self.node_labels = []\n        self.text_items = []\n        self.setAcceptHoverEvents(True)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemIsFocusable)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemSendsScenePositionChanges)\n        self.setZValue(1)\n        self.data = None\n\n    def setData(self, pos, adj, pen=None, symbolBrush=None, symbolPen=None, symbolSize=20, labels=None):\n        self.data = {\n            'pos': np.array(pos),\n            'adj': np.array(adj),\n            'pen': pen if pen is not None else [pg.mkPen('w', width=2)] * len(adj),\n            'symbolBrush': symbolBrush if symbolBrush is not None else [pg.mkBrush('b')] * len(pos),\n            'symbolPen': symbolPen if symbolPen is not None else [pg.mkPen('k')] * len(pos),\n            'symbolSize': symbolSize,\n            'labels': labels if labels is not None else [str(i) for i in range(len(pos))]\n        }\n        self.updateGraph()\n\n    def updateGraph(self):\n        if self.data is None:\n            return\n        pos = self.data['pos']\n        adj = self.data['adj']\n        pen = self.data['pen']\n        symbolBrush = self.data['symbolBrush']\n        symbolPen = self.data['symbolPen']\n        symbolSize = self.data['symbolSize']\n        labels = self.data['labels']\n\n        self.setData_(\n            pos=pos,\n            adj=adj,\n            pen=pen,\n            symbolBrush=symbolBrush,\n            symbolPen=symbolPen,\n            symbolSize=symbolSize,\n            pxMode=True,\n            data=None\n        )\n\n        # Remove old text items\n        for item in self.text_items:\n            if item.scene() is not None:\n                item.scene().removeItem(item)\n        self.text_items = []\n\n        # Add new text items for labels\n        for i, (x, y) in enumerate(pos):\n            text = pg.TextItem(labels[i], anchor=(0.5, -0.3), color='w')\n            text.setPos(x, y)\n            self.text_items.append(text)\n            if self.scene() is not None:\n                self.scene().addItem(text)\n\n    def mousePressEvent(self, event):\n        pos = event.pos()\n        mousePoint = QtCore.QPointF(pos.x(), pos.y())\n        pts = self.data['pos']\n        distances = np.linalg.norm(pts - np.array([mousePoint.x(), mousePoint.y()]), axis=1)\n        idx = np.argmin(distances)\n        if distances[idx] < self.data['symbolSize'] * 0.7:\n            self.dragged_node = idx\n            self.offset = pts[idx] - np.array([mousePoint.x(), mousePoint.y()])\n            print(f\"Node {idx} clicked\")\n            event.accept()\n        else:\n            self.dragged_node = None\n            super().mousePressEvent(event)\n\n    def mouseMoveEvent(self, event):\n        if self.dragged_node is not None:\n            pos = event.pos()\n            mousePoint = QtCore.QPointF(pos.x(), pos.y())\n            new_pos = np.array([mousePoint.x(), mousePoint.y()]) + self.offset\n            self.data['pos'][self.dragged_node] = new_pos\n            self.updateGraph()\n            event.accept()\n        else:\n            super().mouseMoveEvent(event)\n\n    def mouseReleaseEvent(self, event):\n        self.dragged_node = None\n        self.offset = None\n        super().mouseReleaseEvent(event)\n\n    def setParentItem(self, parent):\n        super().setParentItem(parent)\n        # Add text items to the scene if not already present\n        for text in self.text_items:\n            if text.scene() is None and self.scene() is not None:\n                self.scene().addItem(text)\n\n    def itemChange(self, change, value):\n        if change == QtWidgets.QGraphicsItem.ItemSceneChange:\n            for text in self.text_items:\n                if text.scene() is None and self.scene() is not None:\n                    self.scene().addItem(text)\n        return super().itemChange(change, value)\n\nif __name__ == '__main__':\n    app = QtWidgets.QApplication(sys.argv)\n    win = GraphicsLayoutWidget(show=True, title=\"pyqtgraph example: CustomGraphItem\")\n    win.setWindowTitle('pyqtgraph example: CustomGraphItem')\n    view = win.addViewBox()\n    view.setAspectLocked()\n\n    # Example graph data\n    positions = np.array([\n        [0, 0],\n        [1, 0],\n        [0.5, 1],\n        [1.5, 1],\n        [2, 0]\n    ])\n    adj = np.array([\n        [0, 1],\n        [1, 2],\n        [1, 3],\n        [3, 4]\n    ])\n    pens = [\n        pg.mkPen(color=(255, 0, 0), width=2, style=QtCore.Qt.DashLine),\n        pg.mkPen(color=(0, 255, 0), width=2, style=QtCore.Qt.DotLine),\n        pg.mkPen(color=(0, 0, 255), width=2, style=QtCore.Qt.SolidLine),\n        pg.mkPen(color=(255, 255, 0), width=2, style=QtCore.Qt.DashDotLine)\n    ]\n    brushes = [\n        pg.mkBrush('r'),\n        pg.mkBrush('g'),\n        pg.mkBrush('b'),\n        pg.mkBrush('y'),\n        pg.mkBrush('m')\n    ]\n    labels = ['A', 'B', 'C', 'D', 'E']\n\n    graph = CustomGraphItem()\n    graph.setData(\n        pos=positions,\n        adj=adj,\n        pen=pens,\n        symbolBrush=brushes,\n        symbolPen=[pg.mkPen('k', width=1)]*5,\n        symbolSize=30,\n        labels=labels\n    )\n    view.addItem(graph)\n\n    win.show()\n    sys.exit(app.exec_())\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128409,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 1381,
+      "prompt_tokens": 174,
+      "total_tokens": 1555,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport numpy as np\nfrom PyQt5 import QtWidgets, QtCore, QtGui\nimport pyqtgraph as pg\nfrom pyqtgraph import GraphItem, GraphicsLayoutWidget\n\nclass CustomGraphItem(GraphItem):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.dragged_node = None\n        self.offset = None\n        self.node_labels = []\n        self.text_items = []\n        self.setAcceptHoverEvents(True)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemIsFocusable)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable)\n        self.setFlag(QtWidgets.QGraphicsItem.ItemSendsScenePositionChanges)\n        self.setZValue(1)\n        self.data = None\n\n    def setData(self, pos, adj, pen=None, symbolBrush=None, symbolPen=None, symbolSize=20, labels=None):\n        self.data = {\n            'pos': np.array(pos),\n            'adj': np.array(adj),\n            'pen': pen if pen is not None else [pg.mkPen('w', width=2)] * len(adj),\n            'symbolBrush': symbolBrush if symbolBrush is not None else [pg.mkBrush('b')] * len(pos),\n            'symbolPen': symbolPen if symbolPen is not None else [pg.mkPen('k')] * len(pos),\n            'symbolSize': symbolSize,\n            'labels': labels if labels is not None else [str(i) for i in range(len(pos))]\n        }\n        self.updateGraph()\n\n    def updateGraph(self):\n        if self.data is None:\n            return\n        pos = self.data['pos']\n        adj = self.data['adj']\n        pen = self.data['pen']\n        symbolBrush = self.data['symbolBrush']\n        symbolPen = self.data['symbolPen']\n        symbolSize = self.data['symbolSize']\n        labels = self.data['labels']\n\n        self.setData_(\n            pos=pos,\n            adj=adj,\n            pen=pen,\n            symbolBrush=symbolBrush,\n            symbolPen=symbolPen,\n            symbolSize=symbolSize,\n            pxMode=True,\n            data=None\n        )\n\n        # Remove old text items\n        for item in self.text_items:\n            if item.scene() is not None:\n                item.scene().removeItem(item)\n        self.text_items = []\n\n        # Add new text items for labels\n        for i, (x, y) in enumerate(pos):\n            text = pg.TextItem(labels[i], anchor=(0.5, -0.3), color='w')\n            text.setPos(x, y)\n            self.text_items.append(text)\n            if self.scene() is not None:\n                self.scene().addItem(text)\n\n    def mousePressEvent(self, event):\n        pos = event.pos()\n        mousePoint = QtCore.QPointF(pos.x(), pos.y())\n        pts = self.data['pos']\n        distances = np.linalg.norm(pts - np.array([mousePoint.x(), mousePoint.y()]), axis=1)\n        idx = np.argmin(distances)\n        if distances[idx] < self.data['symbolSize'] * 0.7:\n            self.dragged_node = idx\n            self.offset = pts[idx] - np.array([mousePoint.x(), mousePoint.y()])\n            print(f\"Node {idx} clicked\")\n            event.accept()\n        else:\n            self.dragged_node = None\n            super().mousePressEvent(event)\n\n    def mouseMoveEvent(self, event):\n        if self.dragged_node is not None:\n            pos = event.pos()\n            mousePoint = QtCore.QPointF(pos.x(), pos.y())\n            new_pos = np.array([mousePoint.x(), mousePoint.y()]) + self.offset\n            self.data['pos'][self.dragged_node] = new_pos\n            self.updateGraph()\n            event.accept()\n        else:\n            super().mouseMoveEvent(event)\n\n    def mouseReleaseEvent(self, event):\n        self.dragged_node = None\n        self.offset = None\n        super().mouseReleaseEvent(event)\n\n    def setParentItem(self, parent):\n        super().setParentItem(parent)\n        # Add text items to the scene if not already present\n        for text in self.text_items:\n            if text.scene() is None and self.scene() is not None:\n                self.scene().addItem(text)\n\n    def itemChange(self, change, value):\n        if change == QtWidgets.QGraphicsItem.ItemSceneChange:\n            for text in self.text_items:\n                if text.scene() is None and self.scene() is not None:\n                    self.scene().addItem(text)\n        return super().itemChange(change, value)\n\nif __name__ == '__main__':\n    app = QtWidgets.QApplication(sys.argv)\n    win = GraphicsLayoutWidget(show=True, title=\"pyqtgraph example: CustomGraphItem\")\n    win.setWindowTitle('pyqtgraph example: CustomGraphItem')\n    view = win.addViewBox()\n    view.setAspectLocked()\n\n    # Example graph data\n    positions = np.array([\n        [0, 0],\n        [1, 0],\n        [0.5, 1],\n        [1.5, 1],\n        [2, 0]\n    ])\n    adj = np.array([\n        [0, 1],\n        [1, 2],\n        [1, 3],\n        [3, 4]\n    ])\n    pens = [\n        pg.mkPen(color=(255, 0, 0), width=2, style=QtCore.Qt.DashLine),\n        pg.mkPen(color=(0, 255, 0), width=2, style=QtCore.Qt.DotLine),\n        pg.mkPen(color=(0, 0, 255), width=2, style=QtCore.Qt.SolidLine),\n        pg.mkPen(color=(255, 255, 0), width=2, style=QtCore.Qt.DashDotLine)\n    ]\n    brushes = [\n        pg.mkBrush('r'),\n        pg.mkBrush('g'),\n        pg.mkBrush('b'),\n        pg.mkBrush('y'),\n        pg.mkBrush('m')\n    ]\n    labels = ['A', 'B', 'C', 'D', 'E']\n\n    graph = CustomGraphItem()\n    graph.setData(\n        pos=positions,\n        adj=adj,\n        pen=pens,\n        symbolBrush=brushes,\n        symbolPen=[pg.mkPen('k', width=1)]*5,\n        symbolSize=30,\n        labels=labels\n    )\n    view.addItem(graph)\n\n    win.show()\n    sys.exit(app.exec_())\n```",
+  "latency_seconds": 7.6767143119996035,
+  "usage": {
+    "completion_tokens": 1381,
+    "prompt_tokens": 174,
+    "total_tokens": 1555,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11396,
+  "response_sha256": "1889bc691007ab3c367b286425fdff6b51372669139ba7a6f4ec39fd434fee91",
+  "artifact_sha256": "5bc809a7eb44fc089760ec6b898bb258c9919d889c42800eadfda988fed6054c"
+}

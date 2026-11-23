@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 25,
+    "task_sha256": "4852afecd9ab1a9281037c0f390bb7a3d0b2e9342b1c0da26f45d1b390f7f7d5",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a coil optimization problem using the simsopt library. The goal is to find coils that generate a specific target normal field on a given surface. The objective function includes terms for the magnetic field, coil length, coil-to-coil distance, coil-to-surface distance, curvature, and mean squared curvature. The code should initialize the boundary magnetic surface, create initial coils, define the individual terms of the objective function, and form the total objective function. It should then perform a Taylor test and run the optimization. After the optimization, the code should use the result as the initial guess for a subsequent optimization with reduced penalty for the coil length. Finally, the code should save the optimized coil shapes and currents."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4u1QikIOEUcsb1DxOjCqaURlD8k",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom simsopt.field.coil import CurveRZFourier, Coil\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.magnetic_field import ToroidalMagneticField\nfrom simsopt.field.magnetic_surface import SurfaceRZFourier\nfrom simsopt.objectives import (\n    SquaredFlux,\n    CurveLength,\n    CurveCurveDistance,\n    CurveSurfaceDistance,\n    CurveCurvature,\n    CurveMeanSquaredCurvature,\n    QuadraticPenalty,\n    LeastSquaresObjective,\n)\nfrom simsopt.solve import least_squares_serial_solve\nfrom simsopt.util.taylor_test import taylor_test\n\n# Parameters\nncoils = 6\nnfp = 1\norder = 5\nnphi = 64\nntheta = 32\nsurface_filename = \"surface.txt\"  # Replace with your surface file\n\n# Load target surface\nsurface = SurfaceRZFourier.from_file(surface_filename, nphi=nphi, ntheta=ntheta)\n\n# Target normal field (example: zero everywhere)\ntarget_Bn = np.zeros((nphi, ntheta))\n\n# Initial coils\ncoils = []\nfor i in range(ncoils):\n    # Place coils toroidally symmetric around the surface\n    phi0 = i * 2 * np.pi / ncoils\n    curve = CurveRZFourier(nfp=nfp, order=order)\n    # Set initial coefficients (simple circular coils)\n    R0 = surface.get_rc(0)\n    Z0 = surface.get_zs(0)\n    curve.set(\"rc\", [R0 + 0.2])\n    curve.set(\"zs\", [Z0])\n    curve.set(\"rc\", [R0 + 0.2, 0.0, 0.0, 0.0, 0.0, 0.0])\n    curve.set(\"zs\", [Z0, 0.0, 0.0, 0.0, 0.0, 0.0])\n    curve.rotate(phi0)\n    coil = Coil(curve, current=1.0)\n    coils.append(coil)\n\ncoil_collection = CoilCollection(coils)\nbs = BiotSavart(coil_collection)\n\n# Objective terms\nflux_term = SquaredFlux(surface, bs, target_Bn, weight=1.0)\nlength_term = CurveLength(coil_collection, weight=1e-3)\ncoilcoil_term = CurveCurveDistance(coil_collection, dmin=0.1, weight=1e-2)\ncoilsurf_term = CurveSurfaceDistance(coil_collection, surface, dmin=0.1, weight=1e-2)\ncurvature_term = CurveCurvature(coil_collection, max_curvature=8.0, weight=1e-2)\nmeansq_curvature_term = CurveMeanSquaredCurvature(coil_collection, weight=1e-3)\n\n# Total objective\nobjective = LeastSquaresObjective([\n    flux_term,\n    length_term,\n    coilcoil_term,\n    coilsurf_term,\n    curvature_term,\n    meansq_curvature_term\n])\n\n# Taylor test\ntaylor_test(objective, coil_collection.x, seed=1)\n\n# Optimization\nleast_squares_serial_solve(objective, coil_collection, verbose=2, max_nfev=100)\n\n# Reduce coil length penalty and re-optimize\nlength_term.weight = 1e-4\nleast_squares_serial_solve(objective, coil_collection, verbose=2, max_nfev=100)\n\n# Save results\nfor i, coil in enumerate(coil_collection.coils):\n    coil.curve.save(f\"coil_{i}_curve.json\")\n    np.savetxt(f\"coil_{i}_current.txt\", [coil.current])\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127297,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_128048d39c",
+    "usage": {
+      "completion_tokens": 800,
+      "prompt_tokens": 175,
+      "total_tokens": 975,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom simsopt.field.coil import CurveRZFourier, Coil\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.magnetic_field import ToroidalMagneticField\nfrom simsopt.field.magnetic_surface import SurfaceRZFourier\nfrom simsopt.objectives import (\n    SquaredFlux,\n    CurveLength,\n    CurveCurveDistance,\n    CurveSurfaceDistance,\n    CurveCurvature,\n    CurveMeanSquaredCurvature,\n    QuadraticPenalty,\n    LeastSquaresObjective,\n)\nfrom simsopt.solve import least_squares_serial_solve\nfrom simsopt.util.taylor_test import taylor_test\n\n# Parameters\nncoils = 6\nnfp = 1\norder = 5\nnphi = 64\nntheta = 32\nsurface_filename = \"surface.txt\"  # Replace with your surface file\n\n# Load target surface\nsurface = SurfaceRZFourier.from_file(surface_filename, nphi=nphi, ntheta=ntheta)\n\n# Target normal field (example: zero everywhere)\ntarget_Bn = np.zeros((nphi, ntheta))\n\n# Initial coils\ncoils = []\nfor i in range(ncoils):\n    # Place coils toroidally symmetric around the surface\n    phi0 = i * 2 * np.pi / ncoils\n    curve = CurveRZFourier(nfp=nfp, order=order)\n    # Set initial coefficients (simple circular coils)\n    R0 = surface.get_rc(0)\n    Z0 = surface.get_zs(0)\n    curve.set(\"rc\", [R0 + 0.2])\n    curve.set(\"zs\", [Z0])\n    curve.set(\"rc\", [R0 + 0.2, 0.0, 0.0, 0.0, 0.0, 0.0])\n    curve.set(\"zs\", [Z0, 0.0, 0.0, 0.0, 0.0, 0.0])\n    curve.rotate(phi0)\n    coil = Coil(curve, current=1.0)\n    coils.append(coil)\n\ncoil_collection = CoilCollection(coils)\nbs = BiotSavart(coil_collection)\n\n# Objective terms\nflux_term = SquaredFlux(surface, bs, target_Bn, weight=1.0)\nlength_term = CurveLength(coil_collection, weight=1e-3)\ncoilcoil_term = CurveCurveDistance(coil_collection, dmin=0.1, weight=1e-2)\ncoilsurf_term = CurveSurfaceDistance(coil_collection, surface, dmin=0.1, weight=1e-2)\ncurvature_term = CurveCurvature(coil_collection, max_curvature=8.0, weight=1e-2)\nmeansq_curvature_term = CurveMeanSquaredCurvature(coil_collection, weight=1e-3)\n\n# Total objective\nobjective = LeastSquaresObjective([\n    flux_term,\n    length_term,\n    coilcoil_term,\n    coilsurf_term,\n    curvature_term,\n    meansq_curvature_term\n])\n\n# Taylor test\ntaylor_test(objective, coil_collection.x, seed=1)\n\n# Optimization\nleast_squares_serial_solve(objective, coil_collection, verbose=2, max_nfev=100)\n\n# Reduce coil length penalty and re-optimize\nlength_term.weight = 1e-4\nleast_squares_serial_solve(objective, coil_collection, verbose=2, max_nfev=100)\n\n# Save results\nfor i, coil in enumerate(coil_collection.coils):\n    coil.curve.save(f\"coil_{i}_curve.json\")\n    np.savetxt(f\"coil_{i}_current.txt\", [coil.current])\n```",
+  "latency_seconds": 8.532044260000475,
+  "usage": {
+    "completion_tokens": 800,
+    "prompt_tokens": 175,
+    "total_tokens": 975,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6750,
+  "response_sha256": "a12b44efc99b123f5e83664cffca6f8481a10e57a534f92f948ac9d541f1f666",
+  "artifact_sha256": "3a16d0f1ecd4a7cf3548cfd465b85b34be6bec03fddda78d2718066db2c8ca89"
+}

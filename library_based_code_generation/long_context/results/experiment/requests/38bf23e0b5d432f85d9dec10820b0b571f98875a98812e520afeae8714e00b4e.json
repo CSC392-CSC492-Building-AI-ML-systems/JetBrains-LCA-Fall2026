@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 21,
+    "task_sha256": "b0890c424361fbdfb2227415ea0649a44ecbc6e4a67ee331717e932a9a964a03",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that compares several bandit agents using the rlberry library. The code should define the parameters of the problem, construct the experiment, define several classes of agents (UCB, UCBV, ETC, MOSS, IMED, NPTS, EXP3), and train these agents. After training, the code should compute and plot the cumulative pseudo-regret and cumulative regret for each agent. Finally, the code should compute and plot the number of times each arm was selected. The agents should be wrapped with a WriterWrapper to track the action and reward. The experiment should be managed using the ExperimentManager class. The plots should be created using matplotlib and seaborn, with varying line styles for each agent."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4qWXyy5YTFVh3qYwBE6l0l1oBXT",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nfrom rlberry.envs.bandits import BernoulliBandit\nfrom rlberry.agents.bandits import (\n    UCB,\n    UCBV,\n    ETC,\n    MOSS,\n    IMED,\n    NPTS,\n    EXP3,\n)\nfrom rlberry.wrappers import WriterWrapper\nfrom rlberry.manager import ExperimentManager\n\n# Set random seed for reproducibility\nnp.random.seed(42)\n\n# Problem parameters\nn_arms = 5\narm_means = [0.1, 0.5, 0.3, 0.8, 0.6]\nhorizon = 1000\n\n# Environment constructor\ndef env_ctor():\n    return BernoulliBandit(arm_means)\n\n# Agent parameters\nagent_classes = [\n    (\"UCB\", UCB),\n    (\"UCBV\", UCBV),\n    (\"ETC\", ETC),\n    (\"MOSS\", MOSS),\n    (\"IMED\", IMED),\n    (\"NPTS\", NPTS),\n    (\"EXP3\", EXP3),\n]\n\nagent_kwargs = {\n    \"UCB\": dict(burn_in=1),\n    \"UCBV\": dict(burn_in=1),\n    \"ETC\": dict(burn_in=1, horizon=horizon),\n    \"MOSS\": dict(burn_in=1),\n    \"IMED\": dict(burn_in=1),\n    \"NPTS\": dict(burn_in=1),\n    \"EXP3\": dict(gamma=0.07),\n}\n\n# Experiment setup\nmanagers = []\nfor name, agent_cls in agent_classes:\n    agent_ctor = lambda env, agent_cls=agent_cls, name=name: WriterWrapper(\n        agent_cls(env, **agent_kwargs.get(name, {}))\n    )\n    manager = ExperimentManager(\n        agent_ctor,\n        env_ctor,\n        fit_budget=horizon,\n        n_fit=1,\n        agent_name=name,\n        output_dir=None,\n        parallelization=\"none\",\n        seed=42,\n    )\n    managers.append(manager)\n\n# Train agents\nfor manager in managers:\n    manager.fit()\n\n# Compute regrets and arm pulls\noptimal_mean = max(arm_means)\nresults = {}\n\nfor manager in managers:\n    name = manager.agent_name\n    writer_data = manager.get_writer_data()\n    actions = np.array(writer_data[\"action\"])\n    rewards = np.array(writer_data[\"reward\"])\n    n_steps = len(actions)\n    chosen_means = np.array([arm_means[a] for a in actions])\n    pseudo_regret = np.cumsum(optimal_mean - chosen_means)\n    regret = np.cumsum(optimal_mean - rewards)\n    arm_counts = np.bincount(actions, minlength=n_arms)\n    results[name] = {\n        \"pseudo_regret\": pseudo_regret,\n        \"regret\": regret,\n        \"arm_counts\": arm_counts,\n        \"actions\": actions,\n        \"rewards\": rewards,\n    }\n\n# Plotting\nsns.set(style=\"whitegrid\")\nline_styles = [\"-\", \"--\", \"-.\", \":\", (0, (3, 1, 1, 1)), (0, (5, 1)), (0, (1, 1))]\n\nplt.figure(figsize=(12, 6))\nfor idx, (name, res) in enumerate(results.items()):\n    plt.plot(res[\"pseudo_regret\"], label=name, linestyle=line_styles[idx % len(line_styles)])\nplt.xlabel(\"Time step\")\nplt.ylabel(\"Cumulative Pseudo-Regret\")\nplt.title(\"Cumulative Pseudo-Regret of Bandit Agents\")\nplt.legend()\nplt.tight_layout()\nplt.show()\n\nplt.figure(figsize=(12, 6))\nfor idx, (name, res) in enumerate(results.items()):\n    plt.plot(res[\"regret\"], label=name, linestyle=line_styles[idx % len(line_styles)])\nplt.xlabel(\"Time step\")\nplt.ylabel(\"Cumulative Regret\")\nplt.title(\"Cumulative Regret of Bandit Agents\")\nplt.legend()\nplt.tight_layout()\nplt.show()\n\nplt.figure(figsize=(12, 6))\nbar_width = 0.1\nindices = np.arange(n_arms)\nfor idx, (name, res) in enumerate(results.items()):\n    plt.bar(\n        indices + idx * bar_width,\n        res[\"arm_counts\"],\n        width=bar_width,\n        label=name,\n        alpha=0.8,\n    )\nplt.xlabel(\"Arm\")\nplt.ylabel(\"Number of times selected\")\nplt.title(\"Number of times each arm was selected\")\nplt.xticks(indices + bar_width * (len(results) - 1) / 2, [f\"Arm {i}\" for i in range(n_arms)])\nplt.legend()\nplt.tight_layout()\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127080,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_31a1fa9e98",
+    "usage": {
+      "completion_tokens": 986,
+      "prompt_tokens": 175,
+      "total_tokens": 1161,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nfrom rlberry.envs.bandits import BernoulliBandit\nfrom rlberry.agents.bandits import (\n    UCB,\n    UCBV,\n    ETC,\n    MOSS,\n    IMED,\n    NPTS,\n    EXP3,\n)\nfrom rlberry.wrappers import WriterWrapper\nfrom rlberry.manager import ExperimentManager\n\n# Set random seed for reproducibility\nnp.random.seed(42)\n\n# Problem parameters\nn_arms = 5\narm_means = [0.1, 0.5, 0.3, 0.8, 0.6]\nhorizon = 1000\n\n# Environment constructor\ndef env_ctor():\n    return BernoulliBandit(arm_means)\n\n# Agent parameters\nagent_classes = [\n    (\"UCB\", UCB),\n    (\"UCBV\", UCBV),\n    (\"ETC\", ETC),\n    (\"MOSS\", MOSS),\n    (\"IMED\", IMED),\n    (\"NPTS\", NPTS),\n    (\"EXP3\", EXP3),\n]\n\nagent_kwargs = {\n    \"UCB\": dict(burn_in=1),\n    \"UCBV\": dict(burn_in=1),\n    \"ETC\": dict(burn_in=1, horizon=horizon),\n    \"MOSS\": dict(burn_in=1),\n    \"IMED\": dict(burn_in=1),\n    \"NPTS\": dict(burn_in=1),\n    \"EXP3\": dict(gamma=0.07),\n}\n\n# Experiment setup\nmanagers = []\nfor name, agent_cls in agent_classes:\n    agent_ctor = lambda env, agent_cls=agent_cls, name=name: WriterWrapper(\n        agent_cls(env, **agent_kwargs.get(name, {}))\n    )\n    manager = ExperimentManager(\n        agent_ctor,\n        env_ctor,\n        fit_budget=horizon,\n        n_fit=1,\n        agent_name=name,\n        output_dir=None,\n        parallelization=\"none\",\n        seed=42,\n    )\n    managers.append(manager)\n\n# Train agents\nfor manager in managers:\n    manager.fit()\n\n# Compute regrets and arm pulls\noptimal_mean = max(arm_means)\nresults = {}\n\nfor manager in managers:\n    name = manager.agent_name\n    writer_data = manager.get_writer_data()\n    actions = np.array(writer_data[\"action\"])\n    rewards = np.array(writer_data[\"reward\"])\n    n_steps = len(actions)\n    chosen_means = np.array([arm_means[a] for a in actions])\n    pseudo_regret = np.cumsum(optimal_mean - chosen_means)\n    regret = np.cumsum(optimal_mean - rewards)\n    arm_counts = np.bincount(actions, minlength=n_arms)\n    results[name] = {\n        \"pseudo_regret\": pseudo_regret,\n        \"regret\": regret,\n        \"arm_counts\": arm_counts,\n        \"actions\": actions,\n        \"rewards\": rewards,\n    }\n\n# Plotting\nsns.set(style=\"whitegrid\")\nline_styles = [\"-\", \"--\", \"-.\", \":\", (0, (3, 1, 1, 1)), (0, (5, 1)), (0, (1, 1))]\n\nplt.figure(figsize=(12, 6))\nfor idx, (name, res) in enumerate(results.items()):\n    plt.plot(res[\"pseudo_regret\"], label=name, linestyle=line_styles[idx % len(line_styles)])\nplt.xlabel(\"Time step\")\nplt.ylabel(\"Cumulative Pseudo-Regret\")\nplt.title(\"Cumulative Pseudo-Regret of Bandit Agents\")\nplt.legend()\nplt.tight_layout()\nplt.show()\n\nplt.figure(figsize=(12, 6))\nfor idx, (name, res) in enumerate(results.items()):\n    plt.plot(res[\"regret\"], label=name, linestyle=line_styles[idx % len(line_styles)])\nplt.xlabel(\"Time step\")\nplt.ylabel(\"Cumulative Regret\")\nplt.title(\"Cumulative Regret of Bandit Agents\")\nplt.legend()\nplt.tight_layout()\nplt.show()\n\nplt.figure(figsize=(12, 6))\nbar_width = 0.1\nindices = np.arange(n_arms)\nfor idx, (name, res) in enumerate(results.items()):\n    plt.bar(\n        indices + idx * bar_width,\n        res[\"arm_counts\"],\n        width=bar_width,\n        label=name,\n        alpha=0.8,\n    )\nplt.xlabel(\"Arm\")\nplt.ylabel(\"Number of times selected\")\nplt.title(\"Number of times each arm was selected\")\nplt.xticks(indices + bar_width * (len(results) - 1) / 2, [f\"Arm {i}\" for i in range(n_arms)])\nplt.legend()\nplt.tight_layout()\nplt.show()\n```",
+  "latency_seconds": 5.995627127998887,
+  "usage": {
+    "completion_tokens": 986,
+    "prompt_tokens": 175,
+    "total_tokens": 1161,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8238,
+  "response_sha256": "2fc375bd5f6ad7ec7e9297f26039560d4c13484a4e367bed5039841575749fbc",
+  "artifact_sha256": "e4c860b253f31cfb65795d6c02875af4a39d4730cf2701ae751b076fc66c3f94"
+}

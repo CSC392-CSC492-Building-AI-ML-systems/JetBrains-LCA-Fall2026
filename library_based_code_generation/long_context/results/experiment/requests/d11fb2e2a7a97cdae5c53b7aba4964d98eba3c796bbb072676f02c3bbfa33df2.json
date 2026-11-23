@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 70,
+    "task_sha256": "16675cf1be6323bf1dabff48ffdc69e91e5710c13b9c259ceea4e5f5ccc86e5b",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary modules from numpy, scipy, and porepy. The code should define four functions: add_data, write_network, main, and two test functions. \n\nThe add_data function should take a grid bucket, a domain, and a permeability factor as arguments. It should add parameters to the grid bucket such as permeability, source term, apertures, and boundary conditions. \n\nThe write_network function should take a file name as an argument and write a predefined network string to a file with that name.\n\nThe main function should take a permeability factor, a description, a boolean indicating whether the grid bucket should be coarsened, and a boolean indicating whether the results should be exported. It should define mesh parameters, a domain, and a file name. It should write a network to a file, import a 2D fracture network from the file, compute the geometry of the grid bucket, optionally coarsen the grid bucket, assign an ordering to the nodes of the grid bucket, and add data to the grid bucket. It should define solvers for flow and source, compute the right-hand side and the matrix of the linear systems, solve the linear systems, split the solution, extract the discharge and pressure from the solution, and project the discharge. If the results should be exported, it should export the pressure and the projected discharge to a vtk file.\n\nThe test_vem_blocking function should call the main function with a small permeability factor and the description \"blocking\".\n\nThe test_vem_permeable function should call the main function with a large permeability factor and the description \"permeable\"."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5P3BTnnUnz1mUHQy4xkjw4p6qC8",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom scipy import sparse\nimport porepy as pp\n\ndef add_data(gb, domain, perm_factor):\n    for g, d in gb:\n        k = perm_factor * np.ones(g.num_cells)\n        d[\"permeability\"] = pp.SecondOrderTensor(k)\n        d[\"source\"] = np.zeros(g.num_cells)\n        if g.dim == 2:\n            d[\"aperture\"] = np.ones(g.num_cells)\n        elif g.dim == 1:\n            d[\"aperture\"] = np.ones(g.num_cells) * 1e-3\n        bc = pp.BoundaryCondition(g, faces=np.array([], dtype=int), cond=np.array([], dtype=int))\n        bc_faces = g.get_boundary_faces()\n        bc_types = np.array([pp.BoundaryCondition.DIRICHLET] * bc_faces.size)\n        bc_values = np.zeros(bc_faces.size)\n        d[\"bc\"] = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_types)\n        d[\"bc_values\"] = np.zeros(g.num_faces)\n        d[\"bc_values\"][bc_faces] = bc_values\n    for e, d in gb.edges():\n        d[\"aperture\"] = np.ones(d[\"mortar_grid\"].num_cells)\n        d[\"normal_diffusivity\"] = np.ones(d[\"mortar_grid\"].num_cells)\n\ndef write_network(file_name):\n    network_str = \"\"\"2\n0.2 0.2 0.8 0.2\n0.5 0.0 0.5 1.0\n\"\"\"\n    with open(file_name, \"w\") as f:\n        f.write(network_str)\n\ndef main(perm_factor, description, coarsen=False, export=False):\n    mesh_size = {\"h\": 0.05}\n    domain = {\"xmin\": 0, \"xmax\": 1, \"ymin\": 0, \"ymax\": 1}\n    file_name = f\"network_{description}.txt\"\n    write_network(file_name)\n    network = pp.fracs.ImportNetwork2d(file_name)\n    gb = network.mesh(mesh_size, domain=domain)\n    gb.compute_geometry()\n    if coarsen:\n        gb = pp.coarsening.coarsen(gb)\n    pp.contact_conditions.set_projections(gb)\n    add_data(gb, domain, perm_factor)\n    flow = pp.ad.Flow(gb)\n    flow.discretize()\n    A, b = flow.assemble_matrix_rhs()\n    sol = spsolve(A, b)\n    flow.split(sol)\n    discharge = flow.extract_discharge()\n    pressure = flow.extract_pressure()\n    projected_discharge = flow.project_discharge()\n    if export:\n        exporter = pp.Exporter(gb, file_name=f\"results_{description}\")\n        exporter.write_vtk([\"pressure\", \"projected_discharge\"], [pressure, projected_discharge])\n\ndef test_vem_blocking():\n    main(perm_factor=1e-6, description=\"blocking\", coarsen=False, export=False)\n\ndef test_vem_permeable():\n    main(perm_factor=1e2, description=\"permeable\", coarsen=False, export=False)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129221,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_bce17ff7c2",
+    "usage": {
+      "completion_tokens": 671,
+      "prompt_tokens": 356,
+      "total_tokens": 1027,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom scipy import sparse\nimport porepy as pp\n\ndef add_data(gb, domain, perm_factor):\n    for g, d in gb:\n        k = perm_factor * np.ones(g.num_cells)\n        d[\"permeability\"] = pp.SecondOrderTensor(k)\n        d[\"source\"] = np.zeros(g.num_cells)\n        if g.dim == 2:\n            d[\"aperture\"] = np.ones(g.num_cells)\n        elif g.dim == 1:\n            d[\"aperture\"] = np.ones(g.num_cells) * 1e-3\n        bc = pp.BoundaryCondition(g, faces=np.array([], dtype=int), cond=np.array([], dtype=int))\n        bc_faces = g.get_boundary_faces()\n        bc_types = np.array([pp.BoundaryCondition.DIRICHLET] * bc_faces.size)\n        bc_values = np.zeros(bc_faces.size)\n        d[\"bc\"] = pp.BoundaryCondition(g, faces=bc_faces, cond=bc_types)\n        d[\"bc_values\"] = np.zeros(g.num_faces)\n        d[\"bc_values\"][bc_faces] = bc_values\n    for e, d in gb.edges():\n        d[\"aperture\"] = np.ones(d[\"mortar_grid\"].num_cells)\n        d[\"normal_diffusivity\"] = np.ones(d[\"mortar_grid\"].num_cells)\n\ndef write_network(file_name):\n    network_str = \"\"\"2\n0.2 0.2 0.8 0.2\n0.5 0.0 0.5 1.0\n\"\"\"\n    with open(file_name, \"w\") as f:\n        f.write(network_str)\n\ndef main(perm_factor, description, coarsen=False, export=False):\n    mesh_size = {\"h\": 0.05}\n    domain = {\"xmin\": 0, \"xmax\": 1, \"ymin\": 0, \"ymax\": 1}\n    file_name = f\"network_{description}.txt\"\n    write_network(file_name)\n    network = pp.fracs.ImportNetwork2d(file_name)\n    gb = network.mesh(mesh_size, domain=domain)\n    gb.compute_geometry()\n    if coarsen:\n        gb = pp.coarsening.coarsen(gb)\n    pp.contact_conditions.set_projections(gb)\n    add_data(gb, domain, perm_factor)\n    flow = pp.ad.Flow(gb)\n    flow.discretize()\n    A, b = flow.assemble_matrix_rhs()\n    sol = spsolve(A, b)\n    flow.split(sol)\n    discharge = flow.extract_discharge()\n    pressure = flow.extract_pressure()\n    projected_discharge = flow.project_discharge()\n    if export:\n        exporter = pp.Exporter(gb, file_name=f\"results_{description}\")\n        exporter.write_vtk([\"pressure\", \"projected_discharge\"], [pressure, projected_discharge])\n\ndef test_vem_blocking():\n    main(perm_factor=1e-6, description=\"blocking\", coarsen=False, export=False)\n\ndef test_vem_permeable():\n    main(perm_factor=1e2, description=\"permeable\", coarsen=False, export=False)\n```",
+  "latency_seconds": 4.924573532000068,
+  "usage": {
+    "completion_tokens": 671,
+    "prompt_tokens": 356,
+    "total_tokens": 1027,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6080,
+  "response_sha256": "93ea514cb7157fa50725cee0e4a66bc50acced3f3285cefdc7ac0683eacd5782",
+  "artifact_sha256": "0809b8145defda9dd0ef7cd96242b5a199ffe91797509293d05f7a7b919f6508"
+}

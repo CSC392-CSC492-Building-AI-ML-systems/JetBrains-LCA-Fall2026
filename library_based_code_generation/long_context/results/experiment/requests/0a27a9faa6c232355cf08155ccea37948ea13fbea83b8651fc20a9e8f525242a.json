@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 52,
+    "task_sha256": "855b035a72535abbe3335527928112760174a63e21a786af31c78fd8e7a174fb",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that simulates fireworks using the vispy library in Python. The simulation should create a series of explosions that last one second, with each explosion being unique. The visualization during the explosion should be highly optimized using a Vertex Buffer Object (VBO). The code should include a class named 'Canvas' that inherits from 'app.Canvas' and includes methods for initializing the simulation, drawing the simulation, resizing the simulation, timing the simulation, and creating a new explosion. The code should also include vertex and fragment shaders written in GLSL. The simulation should be interactive and the window size should be 800x600 pixels. The code should run the simulation when executed.\n\nYou can find the following APIs from the library helpful:\nshould_use_fpret, a, should_cast_to_f32, x86_should_use_stret, code, TransA, generate_filter_code, _clean_code, call_code, _parse_variables_from_code, _get_replaced_code, _get_k_p_a, _get_orig_and_new_clims, _test_object_creation_and_deletion, scale_and_set_data, _get_verts_and_connect, run_tests_in_object, _parse_constants_and_functions_from_file, test_volume_clims_and_gamma, test_image_clims_and_gamma"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5EsbPiPSDeHwqLJEiDIufbmHgMx",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom vispy import app, gloo\nfrom vispy.util import keys\nimport time\n\nvertex_shader = \"\"\"\n#version 120\nattribute vec2 a_position;\nattribute vec3 a_color;\nattribute float a_size;\nattribute float a_lifetime;\nuniform float u_time;\nvarying vec3 v_color;\nvarying float v_alpha;\nvoid main()\n{\n    float t = u_time - a_lifetime;\n    float fade = 1.0 - clamp(t, 0.0, 1.0);\n    v_color = a_color;\n    v_alpha = fade;\n    gl_Position = vec4(a_position, 0.0, 1.0);\n    gl_PointSize = a_size * fade;\n}\n\"\"\"\n\nfragment_shader = \"\"\"\n#version 120\nvarying vec3 v_color;\nvarying float v_alpha;\nvoid main()\n{\n    float dist = length(gl_PointCoord - vec2(0.5, 0.5));\n    float alpha = smoothstep(0.5, 0.2, dist) * v_alpha;\n    gl_FragColor = vec4(v_color, alpha);\n}\n\"\"\"\n\nclass Canvas(app.Canvas):\n    def __init__(self):\n        app.Canvas.__init__(self, keys='interactive', size=(800, 600), title='Fireworks Simulation')\n        self.program = gloo.Program(vertex_shader, fragment_shader)\n        self.n_particles = 0\n        self.max_particles = 2000\n        self.particle_dtype = np.dtype([\n            ('a_position', np.float32, 2),\n            ('a_color',    np.float32, 3),\n            ('a_size',     np.float32, 1),\n            ('a_lifetime', np.float32, 1),\n        ])\n        self.particles = np.zeros(self.max_particles, dtype=self.particle_dtype)\n        self.vbo = gloo.VertexBuffer(self.particles)\n        self.program.bind(self.vbo)\n        self.start_time = time.time()\n        self.last_explosion = 0\n        self.explosion_interval = 1.0\n        self.set_explosion()\n        self.timer = app.Timer('auto', connect=self.on_timer, start=True)\n        gloo.set_state(clear_color='black', blend=True, blend_func=('src_alpha', 'one'))\n        self.show()\n\n    def set_explosion(self, pos=None):\n        n = np.random.randint(80, 180)\n        angle = np.linspace(0, 2 * np.pi, n, endpoint=False)\n        speed = np.random.uniform(0.15, 0.45, n)\n        colors = np.random.uniform(0.5, 1.0, (n, 3))\n        if pos is None:\n            x = np.random.uniform(-0.8, 0.8)\n            y = np.random.uniform(-0.7, 0.7)\n        else:\n            x, y = pos\n        t0 = time.time() - self.start_time\n        for i in range(n):\n            vx = np.cos(angle[i]) * speed[i]\n            vy = np.sin(angle[i]) * speed[i]\n            self.particles[i]['a_position'] = [x, y]\n            self.particles[i]['a_color'] = colors[i]\n            self.particles[i]['a_size'] = np.random.uniform(6, 14)\n            self.particles[i]['a_lifetime'] = t0\n        self.n_particles = n\n        self.velocities = np.zeros((n, 2), dtype=np.float32)\n        self.velocities[:, 0] = np.cos(angle) * speed\n        self.velocities[:, 1] = np.sin(angle) * speed\n        self.origins = np.tile([x, y], (n, 1))\n        self.birth_time = t0\n\n    def on_draw(self, event):\n        gloo.clear()\n        t = time.time() - self.start_time\n        dt = t - self.birth_time\n        if dt < 1.0:\n            gravity = -0.6\n            positions = self.origins + self.velocities * dt\n            positions[:, 1] += 0.5 * gravity * dt * dt\n            self.particles[:self.n_particles]['a_position'] = positions\n            self.vbo.set_data(self.particles)\n            self.program['u_time'] = t\n            self.program.draw('points', vertices=self.n_particles)\n        else:\n            # Fade out\n            self.program['u_time'] = t\n            self.program.draw('points', vertices=self.n_particles)\n\n    def on_resize(self, event):\n        width, height = event.size\n        gloo.set_viewport(0, 0, width, height)\n\n    def on_timer(self, event):\n        t = time.time() - self.start_time\n        if t - self.last_explosion > self.explosion_interval:\n            self.set_explosion()\n            self.last_explosion = t\n        self.update()\n\n    def on_mouse_press(self, event):\n        # Map mouse to [-1, 1] coordinates\n        x = (event.pos[0] / self.size[0]) * 2 - 1\n        y = 1 - (event.pos[1] / self.size[1]) * 2\n        self.set_explosion((x, y))\n        self.last_explosion = time.time() - self.start_time\n\n    def on_key_press(self, event):\n        if event.key == keys.ESCAPE:\n            self.close()\n\nif __name__ == '__main__':\n    c = Canvas()\n    app.run()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128590,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0c9884ecfa",
+    "usage": {
+      "completion_tokens": 1174,
+      "prompt_tokens": 284,
+      "total_tokens": 1458,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom vispy import app, gloo\nfrom vispy.util import keys\nimport time\n\nvertex_shader = \"\"\"\n#version 120\nattribute vec2 a_position;\nattribute vec3 a_color;\nattribute float a_size;\nattribute float a_lifetime;\nuniform float u_time;\nvarying vec3 v_color;\nvarying float v_alpha;\nvoid main()\n{\n    float t = u_time - a_lifetime;\n    float fade = 1.0 - clamp(t, 0.0, 1.0);\n    v_color = a_color;\n    v_alpha = fade;\n    gl_Position = vec4(a_position, 0.0, 1.0);\n    gl_PointSize = a_size * fade;\n}\n\"\"\"\n\nfragment_shader = \"\"\"\n#version 120\nvarying vec3 v_color;\nvarying float v_alpha;\nvoid main()\n{\n    float dist = length(gl_PointCoord - vec2(0.5, 0.5));\n    float alpha = smoothstep(0.5, 0.2, dist) * v_alpha;\n    gl_FragColor = vec4(v_color, alpha);\n}\n\"\"\"\n\nclass Canvas(app.Canvas):\n    def __init__(self):\n        app.Canvas.__init__(self, keys='interactive', size=(800, 600), title='Fireworks Simulation')\n        self.program = gloo.Program(vertex_shader, fragment_shader)\n        self.n_particles = 0\n        self.max_particles = 2000\n        self.particle_dtype = np.dtype([\n            ('a_position', np.float32, 2),\n            ('a_color',    np.float32, 3),\n            ('a_size',     np.float32, 1),\n            ('a_lifetime', np.float32, 1),\n        ])\n        self.particles = np.zeros(self.max_particles, dtype=self.particle_dtype)\n        self.vbo = gloo.VertexBuffer(self.particles)\n        self.program.bind(self.vbo)\n        self.start_time = time.time()\n        self.last_explosion = 0\n        self.explosion_interval = 1.0\n        self.set_explosion()\n        self.timer = app.Timer('auto', connect=self.on_timer, start=True)\n        gloo.set_state(clear_color='black', blend=True, blend_func=('src_alpha', 'one'))\n        self.show()\n\n    def set_explosion(self, pos=None):\n        n = np.random.randint(80, 180)\n        angle = np.linspace(0, 2 * np.pi, n, endpoint=False)\n        speed = np.random.uniform(0.15, 0.45, n)\n        colors = np.random.uniform(0.5, 1.0, (n, 3))\n        if pos is None:\n            x = np.random.uniform(-0.8, 0.8)\n            y = np.random.uniform(-0.7, 0.7)\n        else:\n            x, y = pos\n        t0 = time.time() - self.start_time\n        for i in range(n):\n            vx = np.cos(angle[i]) * speed[i]\n            vy = np.sin(angle[i]) * speed[i]\n            self.particles[i]['a_position'] = [x, y]\n            self.particles[i]['a_color'] = colors[i]\n            self.particles[i]['a_size'] = np.random.uniform(6, 14)\n            self.particles[i]['a_lifetime'] = t0\n        self.n_particles = n\n        self.velocities = np.zeros((n, 2), dtype=np.float32)\n        self.velocities[:, 0] = np.cos(angle) * speed\n        self.velocities[:, 1] = np.sin(angle) * speed\n        self.origins = np.tile([x, y], (n, 1))\n        self.birth_time = t0\n\n    def on_draw(self, event):\n        gloo.clear()\n        t = time.time() - self.start_time\n        dt = t - self.birth_time\n        if dt < 1.0:\n            gravity = -0.6\n            positions = self.origins + self.velocities * dt\n            positions[:, 1] += 0.5 * gravity * dt * dt\n            self.particles[:self.n_particles]['a_position'] = positions\n            self.vbo.set_data(self.particles)\n            self.program['u_time'] = t\n            self.program.draw('points', vertices=self.n_particles)\n        else:\n            # Fade out\n            self.program['u_time'] = t\n            self.program.draw('points', vertices=self.n_particles)\n\n    def on_resize(self, event):\n        width, height = event.size\n        gloo.set_viewport(0, 0, width, height)\n\n    def on_timer(self, event):\n        t = time.time() - self.start_time\n        if t - self.last_explosion > self.explosion_interval:\n            self.set_explosion()\n            self.last_explosion = t\n        self.update()\n\n    def on_mouse_press(self, event):\n        # Map mouse to [-1, 1] coordinates\n        x = (event.pos[0] / self.size[0]) * 2 - 1\n        y = 1 - (event.pos[1] / self.size[1]) * 2\n        self.set_explosion((x, y))\n        self.last_explosion = time.time() - self.start_time\n\n    def on_key_press(self, event):\n        if event.key == keys.ESCAPE:\n            self.close()\n\nif __name__ == '__main__':\n    c = Canvas()\n    app.run()\n```",
+  "latency_seconds": 6.2543437799995445,
+  "usage": {
+    "completion_tokens": 1174,
+    "prompt_tokens": 284,
+    "total_tokens": 1458,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9960,
+  "response_sha256": "48fa490a1fb31b3ad4868b50a7489da013fa61db92bb1b956694846d8b74bf69",
+  "artifact_sha256": "448a9bea6e3feb20707edd983124d40bb32370cf4dd552dd0ddc3d9d030a5cc1"
+}

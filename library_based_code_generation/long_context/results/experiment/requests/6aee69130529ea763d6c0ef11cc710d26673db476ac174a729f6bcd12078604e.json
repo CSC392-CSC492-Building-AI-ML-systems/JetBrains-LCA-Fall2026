@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 132,
+    "task_sha256": "e49b87cfc29d0f63487817375d8236857c1a296e22c948e0304f7534743b10c5",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the bcc library to create a histogram of system-wide strlen return values. The code should handle the case where strlen is an indirect function. It should define two BPF programs, one for counting the return values and another for submitting the addresses of the resolver and implementation functions. The code should also include functions to get the symbol of the indirect function, set the addresses of the resolver and implementation functions, and find the offset of the implementation function. In the main function, it should get the symbol of the indirect function, find the offset of the implementation function, and attach the counting BPF program to the implementation function. The code should then enter a loop where it sleeps for one second, prints the histogram, and clears the histogram. The loop should continue until a KeyboardInterrupt is received."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5zC0QbjgCW11EjbqqoKifl4u3zD",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom bcc import BPF, USDT, SymbolCache\nimport ctypes as ct\nimport time\nimport sys\nimport os\n\n# BPF program for counting strlen return values\nbpf_text_count = \"\"\"\nBPF_HISTOGRAM(ret_hist);\n\nint count_strlen_ret(struct pt_regs *ctx) {\n    int ret = PT_REGS_RC(ctx);\n    ret_hist.increment(bpf_log2l(ret));\n    return 0;\n}\n\"\"\"\n\n# BPF program for submitting resolver and implementation addresses\nbpf_text_submit = \"\"\"\nBPF_PERF_OUTPUT(events);\n\nstruct data_t {\n    u64 resolver_addr;\n    u64 impl_addr;\n};\nint submit_addrs(struct pt_regs *ctx) {\n    struct data_t data = {};\n    data.resolver_addr = (u64)RESOLVER_ADDR;\n    data.impl_addr = (u64)IMPL_ADDR;\n    events.perf_submit(ctx, &data, sizeof(data));\n    return 0;\n}\n\"\"\"\n\n# Helper to get symbol of indirect function\ndef get_strlen_symbol(libc_path):\n    symcache = SymbolCache([libc_path])\n    for sym in symcache.get_symbols(libc_path):\n        if sym.name == \"strlen\":\n            return sym\n    return None\n\n# Helper to set addresses of resolver and implementation functions\ndef set_addrs(bpf, resolver_addr, impl_addr):\n    bpf[\"RESOLVER_ADDR\"] = ct.c_ulonglong(resolver_addr)\n    bpf[\"IMPL_ADDR\"] = ct.c_ulonglong(impl_addr)\n\n# Helper to find offset of implementation function\ndef find_impl_offset(libc_path, impl_name):\n    symcache = SymbolCache([libc_path])\n    for sym in symcache.get_symbols(libc_path):\n        if sym.name == impl_name:\n            return sym.addr\n    return None\n\ndef main():\n    libc_path = None\n    for path in [\"/lib/x86_64-linux-gnu/libc.so.6\", \"/lib64/libc.so.6\", \"/usr/lib/libc.so.6\"]:\n        if os.path.exists(path):\n            libc_path = path\n            break\n    if not libc_path:\n        print(\"libc.so.6 not found\")\n        sys.exit(1)\n\n    strlen_sym = get_strlen_symbol(libc_path)\n    if not strlen_sym:\n        print(\"strlen symbol not found\")\n        sys.exit(1)\n\n    # Try to find the resolver and implementation function names\n    resolver_name = None\n    impl_name = None\n    with open(libc_path, \"rb\") as f:\n        data = f.read()\n        if b\"__strlen_avx2\" in data:\n            impl_name = \"__strlen_avx2\"\n        elif b\"__strlen_sse2\" in data:\n            impl_name = \"__strlen_sse2\"\n        else:\n            impl_name = \"strlen\"\n\n        if b\"__strlen_ifunc\" in data:\n            resolver_name = \"__strlen_ifunc\"\n        elif b\"__strlen_resolver\" in data:\n            resolver_name = \"__strlen_resolver\"\n        else:\n            resolver_name = None\n\n    # Find implementation function offset\n    impl_offset = find_impl_offset(libc_path, impl_name)\n    if impl_offset is None:\n        print(\"Implementation function not found\")\n        sys.exit(1)\n\n    # Attach BPF program to implementation function\n    bpf = BPF(text=bpf_text_count)\n    bpf.attach_uprobe(name=libc_path, sym=impl_name, fn_name=\"count_strlen_ret\", pid=-1, retprobe=True)\n\n    print(\"Tracing strlen return values... Hit Ctrl-C to end.\")\n\n    try:\n        while True:\n            time.sleep(1)\n            print(\"Histogram of strlen return values:\")\n            bpf[\"ret_hist\"].print_log2_hist(\"strlen return\")\n            bpf[\"ret_hist\"].clear()\n    except KeyboardInterrupt:\n        pass\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131462,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 819,
+      "prompt_tokens": 193,
+      "total_tokens": 1012,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom bcc import BPF, USDT, SymbolCache\nimport ctypes as ct\nimport time\nimport sys\nimport os\n\n# BPF program for counting strlen return values\nbpf_text_count = \"\"\"\nBPF_HISTOGRAM(ret_hist);\n\nint count_strlen_ret(struct pt_regs *ctx) {\n    int ret = PT_REGS_RC(ctx);\n    ret_hist.increment(bpf_log2l(ret));\n    return 0;\n}\n\"\"\"\n\n# BPF program for submitting resolver and implementation addresses\nbpf_text_submit = \"\"\"\nBPF_PERF_OUTPUT(events);\n\nstruct data_t {\n    u64 resolver_addr;\n    u64 impl_addr;\n};\nint submit_addrs(struct pt_regs *ctx) {\n    struct data_t data = {};\n    data.resolver_addr = (u64)RESOLVER_ADDR;\n    data.impl_addr = (u64)IMPL_ADDR;\n    events.perf_submit(ctx, &data, sizeof(data));\n    return 0;\n}\n\"\"\"\n\n# Helper to get symbol of indirect function\ndef get_strlen_symbol(libc_path):\n    symcache = SymbolCache([libc_path])\n    for sym in symcache.get_symbols(libc_path):\n        if sym.name == \"strlen\":\n            return sym\n    return None\n\n# Helper to set addresses of resolver and implementation functions\ndef set_addrs(bpf, resolver_addr, impl_addr):\n    bpf[\"RESOLVER_ADDR\"] = ct.c_ulonglong(resolver_addr)\n    bpf[\"IMPL_ADDR\"] = ct.c_ulonglong(impl_addr)\n\n# Helper to find offset of implementation function\ndef find_impl_offset(libc_path, impl_name):\n    symcache = SymbolCache([libc_path])\n    for sym in symcache.get_symbols(libc_path):\n        if sym.name == impl_name:\n            return sym.addr\n    return None\n\ndef main():\n    libc_path = None\n    for path in [\"/lib/x86_64-linux-gnu/libc.so.6\", \"/lib64/libc.so.6\", \"/usr/lib/libc.so.6\"]:\n        if os.path.exists(path):\n            libc_path = path\n            break\n    if not libc_path:\n        print(\"libc.so.6 not found\")\n        sys.exit(1)\n\n    strlen_sym = get_strlen_symbol(libc_path)\n    if not strlen_sym:\n        print(\"strlen symbol not found\")\n        sys.exit(1)\n\n    # Try to find the resolver and implementation function names\n    resolver_name = None\n    impl_name = None\n    with open(libc_path, \"rb\") as f:\n        data = f.read()\n        if b\"__strlen_avx2\" in data:\n            impl_name = \"__strlen_avx2\"\n        elif b\"__strlen_sse2\" in data:\n            impl_name = \"__strlen_sse2\"\n        else:\n            impl_name = \"strlen\"\n\n        if b\"__strlen_ifunc\" in data:\n            resolver_name = \"__strlen_ifunc\"\n        elif b\"__strlen_resolver\" in data:\n            resolver_name = \"__strlen_resolver\"\n        else:\n            resolver_name = None\n\n    # Find implementation function offset\n    impl_offset = find_impl_offset(libc_path, impl_name)\n    if impl_offset is None:\n        print(\"Implementation function not found\")\n        sys.exit(1)\n\n    # Attach BPF program to implementation function\n    bpf = BPF(text=bpf_text_count)\n    bpf.attach_uprobe(name=libc_path, sym=impl_name, fn_name=\"count_strlen_ret\", pid=-1, retprobe=True)\n\n    print(\"Tracing strlen return values... Hit Ctrl-C to end.\")\n\n    try:\n        while True:\n            time.sleep(1)\n            print(\"Histogram of strlen return values:\")\n            bpf[\"ret_hist\"].print_log2_hist(\"strlen return\")\n            bpf[\"ret_hist\"].clear()\n    except KeyboardInterrupt:\n        pass\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 3.889045472998987,
+  "usage": {
+    "completion_tokens": 819,
+    "prompt_tokens": 193,
+    "total_tokens": 1012,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6938,
+  "response_sha256": "3beeb27c22cc36a6d6ecec1a5b163c41c1300a4f2619034f8e8f9516d73f3cdd",
+  "artifact_sha256": "5d4b4fe64abf28b994544479626611431fd867a10b6e8d44469be99d172b2c00"
+}

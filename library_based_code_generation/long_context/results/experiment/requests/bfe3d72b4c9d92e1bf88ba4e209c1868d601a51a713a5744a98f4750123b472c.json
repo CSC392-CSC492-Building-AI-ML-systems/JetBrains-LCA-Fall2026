@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 134,
+    "task_sha256": "b8b2888329fd4353eab8af8b42d6a19677c412e8d00d89f70f2dc0e253468ff4",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a custom PyTorch model named SMoGModel. This model should inherit from nn.Module and include a backbone, a projection head, and a prediction head. The model should also have a method to cluster features using KMeans from sklearn, a method to reset group features, and a method to reset momentum weights. The forward method should return encoded and predicted values. \n\nAdditionally, the code should create an instance of the SMoGModel using a backbone derived from a ResNet18 model. It should also create a memory bank using the MemoryBankModule from the lightly library. \n\nThe code should then set up a device for computation, apply a SMoGTransform to a CIFAR10 dataset, and create a DataLoader for the transformed dataset. \n\nFinally, the code should define a CrossEntropyLoss criterion and a SGD optimizer, and then run a training loop for 10 epochs. In each epoch, the code should update the model's momentum, encode inputs, update group features, calculate loss, and update the memory bank. The average loss for each epoch should be printed out.\n\nYou can find the following APIs from the library helpful:\n_reset_group_features, train_model_and_embed_images, status_code, ApiErrorCode, set_group_features, test_get_and_set, _dequeue_and_enqueue, _global_variance_and_covariance_loss, update_params_for_auth, test_forward__error_local_view_features_and_grids_must_both_be_set, _reset_momentum_weights, export_tag_to_basic_filenames_and_read_urls, thread_download_and_write, _start_and_end_offset, download_and_write_file, test_train_and_embed, FilenameAndReadUrl, test_store_and_retrieve, SamplingMethod, get_model_from_config"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em60flALc9l2Q3fMWHT1H2nb8V9wH",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\nfrom torchvision import models, transforms, datasets\nfrom torch.utils.data import DataLoader\nfrom lightly.models.modules.memory_bank import MemoryBankModule\nfrom lightly.transforms import SMoGTransform\nfrom sklearn.cluster import KMeans\n\nclass SMoGModel(nn.Module):\n    def __init__(self, backbone, feature_dim=512, proj_dim=128, pred_dim=64, n_clusters=10):\n        super(SMoGModel, self).__init__()\n        self.backbone = backbone\n        self.projection_head = nn.Sequential(\n            nn.Linear(feature_dim, proj_dim),\n            nn.BatchNorm1d(proj_dim),\n            nn.ReLU(inplace=True),\n            nn.Linear(proj_dim, proj_dim)\n        )\n        self.prediction_head = nn.Sequential(\n            nn.Linear(proj_dim, pred_dim),\n            nn.BatchNorm1d(pred_dim),\n            nn.ReLU(inplace=True),\n            nn.Linear(pred_dim, proj_dim)\n        )\n        self.n_clusters = n_clusters\n        self.group_features = torch.zeros(n_clusters, proj_dim)\n        self.momentum_backbone = models.resnet18(pretrained=False)\n        self.momentum_backbone.fc = nn.Identity()\n        self._reset_momentum_weights()\n\n    def forward(self, x):\n        features = self.backbone(x)\n        proj = self.projection_head(features)\n        pred = self.prediction_head(proj)\n        return proj, pred\n\n    @torch.no_grad()\n    def cluster_features(self, features):\n        features_np = features.detach().cpu().numpy()\n        kmeans = KMeans(n_clusters=self.n_clusters, n_init=10)\n        labels = kmeans.fit_predict(features_np)\n        self.group_features = torch.tensor(kmeans.cluster_centers_, dtype=features.dtype, device=features.device)\n        return labels\n\n    def _reset_group_features(self):\n        self.group_features = torch.zeros_like(self.group_features)\n\n    def _reset_momentum_weights(self):\n        for param_q, param_k in zip(self.backbone.parameters(), self.momentum_backbone.parameters()):\n            param_k.data.copy_(param_q.data)\n            param_k.requires_grad = False\n\n    @torch.no_grad()\n    def update_momentum(self, m=0.99):\n        for param_q, param_k in zip(self.backbone.parameters(), self.momentum_backbone.parameters()):\n            param_k.data = param_k.data * m + param_q.data * (1. - m)\n\n    def update_group_features(self, features, labels):\n        for i in range(self.n_clusters):\n            mask = (labels == i)\n            if mask.sum() > 0:\n                self.group_features[i] = features[mask].mean(dim=0)\n\n# Backbone from ResNet18\nresnet18 = models.resnet18(pretrained=False)\nresnet18.fc = nn.Identity()\nbackbone = resnet18\n\n# Create SMoGModel instance\nmodel = SMoGModel(backbone=backbone, feature_dim=512, proj_dim=128, pred_dim=64, n_clusters=10)\n\n# Memory bank\nmemory_bank = MemoryBankModule(size=4096, dim=128)\n\n# Device\ndevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\nmodel = model.to(device)\nmemory_bank = memory_bank.to(device)\n\n# SMoGTransform and CIFAR10 dataset\ntransform = SMoGTransform(input_size=32)\ndataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)\ndataloader = DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4, drop_last=True)\n\n# Loss and optimizer\ncriterion = nn.CrossEntropyLoss()\noptimizer = torch.optim.SGD(model.parameters(), lr=0.03, momentum=0.9, weight_decay=1e-4)\n\n# Training loop\nfor epoch in range(10):\n    model.train()\n    total_loss = 0.0\n    num_batches = 0\n    for (x0, x1), _ in dataloader:\n        x0 = x0.to(device)\n        x1 = x1.to(device)\n\n        optimizer.zero_grad()\n\n        # Forward pass\n        proj0, pred0 = model(x0)\n        proj1, pred1 = model(x1)\n\n        # Cluster features and update group features\n        with torch.no_grad():\n            labels0 = model.cluster_features(proj0)\n            labels1 = model.cluster_features(proj1)\n            model.update_group_features(proj0, torch.tensor(labels0, device=proj0.device))\n            model.update_group_features(proj1, torch.tensor(labels1, device=proj1.device))\n\n        # Compute loss (e.g., cross-entropy between predictions and cluster assignments)\n        loss0 = criterion(pred0, torch.tensor(labels0, device=pred0.device))\n        loss1 = criterion(pred1, torch.tensor(labels1, device=pred1.device))\n        loss = (loss0 + loss1) / 2\n\n        loss.backward()\n        optimizer.step()\n\n        # Update momentum encoder\n        model.update_momentum(m=0.99)\n\n        # Update memory bank\n        with torch.no_grad():\n            memory_bank.update(proj0, torch.arange(proj0.size(0), device=proj0.device))\n\n        total_loss += loss.item()\n        num_batches += 1\n\n    avg_loss = total_loss / num_batches\n    print(f\"Epoch {epoch+1}: Average Loss = {avg_loss:.4f}\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131553,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_78e0b5c67b",
+    "usage": {
+      "completion_tokens": 1149,
+      "prompt_tokens": 383,
+      "total_tokens": 1532,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\nfrom torchvision import models, transforms, datasets\nfrom torch.utils.data import DataLoader\nfrom lightly.models.modules.memory_bank import MemoryBankModule\nfrom lightly.transforms import SMoGTransform\nfrom sklearn.cluster import KMeans\n\nclass SMoGModel(nn.Module):\n    def __init__(self, backbone, feature_dim=512, proj_dim=128, pred_dim=64, n_clusters=10):\n        super(SMoGModel, self).__init__()\n        self.backbone = backbone\n        self.projection_head = nn.Sequential(\n            nn.Linear(feature_dim, proj_dim),\n            nn.BatchNorm1d(proj_dim),\n            nn.ReLU(inplace=True),\n            nn.Linear(proj_dim, proj_dim)\n        )\n        self.prediction_head = nn.Sequential(\n            nn.Linear(proj_dim, pred_dim),\n            nn.BatchNorm1d(pred_dim),\n            nn.ReLU(inplace=True),\n            nn.Linear(pred_dim, proj_dim)\n        )\n        self.n_clusters = n_clusters\n        self.group_features = torch.zeros(n_clusters, proj_dim)\n        self.momentum_backbone = models.resnet18(pretrained=False)\n        self.momentum_backbone.fc = nn.Identity()\n        self._reset_momentum_weights()\n\n    def forward(self, x):\n        features = self.backbone(x)\n        proj = self.projection_head(features)\n        pred = self.prediction_head(proj)\n        return proj, pred\n\n    @torch.no_grad()\n    def cluster_features(self, features):\n        features_np = features.detach().cpu().numpy()\n        kmeans = KMeans(n_clusters=self.n_clusters, n_init=10)\n        labels = kmeans.fit_predict(features_np)\n        self.group_features = torch.tensor(kmeans.cluster_centers_, dtype=features.dtype, device=features.device)\n        return labels\n\n    def _reset_group_features(self):\n        self.group_features = torch.zeros_like(self.group_features)\n\n    def _reset_momentum_weights(self):\n        for param_q, param_k in zip(self.backbone.parameters(), self.momentum_backbone.parameters()):\n            param_k.data.copy_(param_q.data)\n            param_k.requires_grad = False\n\n    @torch.no_grad()\n    def update_momentum(self, m=0.99):\n        for param_q, param_k in zip(self.backbone.parameters(), self.momentum_backbone.parameters()):\n            param_k.data = param_k.data * m + param_q.data * (1. - m)\n\n    def update_group_features(self, features, labels):\n        for i in range(self.n_clusters):\n            mask = (labels == i)\n            if mask.sum() > 0:\n                self.group_features[i] = features[mask].mean(dim=0)\n\n# Backbone from ResNet18\nresnet18 = models.resnet18(pretrained=False)\nresnet18.fc = nn.Identity()\nbackbone = resnet18\n\n# Create SMoGModel instance\nmodel = SMoGModel(backbone=backbone, feature_dim=512, proj_dim=128, pred_dim=64, n_clusters=10)\n\n# Memory bank\nmemory_bank = MemoryBankModule(size=4096, dim=128)\n\n# Device\ndevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\nmodel = model.to(device)\nmemory_bank = memory_bank.to(device)\n\n# SMoGTransform and CIFAR10 dataset\ntransform = SMoGTransform(input_size=32)\ndataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)\ndataloader = DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4, drop_last=True)\n\n# Loss and optimizer\ncriterion = nn.CrossEntropyLoss()\noptimizer = torch.optim.SGD(model.parameters(), lr=0.03, momentum=0.9, weight_decay=1e-4)\n\n# Training loop\nfor epoch in range(10):\n    model.train()\n    total_loss = 0.0\n    num_batches = 0\n    for (x0, x1), _ in dataloader:\n        x0 = x0.to(device)\n        x1 = x1.to(device)\n\n        optimizer.zero_grad()\n\n        # Forward pass\n        proj0, pred0 = model(x0)\n        proj1, pred1 = model(x1)\n\n        # Cluster features and update group features\n        with torch.no_grad():\n            labels0 = model.cluster_features(proj0)\n            labels1 = model.cluster_features(proj1)\n            model.update_group_features(proj0, torch.tensor(labels0, device=proj0.device))\n            model.update_group_features(proj1, torch.tensor(labels1, device=proj1.device))\n\n        # Compute loss (e.g., cross-entropy between predictions and cluster assignments)\n        loss0 = criterion(pred0, torch.tensor(labels0, device=pred0.device))\n        loss1 = criterion(pred1, torch.tensor(labels1, device=pred1.device))\n        loss = (loss0 + loss1) / 2\n\n        loss.backward()\n        optimizer.step()\n\n        # Update momentum encoder\n        model.update_momentum(m=0.99)\n\n        # Update memory bank\n        with torch.no_grad():\n            memory_bank.update(proj0, torch.arange(proj0.size(0), device=proj0.device))\n\n        total_loss += loss.item()\n        num_batches += 1\n\n    avg_loss = total_loss / num_batches\n    print(f\"Epoch {epoch+1}: Average Loss = {avg_loss:.4f}\")\n```",
+  "latency_seconds": 4.711270751999109,
+  "usage": {
+    "completion_tokens": 1149,
+    "prompt_tokens": 383,
+    "total_tokens": 1532,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9958,
+  "response_sha256": "5e0aea716f0d859c90d2330742507473fe9743698579faef7bcfed939937d1aa",
+  "artifact_sha256": "1a6fd6430acd99ecad0280cff32f1162971121fbcd4ff23884dea1be5e4db800"
+}

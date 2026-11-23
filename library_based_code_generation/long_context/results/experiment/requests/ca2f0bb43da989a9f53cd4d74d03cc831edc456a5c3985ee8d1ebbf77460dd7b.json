@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 91,
+    "task_sha256": "092f6b92600ab696d445ae3aa33a9b48808fa68c4505b2718162ae1841aa016e",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a CPU usage monitoring application using the py-shiny library. The application should be able to run both in a standard Python environment and in a Pyodide environment. It should use the psutil library to get CPU usage data, but if running in Pyodide, it should use a fake version of psutil. The application should display the CPU usage data in a graphical format using matplotlib and in a tabular format using pandas. The user interface should allow the user to select the colormap for the graphs, clear the history of CPU usage data, freeze the output, and specify the number of samples per graph and the number of rows to display in the table. The application should also include a function to hide ticks on a graph's axis.\n\nYou can find the following APIs from the library helpful:\nr_a, call_a, funcA, _should_suspend, should_continue, in_selected, to_pandas, _wrap_children_in_card, cast_to_pandas, to_lower, to_payload, to_float, to_upper, expect_locator_values_in_list, DataTable, expect_locator_contains_values_in_list, to_width_unit, deploy_to_shinyapps, deploy_to_connect, expect_to_change"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5bgYaiPpKkDoIu8PEFgPAlBXyKz",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport time\nimport threading\n\nfrom shiny import App, ui, render, reactive, Inputs, Outputs, Session\nimport matplotlib\nmatplotlib.use(\"Agg\")\nimport matplotlib.pyplot as plt\nimport pandas as pd\nimport numpy as np\n\n# Detect Pyodide environment\ndef is_pyodide():\n    try:\n        import js  # pyodide-specific\n        return True\n    except ImportError:\n        return False\n\n# Fake psutil for Pyodide\nclass FakePsutil:\n    def __init__(self):\n        self._usage = 0.0\n\n    def cpu_percent(self, interval=None):\n        # Simulate CPU usage with a sine wave + noise\n        t = time.time()\n        usage = 50 + 40 * np.sin(t / 5) + np.random.normal(0, 5)\n        return max(0, min(100, usage))\n\nif is_pyodide():\n    psutil = FakePsutil()\nelse:\n    import psutil\n\n# Hide axis ticks utility\ndef hide_ticks(ax):\n    ax.set_xticks([])\n    ax.set_yticks([])\n\n# UI\ncolormaps = sorted(m for m in plt.colormaps() if not m.endswith(\"_r\"))\n\napp_ui = ui.page_fluid(\n    ui.h2(\"CPU Usage Monitor\"),\n    ui.layout_sidebar(\n        ui.panel_sidebar(\n            ui.input_select(\"colormap\", \"Colormap\", choices=colormaps, selected=\"viridis\"),\n            ui.input_numeric(\"samples\", \"Samples per graph\", 30, min=5, max=200),\n            ui.input_numeric(\"rows\", \"Rows in table\", 10, min=1, max=200),\n            ui.input_checkbox(\"freeze\", \"Freeze output\", False),\n            ui.input_action_button(\"clear\", \"Clear History\"),\n            ui.hr(),\n            ui.p(\"Monitor your CPU usage in real time. Works in both standard Python and Pyodide environments.\"),\n        ),\n        ui.panel_main(\n            ui.output_plot(\"cpu_plot\"),\n            ui.output_data_frame(\"cpu_table\"),\n        ),\n    ),\n)\n\n# Server logic\ndef server(input: Inputs, output: Outputs, session: Session):\n    # Store CPU usage history\n    cpu_history = reactive.Value(pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"]))\n\n    # Background thread for polling CPU usage (only in standard Python)\n    def poll_cpu():\n        while True:\n            if not input.freeze():\n                df = cpu_history()\n                usage = psutil.cpu_percent(interval=None)\n                now = pd.Timestamp.now()\n                new_row = pd.DataFrame({\"Timestamp\": [now], \"CPU Usage\": [usage]})\n                df = pd.concat([df, new_row], ignore_index=True)\n                # Limit history to 1000 samples\n                if len(df) > 1000:\n                    df = df.iloc[-1000:]\n                cpu_history.set(df)\n            time.sleep(1)\n\n    if not is_pyodide():\n        threading.Thread(target=poll_cpu, daemon=True).start()\n\n    # In Pyodide, use a reactive timer\n    @reactive.effect\n    @reactive.periodic(1000)\n    def _pyodide_poll():\n        if is_pyodide():\n            if not input.freeze():\n                df = cpu_history()\n                usage = psutil.cpu_percent(interval=None)\n                now = pd.Timestamp.now()\n                new_row = pd.DataFrame({\"Timestamp\": [now], \"CPU Usage\": [usage]})\n                df = pd.concat([df, new_row], ignore_index=True)\n                if len(df) > 1000:\n                    df = df.iloc[-1000:]\n                cpu_history.set(df)\n\n    @reactive.Effect\n    @reactive.event(input.clear)\n    def _clear_history():\n        cpu_history.set(pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"]))\n\n    @output\n    @render.plot\n    def cpu_plot():\n        df = cpu_history()\n        n = int(input.samples())\n        cmap = input.colormap()\n        if len(df) == 0:\n            fig, ax = plt.subplots(figsize=(6, 3))\n            ax.text(0.5, 0.5, \"No data\", ha=\"center\", va=\"center\")\n            hide_ticks(ax)\n            return fig\n        df_plot = df.iloc[-n:]\n        fig, ax = plt.subplots(figsize=(6, 3))\n        norm = plt.Normalize(df_plot[\"CPU Usage\"].min(), df_plot[\"CPU Usage\"].max())\n        colors = plt.get_cmap(cmap)(norm(df_plot[\"CPU Usage\"]))\n        ax.bar(df_plot[\"Timestamp\"].dt.strftime(\"%H:%M:%S\"), df_plot[\"CPU Usage\"], color=colors)\n        ax.set_ylabel(\"CPU Usage (%)\")\n        ax.set_xlabel(\"Time\")\n        ax.set_ylim(0, 100)\n        ax.set_title(\"CPU Usage History\")\n        plt.setp(ax.get_xticklabels(), rotation=45, ha=\"right\")\n        hide_ticks(ax)\n        return fig\n\n    @output\n    @render.data_frame\n    def cpu_table():\n        df = cpu_history()\n        n = int(input.rows())\n        if len(df) == 0:\n            return pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"])\n        return df.iloc[-n:][::-1].reset_index(drop=True)\n\napp = App(app_ui, server)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130004,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_3c6b77ab8c",
+    "usage": {
+      "completion_tokens": 1115,
+      "prompt_tokens": 275,
+      "total_tokens": 1390,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport time\nimport threading\n\nfrom shiny import App, ui, render, reactive, Inputs, Outputs, Session\nimport matplotlib\nmatplotlib.use(\"Agg\")\nimport matplotlib.pyplot as plt\nimport pandas as pd\nimport numpy as np\n\n# Detect Pyodide environment\ndef is_pyodide():\n    try:\n        import js  # pyodide-specific\n        return True\n    except ImportError:\n        return False\n\n# Fake psutil for Pyodide\nclass FakePsutil:\n    def __init__(self):\n        self._usage = 0.0\n\n    def cpu_percent(self, interval=None):\n        # Simulate CPU usage with a sine wave + noise\n        t = time.time()\n        usage = 50 + 40 * np.sin(t / 5) + np.random.normal(0, 5)\n        return max(0, min(100, usage))\n\nif is_pyodide():\n    psutil = FakePsutil()\nelse:\n    import psutil\n\n# Hide axis ticks utility\ndef hide_ticks(ax):\n    ax.set_xticks([])\n    ax.set_yticks([])\n\n# UI\ncolormaps = sorted(m for m in plt.colormaps() if not m.endswith(\"_r\"))\n\napp_ui = ui.page_fluid(\n    ui.h2(\"CPU Usage Monitor\"),\n    ui.layout_sidebar(\n        ui.panel_sidebar(\n            ui.input_select(\"colormap\", \"Colormap\", choices=colormaps, selected=\"viridis\"),\n            ui.input_numeric(\"samples\", \"Samples per graph\", 30, min=5, max=200),\n            ui.input_numeric(\"rows\", \"Rows in table\", 10, min=1, max=200),\n            ui.input_checkbox(\"freeze\", \"Freeze output\", False),\n            ui.input_action_button(\"clear\", \"Clear History\"),\n            ui.hr(),\n            ui.p(\"Monitor your CPU usage in real time. Works in both standard Python and Pyodide environments.\"),\n        ),\n        ui.panel_main(\n            ui.output_plot(\"cpu_plot\"),\n            ui.output_data_frame(\"cpu_table\"),\n        ),\n    ),\n)\n\n# Server logic\ndef server(input: Inputs, output: Outputs, session: Session):\n    # Store CPU usage history\n    cpu_history = reactive.Value(pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"]))\n\n    # Background thread for polling CPU usage (only in standard Python)\n    def poll_cpu():\n        while True:\n            if not input.freeze():\n                df = cpu_history()\n                usage = psutil.cpu_percent(interval=None)\n                now = pd.Timestamp.now()\n                new_row = pd.DataFrame({\"Timestamp\": [now], \"CPU Usage\": [usage]})\n                df = pd.concat([df, new_row], ignore_index=True)\n                # Limit history to 1000 samples\n                if len(df) > 1000:\n                    df = df.iloc[-1000:]\n                cpu_history.set(df)\n            time.sleep(1)\n\n    if not is_pyodide():\n        threading.Thread(target=poll_cpu, daemon=True).start()\n\n    # In Pyodide, use a reactive timer\n    @reactive.effect\n    @reactive.periodic(1000)\n    def _pyodide_poll():\n        if is_pyodide():\n            if not input.freeze():\n                df = cpu_history()\n                usage = psutil.cpu_percent(interval=None)\n                now = pd.Timestamp.now()\n                new_row = pd.DataFrame({\"Timestamp\": [now], \"CPU Usage\": [usage]})\n                df = pd.concat([df, new_row], ignore_index=True)\n                if len(df) > 1000:\n                    df = df.iloc[-1000:]\n                cpu_history.set(df)\n\n    @reactive.Effect\n    @reactive.event(input.clear)\n    def _clear_history():\n        cpu_history.set(pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"]))\n\n    @output\n    @render.plot\n    def cpu_plot():\n        df = cpu_history()\n        n = int(input.samples())\n        cmap = input.colormap()\n        if len(df) == 0:\n            fig, ax = plt.subplots(figsize=(6, 3))\n            ax.text(0.5, 0.5, \"No data\", ha=\"center\", va=\"center\")\n            hide_ticks(ax)\n            return fig\n        df_plot = df.iloc[-n:]\n        fig, ax = plt.subplots(figsize=(6, 3))\n        norm = plt.Normalize(df_plot[\"CPU Usage\"].min(), df_plot[\"CPU Usage\"].max())\n        colors = plt.get_cmap(cmap)(norm(df_plot[\"CPU Usage\"]))\n        ax.bar(df_plot[\"Timestamp\"].dt.strftime(\"%H:%M:%S\"), df_plot[\"CPU Usage\"], color=colors)\n        ax.set_ylabel(\"CPU Usage (%)\")\n        ax.set_xlabel(\"Time\")\n        ax.set_ylim(0, 100)\n        ax.set_title(\"CPU Usage History\")\n        plt.setp(ax.get_xticklabels(), rotation=45, ha=\"right\")\n        hide_ticks(ax)\n        return fig\n\n    @output\n    @render.data_frame\n    def cpu_table():\n        df = cpu_history()\n        n = int(input.rows())\n        if len(df) == 0:\n            return pd.DataFrame(columns=[\"Timestamp\", \"CPU Usage\"])\n        return df.iloc[-n:][::-1].reset_index(drop=True)\n\napp = App(app_ui, server)\n```",
+  "latency_seconds": 5.631291456000326,
+  "usage": {
+    "completion_tokens": 1115,
+    "prompt_tokens": 275,
+    "total_tokens": 1390,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9470,
+  "response_sha256": "e5fe4373ee6ee66f7e6f61168669ce74b604e87c97720057d9b78cc4752adae3",
+  "artifact_sha256": "6249c9ccce4e8b0ef63aae044f210b7ad8b28f9e46045c34e0abb76160937a46"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 92,
+    "task_sha256": "ad89e53748e7af8d8d378c3bc81878043e1800cc990b4a55eb643d55a7b914f9",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the PyAEDT library to create an antenna array in HFSS. The code should perform the following tasks:\n\n1. Import necessary modules.\n2. Set the non-graphical mode.\n3. Download a 3D component needed for the example.\n4. Launch HFSS and save the project with a unique name.\n5. Read the array definition from a JSON file and load a 3D component into the dictionary from a specified path.\n6. Set up a simulation and analyze it.\n7. Get far field data after the simulation completes.\n8. Generate a contour plot.\n9. Generate 2D cutout plots.\n10. Generate 3D polar plots in Matplotlib.\n11. Generate 3D plots in PyVista.\n12. Release AEDT at the end.\n\nYou can find the following APIs from the library helpful:\nicepak_a, hfss3dl_a, point_a, test_54b_open_and_load_a_polyline, test_09b_export_report_A, add_3d_component_array_from_json, generate_unique_name, generate_unique_project_name, _generate_unique_project_name, generate_buildings, generate_excitations, generate_mesh, generate_design_data, generate_unique_setup_name, generate_unique_folder_name, _generate_unique_design_name, download_icepak_3d_component, place_3d_component, insert_3d_component, generate_temp_project_directory"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5cTQciln2SHOm3BaMIoKlsDMdOs",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport json\nimport tempfile\nfrom pyaedt import Hfss, generate_unique_project_name, download_icepak_3d_component\nfrom pyaedt.generic.general_methods import generate_unique_name\nfrom pyaedt.modules.Boundary import FarFieldSetup\nfrom pyaedt.modules.solutions import SolutionData\nimport matplotlib.pyplot as plt\nimport pyvista as pv\n\n# 2. Set non-graphical mode\nnon_graphical = True\n\n# 3. Download a 3D component needed for the example\ncomponent_path = download_icepak_3d_component(\"Antenna_Example_Component\")\n\n# 4. Launch HFSS and save the project with a unique name\nproject_name = generate_unique_project_name(\"AntennaArray\")\ntmp_dir = tempfile.gettempdir()\nproject_path = os.path.join(tmp_dir, project_name + \".aedt\")\nhfss = Hfss(projectname=project_path, specified_version=\"2024.1\", non_graphical=non_graphical, new_desktop_session=True)\n\n# 5. Read the array definition from a JSON file and load a 3D component into the dictionary from a specified path\njson_file = os.path.join(tmp_dir, \"array_definition.json\")\n# Example JSON content for demonstration purposes\narray_definition = {\n    \"array\": [\n        {\"x\": 0, \"y\": 0, \"z\": 0},\n        {\"x\": 10, \"y\": 0, \"z\": 0},\n        {\"x\": 0, \"y\": 10, \"z\": 0},\n        {\"x\": 10, \"y\": 10, \"z\": 0}\n    ],\n    \"component_path\": component_path\n}\nwith open(json_file, \"w\") as f:\n    json.dump(array_definition, f)\n\nwith open(json_file, \"r\") as f:\n    array_def = json.load(f)\n\ncomponent_dict = {\"antenna\": array_def[\"component_path\"]}\n\n# Place 3D component array from JSON\nhfss.modeler.add_3d_component_array_from_json(json_file)\n\n# 6. Set up a simulation and analyze it\nsetup_name = generate_unique_name(\"Setup\")\nsetup = hfss.create_setup(setupname=setup_name)\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\nhfss.analyze_setup(setup_name)\n\n# 7. Get far field data after the simulation completes\nff_setup = FarFieldSetup(hfss, \"FFSetup1\")\nff_data = hfss.get_far_field_data(ff_setup.name, setup_name, \"10GHz\")\n\n# 8. Generate a contour plot\ntheta = ff_data.sweeps[\"Theta\"]\nphi = ff_data.sweeps[\"Phi\"]\nr = ff_data.get_radiation_data(\"GainTotal\")\nplt.figure()\ncp = plt.contourf(phi, theta, r)\nplt.title(\"Far Field Gain Contour\")\nplt.xlabel(\"Phi (deg)\")\nplt.ylabel(\"Theta (deg)\")\nplt.colorbar(cp)\nplt.savefig(os.path.join(tmp_dir, \"contour_plot.png\"))\n\n# 9. Generate 2D cutout plots\nplt.figure()\nplt.plot(theta, r[:, 0])\nplt.title(\"2D Cutout at Phi=0\")\nplt.xlabel(\"Theta (deg)\")\nplt.ylabel(\"Gain (dB)\")\nplt.savefig(os.path.join(tmp_dir, \"2d_cutout_phi0.png\"))\n\nplt.figure()\nplt.plot(phi, r[0, :])\nplt.title(\"2D Cutout at Theta=0\")\nplt.xlabel(\"Phi (deg)\")\nplt.ylabel(\"Gain (dB)\")\nplt.savefig(os.path.join(tmp_dir, \"2d_cutout_theta0.png\"))\n\n# 10. Generate 3D polar plots in Matplotlib\nfrom mpl_toolkits.mplot3d import Axes3D\nimport numpy as np\ntheta_rad = np.deg2rad(theta)\nphi_rad = np.deg2rad(phi)\nTHETA, PHI = np.meshgrid(theta_rad, phi_rad, indexing='ij')\nR = r\nX = R * np.sin(THETA) * np.cos(PHI)\nY = R * np.sin(THETA) * np.sin(PHI)\nZ = R * np.cos(THETA)\nfig = plt.figure()\nax = fig.add_subplot(111, projection='3d')\nax.plot_surface(X, Y, Z, facecolors=plt.cm.viridis(R/R.max()), rstride=1, cstride=1, linewidth=0, antialiased=False)\nplt.title(\"3D Polar Plot\")\nplt.savefig(os.path.join(tmp_dir, \"3d_polar_plot.png\"))\n\n# 11. Generate 3D plots in PyVista\ngrid = pv.StructuredGrid(X, Y, Z)\ngrid[\"Gain\"] = R.flatten(order=\"F\")\nplotter = pv.Plotter(off_screen=True)\nplotter.add_mesh(grid, scalars=\"Gain\", cmap=\"viridis\")\nplotter.show(screenshot=os.path.join(tmp_dir, \"pyvista_3d_plot.png\"))\n\n# 12. Release AEDT at the end\nhfss.release_desktop(close_projects=True, close_desktop=True)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130053,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_128048d39c",
+    "usage": {
+      "completion_tokens": 1080,
+      "prompt_tokens": 319,
+      "total_tokens": 1399,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport json\nimport tempfile\nfrom pyaedt import Hfss, generate_unique_project_name, download_icepak_3d_component\nfrom pyaedt.generic.general_methods import generate_unique_name\nfrom pyaedt.modules.Boundary import FarFieldSetup\nfrom pyaedt.modules.solutions import SolutionData\nimport matplotlib.pyplot as plt\nimport pyvista as pv\n\n# 2. Set non-graphical mode\nnon_graphical = True\n\n# 3. Download a 3D component needed for the example\ncomponent_path = download_icepak_3d_component(\"Antenna_Example_Component\")\n\n# 4. Launch HFSS and save the project with a unique name\nproject_name = generate_unique_project_name(\"AntennaArray\")\ntmp_dir = tempfile.gettempdir()\nproject_path = os.path.join(tmp_dir, project_name + \".aedt\")\nhfss = Hfss(projectname=project_path, specified_version=\"2024.1\", non_graphical=non_graphical, new_desktop_session=True)\n\n# 5. Read the array definition from a JSON file and load a 3D component into the dictionary from a specified path\njson_file = os.path.join(tmp_dir, \"array_definition.json\")\n# Example JSON content for demonstration purposes\narray_definition = {\n    \"array\": [\n        {\"x\": 0, \"y\": 0, \"z\": 0},\n        {\"x\": 10, \"y\": 0, \"z\": 0},\n        {\"x\": 0, \"y\": 10, \"z\": 0},\n        {\"x\": 10, \"y\": 10, \"z\": 0}\n    ],\n    \"component_path\": component_path\n}\nwith open(json_file, \"w\") as f:\n    json.dump(array_definition, f)\n\nwith open(json_file, \"r\") as f:\n    array_def = json.load(f)\n\ncomponent_dict = {\"antenna\": array_def[\"component_path\"]}\n\n# Place 3D component array from JSON\nhfss.modeler.add_3d_component_array_from_json(json_file)\n\n# 6. Set up a simulation and analyze it\nsetup_name = generate_unique_name(\"Setup\")\nsetup = hfss.create_setup(setupname=setup_name)\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\nhfss.analyze_setup(setup_name)\n\n# 7. Get far field data after the simulation completes\nff_setup = FarFieldSetup(hfss, \"FFSetup1\")\nff_data = hfss.get_far_field_data(ff_setup.name, setup_name, \"10GHz\")\n\n# 8. Generate a contour plot\ntheta = ff_data.sweeps[\"Theta\"]\nphi = ff_data.sweeps[\"Phi\"]\nr = ff_data.get_radiation_data(\"GainTotal\")\nplt.figure()\ncp = plt.contourf(phi, theta, r)\nplt.title(\"Far Field Gain Contour\")\nplt.xlabel(\"Phi (deg)\")\nplt.ylabel(\"Theta (deg)\")\nplt.colorbar(cp)\nplt.savefig(os.path.join(tmp_dir, \"contour_plot.png\"))\n\n# 9. Generate 2D cutout plots\nplt.figure()\nplt.plot(theta, r[:, 0])\nplt.title(\"2D Cutout at Phi=0\")\nplt.xlabel(\"Theta (deg)\")\nplt.ylabel(\"Gain (dB)\")\nplt.savefig(os.path.join(tmp_dir, \"2d_cutout_phi0.png\"))\n\nplt.figure()\nplt.plot(phi, r[0, :])\nplt.title(\"2D Cutout at Theta=0\")\nplt.xlabel(\"Phi (deg)\")\nplt.ylabel(\"Gain (dB)\")\nplt.savefig(os.path.join(tmp_dir, \"2d_cutout_theta0.png\"))\n\n# 10. Generate 3D polar plots in Matplotlib\nfrom mpl_toolkits.mplot3d import Axes3D\nimport numpy as np\ntheta_rad = np.deg2rad(theta)\nphi_rad = np.deg2rad(phi)\nTHETA, PHI = np.meshgrid(theta_rad, phi_rad, indexing='ij')\nR = r\nX = R * np.sin(THETA) * np.cos(PHI)\nY = R * np.sin(THETA) * np.sin(PHI)\nZ = R * np.cos(THETA)\nfig = plt.figure()\nax = fig.add_subplot(111, projection='3d')\nax.plot_surface(X, Y, Z, facecolors=plt.cm.viridis(R/R.max()), rstride=1, cstride=1, linewidth=0, antialiased=False)\nplt.title(\"3D Polar Plot\")\nplt.savefig(os.path.join(tmp_dir, \"3d_polar_plot.png\"))\n\n# 11. Generate 3D plots in PyVista\ngrid = pv.StructuredGrid(X, Y, Z)\ngrid[\"Gain\"] = R.flatten(order=\"F\")\nplotter = pv.Plotter(off_screen=True)\nplotter.add_mesh(grid, scalars=\"Gain\", cmap=\"viridis\")\nplotter.show(screenshot=os.path.join(tmp_dir, \"pyvista_3d_plot.png\"))\n\n# 12. Release AEDT at the end\nhfss.release_desktop(close_projects=True, close_desktop=True)\n```",
+  "latency_seconds": 8.363909985997452,
+  "usage": {
+    "completion_tokens": 1080,
+    "prompt_tokens": 319,
+    "total_tokens": 1399,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9278,
+  "response_sha256": "25fdf184c79405817c622215ce80390b4a137055fa5beccf3b5c4b6bd07efeca",
+  "artifact_sha256": "59329d1dacf581f81284c596c8e88cb69c411d242dc14a132a4f6eee044508d4"
+}

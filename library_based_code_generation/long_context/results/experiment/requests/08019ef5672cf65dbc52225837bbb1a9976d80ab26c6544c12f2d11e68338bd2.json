@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 31,
+    "task_sha256": "55e79fd8367fb53bf7f3219ab756feb1cc86690733c2926a92f4b42fc646bd14",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the pyaedt library to create a flex cable CPWG (coplanar waveguide with ground) in HFSS. The code should first import necessary libraries and set the non-graphical mode. Then, it should launch AEDT in a specified version and solution type, and set some properties such as material override, automatically use causal materials, open region, model units, and initial mesh. \n\nNext, the code should define variables for the flex cable CPWG, including total length, theta, radius, width, height, spacing, ground width, and ground thickness. It should also define a function to create a bending based on the curvature radius and extension.\n\nThe code should then draw a signal line and a ground line to create a bent signal wire and two bent ground wires respectively. It should also draw a dielectric to create a dielectric cable, and create bottom metals. \n\nAfterwards, the code should create port interfaces (PEC enclosures) and a Perfect E boundary condition. It should also create ports and a setup and sweep with specified properties. \n\nFinally, the code should plot the model and release AEDT."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4yuDZ8AfBdWg2tZEQ6s5vqHDwXm",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport pyaedt\nfrom pyaedt import Hfss\nfrom pyaedt.modeler.geometry_operators import GeometryOperators\nfrom pyaedt.generic.constants import unit_converter\nimport math\n\n# Set non-graphical mode\npyaedt.settings.non_graphical = True\n\n# Launch AEDT\naedt_version = \"2023.2\"\nproject_name = \"Flex_CPWG\"\ndesign_name = \"CPWG_Flex\"\nsolution_type = \"DrivenModal\"\n\nhfss = Hfss(projectname=project_name, designname=design_name, specified_version=aedt_version, solution_type=solution_type)\n\n# Set properties\nhfss.materials.material_override = True\nhfss.materials.automatic_use_causal_materials = True\nhfss.modeler.create_open_region(Frequency=\"10GHz\")\nhfss.model_units = \"mm\"\nhfss.mesh.assign_initial_mesh()\n\n# Define CPWG variables\ntotal_length = 100  # mm\ntheta = 45  # degrees, bending angle\nradius = 30  # mm, bending radius\nwidth = 2  # mm, signal width\nheight = 0.035  # mm, signal thickness\nspacing = 0.3  # mm, gap between signal and ground\nground_width = 4  # mm, ground width\nground_thickness = 0.035  # mm, ground thickness\ndielectric_height = 0.2  # mm\ndielectric_material = \"Polyimide\"\n\n# Helper function to create a bent path\ndef create_bent_path(start, direction, length, theta_deg, radius):\n    theta_rad = math.radians(theta_deg)\n    arc_length = radius * theta_rad\n    straight_length = length - arc_length\n    # First straight segment\n    p1 = start\n    p2 = [p1[0] + straight_length * direction[0], p1[1] + straight_length * direction[1], p1[2]]\n    # Arc segment\n    center = [p2[0], p2[1] + radius, p2[2]]\n    arc_start = p2\n    arc_end = [\n        center[0] + radius * math.sin(theta_rad),\n        center[1] - radius * (1 - math.cos(theta_rad)),\n        p2[2]\n    ]\n    return [p1, p2, arc_end], center, theta_rad\n\n# Draw signal line\nstart_point = [0, 0, dielectric_height + height / 2]\ndirection = [1, 0]\nsignal_path, arc_center, arc_theta = create_bent_path(start_point, direction, total_length, theta, radius)\nsignal_polyline = hfss.modeler.create_polyline(signal_path, xsection_type=\"Rectangle\", xsection_width=width, xsection_height=height, name=\"Signal\")\n\n# Draw ground lines (left and right)\nground_offset = width / 2 + spacing + ground_width / 2\nground1_start = [start_point[0], start_point[1] + ground_offset, start_point[2]]\nground2_start = [start_point[0], start_point[1] - ground_offset, start_point[2]]\nground1_path, _, _ = create_bent_path(ground1_start, direction, total_length, theta, radius)\nground2_path, _, _ = create_bent_path(ground2_start, direction, total_length, theta, radius)\nground1_polyline = hfss.modeler.create_polyline(ground1_path, xsection_type=\"Rectangle\", xsection_width=ground_width, xsection_height=ground_thickness, name=\"GND1\")\nground2_polyline = hfss.modeler.create_polyline(ground2_path, xsection_type=\"Rectangle\", xsection_width=ground_width, xsection_height=ground_thickness, name=\"GND2\")\n\n# Draw dielectric\ndielectric_length = total_length + 2  # extra for enclosure\ndielectric_width = 2 * (ground_offset + ground_width / 2) + 1\ndielectric_box = hfss.modeler.create_box(\n    [start_point[0] - 1, start_point[1] - dielectric_width / 2, 0],\n    [dielectric_length, dielectric_width, dielectric_height],\n    name=\"Dielectric\",\n    matname=dielectric_material\n)\n\n# Draw bottom metals (signal and grounds)\nbottom_z = 0\nbottom_signal = hfss.modeler.create_box(\n    [start_point[0], start_point[1] - width / 2, bottom_z],\n    [total_length, width, ground_thickness],\n    name=\"BottomSignal\"\n)\nbottom_gnd1 = hfss.modeler.create_box(\n    [start_point[0], start_point[1] + ground_offset - ground_width / 2, bottom_z],\n    [total_length, ground_width, ground_thickness],\n    name=\"BottomGND1\"\n)\nbottom_gnd2 = hfss.modeler.create_box(\n    [start_point[0], start_point[1] - ground_offset - ground_width / 2, bottom_z],\n    [total_length, ground_width, ground_thickness],\n    name=\"BottomGND2\"\n)\n\n# Create port interfaces (PEC enclosures)\npec_material = \"pec\"\nenclosure_thickness = 1\nenclosure1 = hfss.modeler.create_box(\n    [start_point[0] - enclosure_thickness, start_point[1] - dielectric_width / 2 - enclosure_thickness, 0],\n    [enclosure_thickness, dielectric_width + 2 * enclosure_thickness, dielectric_height + height + enclosure_thickness],\n    name=\"Enclosure1\",\n    matname=pec_material\n)\nenclosure2 = hfss.modeler.create_box(\n    [start_point[0] + total_length, start_point[1] - dielectric_width / 2 - enclosure_thickness, 0],\n    [enclosure_thickness, dielectric_width + 2 * enclosure_thickness, dielectric_height + height + enclosure_thickness],\n    name=\"Enclosure2\",\n    matname=pec_material\n)\n\n# Assign Perfect E boundary to enclosures\nhfss.assign_perfecte_to_sheets([enclosure1.faces[0], enclosure2.faces[1]])\n\n# Create wave ports\nport1 = hfss.create_wave_port_from_face(enclosure1.faces[4], 1)\nport2 = hfss.create_wave_port_from_face(enclosure2.faces[5], 2)\n\n# Create setup and sweep\nsetup = hfss.create_setup(\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.props[\"PortsOnly\"] = False\nsetup.update()\nhfss.create_linear_count_sweep(setupname=\"Setup1\", unit=\"GHz\", freqstart=1, freqstop=20, num_of_freq_points=201, sweep_type=\"Interpolating\")\n\n# Plot model\nhfss.plot(show=True)\n\n# Release AEDT\nhfss.release_desktop(close_projects=True, close_desktop=True)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127600,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_c685e7bb08",
+    "usage": {
+      "completion_tokens": 1465,
+      "prompt_tokens": 261,
+      "total_tokens": 1726,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport pyaedt\nfrom pyaedt import Hfss\nfrom pyaedt.modeler.geometry_operators import GeometryOperators\nfrom pyaedt.generic.constants import unit_converter\nimport math\n\n# Set non-graphical mode\npyaedt.settings.non_graphical = True\n\n# Launch AEDT\naedt_version = \"2023.2\"\nproject_name = \"Flex_CPWG\"\ndesign_name = \"CPWG_Flex\"\nsolution_type = \"DrivenModal\"\n\nhfss = Hfss(projectname=project_name, designname=design_name, specified_version=aedt_version, solution_type=solution_type)\n\n# Set properties\nhfss.materials.material_override = True\nhfss.materials.automatic_use_causal_materials = True\nhfss.modeler.create_open_region(Frequency=\"10GHz\")\nhfss.model_units = \"mm\"\nhfss.mesh.assign_initial_mesh()\n\n# Define CPWG variables\ntotal_length = 100  # mm\ntheta = 45  # degrees, bending angle\nradius = 30  # mm, bending radius\nwidth = 2  # mm, signal width\nheight = 0.035  # mm, signal thickness\nspacing = 0.3  # mm, gap between signal and ground\nground_width = 4  # mm, ground width\nground_thickness = 0.035  # mm, ground thickness\ndielectric_height = 0.2  # mm\ndielectric_material = \"Polyimide\"\n\n# Helper function to create a bent path\ndef create_bent_path(start, direction, length, theta_deg, radius):\n    theta_rad = math.radians(theta_deg)\n    arc_length = radius * theta_rad\n    straight_length = length - arc_length\n    # First straight segment\n    p1 = start\n    p2 = [p1[0] + straight_length * direction[0], p1[1] + straight_length * direction[1], p1[2]]\n    # Arc segment\n    center = [p2[0], p2[1] + radius, p2[2]]\n    arc_start = p2\n    arc_end = [\n        center[0] + radius * math.sin(theta_rad),\n        center[1] - radius * (1 - math.cos(theta_rad)),\n        p2[2]\n    ]\n    return [p1, p2, arc_end], center, theta_rad\n\n# Draw signal line\nstart_point = [0, 0, dielectric_height + height / 2]\ndirection = [1, 0]\nsignal_path, arc_center, arc_theta = create_bent_path(start_point, direction, total_length, theta, radius)\nsignal_polyline = hfss.modeler.create_polyline(signal_path, xsection_type=\"Rectangle\", xsection_width=width, xsection_height=height, name=\"Signal\")\n\n# Draw ground lines (left and right)\nground_offset = width / 2 + spacing + ground_width / 2\nground1_start = [start_point[0], start_point[1] + ground_offset, start_point[2]]\nground2_start = [start_point[0], start_point[1] - ground_offset, start_point[2]]\nground1_path, _, _ = create_bent_path(ground1_start, direction, total_length, theta, radius)\nground2_path, _, _ = create_bent_path(ground2_start, direction, total_length, theta, radius)\nground1_polyline = hfss.modeler.create_polyline(ground1_path, xsection_type=\"Rectangle\", xsection_width=ground_width, xsection_height=ground_thickness, name=\"GND1\")\nground2_polyline = hfss.modeler.create_polyline(ground2_path, xsection_type=\"Rectangle\", xsection_width=ground_width, xsection_height=ground_thickness, name=\"GND2\")\n\n# Draw dielectric\ndielectric_length = total_length + 2  # extra for enclosure\ndielectric_width = 2 * (ground_offset + ground_width / 2) + 1\ndielectric_box = hfss.modeler.create_box(\n    [start_point[0] - 1, start_point[1] - dielectric_width / 2, 0],\n    [dielectric_length, dielectric_width, dielectric_height],\n    name=\"Dielectric\",\n    matname=dielectric_material\n)\n\n# Draw bottom metals (signal and grounds)\nbottom_z = 0\nbottom_signal = hfss.modeler.create_box(\n    [start_point[0], start_point[1] - width / 2, bottom_z],\n    [total_length, width, ground_thickness],\n    name=\"BottomSignal\"\n)\nbottom_gnd1 = hfss.modeler.create_box(\n    [start_point[0], start_point[1] + ground_offset - ground_width / 2, bottom_z],\n    [total_length, ground_width, ground_thickness],\n    name=\"BottomGND1\"\n)\nbottom_gnd2 = hfss.modeler.create_box(\n    [start_point[0], start_point[1] - ground_offset - ground_width / 2, bottom_z],\n    [total_length, ground_width, ground_thickness],\n    name=\"BottomGND2\"\n)\n\n# Create port interfaces (PEC enclosures)\npec_material = \"pec\"\nenclosure_thickness = 1\nenclosure1 = hfss.modeler.create_box(\n    [start_point[0] - enclosure_thickness, start_point[1] - dielectric_width / 2 - enclosure_thickness, 0],\n    [enclosure_thickness, dielectric_width + 2 * enclosure_thickness, dielectric_height + height + enclosure_thickness],\n    name=\"Enclosure1\",\n    matname=pec_material\n)\nenclosure2 = hfss.modeler.create_box(\n    [start_point[0] + total_length, start_point[1] - dielectric_width / 2 - enclosure_thickness, 0],\n    [enclosure_thickness, dielectric_width + 2 * enclosure_thickness, dielectric_height + height + enclosure_thickness],\n    name=\"Enclosure2\",\n    matname=pec_material\n)\n\n# Assign Perfect E boundary to enclosures\nhfss.assign_perfecte_to_sheets([enclosure1.faces[0], enclosure2.faces[1]])\n\n# Create wave ports\nport1 = hfss.create_wave_port_from_face(enclosure1.faces[4], 1)\nport2 = hfss.create_wave_port_from_face(enclosure2.faces[5], 2)\n\n# Create setup and sweep\nsetup = hfss.create_setup(\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.props[\"PortsOnly\"] = False\nsetup.update()\nhfss.create_linear_count_sweep(setupname=\"Setup1\", unit=\"GHz\", freqstart=1, freqstop=20, num_of_freq_points=201, sweep_type=\"Interpolating\")\n\n# Plot model\nhfss.plot(show=True)\n\n# Release AEDT\nhfss.release_desktop(close_projects=True, close_desktop=True)\n```",
+  "latency_seconds": 7.814943127999868,
+  "usage": {
+    "completion_tokens": 1465,
+    "prompt_tokens": 261,
+    "total_tokens": 1726,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 12242,
+  "response_sha256": "d48a04cf36ed35488ba8803a837a86821a0469c1703f31fa79f60d7118157356",
+  "artifact_sha256": "628532e7c1ae4e604a64f511bde6252950211044230eaea8157eba64253673b2"
+}

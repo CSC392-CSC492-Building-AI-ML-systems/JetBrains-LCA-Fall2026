@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 46,
+    "task_sha256": "9affaca3fb7cad9481e8019be8bd782da57aa99a3cc4d0ddd4b893a172a5c935",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs two tasks using the pyscf library. The first task is to transform a Full Configuration Interaction (FCI) wavefunction with respect to orbital rotation/transformation. This involves creating two molecules with different atomic configurations, calculating their FCI energies, and then transforming the wavefunction of the first molecule to match the second one. The second task is to transfer a FCI wavefunction from a smaller orbital space to a larger one. This involves creating a molecule with a specific atomic configuration, calculating its FCI energy, and then expanding the wavefunction to a larger orbital space. The code should also compare the transformed wavefunction with the one obtained from the FCI solver and check if they are close. Finally, the code should transform the FCI wavefunction using a different method and compare the results with the previous transformation.\n\nYou can find the following APIs from the library helpful:\nA, to_fci, cre_a, des_a, make_A, symmetrize_wavefunction, test_from_to_fci, from_fci, FCI, read_A_mat, get_A_mat, test_h4_a, FCISolver, FCIBase, StateSpecificFCISolver, test_detect_symm_c2h_a, test_detect_symm_d2h_a, test_detect_symm_d2_a, __and__, StateAverageFCISolver"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em59bAjFxKQrOu2tsD3RE42Zsp7Cu",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation/transformation\n\n# Molecule 1\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; H 0 0 1'\nmol1.basis = 'sto-3g'\nmol1.spin = 0\nmol1.build()\nmf1 = scf.RHF(mol1).run()\nh1 = mf1.get_hcore()\neri1 = ao2mo.kernel(mol1, mf1.mo_coeff)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelectron\n\ncisolver = fci.FCI(mol1, mf1.mo_coeff)\ne1, fcivec1 = cisolver.kernel(h1, eri1, norb1, nelec1)\n\n# Molecule 2 (rotated/translated)\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 0; H 0 1 0'\nmol2.basis = 'sto-3g'\nmol2.spin = 0\nmol2.build()\nmf2 = scf.RHF(mol2).run()\nh2 = mf2.get_hcore()\neri2 = ao2mo.kernel(mol2, mf2.mo_coeff)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelectron\n\ncisolver2 = fci.FCI(mol2, mf2.mo_coeff)\ne2, fcivec2 = cisolver2.kernel(h2, eri2, norb2, nelec2)\n\n# Transform fcivec1 to the basis of mol2\n# Get the AO overlap matrix\ns12 = gto.intor_cross('int1e_ovlp', mol1, mol2)\n# Project MO1 onto MO2\nC1 = mf1.mo_coeff\nC2 = mf2.mo_coeff\nU = np.dot(C1.T, np.dot(s12, C2))\n# Transform FCI wavefunction\nfcivec1_in_2 = fci.addons.transform_ci(fcivec1, norb1, nelec1, U)\n\n# Compare with fcivec2\nfcivec1_in_2 = fci.addons.normalize(fcivec1_in_2)\nfcivec2 = fci.addons.normalize(fcivec2)\nprint(\"Task 1: Are transformed and direct FCI wavefunctions close?\")\nprint(np.allclose(np.abs(fcivec1_in_2), np.abs(fcivec2), atol=1e-6))\n\n# Alternative transformation using from_fci and to_fci\nfcivec1_ao = fci.addons.to_fci(fcivec1, norb1, nelec1, C1)\nfcivec1_ao_to_2 = fci.addons.from_fci(fcivec1_ao, norb2, nelec2, C2)\nfcivec1_ao_to_2 = fci.addons.normalize(fcivec1_ao_to_2)\nprint(\"Task 1: Are two transformation methods consistent?\")\nprint(np.allclose(np.abs(fcivec1_in_2), np.abs(fcivec1_ao_to_2), atol=1e-6))\n\n# Task 2: Transfer FCI wavefunction from a smaller orbital space to a larger one\n\n# Small molecule (minimal basis)\nmol_small = gto.Mole()\nmol_small.atom = 'H 0 0 0; H 0 0 1'\nmol_small.basis = 'sto-3g'\nmol_small.spin = 0\nmol_small.build()\nmf_small = scf.RHF(mol_small).run()\nh_small = mf_small.get_hcore()\neri_small = ao2mo.kernel(mol_small, mf_small.mo_coeff)\nnorb_small = mf_small.mo_coeff.shape[1]\nnelec_small = mol_small.nelectron\n\ncisolver_small = fci.FCI(mol_small, mf_small.mo_coeff)\ne_small, fcivec_small = cisolver_small.kernel(h_small, eri_small, norb_small, nelec_small)\n\n# Large molecule (larger basis)\nmol_large = gto.Mole()\nmol_large.atom = 'H 0 0 0; H 0 0 1'\nmol_large.basis = '6-31g'\nmol_large.spin = 0\nmol_large.build()\nmf_large = scf.RHF(mol_large).run()\nh_large = mf_large.get_hcore()\neri_large = ao2mo.kernel(mol_large, mf_large.mo_coeff)\nnorb_large = mf_large.mo_coeff.shape[1]\nnelec_large = mol_large.nelectron\n\ncisolver_large = fci.FCI(mol_large, mf_large.mo_coeff)\ne_large, fcivec_large = cisolver_large.kernel(h_large, eri_large, norb_large, nelec_large)\n\n# Expand fcivec_small to the larger orbital space\n# Project small MO onto large MO\ns_sl = gto.intor_cross('int1e_ovlp', mol_small, mol_large)\nC_small = mf_small.mo_coeff\nC_large = mf_large.mo_coeff\nU_sl = np.dot(C_small.T, np.dot(s_sl, C_large))\n# Pad fcivec_small to the larger space\nfcivec_small_in_large = fci.addons.transform_ci(fcivec_small, norb_small, nelec_small, U_sl, norb_large)\n\n# Compare with fcivec_large\nfcivec_small_in_large = fci.addons.normalize(fcivec_small_in_large)\nfcivec_large = fci.addons.normalize(fcivec_large)\nprint(\"Task 2: Are expanded and direct FCI wavefunctions close?\")\nprint(np.allclose(np.abs(fcivec_small_in_large), np.abs(fcivec_large), atol=1e-6))\n\n# Alternative expansion using from_fci and to_fci\nfcivec_small_ao = fci.addons.to_fci(fcivec_small, norb_small, nelec_small, C_small)\nfcivec_small_ao_to_large = fci.addons.from_fci(fcivec_small_ao, norb_large, nelec_large, C_large)\nfcivec_small_ao_to_large = fci.addons.normalize(fcivec_small_ao_to_large)\nprint(\"Task 2: Are two expansion methods consistent?\")\nprint(np.allclose(np.abs(fcivec_small_in_large), np.abs(fcivec_small_ao_to_large), atol=1e-6))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128263,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_d1445ec092",
+    "usage": {
+      "completion_tokens": 1405,
+      "prompt_tokens": 304,
+      "total_tokens": 1709,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation/transformation\n\n# Molecule 1\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; H 0 0 1'\nmol1.basis = 'sto-3g'\nmol1.spin = 0\nmol1.build()\nmf1 = scf.RHF(mol1).run()\nh1 = mf1.get_hcore()\neri1 = ao2mo.kernel(mol1, mf1.mo_coeff)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelectron\n\ncisolver = fci.FCI(mol1, mf1.mo_coeff)\ne1, fcivec1 = cisolver.kernel(h1, eri1, norb1, nelec1)\n\n# Molecule 2 (rotated/translated)\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 0; H 0 1 0'\nmol2.basis = 'sto-3g'\nmol2.spin = 0\nmol2.build()\nmf2 = scf.RHF(mol2).run()\nh2 = mf2.get_hcore()\neri2 = ao2mo.kernel(mol2, mf2.mo_coeff)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelectron\n\ncisolver2 = fci.FCI(mol2, mf2.mo_coeff)\ne2, fcivec2 = cisolver2.kernel(h2, eri2, norb2, nelec2)\n\n# Transform fcivec1 to the basis of mol2\n# Get the AO overlap matrix\ns12 = gto.intor_cross('int1e_ovlp', mol1, mol2)\n# Project MO1 onto MO2\nC1 = mf1.mo_coeff\nC2 = mf2.mo_coeff\nU = np.dot(C1.T, np.dot(s12, C2))\n# Transform FCI wavefunction\nfcivec1_in_2 = fci.addons.transform_ci(fcivec1, norb1, nelec1, U)\n\n# Compare with fcivec2\nfcivec1_in_2 = fci.addons.normalize(fcivec1_in_2)\nfcivec2 = fci.addons.normalize(fcivec2)\nprint(\"Task 1: Are transformed and direct FCI wavefunctions close?\")\nprint(np.allclose(np.abs(fcivec1_in_2), np.abs(fcivec2), atol=1e-6))\n\n# Alternative transformation using from_fci and to_fci\nfcivec1_ao = fci.addons.to_fci(fcivec1, norb1, nelec1, C1)\nfcivec1_ao_to_2 = fci.addons.from_fci(fcivec1_ao, norb2, nelec2, C2)\nfcivec1_ao_to_2 = fci.addons.normalize(fcivec1_ao_to_2)\nprint(\"Task 1: Are two transformation methods consistent?\")\nprint(np.allclose(np.abs(fcivec1_in_2), np.abs(fcivec1_ao_to_2), atol=1e-6))\n\n# Task 2: Transfer FCI wavefunction from a smaller orbital space to a larger one\n\n# Small molecule (minimal basis)\nmol_small = gto.Mole()\nmol_small.atom = 'H 0 0 0; H 0 0 1'\nmol_small.basis = 'sto-3g'\nmol_small.spin = 0\nmol_small.build()\nmf_small = scf.RHF(mol_small).run()\nh_small = mf_small.get_hcore()\neri_small = ao2mo.kernel(mol_small, mf_small.mo_coeff)\nnorb_small = mf_small.mo_coeff.shape[1]\nnelec_small = mol_small.nelectron\n\ncisolver_small = fci.FCI(mol_small, mf_small.mo_coeff)\ne_small, fcivec_small = cisolver_small.kernel(h_small, eri_small, norb_small, nelec_small)\n\n# Large molecule (larger basis)\nmol_large = gto.Mole()\nmol_large.atom = 'H 0 0 0; H 0 0 1'\nmol_large.basis = '6-31g'\nmol_large.spin = 0\nmol_large.build()\nmf_large = scf.RHF(mol_large).run()\nh_large = mf_large.get_hcore()\neri_large = ao2mo.kernel(mol_large, mf_large.mo_coeff)\nnorb_large = mf_large.mo_coeff.shape[1]\nnelec_large = mol_large.nelectron\n\ncisolver_large = fci.FCI(mol_large, mf_large.mo_coeff)\ne_large, fcivec_large = cisolver_large.kernel(h_large, eri_large, norb_large, nelec_large)\n\n# Expand fcivec_small to the larger orbital space\n# Project small MO onto large MO\ns_sl = gto.intor_cross('int1e_ovlp', mol_small, mol_large)\nC_small = mf_small.mo_coeff\nC_large = mf_large.mo_coeff\nU_sl = np.dot(C_small.T, np.dot(s_sl, C_large))\n# Pad fcivec_small to the larger space\nfcivec_small_in_large = fci.addons.transform_ci(fcivec_small, norb_small, nelec_small, U_sl, norb_large)\n\n# Compare with fcivec_large\nfcivec_small_in_large = fci.addons.normalize(fcivec_small_in_large)\nfcivec_large = fci.addons.normalize(fcivec_large)\nprint(\"Task 2: Are expanded and direct FCI wavefunctions close?\")\nprint(np.allclose(np.abs(fcivec_small_in_large), np.abs(fcivec_large), atol=1e-6))\n\n# Alternative expansion using from_fci and to_fci\nfcivec_small_ao = fci.addons.to_fci(fcivec_small, norb_small, nelec_small, C_small)\nfcivec_small_ao_to_large = fci.addons.from_fci(fcivec_small_ao, norb_large, nelec_large, C_large)\nfcivec_small_ao_to_large = fci.addons.normalize(fcivec_small_ao_to_large)\nprint(\"Task 2: Are two expansion methods consistent?\")\nprint(np.allclose(np.abs(fcivec_small_in_large), np.abs(fcivec_small_ao_to_large), atol=1e-6))\n```",
+  "latency_seconds": 6.73184823200063,
+  "usage": {
+    "completion_tokens": 1405,
+    "prompt_tokens": 304,
+    "total_tokens": 1709,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11848,
+  "response_sha256": "64e74bf8bc1ed2493ab86fbcbf8f13c4ebb4de402ad97dd9e4b24e3e84c606c7",
+  "artifact_sha256": "b4812f57a86270fd561650e61dc5259b73c7556a22978354bb1e19f9fa40526b"
+}

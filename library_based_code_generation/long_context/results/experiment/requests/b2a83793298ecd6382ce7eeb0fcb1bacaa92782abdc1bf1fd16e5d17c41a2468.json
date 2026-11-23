@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 74,
+    "task_sha256": "a2eca12074541480358862924c5a0c1472a8061d011d74ea5a05faea73215879",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up and runs a Continuous Q-Learning (CQL) agent on a specified environment using the Acme library. The agent should be configured with various parameters such as batch size, evaluation period, number of demonstration episodes, random seed, learning rates, and CQL specific parameters. The environment should be created using the specified environment name and a demonstrations dataset should be obtained from a specified dataset name. The agent's networks should be created and optimized, and an evaluator network should be defined. The agent should then be run in an environment loop, where it learns and evaluates itself periodically.\n\nYou can find the following APIs from the library helpful:\nshould_terminate, ContinuousEnvironment, EnvironmentLoop, Environment, environment, split_and_put, sample_and_postprocess, update_and_wait, pad_and_crop, apply_and_sample, _slice_and_pad, _loss_and_fetches, EnvironmentLoopTest, Agent, apply_policy_and_sample, apply_and_sample_n, _get_models_and_paths, append_and_compute_reward, get_logits_and_values, test_update_and_wait"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5RLWzOPk65LQtQRyU4U4duwjeN5",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import cql\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport functools\n\n# User-specified parameters\nENV_NAME = 'walker2d-v2'\nDATASET_NAME = 'd4rl/walker2d-medium-v0'\nBATCH_SIZE = 256\nEVAL_PERIOD = 5000\nNUM_DEMO_EPISODES = 10\nSEED = 42\nLEARNING_RATE = 3e-4\nCQL_ALPHA = 1.0\nCQL_TEMP = 1.0\nCQL_NUM_ACTION_SAMPLES = 10\nCQL_MIN_Q_WEIGHT = 5.0\nNUM_EVAL_EPISODES = 10\nNUM_STEPS = 1_000_000\n\n# Create environment and specs\ndef make_environment(seed=SEED):\n    env = acme.utils.make_environment(ENV_NAME, seed=seed)\n    env = wrappers.SinglePrecisionWrapper(env)\n    return env\n\nenvironment = make_environment()\nenvironment_spec = specs.make_environment_spec(environment)\n\n# Load demonstrations dataset\ndef load_demonstrations(dataset_name):\n    import d4rl\n    import gym\n    env = gym.make(dataset_name)\n    dataset = env.get_dataset()\n    return dataset\n\ndemonstrations = load_demonstrations(DATASET_NAME)\n\n# Network factory\ndef network_factory(spec: specs.EnvironmentSpec):\n    policy_network = cql.make_policy_network(spec)\n    critic_network = cql.make_critic_network(spec)\n    return cql.CQLNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n        observation_network=lambda x: x,\n    )\n\n# Optimizer\ndef optimizer_factory():\n    import optax\n    return optax.adam(LEARNING_RATE)\n\n# Evaluator network\ndef evaluator_network_factory(networks):\n    return networks.policy_network\n\n# CQL config\ncql_config = cql.CQLConfig(\n    batch_size=BATCH_SIZE,\n    learning_rate=LEARNING_RATE,\n    min_q_weight=CQL_MIN_Q_WEIGHT,\n    cql_alpha=CQL_ALPHA,\n    cql_temp=CQL_TEMP,\n    num_action_samples=CQL_NUM_ACTION_SAMPLES,\n    seed=SEED,\n    num_sgd_steps_per_step=1,\n    discount=0.99,\n    tau=0.005,\n    target_update_period=1,\n    bc_iters=0,\n    bc_alpha=0.0,\n    max_gradient_norm=None,\n    reward_scale=1.0,\n    max_steps=NUM_STEPS,\n)\n\n# Build agent\nagent = cql.CQLBuilder(cql_config)(\n    environment_spec=environment_spec,\n    networks=network_factory(environment_spec),\n    seed=SEED,\n    dataset=demonstrations,\n    optimizer=optimizer_factory(),\n)\n\n# Environment loop with evaluation\neval_env = make_environment(seed=SEED+1)\neval_loop = acme.EnvironmentLoop(\n    environment=eval_env,\n    actor=agent.make_actor(policy_network=evaluator_network_factory(agent._networks), evaluation=True),\n    label='evaluation'\n)\n\ntrain_loop = acme.EnvironmentLoop(\n    environment=environment,\n    actor=agent.make_actor(policy_network=agent._networks.policy_network, evaluation=False),\n    label='training'\n)\n\n# Training and evaluation loop\nfor step in range(0, NUM_STEPS, EVAL_PERIOD):\n    train_loop.run(num_steps=EVAL_PERIOD)\n    eval_loop.run(num_episodes=NUM_EVAL_EPISODES)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129363,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 759,
+      "prompt_tokens": 244,
+      "total_tokens": 1003,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import cql\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport functools\n\n# User-specified parameters\nENV_NAME = 'walker2d-v2'\nDATASET_NAME = 'd4rl/walker2d-medium-v0'\nBATCH_SIZE = 256\nEVAL_PERIOD = 5000\nNUM_DEMO_EPISODES = 10\nSEED = 42\nLEARNING_RATE = 3e-4\nCQL_ALPHA = 1.0\nCQL_TEMP = 1.0\nCQL_NUM_ACTION_SAMPLES = 10\nCQL_MIN_Q_WEIGHT = 5.0\nNUM_EVAL_EPISODES = 10\nNUM_STEPS = 1_000_000\n\n# Create environment and specs\ndef make_environment(seed=SEED):\n    env = acme.utils.make_environment(ENV_NAME, seed=seed)\n    env = wrappers.SinglePrecisionWrapper(env)\n    return env\n\nenvironment = make_environment()\nenvironment_spec = specs.make_environment_spec(environment)\n\n# Load demonstrations dataset\ndef load_demonstrations(dataset_name):\n    import d4rl\n    import gym\n    env = gym.make(dataset_name)\n    dataset = env.get_dataset()\n    return dataset\n\ndemonstrations = load_demonstrations(DATASET_NAME)\n\n# Network factory\ndef network_factory(spec: specs.EnvironmentSpec):\n    policy_network = cql.make_policy_network(spec)\n    critic_network = cql.make_critic_network(spec)\n    return cql.CQLNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n        observation_network=lambda x: x,\n    )\n\n# Optimizer\ndef optimizer_factory():\n    import optax\n    return optax.adam(LEARNING_RATE)\n\n# Evaluator network\ndef evaluator_network_factory(networks):\n    return networks.policy_network\n\n# CQL config\ncql_config = cql.CQLConfig(\n    batch_size=BATCH_SIZE,\n    learning_rate=LEARNING_RATE,\n    min_q_weight=CQL_MIN_Q_WEIGHT,\n    cql_alpha=CQL_ALPHA,\n    cql_temp=CQL_TEMP,\n    num_action_samples=CQL_NUM_ACTION_SAMPLES,\n    seed=SEED,\n    num_sgd_steps_per_step=1,\n    discount=0.99,\n    tau=0.005,\n    target_update_period=1,\n    bc_iters=0,\n    bc_alpha=0.0,\n    max_gradient_norm=None,\n    reward_scale=1.0,\n    max_steps=NUM_STEPS,\n)\n\n# Build agent\nagent = cql.CQLBuilder(cql_config)(\n    environment_spec=environment_spec,\n    networks=network_factory(environment_spec),\n    seed=SEED,\n    dataset=demonstrations,\n    optimizer=optimizer_factory(),\n)\n\n# Environment loop with evaluation\neval_env = make_environment(seed=SEED+1)\neval_loop = acme.EnvironmentLoop(\n    environment=eval_env,\n    actor=agent.make_actor(policy_network=evaluator_network_factory(agent._networks), evaluation=True),\n    label='evaluation'\n)\n\ntrain_loop = acme.EnvironmentLoop(\n    environment=environment,\n    actor=agent.make_actor(policy_network=agent._networks.policy_network, evaluation=False),\n    label='training'\n)\n\n# Training and evaluation loop\nfor step in range(0, NUM_STEPS, EVAL_PERIOD):\n    train_loop.run(num_steps=EVAL_PERIOD)\n    eval_loop.run(num_episodes=NUM_EVAL_EPISODES)\n```",
+  "latency_seconds": 6.079112252999039,
+  "usage": {
+    "completion_tokens": 759,
+    "prompt_tokens": 244,
+    "total_tokens": 1003,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6560,
+  "response_sha256": "396acc422b491794abc9b4f184390f68cf30501833d72ded0cce0fdeb1387fd4",
+  "artifact_sha256": "9c96e9d94defc2f199a05afec74c7ad4889a5faa7f0cadbbfe7f1a1c8d4f2b0e"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 122,
+    "task_sha256": "b4c89177a74bb50d3233b493ab8f72b20bddf0fac67a92ce4e4510a503978f17",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the fate library to create a pipeline for a binary classification task using a heterogenous neural network (HeteroNN). The pipeline should include the following components: a Reader to read the training data, a DataTransform to preprocess the data, an Intersection to find the common instances between the guest and host data, a HeteroNN for the model training, and an Evaluation for model evaluation. The HeteroNN should be configured with specific parameters such as epochs, learning rate, batch size, and task type. The neural network should include a guest bottom model, a guest top model, a host bottom model, and an interactive layer. The models should be defined using the torch library and added to the HeteroNN. The HeteroNN should be compiled with a specific optimizer and loss function. The pipeline should be compiled and fitted with the training data. Finally, the summary of the HeteroNN component should be printed. The code should also include a main function that accepts a configuration file as an argument and runs the pipeline.\n\nYou can find the following APIs from the library helpful:\nparse_a_tree, fit_a_learner, guest_traverse_a_tree, host_traverse_a_tree, is_a_quadratic_residue, data_and_header_alignment, init_data_and_variable, create_and_get, find_best_split_guest_and_host, _classification_and_regression_extract, add_and_sub, stat_and_transform, decompress_and_unpack, pack_and_encrypt, test_create_and_get, TrainingInputData, BottomModel, _evaluate_classification_and_regression_metrics, assign_instance_to_leaves_and_update_weights, sort_score_and_label"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5uHwDSCOsx8i3usRoODPmjglbxV",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport torch\nimport torch.nn as nn\nfrom fate.arch import Context\nfrom fate.ml.nn.hetero import HeteroNN\nfrom fate.ml.nn.hetero import GuestBottomModel, GuestTopModel, HostBottomModel, InteractiveLayer\nfrom fate.ml.pipeline import Pipeline\nfrom fate.ml.components import Reader, DataTransform, Intersection, Evaluation\n\nclass GuestBottom(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(GuestBottom, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\nclass GuestTop(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(GuestTop, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.sigmoid = nn.Sigmoid()\n\n    def forward(self, x):\n        return self.sigmoid(self.fc(x))\n\nclass HostBottom(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(HostBottom, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\nclass InteractLayer(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(InteractLayer, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\ndef main(config_path):\n    # Load config\n    import yaml\n    with open(config_path, 'r') as f:\n        config = yaml.safe_load(f)\n\n    guest_train_data = config['guest_train_data']\n    host_train_data = config['host_train_data']\n    guest_input_dim = config['guest_input_dim']\n    host_input_dim = config['host_input_dim']\n    bottom_output_dim = config['bottom_output_dim']\n    interact_output_dim = config['interact_output_dim']\n    top_output_dim = config['top_output_dim']\n    epochs = config['epochs']\n    learning_rate = config['learning_rate']\n    batch_size = config['batch_size']\n\n    ctx = Context()\n\n    # Pipeline\n    pipeline = Pipeline(ctx=ctx)\n\n    # Reader\n    reader_0 = Reader(name=\"reader_0\")\n    reader_0.guest.component_param(table=guest_train_data)\n    reader_0.hosts[0].component_param(table=host_train_data)\n\n    # DataTransform\n    data_transform_0 = DataTransform(name=\"data_transform_0\")\n    data_transform_0.guest.component_param(with_label=True, output_format=\"dense\")\n    data_transform_0.hosts[0].component_param(with_label=False)\n\n    # Intersection\n    intersect_0 = Intersection(name=\"intersection_0\")\n\n    # HeteroNN\n    hetero_nn_0 = HeteroNN(name=\"hetero_nn_0\")\n    # Guest bottom model\n    guest_bottom_model = GuestBottom(input_dim=guest_input_dim, output_dim=bottom_output_dim)\n    # Guest top model\n    guest_top_model = GuestTop(input_dim=interact_output_dim, output_dim=top_output_dim)\n    # Host bottom model\n    host_bottom_model = HostBottom(input_dim=host_input_dim, output_dim=bottom_output_dim)\n    # Interactive layer\n    interactive_layer = InteractLayer(input_dim=bottom_output_dim*2, output_dim=interact_output_dim)\n\n    hetero_nn_0.set_bottom_model(guest_bottom_model, role='guest')\n    hetero_nn_0.set_top_model(guest_top_model, role='guest')\n    hetero_nn_0.set_bottom_model(host_bottom_model, role='host')\n    hetero_nn_0.set_interactive_layer(interactive_layer)\n\n    hetero_nn_0.compile(\n        optimizer=torch.optim.Adam,\n        optimizer_params={\"lr\": learning_rate},\n        loss=nn.BCELoss(),\n        epochs=epochs,\n        batch_size=batch_size,\n        task_type=\"binary\"\n    )\n\n    # Evaluation\n    eval_0 = Evaluation(name=\"eval_0\")\n    eval_0.guest.component_param(eval_type=\"binary\")\n\n    # Add components to pipeline\n    pipeline.add_component(reader_0)\n    pipeline.add_component(data_transform_0, data=reader_0.output.data)\n    pipeline.add_component(intersect_0, data=data_transform_0.output.data)\n    pipeline.add_component(hetero_nn_0, data=intersect_0.output.data)\n    pipeline.add_component(eval_0, data=hetero_nn_0.output.data)\n\n    # Compile and fit\n    pipeline.compile()\n    pipeline.fit()\n\n    # Print summary\n    print(hetero_nn_0.get_summary())\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser(description=\"FATE HeteroNN Pipeline\")\n    parser.add_argument(\"--config\", type=str, required=True, help=\"Path to config YAML file\")\n    args = parser.parse_args()\n    main(args.config)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131157,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1071,
+      "prompt_tokens": 365,
+      "total_tokens": 1436,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport torch\nimport torch.nn as nn\nfrom fate.arch import Context\nfrom fate.ml.nn.hetero import HeteroNN\nfrom fate.ml.nn.hetero import GuestBottomModel, GuestTopModel, HostBottomModel, InteractiveLayer\nfrom fate.ml.pipeline import Pipeline\nfrom fate.ml.components import Reader, DataTransform, Intersection, Evaluation\n\nclass GuestBottom(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(GuestBottom, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\nclass GuestTop(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(GuestTop, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.sigmoid = nn.Sigmoid()\n\n    def forward(self, x):\n        return self.sigmoid(self.fc(x))\n\nclass HostBottom(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(HostBottom, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\nclass InteractLayer(torch.nn.Module):\n    def __init__(self, input_dim, output_dim):\n        super(InteractLayer, self).__init__()\n        self.fc = nn.Linear(input_dim, output_dim)\n        self.relu = nn.ReLU()\n\n    def forward(self, x):\n        return self.relu(self.fc(x))\n\ndef main(config_path):\n    # Load config\n    import yaml\n    with open(config_path, 'r') as f:\n        config = yaml.safe_load(f)\n\n    guest_train_data = config['guest_train_data']\n    host_train_data = config['host_train_data']\n    guest_input_dim = config['guest_input_dim']\n    host_input_dim = config['host_input_dim']\n    bottom_output_dim = config['bottom_output_dim']\n    interact_output_dim = config['interact_output_dim']\n    top_output_dim = config['top_output_dim']\n    epochs = config['epochs']\n    learning_rate = config['learning_rate']\n    batch_size = config['batch_size']\n\n    ctx = Context()\n\n    # Pipeline\n    pipeline = Pipeline(ctx=ctx)\n\n    # Reader\n    reader_0 = Reader(name=\"reader_0\")\n    reader_0.guest.component_param(table=guest_train_data)\n    reader_0.hosts[0].component_param(table=host_train_data)\n\n    # DataTransform\n    data_transform_0 = DataTransform(name=\"data_transform_0\")\n    data_transform_0.guest.component_param(with_label=True, output_format=\"dense\")\n    data_transform_0.hosts[0].component_param(with_label=False)\n\n    # Intersection\n    intersect_0 = Intersection(name=\"intersection_0\")\n\n    # HeteroNN\n    hetero_nn_0 = HeteroNN(name=\"hetero_nn_0\")\n    # Guest bottom model\n    guest_bottom_model = GuestBottom(input_dim=guest_input_dim, output_dim=bottom_output_dim)\n    # Guest top model\n    guest_top_model = GuestTop(input_dim=interact_output_dim, output_dim=top_output_dim)\n    # Host bottom model\n    host_bottom_model = HostBottom(input_dim=host_input_dim, output_dim=bottom_output_dim)\n    # Interactive layer\n    interactive_layer = InteractLayer(input_dim=bottom_output_dim*2, output_dim=interact_output_dim)\n\n    hetero_nn_0.set_bottom_model(guest_bottom_model, role='guest')\n    hetero_nn_0.set_top_model(guest_top_model, role='guest')\n    hetero_nn_0.set_bottom_model(host_bottom_model, role='host')\n    hetero_nn_0.set_interactive_layer(interactive_layer)\n\n    hetero_nn_0.compile(\n        optimizer=torch.optim.Adam,\n        optimizer_params={\"lr\": learning_rate},\n        loss=nn.BCELoss(),\n        epochs=epochs,\n        batch_size=batch_size,\n        task_type=\"binary\"\n    )\n\n    # Evaluation\n    eval_0 = Evaluation(name=\"eval_0\")\n    eval_0.guest.component_param(eval_type=\"binary\")\n\n    # Add components to pipeline\n    pipeline.add_component(reader_0)\n    pipeline.add_component(data_transform_0, data=reader_0.output.data)\n    pipeline.add_component(intersect_0, data=data_transform_0.output.data)\n    pipeline.add_component(hetero_nn_0, data=intersect_0.output.data)\n    pipeline.add_component(eval_0, data=hetero_nn_0.output.data)\n\n    # Compile and fit\n    pipeline.compile()\n    pipeline.fit()\n\n    # Print summary\n    print(hetero_nn_0.get_summary())\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser(description=\"FATE HeteroNN Pipeline\")\n    parser.add_argument(\"--config\", type=str, required=True, help=\"Path to config YAML file\")\n    args = parser.parse_args()\n    main(args.config)\n```",
+  "latency_seconds": 6.516505067997059,
+  "usage": {
+    "completion_tokens": 1071,
+    "prompt_tokens": 365,
+    "total_tokens": 1436,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9298,
+  "response_sha256": "c5122a15dcd48b7e810509f2e8443b085b5ff6a3ce310c05bad3fe7ad8765a59",
+  "artifact_sha256": "4362d2e9a8a7f3fbaf0416b7d3374e0c440c1e6a2f7d3e2170d5f34290e212cb"
+}

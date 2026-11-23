@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 47,
+    "task_sha256": "c7bad0e9c0ff9211a21c6864c67c54f3a1968a4c899d5e42b5071aa565a375ca",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a 3D DC inversion of a dipole-dipole array using the SimPEG library. The model should consist of two spheres, one conductive and the other resistive, compared to the background. The inversion should be restrained to the Core Mesh using an Active Cells mapping combined with an exponential mapping to invert in log conductivity space. The code should also include the creation of a synthetic Dipole-Dipole Survey and a Tikhonov Inversion. Finally, the code should generate a plot of the ground truth and the inverted model, both vertically and horizontally.\n\nYou can find the following APIs from the library helpful:\nA, _aHd, _derivA, casing_a, _aSrc, getA, _makeASymmetric, getADeriv, inversion, test_update_of_sparse_norms, _mirror_mapping_to_objfctlist, ValidationInInversion, ParametrizedCasingAndLayer, _aHd_uV, getADeriv_mu, getADeriv_sigma, getADeriv_mui, getADeriv_rho, _mirror_model_to_objfcts, toRecArray"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5Aa8j0jEgqAv1vJG6jw21rLjN9a",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom discretize import TensorMesh\nfrom SimPEG import maps, data, data_misfit, regularization, optimization, inverse_problem, inversion, directives\nfrom SimPEG.electromagnetics.static import resistivity as dc\nfrom SimPEG.utils import mkvc\n\n# Mesh parameters\ncs, ncx, ncy, ncz, npad = 5.0, 40, 40, 20, 10\nhx = [(cs, npad, -1.3), (cs, ncx), (cs, npad, 1.3)]\nhy = [(cs, npad, -1.3), (cs, ncy), (cs, npad, 1.3)]\nhz = [(cs, npad, -1.3), (cs, ncz)]\nmesh = TensorMesh([hx, hy, hz], x0=\"CCC\")\n\n# Model parameters\nbackground_conductivity = 1e-2  # S/m\nsphere1_center = np.array([0, -20, -30])\nsphere1_radius = 12\nsphere1_conductivity = 1e-1  # conductive sphere\n\nsphere2_center = np.array([15, 15, -25])\nsphere2_radius = 8\nsphere2_conductivity = 1e-3  # resistive sphere\n\n# Define model\nxyz = mesh.gridCC\nr1 = np.linalg.norm(xyz - sphere1_center, axis=1)\nr2 = np.linalg.norm(xyz - sphere2_center, axis=1)\nmodel = np.ones(mesh.nC) * background_conductivity\nmodel[r1 < sphere1_radius] = sphere1_conductivity\nmodel[r2 < sphere2_radius] = sphere2_conductivity\n\n# Define core region for inversion\ncore = (\n    (mesh.gridCC[:, 0] > -cs * ncx / 2)\n    & (mesh.gridCC[:, 0] < cs * ncx / 2)\n    & (mesh.gridCC[:, 1] > -cs * ncy / 2)\n    & (mesh.gridCC[:, 1] < cs * ncy / 2)\n    & (mesh.gridCC[:, 2] < 0)\n    & (mesh.gridCC[:, 2] > -cs * ncz)\n)\nactive = core\n\n# Mapping: active cells + expMap (log conductivity)\nactMap = maps.InjectActiveCells(mesh, active, np.log(background_conductivity))\nexpMap = maps.ExpMap()\nmapping = expMap * actMap\n\n# Survey geometry: Dipole-Dipole\nn_electrodes = 24\nxmin, xmax = -80, 80\ny_electrodes = 0.0\nz_electrodes = 0.0\nelectrode_locations = np.c_[\n    np.linspace(xmin, xmax, n_electrodes),\n    np.ones(n_electrodes) * y_electrodes,\n    np.ones(n_electrodes) * z_electrodes,\n]\n\nsource_list = []\nfor i in range(n_electrodes - 3):\n    for n_spacing in range(1, 4):\n        A = electrode_locations[i]\n        B = electrode_locations[i + 1]\n        M = electrode_locations[i + 1 + n_spacing]\n        N = electrode_locations[i + 2 + n_spacing]\n        src = dc.sources.Dipole(\n            [dc.receivers.Dipole(M, N)], A, B\n        )\n        source_list.append(src)\nsurvey = dc.survey.Survey(source_list)\n\n# Simulation\nsimulation = dc.simulation.Simulation3DNodal(\n    mesh,\n    survey=survey,\n    sigma=model,\n    solver=dc.utils.SolverLU,\n)\n\n# Generate synthetic data\nsynthetic_data = simulation.dpred()\nstd = 0.03  # 3% noise\nnoise = std * np.abs(synthetic_data) * np.random.randn(synthetic_data.size)\ndobs = synthetic_data + noise\n\n# Set up inversion problem\ndata_obj = data.Data(survey, dobs=dobs, standard_deviation=std * np.abs(dobs) + 1e-5)\n\nsimulation_invert = dc.simulation.Simulation3DNodal(\n    mesh,\n    survey=survey,\n    sigmaMap=mapping,\n    solver=dc.utils.SolverLU,\n)\n\ndmis = data_misfit.L2DataMisfit(simulation=simulation_invert, data=data_obj)\nreg = regularization.Simple(mesh, indActive=active)\nopt = optimization.InexactGaussNewton(maxIter=15)\ninv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)\nbetaest = directives.BetaEstimate_ByEig(beta0_ratio=1e0)\ntarget = directives.TargetMisfit()\nsave = directives.SaveOutputEveryIteration()\ninv = inversion.BaseInversion(inv_prob, directiveList=[betaest, target, save])\n\n# Initial model (log conductivity)\nm0 = np.log(np.ones(active.sum()) * background_conductivity)\n\n# Run inversion\nrecovered_model = inv.run(m0)\n\n# Map models to full mesh\nrecovered_sigma = np.ones(mesh.nC) * background_conductivity\nrecovered_sigma[active] = np.exp(recovered_model)\ntrue_sigma = model\n\n# Plotting\nfig, axes = plt.subplots(2, 2, figsize=(12, 10))\n\n# Vertical cross-section (Y=0)\ny_ind = np.argmin(np.abs(mesh.vectorCCy - 0))\nim0 = axes[0, 0].imshow(\n    np.log10(true_sigma.reshape(mesh.vnC)[:, y_ind, :].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCz[-1],\n        mesh.vectorCCz[0],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[0, 0].set_title(\"True Model (Vertical, Y=0)\")\naxes[0, 0].set_xlabel(\"X (m)\")\naxes[0, 0].set_ylabel(\"Z (m)\")\nplt.colorbar(im0, ax=axes[0, 0], label=\"log10 Conductivity (S/m)\")\n\nim1 = axes[0, 1].imshow(\n    np.log10(recovered_sigma.reshape(mesh.vnC)[:, y_ind, :].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCz[-1],\n        mesh.vectorCCz[0],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[0, 1].set_title(\"Inverted Model (Vertical, Y=0)\")\naxes[0, 1].set_xlabel(\"X (m)\")\naxes[0, 1].set_ylabel(\"Z (m)\")\nplt.colorbar(im1, ax=axes[0, 1], label=\"log10 Conductivity (S/m)\")\n\n# Horizontal slice (Z = -30 m)\nz_ind = np.argmin(np.abs(mesh.vectorCCz + 30))\nim2 = axes[1, 0].imshow(\n    np.log10(true_sigma.reshape(mesh.vnC)[:, :, z_ind].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCy[0],\n        mesh.vectorCCy[-1],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[1, 0].set_title(\"True Model (Horizontal, Z=-30m)\")\naxes[1, 0].set_xlabel(\"X (m)\")\naxes[1, 0].set_ylabel(\"Y (m)\")\nplt.colorbar(im2, ax=axes[1, 0], label=\"log10 Conductivity (S/m)\")\n\nim3 = axes[1, 1].imshow(\n    np.log10(recovered_sigma.reshape(mesh.vnC)[:, :, z_ind].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCy[0],\n        mesh.vectorCCy[-1],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[1, 1].set_title(\"Inverted Model (Horizontal, Z=-30m)\")\naxes[1, 1].set_xlabel(\"X (m)\")\naxes[1, 1].set_ylabel(\"Y (m)\")\nplt.colorbar(im3, ax=axes[1, 1], label=\"log10 Conductivity (S/m)\")\n\nplt.tight_layout()\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128324,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_3b94341bc3",
+    "usage": {
+      "completion_tokens": 1824,
+      "prompt_tokens": 265,
+      "total_tokens": 2089,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom discretize import TensorMesh\nfrom SimPEG import maps, data, data_misfit, regularization, optimization, inverse_problem, inversion, directives\nfrom SimPEG.electromagnetics.static import resistivity as dc\nfrom SimPEG.utils import mkvc\n\n# Mesh parameters\ncs, ncx, ncy, ncz, npad = 5.0, 40, 40, 20, 10\nhx = [(cs, npad, -1.3), (cs, ncx), (cs, npad, 1.3)]\nhy = [(cs, npad, -1.3), (cs, ncy), (cs, npad, 1.3)]\nhz = [(cs, npad, -1.3), (cs, ncz)]\nmesh = TensorMesh([hx, hy, hz], x0=\"CCC\")\n\n# Model parameters\nbackground_conductivity = 1e-2  # S/m\nsphere1_center = np.array([0, -20, -30])\nsphere1_radius = 12\nsphere1_conductivity = 1e-1  # conductive sphere\n\nsphere2_center = np.array([15, 15, -25])\nsphere2_radius = 8\nsphere2_conductivity = 1e-3  # resistive sphere\n\n# Define model\nxyz = mesh.gridCC\nr1 = np.linalg.norm(xyz - sphere1_center, axis=1)\nr2 = np.linalg.norm(xyz - sphere2_center, axis=1)\nmodel = np.ones(mesh.nC) * background_conductivity\nmodel[r1 < sphere1_radius] = sphere1_conductivity\nmodel[r2 < sphere2_radius] = sphere2_conductivity\n\n# Define core region for inversion\ncore = (\n    (mesh.gridCC[:, 0] > -cs * ncx / 2)\n    & (mesh.gridCC[:, 0] < cs * ncx / 2)\n    & (mesh.gridCC[:, 1] > -cs * ncy / 2)\n    & (mesh.gridCC[:, 1] < cs * ncy / 2)\n    & (mesh.gridCC[:, 2] < 0)\n    & (mesh.gridCC[:, 2] > -cs * ncz)\n)\nactive = core\n\n# Mapping: active cells + expMap (log conductivity)\nactMap = maps.InjectActiveCells(mesh, active, np.log(background_conductivity))\nexpMap = maps.ExpMap()\nmapping = expMap * actMap\n\n# Survey geometry: Dipole-Dipole\nn_electrodes = 24\nxmin, xmax = -80, 80\ny_electrodes = 0.0\nz_electrodes = 0.0\nelectrode_locations = np.c_[\n    np.linspace(xmin, xmax, n_electrodes),\n    np.ones(n_electrodes) * y_electrodes,\n    np.ones(n_electrodes) * z_electrodes,\n]\n\nsource_list = []\nfor i in range(n_electrodes - 3):\n    for n_spacing in range(1, 4):\n        A = electrode_locations[i]\n        B = electrode_locations[i + 1]\n        M = electrode_locations[i + 1 + n_spacing]\n        N = electrode_locations[i + 2 + n_spacing]\n        src = dc.sources.Dipole(\n            [dc.receivers.Dipole(M, N)], A, B\n        )\n        source_list.append(src)\nsurvey = dc.survey.Survey(source_list)\n\n# Simulation\nsimulation = dc.simulation.Simulation3DNodal(\n    mesh,\n    survey=survey,\n    sigma=model,\n    solver=dc.utils.SolverLU,\n)\n\n# Generate synthetic data\nsynthetic_data = simulation.dpred()\nstd = 0.03  # 3% noise\nnoise = std * np.abs(synthetic_data) * np.random.randn(synthetic_data.size)\ndobs = synthetic_data + noise\n\n# Set up inversion problem\ndata_obj = data.Data(survey, dobs=dobs, standard_deviation=std * np.abs(dobs) + 1e-5)\n\nsimulation_invert = dc.simulation.Simulation3DNodal(\n    mesh,\n    survey=survey,\n    sigmaMap=mapping,\n    solver=dc.utils.SolverLU,\n)\n\ndmis = data_misfit.L2DataMisfit(simulation=simulation_invert, data=data_obj)\nreg = regularization.Simple(mesh, indActive=active)\nopt = optimization.InexactGaussNewton(maxIter=15)\ninv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)\nbetaest = directives.BetaEstimate_ByEig(beta0_ratio=1e0)\ntarget = directives.TargetMisfit()\nsave = directives.SaveOutputEveryIteration()\ninv = inversion.BaseInversion(inv_prob, directiveList=[betaest, target, save])\n\n# Initial model (log conductivity)\nm0 = np.log(np.ones(active.sum()) * background_conductivity)\n\n# Run inversion\nrecovered_model = inv.run(m0)\n\n# Map models to full mesh\nrecovered_sigma = np.ones(mesh.nC) * background_conductivity\nrecovered_sigma[active] = np.exp(recovered_model)\ntrue_sigma = model\n\n# Plotting\nfig, axes = plt.subplots(2, 2, figsize=(12, 10))\n\n# Vertical cross-section (Y=0)\ny_ind = np.argmin(np.abs(mesh.vectorCCy - 0))\nim0 = axes[0, 0].imshow(\n    np.log10(true_sigma.reshape(mesh.vnC)[:, y_ind, :].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCz[-1],\n        mesh.vectorCCz[0],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[0, 0].set_title(\"True Model (Vertical, Y=0)\")\naxes[0, 0].set_xlabel(\"X (m)\")\naxes[0, 0].set_ylabel(\"Z (m)\")\nplt.colorbar(im0, ax=axes[0, 0], label=\"log10 Conductivity (S/m)\")\n\nim1 = axes[0, 1].imshow(\n    np.log10(recovered_sigma.reshape(mesh.vnC)[:, y_ind, :].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCz[-1],\n        mesh.vectorCCz[0],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[0, 1].set_title(\"Inverted Model (Vertical, Y=0)\")\naxes[0, 1].set_xlabel(\"X (m)\")\naxes[0, 1].set_ylabel(\"Z (m)\")\nplt.colorbar(im1, ax=axes[0, 1], label=\"log10 Conductivity (S/m)\")\n\n# Horizontal slice (Z = -30 m)\nz_ind = np.argmin(np.abs(mesh.vectorCCz + 30))\nim2 = axes[1, 0].imshow(\n    np.log10(true_sigma.reshape(mesh.vnC)[:, :, z_ind].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCy[0],\n        mesh.vectorCCy[-1],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[1, 0].set_title(\"True Model (Horizontal, Z=-30m)\")\naxes[1, 0].set_xlabel(\"X (m)\")\naxes[1, 0].set_ylabel(\"Y (m)\")\nplt.colorbar(im2, ax=axes[1, 0], label=\"log10 Conductivity (S/m)\")\n\nim3 = axes[1, 1].imshow(\n    np.log10(recovered_sigma.reshape(mesh.vnC)[:, :, z_ind].T),\n    extent=[\n        mesh.vectorCCx[0],\n        mesh.vectorCCx[-1],\n        mesh.vectorCCy[0],\n        mesh.vectorCCy[-1],\n    ],\n    aspect=\"auto\",\n    cmap=\"viridis\",\n)\naxes[1, 1].set_title(\"Inverted Model (Horizontal, Z=-30m)\")\naxes[1, 1].set_xlabel(\"X (m)\")\naxes[1, 1].set_ylabel(\"Y (m)\")\nplt.colorbar(im3, ax=axes[1, 1], label=\"log10 Conductivity (S/m)\")\n\nplt.tight_layout()\nplt.show()\n```",
+  "latency_seconds": 9.418582346999756,
+  "usage": {
+    "completion_tokens": 1824,
+    "prompt_tokens": 265,
+    "total_tokens": 2089,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 15122,
+  "response_sha256": "1a578312f52c951ab3991074d65d4a2dde5e59c6cfd6d330dacc7297cf96dc79",
+  "artifact_sha256": "c12c6630db9b29928434eea121481e150bfb646b49b4598f18384ab05759f360"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 107,
+    "task_sha256": "01781dc6db04c1637cd9e276f137ce6f396fe3627519709ecf006c0478dc4955",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the porepy library:\n\n1. Define a function to add data to a given grid bucket. This function should define the permeability, apertures, and boundary conditions for each grid in the bucket. It should also assign coupling permeability for each edge in the grid bucket.\n\n2. Define a function to write a network of points to a CSV file. The network should be defined as a string and written to the file.\n\n3. Define a main function that takes in a permeability factor, a description, and a mesh size. This function should create a grid bucket from the CSV file, compute its geometry, and optionally generate a coarse grid. It should then assign parameters to the grid bucket, solve a system of equations using the DualVEMMixDim solver, and extract and project the solution. The function should also export the results to a VTK file and print out some information about the grid bucket.\n\n4. Define two functions, one for blocking and one for permeable scenarios. Each function should call the main function with different permeability factors and mesh sizes.\n\n5. Finally, call the two functions for blocking and permeable scenarios.\n\nYou can find the following APIs from the library helpful:\n_a_in_b, test_ismember_rows_double_occurence_a_and_b, apply_function_to_edges, apply_function_to_nodes, test_one_cell_a_time_node_keyword, apply_function, GridBucket, snap_to_grid, DarcyAndTransport, _point_and_edge_lists, _uniquify_points_and_edges, test_ismember_rows_double_occurence_a_no_b, SnapToGridTest, map_subgrid_to_grid, TestGettersAndSetters, test_many_points_and_segments, to_vtk, test_round_up_and_down, test_single_point_and_segment, GmshGridBucketWriter"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5lpyTD61Cc6HYV5xYeRaXUiKXAf",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport porepy as pp\nimport os\n\ndef add_data_to_grid_bucket(gb, permeability_factor=1.0):\n    for g, d in gb:\n        # Permeability\n        perm = permeability_factor * np.ones(g.num_cells)\n        if g.dim == 3:\n            k = pp.SecondOrderTensor(perm)\n        elif g.dim == 2:\n            k = pp.SecondOrderTensor(perm)\n        elif g.dim == 1:\n            k = pp.SecondOrderTensor(perm)\n        else:\n            raise ValueError(\"Unsupported grid dimension\")\n        d[\"permeability\"] = k\n\n        # Aperture\n        if g.dim < 3:\n            d[\"aperture\"] = np.ones(g.num_cells) * 1e-3\n        else:\n            d[\"aperture\"] = np.ones(g.num_cells)\n\n        # Boundary conditions\n        bc = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), \n                                  cond=np.array([\"dir\"] * g.num_faces))\n        bc_values = np.zeros(g.num_faces)\n        # Set Dirichlet on left, Neumann on right\n        tol = 1e-7\n        left = np.where(np.abs(g.face_centers[0] - g.bounds[0][0]) < tol)[0]\n        right = np.where(np.abs(g.face_centers[0] - g.bounds[0][1]) < tol)[0]\n        bc.is_dir[left] = True\n        bc.is_dir[right] = False\n        bc_values[left] = 1.0\n        bc_values[right] = 0.0\n        d[\"bc\"] = bc\n        d[\"bc_values\"] = bc_values\n\n        # Source term\n        d[\"source\"] = np.zeros(g.num_cells)\n\n    for e, ed in gb.edges():\n        # Coupling permeability\n        ed[\"permeability\"] = 1e-2 * permeability_factor\n\ndef write_network_to_csv(network_str, filename):\n    with open(filename, \"w\") as f:\n        f.write(network_str)\n\ndef main(permeability_factor, description, mesh_size, coarse=False):\n    # Define network as a string\n    network_str = \"\"\"x1,y1,x2,y2\n0.2,0.2,0.8,0.8\n0.2,0.8,0.8,0.2\n\"\"\"\n    csv_filename = \"network.csv\"\n    write_network_to_csv(network_str, csv_filename)\n\n    # Create grid bucket from CSV\n    domain = {\"xmin\": 0, \"xmax\": 1, \"ymin\": 0, \"ymax\": 1}\n    network = pp.fracs.network_from_csv(csv_filename)\n    gb = pp.fracs.grid_bucket_from_network(network, domain, mesh_size)\n\n    # Compute geometry\n    gb.compute_geometry()\n\n    # Optionally generate coarse grid\n    if coarse:\n        pp.coarsening.coarse_grid(gb)\n\n    # Assign parameters\n    add_data_to_grid_bucket(gb, permeability_factor)\n\n    # Set up and solve system\n    solver = pp.DualVEMMixDim(gb, solver_type=\"direct\")\n    solver.discretize()\n    solver.solve()\n\n    # Extract and project solution\n    pressure = {}\n    for g, d in gb:\n        pressure[g] = d[\"pressure\"]\n\n    # Export to VTK\n    vtk_folder = \"vtk_results\"\n    os.makedirs(vtk_folder, exist_ok=True)\n    vtk_file = os.path.join(vtk_folder, f\"result_{description}.vtk\")\n    pp.io.to_vtk(gb, vtk_file, {\"pressure\": pressure})\n\n    # Print grid bucket info\n    print(f\"Scenario: {description}\")\n    print(f\"Number of grids: {gb.num_graph_nodes()}\")\n    for g, d in gb:\n        print(f\"Grid dim: {g.dim}, num cells: {g.num_cells}\")\n\ndef blocking_scenario():\n    main(permeability_factor=1e-8, description=\"blocking\", mesh_size={\"fracture\": 0.02, \"matrix\": 0.05})\n\ndef permeable_scenario():\n    main(permeability_factor=1.0, description=\"permeable\", mesh_size={\"fracture\": 0.02, \"matrix\": 0.05})\n\nblocking_scenario()\npermeable_scenario()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130633,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 925,
+      "prompt_tokens": 398,
+      "total_tokens": 1323,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport porepy as pp\nimport os\n\ndef add_data_to_grid_bucket(gb, permeability_factor=1.0):\n    for g, d in gb:\n        # Permeability\n        perm = permeability_factor * np.ones(g.num_cells)\n        if g.dim == 3:\n            k = pp.SecondOrderTensor(perm)\n        elif g.dim == 2:\n            k = pp.SecondOrderTensor(perm)\n        elif g.dim == 1:\n            k = pp.SecondOrderTensor(perm)\n        else:\n            raise ValueError(\"Unsupported grid dimension\")\n        d[\"permeability\"] = k\n\n        # Aperture\n        if g.dim < 3:\n            d[\"aperture\"] = np.ones(g.num_cells) * 1e-3\n        else:\n            d[\"aperture\"] = np.ones(g.num_cells)\n\n        # Boundary conditions\n        bc = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), \n                                  cond=np.array([\"dir\"] * g.num_faces))\n        bc_values = np.zeros(g.num_faces)\n        # Set Dirichlet on left, Neumann on right\n        tol = 1e-7\n        left = np.where(np.abs(g.face_centers[0] - g.bounds[0][0]) < tol)[0]\n        right = np.where(np.abs(g.face_centers[0] - g.bounds[0][1]) < tol)[0]\n        bc.is_dir[left] = True\n        bc.is_dir[right] = False\n        bc_values[left] = 1.0\n        bc_values[right] = 0.0\n        d[\"bc\"] = bc\n        d[\"bc_values\"] = bc_values\n\n        # Source term\n        d[\"source\"] = np.zeros(g.num_cells)\n\n    for e, ed in gb.edges():\n        # Coupling permeability\n        ed[\"permeability\"] = 1e-2 * permeability_factor\n\ndef write_network_to_csv(network_str, filename):\n    with open(filename, \"w\") as f:\n        f.write(network_str)\n\ndef main(permeability_factor, description, mesh_size, coarse=False):\n    # Define network as a string\n    network_str = \"\"\"x1,y1,x2,y2\n0.2,0.2,0.8,0.8\n0.2,0.8,0.8,0.2\n\"\"\"\n    csv_filename = \"network.csv\"\n    write_network_to_csv(network_str, csv_filename)\n\n    # Create grid bucket from CSV\n    domain = {\"xmin\": 0, \"xmax\": 1, \"ymin\": 0, \"ymax\": 1}\n    network = pp.fracs.network_from_csv(csv_filename)\n    gb = pp.fracs.grid_bucket_from_network(network, domain, mesh_size)\n\n    # Compute geometry\n    gb.compute_geometry()\n\n    # Optionally generate coarse grid\n    if coarse:\n        pp.coarsening.coarse_grid(gb)\n\n    # Assign parameters\n    add_data_to_grid_bucket(gb, permeability_factor)\n\n    # Set up and solve system\n    solver = pp.DualVEMMixDim(gb, solver_type=\"direct\")\n    solver.discretize()\n    solver.solve()\n\n    # Extract and project solution\n    pressure = {}\n    for g, d in gb:\n        pressure[g] = d[\"pressure\"]\n\n    # Export to VTK\n    vtk_folder = \"vtk_results\"\n    os.makedirs(vtk_folder, exist_ok=True)\n    vtk_file = os.path.join(vtk_folder, f\"result_{description}.vtk\")\n    pp.io.to_vtk(gb, vtk_file, {\"pressure\": pressure})\n\n    # Print grid bucket info\n    print(f\"Scenario: {description}\")\n    print(f\"Number of grids: {gb.num_graph_nodes()}\")\n    for g, d in gb:\n        print(f\"Grid dim: {g.dim}, num cells: {g.num_cells}\")\n\ndef blocking_scenario():\n    main(permeability_factor=1e-8, description=\"blocking\", mesh_size={\"fracture\": 0.02, \"matrix\": 0.05})\n\ndef permeable_scenario():\n    main(permeability_factor=1.0, description=\"permeable\", mesh_size={\"fracture\": 0.02, \"matrix\": 0.05})\n\nblocking_scenario()\npermeable_scenario()\n```",
+  "latency_seconds": 6.551591970001027,
+  "usage": {
+    "completion_tokens": 925,
+    "prompt_tokens": 398,
+    "total_tokens": 1323,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8196,
+  "response_sha256": "b8e014930051b5f22cd291b62fbb3c225aef84136a527095ff2e3693692ab43a",
+  "artifact_sha256": "c39a07fd57eaa5dcdd72d1bc1c0d910f0b714a9bfba72f9ce928855b99222212"
+}

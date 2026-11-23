@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 62,
+    "task_sha256": "dd4a72d4906bbd9b2251456207233cde6738b0926de914199e33d5265a0b4330",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the triplet and quintet energy gap of an Iron-Porphyrin molecule using DMRG-CASSCF and DMRG-NEVPT2 methods from the pyscf library. The code should first define the DMET active space, then calculate the quintet and triplet energies separately. The active space should include the Fe double d-shell, 4s shell, and the ligand N 2pz orbitals to describe metal-ligand pi bond and pi backbond. The code should also output the active space orbitals to molden format."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5JroEY7xFKJU12FJYgvSBYvdioZ",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mcscf, dmrgscf, tools\nfrom pyscf.nevpt2 import DMRG_NEVPT2\n\n# Define Iron-Porphyrin molecule geometry (example coordinates)\nmol = gto.Mole()\nmol.atom = '''\nFe      0.000000    0.000000    0.000000\nN       1.934000    0.000000    0.000000\nN      -1.934000    0.000000    0.000000\nN       0.000000    1.934000    0.000000\nN       0.000000   -1.934000    0.000000\nC       2.800000    1.200000    0.000000\nC       2.800000   -1.200000    0.000000\nC      -2.800000    1.200000    0.000000\nC      -2.800000   -1.200000    0.000000\nC       1.200000    2.800000    0.000000\nC      -1.200000    2.800000    0.000000\nC       1.200000   -2.800000    0.000000\nC      -1.200000   -2.800000    0.000000\n'''\nmol.basis = 'def2-svp'\nmol.charge = 0\nmol.spin = 4  # Quintet (2S = 4, S=2)\nmol.symmetry = False\nmol.build()\n\n# SCF calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Define DMET active space: Fe double d-shell (10), Fe 4s (2), 4 N 2pz (4)\n# Total: 10 (d) + 2 (4s) + 4 (N 2pz) = 16 orbitals\n# Number of electrons: Fe (d6s2) + 4xN (each N 2pz has 2e) = 8 + 8 = 16 electrons\nncas = 16\nnelecas = 16\n\n# Helper function to select active orbitals (indices must be determined by inspection)\ndef get_active_orbitals(mol, mf, ncas):\n    # For demonstration, select 16 MOs around HOMO/LUMO\n    mo_energy = mf.mo_energy\n    nocc = mol.nelectron // 2\n    idx = np.argsort(mo_energy)\n    start = nocc - ncas // 2\n    end = start + ncas\n    return list(range(start, end))\n\n# Get active orbital indices\ncas_list = get_active_orbitals(mol, mf, ncas)\n\n# DMRG settings\ndmrg_kwargs = {'maxM': 1000, 'tol': 1e-6}\n\n# Quintet state (S=2, spin=4)\nmol.spin = 4\nmf = scf.RHF(mol)\nmf.kernel()\nmc_quintet = dmrgscf.DMRGSCF(mf, ncas, nelecas)\nmc_quintet.fcisolver.maxM = dmrg_kwargs['maxM']\nmc_quintet.fcisolver.tol = dmrg_kwargs['tol']\nmc_quintet.cas_list = cas_list\nmc_quintet.kernel()\ntools.molden.from_mcscf(mc_quintet, 'iron_porphyrin_quintet_active.molden')\n\n# DMRG-NEVPT2 for quintet\nnevpt2_quintet = DMRG_NEVPT2(mc_quintet)\ne_nevpt2_quintet = nevpt2_quintet.kernel()\n\n# Triplet state (S=1, spin=2)\nmol.spin = 2\nmf_triplet = scf.RHF(mol)\nmf_triplet.kernel()\nmc_triplet = dmrgscf.DMRGSCF(mf_triplet, ncas, nelecas)\nmc_triplet.fcisolver.maxM = dmrg_kwargs['maxM']\nmc_triplet.fcisolver.tol = dmrg_kwargs['tol']\nmc_triplet.cas_list = cas_list\nmc_triplet.kernel()\ntools.molden.from_mcscf(mc_triplet, 'iron_porphyrin_triplet_active.molden')\n\n# DMRG-NEVPT2 for triplet\nnevpt2_triplet = DMRG_NEVPT2(mc_triplet)\ne_nevpt2_triplet = nevpt2_triplet.kernel()\n\n# Output energies and energy gap\nprint(f\"Quintet DMRG-CASSCF energy: {mc_quintet.e_tot:.8f} Ha\")\nprint(f\"Quintet DMRG-NEVPT2 energy: {e_nevpt2_quintet:.8f} Ha\")\nprint(f\"Triplet DMRG-CASSCF energy: {mc_triplet.e_tot:.8f} Ha\")\nprint(f\"Triplet DMRG-NEVPT2 energy: {e_nevpt2_triplet:.8f} Ha\")\nprint(f\"DMRG-CASSCF Triplet-Quintet gap: {(mc_triplet.e_tot - mc_quintet.e_tot)*27.2114:.4f} eV\")\nprint(f\"DMRG-NEVPT2 Triplet-Quintet gap: {(e_nevpt2_triplet - e_nevpt2_quintet)*27.2114:.4f} eV\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128899,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1215,
+      "prompt_tokens": 149,
+      "total_tokens": 1364,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mcscf, dmrgscf, tools\nfrom pyscf.nevpt2 import DMRG_NEVPT2\n\n# Define Iron-Porphyrin molecule geometry (example coordinates)\nmol = gto.Mole()\nmol.atom = '''\nFe      0.000000    0.000000    0.000000\nN       1.934000    0.000000    0.000000\nN      -1.934000    0.000000    0.000000\nN       0.000000    1.934000    0.000000\nN       0.000000   -1.934000    0.000000\nC       2.800000    1.200000    0.000000\nC       2.800000   -1.200000    0.000000\nC      -2.800000    1.200000    0.000000\nC      -2.800000   -1.200000    0.000000\nC       1.200000    2.800000    0.000000\nC      -1.200000    2.800000    0.000000\nC       1.200000   -2.800000    0.000000\nC      -1.200000   -2.800000    0.000000\n'''\nmol.basis = 'def2-svp'\nmol.charge = 0\nmol.spin = 4  # Quintet (2S = 4, S=2)\nmol.symmetry = False\nmol.build()\n\n# SCF calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Define DMET active space: Fe double d-shell (10), Fe 4s (2), 4 N 2pz (4)\n# Total: 10 (d) + 2 (4s) + 4 (N 2pz) = 16 orbitals\n# Number of electrons: Fe (d6s2) + 4xN (each N 2pz has 2e) = 8 + 8 = 16 electrons\nncas = 16\nnelecas = 16\n\n# Helper function to select active orbitals (indices must be determined by inspection)\ndef get_active_orbitals(mol, mf, ncas):\n    # For demonstration, select 16 MOs around HOMO/LUMO\n    mo_energy = mf.mo_energy\n    nocc = mol.nelectron // 2\n    idx = np.argsort(mo_energy)\n    start = nocc - ncas // 2\n    end = start + ncas\n    return list(range(start, end))\n\n# Get active orbital indices\ncas_list = get_active_orbitals(mol, mf, ncas)\n\n# DMRG settings\ndmrg_kwargs = {'maxM': 1000, 'tol': 1e-6}\n\n# Quintet state (S=2, spin=4)\nmol.spin = 4\nmf = scf.RHF(mol)\nmf.kernel()\nmc_quintet = dmrgscf.DMRGSCF(mf, ncas, nelecas)\nmc_quintet.fcisolver.maxM = dmrg_kwargs['maxM']\nmc_quintet.fcisolver.tol = dmrg_kwargs['tol']\nmc_quintet.cas_list = cas_list\nmc_quintet.kernel()\ntools.molden.from_mcscf(mc_quintet, 'iron_porphyrin_quintet_active.molden')\n\n# DMRG-NEVPT2 for quintet\nnevpt2_quintet = DMRG_NEVPT2(mc_quintet)\ne_nevpt2_quintet = nevpt2_quintet.kernel()\n\n# Triplet state (S=1, spin=2)\nmol.spin = 2\nmf_triplet = scf.RHF(mol)\nmf_triplet.kernel()\nmc_triplet = dmrgscf.DMRGSCF(mf_triplet, ncas, nelecas)\nmc_triplet.fcisolver.maxM = dmrg_kwargs['maxM']\nmc_triplet.fcisolver.tol = dmrg_kwargs['tol']\nmc_triplet.cas_list = cas_list\nmc_triplet.kernel()\ntools.molden.from_mcscf(mc_triplet, 'iron_porphyrin_triplet_active.molden')\n\n# DMRG-NEVPT2 for triplet\nnevpt2_triplet = DMRG_NEVPT2(mc_triplet)\ne_nevpt2_triplet = nevpt2_triplet.kernel()\n\n# Output energies and energy gap\nprint(f\"Quintet DMRG-CASSCF energy: {mc_quintet.e_tot:.8f} Ha\")\nprint(f\"Quintet DMRG-NEVPT2 energy: {e_nevpt2_quintet:.8f} Ha\")\nprint(f\"Triplet DMRG-CASSCF energy: {mc_triplet.e_tot:.8f} Ha\")\nprint(f\"Triplet DMRG-NEVPT2 energy: {e_nevpt2_triplet:.8f} Ha\")\nprint(f\"DMRG-CASSCF Triplet-Quintet gap: {(mc_triplet.e_tot - mc_quintet.e_tot)*27.2114:.4f} eV\")\nprint(f\"DMRG-NEVPT2 Triplet-Quintet gap: {(e_nevpt2_triplet - e_nevpt2_quintet)*27.2114:.4f} eV\")\n```",
+  "latency_seconds": 8.633669209999425,
+  "usage": {
+    "completion_tokens": 1215,
+    "prompt_tokens": 149,
+    "total_tokens": 1364,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10018,
+  "response_sha256": "e1b7a5e62e09f849bce637fad3454a458d9183ef189f5d6521a087ac3909fc40",
+  "artifact_sha256": "6711cb3b47a2c21f402ff2c29b1adc1d067a76affab036b2ab0cde384336e01e"
+}

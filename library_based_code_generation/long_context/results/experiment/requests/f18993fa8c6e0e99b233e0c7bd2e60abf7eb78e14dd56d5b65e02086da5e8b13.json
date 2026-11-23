@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 74,
+    "task_sha256": "a2eca12074541480358862924c5a0c1472a8061d011d74ea5a05faea73215879",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up and runs a Continuous Q-Learning (CQL) agent on a specified environment using the Acme library. The agent should be configured with various parameters such as batch size, evaluation period, number of demonstration episodes, random seed, learning rates, and CQL specific parameters. The environment should be created using the specified environment name and a demonstrations dataset should be obtained from a specified dataset name. The agent's networks should be created and optimized, and an evaluator network should be defined. The agent should then be run in an environment loop, where it learns and evaluates itself periodically."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5RD4ZfZ3DrnM2XiFmoiFnqzZyPe",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import cql\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nfrom acme.utils import loggers\n\nimport gym\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport optax\n\n# User-specified parameters\nENV_NAME = 'HalfCheetah-v2'\nDATASET_NAME = 'd4rl:halfcheetah-medium-v0'\nBATCH_SIZE = 256\nEVAL_PERIOD = 10000\nNUM_DEMO_EPISODES = 10\nSEED = 42\nACTOR_LR = 3e-4\nCRITIC_LR = 3e-4\nALPHA_LR = 3e-4\nCQL_ALPHA = 1.0\nCQL_TEMP = 1.0\nCQL_NUM_ACTION_SAMPLES = 10\nNUM_STEPS = 1_000_000\n\n# Create environment and specs\ndef make_environment(seed=SEED):\n    env = gym.make(ENV_NAME)\n    env = wrappers.GymWrapper(env)\n    env = wrappers.SinglePrecisionWrapper(env)\n    env.seed(seed)\n    return env\n\nenvironment = make_environment()\nenvironment_spec = specs.make_environment_spec(environment)\n\n# Load demonstrations dataset\nimport d4rl  # noqa: F401\ndef load_demonstrations(dataset_name):\n    env = gym.make(dataset_name.split(':')[1])\n    dataset = env.get_dataset()\n    return dataset\n\ndemonstrations = load_demonstrations(DATASET_NAME)\n\n# Define networks\ndef make_networks(env_spec):\n    policy_network = cql.make_policy_network(env_spec)\n    critic_network = cql.make_critic_network(env_spec)\n    return cql.CQLNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n    )\n\nnetworks = make_networks(environment_spec)\n\n# Optimizers\npolicy_optimizer = optax.adam(ACTOR_LR)\ncritic_optimizer = optax.adam(CRITIC_LR)\nalpha_optimizer = optax.adam(ALPHA_LR)\n\n# Logger\nlogger = loggers.TerminalLogger(label='learner', time_delta=10.0)\n\n# CQL config\ncql_config = cql.CQLConfig(\n    batch_size=BATCH_SIZE,\n    min_replay_size=BATCH_SIZE,\n    max_replay_size=1_000_000,\n    samples_per_insert=256,\n    n_step=1,\n    discount=0.99,\n    target_update_period=1,\n    policy_optimizer=policy_optimizer,\n    critic_optimizer=critic_optimizer,\n    alpha_optimizer=alpha_optimizer,\n    cql_alpha=CQL_ALPHA,\n    cql_temp=CQL_TEMP,\n    cql_num_action_samples=CQL_NUM_ACTION_SAMPLES,\n    seed=SEED,\n)\n\n# Evaluator network\ndef make_evaluator_network(networks):\n    return networks.policy_network\n\n# Experiment config\nexperiment_config = experiments.ExperimentConfig(\n    builder=cql.CQLBuilder(cql_config),\n    environment_factory=make_environment,\n    network_factory=make_networks,\n    evaluator_factories=[\n        experiments.make_evaluator_factory(\n            policy_network_factory=make_evaluator_network,\n            environment_factory=make_environment,\n            num_episodes=NUM_DEMO_EPISODES,\n        )\n    ],\n    seed=SEED,\n    max_num_actor_steps=NUM_STEPS,\n)\n\n# Run experiment\nexperiment_program = experiments.make_experiment_program(\n    experiment_config=experiment_config,\n    run_mode='train',\n    eval_every=EVAL_PERIOD,\n    logger_factory=lambda *a, **kw: logger,\n)\n\nexperiment_program()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129355,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 773,
+      "prompt_tokens": 151,
+      "total_tokens": 924,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import cql\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nfrom acme.utils import loggers\n\nimport gym\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport optax\n\n# User-specified parameters\nENV_NAME = 'HalfCheetah-v2'\nDATASET_NAME = 'd4rl:halfcheetah-medium-v0'\nBATCH_SIZE = 256\nEVAL_PERIOD = 10000\nNUM_DEMO_EPISODES = 10\nSEED = 42\nACTOR_LR = 3e-4\nCRITIC_LR = 3e-4\nALPHA_LR = 3e-4\nCQL_ALPHA = 1.0\nCQL_TEMP = 1.0\nCQL_NUM_ACTION_SAMPLES = 10\nNUM_STEPS = 1_000_000\n\n# Create environment and specs\ndef make_environment(seed=SEED):\n    env = gym.make(ENV_NAME)\n    env = wrappers.GymWrapper(env)\n    env = wrappers.SinglePrecisionWrapper(env)\n    env.seed(seed)\n    return env\n\nenvironment = make_environment()\nenvironment_spec = specs.make_environment_spec(environment)\n\n# Load demonstrations dataset\nimport d4rl  # noqa: F401\ndef load_demonstrations(dataset_name):\n    env = gym.make(dataset_name.split(':')[1])\n    dataset = env.get_dataset()\n    return dataset\n\ndemonstrations = load_demonstrations(DATASET_NAME)\n\n# Define networks\ndef make_networks(env_spec):\n    policy_network = cql.make_policy_network(env_spec)\n    critic_network = cql.make_critic_network(env_spec)\n    return cql.CQLNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n    )\n\nnetworks = make_networks(environment_spec)\n\n# Optimizers\npolicy_optimizer = optax.adam(ACTOR_LR)\ncritic_optimizer = optax.adam(CRITIC_LR)\nalpha_optimizer = optax.adam(ALPHA_LR)\n\n# Logger\nlogger = loggers.TerminalLogger(label='learner', time_delta=10.0)\n\n# CQL config\ncql_config = cql.CQLConfig(\n    batch_size=BATCH_SIZE,\n    min_replay_size=BATCH_SIZE,\n    max_replay_size=1_000_000,\n    samples_per_insert=256,\n    n_step=1,\n    discount=0.99,\n    target_update_period=1,\n    policy_optimizer=policy_optimizer,\n    critic_optimizer=critic_optimizer,\n    alpha_optimizer=alpha_optimizer,\n    cql_alpha=CQL_ALPHA,\n    cql_temp=CQL_TEMP,\n    cql_num_action_samples=CQL_NUM_ACTION_SAMPLES,\n    seed=SEED,\n)\n\n# Evaluator network\ndef make_evaluator_network(networks):\n    return networks.policy_network\n\n# Experiment config\nexperiment_config = experiments.ExperimentConfig(\n    builder=cql.CQLBuilder(cql_config),\n    environment_factory=make_environment,\n    network_factory=make_networks,\n    evaluator_factories=[\n        experiments.make_evaluator_factory(\n            policy_network_factory=make_evaluator_network,\n            environment_factory=make_environment,\n            num_episodes=NUM_DEMO_EPISODES,\n        )\n    ],\n    seed=SEED,\n    max_num_actor_steps=NUM_STEPS,\n)\n\n# Run experiment\nexperiment_program = experiments.make_experiment_program(\n    experiment_config=experiment_config,\n    run_mode='train',\n    eval_every=EVAL_PERIOD,\n    logger_factory=lambda *a, **kw: logger,\n)\n\nexperiment_program()\n```",
+  "latency_seconds": 7.236149011001544,
+  "usage": {
+    "completion_tokens": 773,
+    "prompt_tokens": 151,
+    "total_tokens": 924,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6486,
+  "response_sha256": "670112dfd238c01f03077181b83dfdcb767b5af2736332edc75857c18ca5019a",
+  "artifact_sha256": "3c516422c0ece3306ffb322079079637106c232f0f6d87e445212d88b34f8470"
+}

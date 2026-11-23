@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 28,
+    "task_sha256": "2eeed87fc7a69ac7392f74630d0d430296482f9e643464090d97393686f23ef9",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that implements a user-defined Ordered Subset Maximum A Posteriori One Step Late (OSMAPOSL) reconstruction algorithm using the SIRF library. The code should accept command-line options for the raw data file, path to data files, number of subsets, number of sub-iterations, reconstruction engine, and an option to disable plots. The reconstruction algorithm should be implemented in a function that takes an image, objective function, prior, filter, number of subsets, and number of sub-iterations as parameters. The main function should handle the creation of the acquisition model, acquisition data, filter, initial image estimate, prior, and objective function. It should also call the reconstruction function and display the reconstructed image if the non-interactive option is not set. The code should handle errors and print an error message if an exception is thrown.\n\nYou can find the following APIs from the library helpful:\nObjectiveFunction, number_of_readouts, number_of_acquisitions, number_of_samples, set_objective_function, get_objective_function, set_maximum_number_of_sigmas, get_maximum_number_of_sigmas, name_and_parameters, TestSTIRObjectiveFunction, number, normalise_zero_and_one, value_of, label_and_name, field_of_view, get_backprojection_of_acquisition_ratio, ImageData, DataHandleVector, PoissonLogLikelihoodWithLinearModelForMeanAndProjData, AcquisitionData"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4weykasInWxkanYlOpxwNf3LI7A",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport argparse\nimport numpy as np\nimport sirf.STIR as pet\nimport sirf.Utilities as ut\n\ndef osmaposl_reconstruction(\n    image, objective_function, prior, image_filter, num_subsets, num_subiterations\n):\n    try:\n        for subiter in range(num_subiterations):\n            for subset in range(num_subsets):\n                # Set subset for objective function\n                objective_function.set_subset_num(subset)\n                # Compute gradient\n                gradient = objective_function.gradient(image)\n                # Add prior gradient if prior is set\n                if prior is not None:\n                    prior_gradient = prior.gradient(image)\n                    gradient += prior_gradient\n                # Apply filter if set\n                if image_filter is not None:\n                    gradient = image_filter.process(gradient)\n                # Update image (simple gradient ascent step, step size = 1)\n                image -= gradient\n        return image\n    except Exception as e:\n        print(f\"Error during OSMAPOSL reconstruction: {e}\")\n        sys.exit(1)\n\ndef main():\n    parser = argparse.ArgumentParser(\n        description=\"User-defined OSMAPOSL reconstruction with SIRF\"\n    )\n    parser.add_argument('--raw_data_file', type=str, required=True,\n                        help='Raw data file name')\n    parser.add_argument('--data_path', type=str, default='.',\n                        help='Path to data files')\n    parser.add_argument('--num_subsets', type=int, default=12,\n                        help='Number of subsets')\n    parser.add_argument('--num_subiterations', type=int, default=24,\n                        help='Number of sub-iterations')\n    parser.add_argument('--engine', type=str, default='STIR',\n                        help='Reconstruction engine')\n    parser.add_argument('--no_plot', action='store_true',\n                        help='Disable plots')\n    args = parser.parse_args()\n\n    try:\n        # Set up engine\n        pet.AcquisitionData.set_storage_scheme('file')\n        # Read acquisition data\n        acq_data = pet.AcquisitionData(args.raw_data_file)\n        # Set up acquisition model\n        acq_model = pet.AcquisitionModelUsingRayTracingMatrix()\n        # Initial image estimate\n        image = acq_data.create_uniform_image(1.0)\n        # Set up prior (optional, here using QuadraticPrior as example)\n        prior = pet.QuadraticPrior()\n        prior.set_penalisation_factor(0.01)\n        # Set up objective function\n        obj_fun = pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()\n        obj_fun.set_acquisition_model(acq_model)\n        obj_fun.set_acquisition_data(acq_data)\n        obj_fun.set_num_subsets(args.num_subsets)\n        # Set up filter (optional, here None)\n        image_filter = None\n        # Run OSMAPOSL reconstruction\n        recon_image = osmaposl_reconstruction(\n            image, obj_fun, prior, image_filter,\n            args.num_subsets, args.num_subiterations\n        )\n        # Show result\n        if not args.no_plot:\n            ut.show_2D_array(recon_image.as_array()[int(recon_image.shape()[0]/2), :, :],\n                             \"Reconstructed image (central slice)\")\n    except Exception as e:\n        print(f\"Error: {e}\")\n        sys.exit(1)\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127460,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_6942672214",
+    "usage": {
+      "completion_tokens": 704,
+      "prompt_tokens": 314,
+      "total_tokens": 1018,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport argparse\nimport numpy as np\nimport sirf.STIR as pet\nimport sirf.Utilities as ut\n\ndef osmaposl_reconstruction(\n    image, objective_function, prior, image_filter, num_subsets, num_subiterations\n):\n    try:\n        for subiter in range(num_subiterations):\n            for subset in range(num_subsets):\n                # Set subset for objective function\n                objective_function.set_subset_num(subset)\n                # Compute gradient\n                gradient = objective_function.gradient(image)\n                # Add prior gradient if prior is set\n                if prior is not None:\n                    prior_gradient = prior.gradient(image)\n                    gradient += prior_gradient\n                # Apply filter if set\n                if image_filter is not None:\n                    gradient = image_filter.process(gradient)\n                # Update image (simple gradient ascent step, step size = 1)\n                image -= gradient\n        return image\n    except Exception as e:\n        print(f\"Error during OSMAPOSL reconstruction: {e}\")\n        sys.exit(1)\n\ndef main():\n    parser = argparse.ArgumentParser(\n        description=\"User-defined OSMAPOSL reconstruction with SIRF\"\n    )\n    parser.add_argument('--raw_data_file', type=str, required=True,\n                        help='Raw data file name')\n    parser.add_argument('--data_path', type=str, default='.',\n                        help='Path to data files')\n    parser.add_argument('--num_subsets', type=int, default=12,\n                        help='Number of subsets')\n    parser.add_argument('--num_subiterations', type=int, default=24,\n                        help='Number of sub-iterations')\n    parser.add_argument('--engine', type=str, default='STIR',\n                        help='Reconstruction engine')\n    parser.add_argument('--no_plot', action='store_true',\n                        help='Disable plots')\n    args = parser.parse_args()\n\n    try:\n        # Set up engine\n        pet.AcquisitionData.set_storage_scheme('file')\n        # Read acquisition data\n        acq_data = pet.AcquisitionData(args.raw_data_file)\n        # Set up acquisition model\n        acq_model = pet.AcquisitionModelUsingRayTracingMatrix()\n        # Initial image estimate\n        image = acq_data.create_uniform_image(1.0)\n        # Set up prior (optional, here using QuadraticPrior as example)\n        prior = pet.QuadraticPrior()\n        prior.set_penalisation_factor(0.01)\n        # Set up objective function\n        obj_fun = pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()\n        obj_fun.set_acquisition_model(acq_model)\n        obj_fun.set_acquisition_data(acq_data)\n        obj_fun.set_num_subsets(args.num_subsets)\n        # Set up filter (optional, here None)\n        image_filter = None\n        # Run OSMAPOSL reconstruction\n        recon_image = osmaposl_reconstruction(\n            image, obj_fun, prior, image_filter,\n            args.num_subsets, args.num_subiterations\n        )\n        # Show result\n        if not args.no_plot:\n            ut.show_2D_array(recon_image.as_array()[int(recon_image.shape()[0]/2), :, :],\n                             \"Reconstructed image (central slice)\")\n    except Exception as e:\n        print(f\"Error: {e}\")\n        sys.exit(1)\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 5.03362326199931,
+  "usage": {
+    "completion_tokens": 704,
+    "prompt_tokens": 314,
+    "total_tokens": 1018,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6260,
+  "response_sha256": "dffa0ac85a89f9ba07af6293b4ec1b2d4755a2e3bfc62d7d286dd45249fd6324",
+  "artifact_sha256": "e77f840b4598b7d70a04e995978595b236514e787a6fe6d5d1845491c0e87d2c"
+}

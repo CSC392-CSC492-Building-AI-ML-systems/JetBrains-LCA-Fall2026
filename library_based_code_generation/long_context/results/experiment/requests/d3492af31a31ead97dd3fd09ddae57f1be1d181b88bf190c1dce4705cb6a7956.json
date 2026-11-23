@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 101,
+    "task_sha256": "ad5e1894b654b00e24a216ed84e316ed46b15627a14f50bf2bf130e29a79b1a9",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the porepy library:\n\n1. Import necessary modules and define two functions, `add_data` and `plot_over_line`. The `add_data` function should define the permeability, apertures, and boundary conditions for a given grid bucket and domain. The `plot_over_line` function should plot values over a line in a grid bucket.\n\n2. Set a tolerance value and define mesh size parameters and a domain.\n\n3. Import a grid bucket from a CSV file, compute its geometry, coarsen it, and assign node ordering.\n\n4. Use the `add_data` function to assign parameters to the grid bucket.\n\n5. Define a solver using the DualVEMMixDim class for flow, compute the matrix and right-hand side of the system, and solve it.\n\n6. Split the solution, extract the discharge and pressure, and project the discharge.\n\n7. Export the grid bucket to a VTK file, including the pressure and discharge.\n\n8. Define a bounding box and a number of points, and create two sets of points along the x and y axes.\n\n9. Use the `plot_over_line` function to plot the pressure along these lines and save the results to CSV files.\n\n10. Print the diameter of the grid bucket and the number of cells in 2D and 1D."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5iLHjbl4gIsPzeU3d2on9kprPEQ",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport porepy as pp\nimport matplotlib.pyplot as plt\nimport pandas as pd\n\ndef add_data(gb, domain):\n    for g, d in gb:\n        if g.dim == 2:\n            perm = 1.0\n            aperture = 1.0\n        elif g.dim == 1:\n            perm = 1e-2\n            aperture = 1e-2\n        else:\n            perm = 1e-4\n            aperture = 1e-4\n        d[\"permeability\"] = pp.SecondOrderTensor(g, perm * np.ones(g.num_cells))\n        d[\"aperture\"] = aperture * np.ones(g.num_cells)\n        bc = pp.BoundaryCondition(g)\n        bc_faces = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        tol = 1e-7\n        if g.dim == 2:\n            x = g.face_centers[0]\n            y = g.face_centers[1]\n            left = np.abs(x - domain[0]) < tol\n            right = np.abs(x - domain[1]) < tol\n            bc_faces[left] = pp.BoundaryCondition.Dirichlet\n            bc_faces[right] = pp.BoundaryCondition.Dirichlet\n            bc_values[left] = 1.0\n            bc_values[right] = 0.0\n        d[\"bc\"] = pp.BoundaryCondition(g, bc_faces)\n        d[\"bc_values\"] = bc_values\n    for e, d in gb.edges():\n        mg = gb.grid(*e)\n        d[\"aperture\"] = np.ones(mg.num_cells)\n        d[\"permeability\"] = pp.SecondOrderTensor(mg, np.ones(mg.num_cells))\n\ndef plot_over_line(gb, points, var_name=\"pressure\"):\n    vals = []\n    for g, d in gb:\n        if g.dim != 2:\n            continue\n        centers = g.cell_centers.T\n        values = d[var_name]\n        for pt in points:\n            dist = np.linalg.norm(centers - pt, axis=1)\n            idx = np.argmin(dist)\n            vals.append(values[idx])\n    return np.array(vals)\n\ntol = 1e-7\nmesh_size = 0.1\ndomain = [0, 1, 0, 1]\n\ngb = pp.io.grid_bucket.load_csv(\"grid_bucket.csv\")\ngb.compute_geometry()\npp.coarsening.coarsen(gb, coarsening_level=1)\npp.topology.assign_node_ordering(gb)\n\nadd_data(gb, [domain[0], domain[1]])\n\nsolver = pp.DualVEMMixDim(\"flow\")\nA, b = solver.matrix_rhs(gb)\nsolution = pp.linalg.spsolve(A, b)\n\nsolution_split = solver.split(gb, solution)\nfor g, d in gb:\n    d[\"pressure\"] = solution_split[g][\"pressure\"]\n    d[\"discharge\"] = solver.project_discharge(g, d, solution_split[g])\n\npp.io.vtk_export.export_grid_bucket(gb, \"output\", data=[\"pressure\", \"discharge\"])\n\nbbox = np.array([[domain[0], domain[2]], [domain[1], domain[3]]])\nn_points = 100\nx_line = np.linspace(domain[0], domain[1], n_points)\ny_line = np.linspace(domain[2], domain[3], n_points)\npoints_x = np.vstack([x_line, 0.5 * np.ones_like(x_line)]).T\npoints_y = np.vstack([0.5 * np.ones_like(y_line), y_line]).T\n\npressure_x = plot_over_line(gb, points_x, var_name=\"pressure\")\npressure_y = plot_over_line(gb, points_y, var_name=\"pressure\")\n\npd.DataFrame({\"x\": x_line, \"pressure\": pressure_x}).to_csv(\"pressure_x.csv\", index=False)\npd.DataFrame({\"y\": y_line, \"pressure\": pressure_y}).to_csv(\"pressure_y.csv\", index=False)\n\ndiameter = max(domain[1] - domain[0], domain[3] - domain[2])\nnum_cells_2d = sum(g.num_cells for g, _ in gb if g.dim == 2)\nnum_cells_1d = sum(g.num_cells for g, _ in gb if g.dim == 1)\nprint(f\"Diameter: {diameter}\")\nprint(f\"Number of 2D cells: {num_cells_2d}\")\nprint(f\"Number of 1D cells: {num_cells_1d}\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130417,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_ab38f6634a",
+    "usage": {
+      "completion_tokens": 969,
+      "prompt_tokens": 303,
+      "total_tokens": 1272,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport porepy as pp\nimport matplotlib.pyplot as plt\nimport pandas as pd\n\ndef add_data(gb, domain):\n    for g, d in gb:\n        if g.dim == 2:\n            perm = 1.0\n            aperture = 1.0\n        elif g.dim == 1:\n            perm = 1e-2\n            aperture = 1e-2\n        else:\n            perm = 1e-4\n            aperture = 1e-4\n        d[\"permeability\"] = pp.SecondOrderTensor(g, perm * np.ones(g.num_cells))\n        d[\"aperture\"] = aperture * np.ones(g.num_cells)\n        bc = pp.BoundaryCondition(g)\n        bc_faces = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        tol = 1e-7\n        if g.dim == 2:\n            x = g.face_centers[0]\n            y = g.face_centers[1]\n            left = np.abs(x - domain[0]) < tol\n            right = np.abs(x - domain[1]) < tol\n            bc_faces[left] = pp.BoundaryCondition.Dirichlet\n            bc_faces[right] = pp.BoundaryCondition.Dirichlet\n            bc_values[left] = 1.0\n            bc_values[right] = 0.0\n        d[\"bc\"] = pp.BoundaryCondition(g, bc_faces)\n        d[\"bc_values\"] = bc_values\n    for e, d in gb.edges():\n        mg = gb.grid(*e)\n        d[\"aperture\"] = np.ones(mg.num_cells)\n        d[\"permeability\"] = pp.SecondOrderTensor(mg, np.ones(mg.num_cells))\n\ndef plot_over_line(gb, points, var_name=\"pressure\"):\n    vals = []\n    for g, d in gb:\n        if g.dim != 2:\n            continue\n        centers = g.cell_centers.T\n        values = d[var_name]\n        for pt in points:\n            dist = np.linalg.norm(centers - pt, axis=1)\n            idx = np.argmin(dist)\n            vals.append(values[idx])\n    return np.array(vals)\n\ntol = 1e-7\nmesh_size = 0.1\ndomain = [0, 1, 0, 1]\n\ngb = pp.io.grid_bucket.load_csv(\"grid_bucket.csv\")\ngb.compute_geometry()\npp.coarsening.coarsen(gb, coarsening_level=1)\npp.topology.assign_node_ordering(gb)\n\nadd_data(gb, [domain[0], domain[1]])\n\nsolver = pp.DualVEMMixDim(\"flow\")\nA, b = solver.matrix_rhs(gb)\nsolution = pp.linalg.spsolve(A, b)\n\nsolution_split = solver.split(gb, solution)\nfor g, d in gb:\n    d[\"pressure\"] = solution_split[g][\"pressure\"]\n    d[\"discharge\"] = solver.project_discharge(g, d, solution_split[g])\n\npp.io.vtk_export.export_grid_bucket(gb, \"output\", data=[\"pressure\", \"discharge\"])\n\nbbox = np.array([[domain[0], domain[2]], [domain[1], domain[3]]])\nn_points = 100\nx_line = np.linspace(domain[0], domain[1], n_points)\ny_line = np.linspace(domain[2], domain[3], n_points)\npoints_x = np.vstack([x_line, 0.5 * np.ones_like(x_line)]).T\npoints_y = np.vstack([0.5 * np.ones_like(y_line), y_line]).T\n\npressure_x = plot_over_line(gb, points_x, var_name=\"pressure\")\npressure_y = plot_over_line(gb, points_y, var_name=\"pressure\")\n\npd.DataFrame({\"x\": x_line, \"pressure\": pressure_x}).to_csv(\"pressure_x.csv\", index=False)\npd.DataFrame({\"y\": y_line, \"pressure\": pressure_y}).to_csv(\"pressure_y.csv\", index=False)\n\ndiameter = max(domain[1] - domain[0], domain[3] - domain[2])\nnum_cells_2d = sum(g.num_cells for g, _ in gb if g.dim == 2)\nnum_cells_1d = sum(g.num_cells for g, _ in gb if g.dim == 1)\nprint(f\"Diameter: {diameter}\")\nprint(f\"Number of 2D cells: {num_cells_2d}\")\nprint(f\"Number of 1D cells: {num_cells_1d}\")\n```",
+  "latency_seconds": 4.652258411999355,
+  "usage": {
+    "completion_tokens": 969,
+    "prompt_tokens": 303,
+    "total_tokens": 1272,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8358,
+  "response_sha256": "d0e5583d64f33769da2df4e1081f9b0d1952dcdb52b8ce8b541bc85265a2423a",
+  "artifact_sha256": "455d93ee8172b8db16ce890a9840acd2bd075b5b0519e9a61979b4378ed9c552"
+}

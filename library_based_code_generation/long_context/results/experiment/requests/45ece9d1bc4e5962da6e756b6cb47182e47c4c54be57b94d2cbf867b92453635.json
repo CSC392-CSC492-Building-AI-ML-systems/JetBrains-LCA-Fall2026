@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 30,
+    "task_sha256": "586073be158eff277833a58399d8f65917951eaa423fa7e48c41060eacfaafb5",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that trains a transformer tagging model using Huggingface's Transformers and Thinc libraries. The code should include a configuration for the model, optimizer, learning rate, and training parameters. It should define a main function that checks for GPU usage, loads the configuration, resolves the configuration to construct objects, loads a dataset, initializes the model, and trains the model over a specified number of epochs. The code should also define a dataclass to hold the output of the Huggingface 'batch_encode_plus' method, and functions to create a transformer tagger model, a transformer tokenizer, and a transformer model. It should also include functions to convert transformer inputs and outputs, evaluate sequences, and group pairs of sequences into minibatches. Finally, the code should run the main function if the script is run as the main program.\n\nYou can find the following APIs from the library helpful:\n__and__, test_predict_and_begin_update_match, create_model, model, Model, test_model_defaults_to_cpu, to_gpu, test_model_gpu, test_model_can_save_to_disk, to_, _clone_model, CustomModel, resize_model, get_model, tf_model, mx_model, UndecoratedModel, TestModel, dummy_model, lists_of_integers"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4yo0wDQ97YpowyxeyIxtIGGzJ7i",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport torch\nimport thinc\nfrom thinc.api import Model, chain, with_getitem, list2ragged, Ragged, Optimizer, Adam, to_gpu, to_cpu\nfrom transformers import AutoTokenizer, AutoModel, AutoConfig\nfrom dataclasses import dataclass\nfrom typing import List, Tuple, Dict, Any, Optional\nfrom functools import partial\n\n# Configuration dataclass\n@dataclass\nclass Config:\n    model_name: str = \"bert-base-cased\"\n    num_labels: int = 9\n    max_length: int = 128\n    batch_size: int = 16\n    epochs: int = 3\n    learning_rate: float = 5e-5\n    device: str = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n    train_file: str = \"train.txt\"\n    valid_file: str = \"valid.txt\"\n\n# Dataclass for batch_encode_plus output\n@dataclass\nclass EncodedBatch:\n    input_ids: torch.Tensor\n    attention_mask: torch.Tensor\n    labels: Optional[torch.Tensor] = None\n\ndef create_transformer_tokenizer(model_name: str):\n    return AutoTokenizer.from_pretrained(model_name)\n\ndef create_transformer_model(model_name: str, num_labels: int):\n    config = AutoConfig.from_pretrained(model_name, num_labels=num_labels)\n    return AutoModel.from_pretrained(model_name, config=config)\n\ndef convert_inputs(tokenizer, texts: List[List[str]], labels: List[List[int]], max_length: int) -> EncodedBatch:\n    encodings = tokenizer(\n        texts,\n        is_split_into_words=True,\n        return_tensors=\"pt\",\n        padding=\"max_length\",\n        truncation=True,\n        max_length=max_length\n    )\n    # Align labels to tokens\n    encoded_labels = []\n    for i, label in enumerate(labels):\n        word_ids = encodings.word_ids(batch_index=i)\n        label_ids = []\n        previous_word_idx = None\n        for word_idx in word_ids:\n            if word_idx is None:\n                label_ids.append(-100)\n            elif word_idx != previous_word_idx:\n                label_ids.append(label[word_idx])\n            else:\n                label_ids.append(-100)\n            previous_word_idx = word_idx\n        encoded_labels.append(label_ids)\n    return EncodedBatch(\n        input_ids=encodings[\"input_ids\"],\n        attention_mask=encodings[\"attention_mask\"],\n        labels=torch.tensor(encoded_labels)\n    )\n\ndef convert_outputs(preds: torch.Tensor) -> List[List[int]]:\n    return preds.argmax(dim=-1).tolist()\n\ndef group_minibatches(data: List[Tuple[List[str], List[int]]], batch_size: int):\n    for i in range(0, len(data), batch_size):\n        batch = data[i:i+batch_size]\n        texts, labels = zip(*batch)\n        yield list(texts), list(labels)\n\ndef evaluate_sequences(model, tokenizer, data, max_length, batch_size, device):\n    model.eval()\n    correct, total = 0, 0\n    with torch.no_grad():\n        for texts, labels in group_minibatches(data, batch_size):\n            batch = convert_inputs(tokenizer, texts, labels, max_length)\n            input_ids = batch.input_ids.to(device)\n            attention_mask = batch.attention_mask.to(device)\n            labels_tensor = batch.labels.to(device)\n            outputs = model(input_ids=input_ids, attention_mask=attention_mask)\n            logits = outputs.last_hidden_state\n            preds = logits.argmax(dim=-1)\n            mask = labels_tensor != -100\n            correct += ((preds == labels_tensor) & mask).sum().item()\n            total += mask.sum().item()\n    return correct / total if total > 0 else 0.0\n\ndef create_transformer_tagger_model(model_name: str, num_labels: int, device: str):\n    class TransformerTagger(torch.nn.Module):\n        def __init__(self, model_name, num_labels):\n            super().__init__()\n            self.transformer = create_transformer_model(model_name, num_labels)\n            hidden_size = self.transformer.config.hidden_size\n            self.classifier = torch.nn.Linear(hidden_size, num_labels)\n\n        def forward(self, input_ids, attention_mask):\n            outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)\n            sequence_output = outputs.last_hidden_state\n            logits = self.classifier(sequence_output)\n            return logits\n\n    model = TransformerTagger(model_name, num_labels)\n    model.to(device)\n    return model\n\ndef load_dataset(file_path: str) -> List[Tuple[List[str], List[int]]]:\n    # Dummy loader: expects file with one sentence per line, tokens and labels separated by space\n    # Example: \"John B-PER lives O in O London B-LOC\"\n    data = []\n    with open(file_path, \"r\", encoding=\"utf-8\") as f:\n        for line in f:\n            tokens_labels = line.strip().split()\n            tokens = tokens_labels[::2]\n            labels = [int(x) for x in tokens_labels[1::2]]\n            data.append((tokens, labels))\n    return data\n\ndef main():\n    # Check for GPU\n    device = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n    # Load config\n    config = Config(device=device)\n    # Resolve config\n    tokenizer = create_transformer_tokenizer(config.model_name)\n    model = create_transformer_tagger_model(config.model_name, config.num_labels, config.device)\n    optimizer = Adam(model.parameters(), lr=config.learning_rate)\n    # Load dataset\n    train_data = load_dataset(config.train_file)\n    valid_data = load_dataset(config.valid_file)\n    # Training loop\n    for epoch in range(config.epochs):\n        model.train()\n        total_loss = 0.0\n        for texts, labels in group_minibatches(train_data, config.batch_size):\n            batch = convert_inputs(tokenizer, texts, labels, config.max_length)\n            input_ids = batch.input_ids.to(config.device)\n            attention_mask = batch.attention_mask.to(config.device)\n            labels_tensor = batch.labels.to(config.device)\n            optimizer.zero_grad()\n            logits = model(input_ids=input_ids, attention_mask=attention_mask)\n            loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)\n            loss = loss_fct(logits.view(-1, config.num_labels), labels_tensor.view(-1))\n            loss.backward()\n            optimizer.step()\n            total_loss += loss.item()\n        acc = evaluate_sequences(model, tokenizer, valid_data, config.max_length, config.batch_size, config.device)\n        print(f\"Epoch {epoch+1}/{config.epochs} - Loss: {total_loss:.4f} - Val Acc: {acc:.4f}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127594,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1415,
+      "prompt_tokens": 283,
+      "total_tokens": 1698,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport torch\nimport thinc\nfrom thinc.api import Model, chain, with_getitem, list2ragged, Ragged, Optimizer, Adam, to_gpu, to_cpu\nfrom transformers import AutoTokenizer, AutoModel, AutoConfig\nfrom dataclasses import dataclass\nfrom typing import List, Tuple, Dict, Any, Optional\nfrom functools import partial\n\n# Configuration dataclass\n@dataclass\nclass Config:\n    model_name: str = \"bert-base-cased\"\n    num_labels: int = 9\n    max_length: int = 128\n    batch_size: int = 16\n    epochs: int = 3\n    learning_rate: float = 5e-5\n    device: str = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n    train_file: str = \"train.txt\"\n    valid_file: str = \"valid.txt\"\n\n# Dataclass for batch_encode_plus output\n@dataclass\nclass EncodedBatch:\n    input_ids: torch.Tensor\n    attention_mask: torch.Tensor\n    labels: Optional[torch.Tensor] = None\n\ndef create_transformer_tokenizer(model_name: str):\n    return AutoTokenizer.from_pretrained(model_name)\n\ndef create_transformer_model(model_name: str, num_labels: int):\n    config = AutoConfig.from_pretrained(model_name, num_labels=num_labels)\n    return AutoModel.from_pretrained(model_name, config=config)\n\ndef convert_inputs(tokenizer, texts: List[List[str]], labels: List[List[int]], max_length: int) -> EncodedBatch:\n    encodings = tokenizer(\n        texts,\n        is_split_into_words=True,\n        return_tensors=\"pt\",\n        padding=\"max_length\",\n        truncation=True,\n        max_length=max_length\n    )\n    # Align labels to tokens\n    encoded_labels = []\n    for i, label in enumerate(labels):\n        word_ids = encodings.word_ids(batch_index=i)\n        label_ids = []\n        previous_word_idx = None\n        for word_idx in word_ids:\n            if word_idx is None:\n                label_ids.append(-100)\n            elif word_idx != previous_word_idx:\n                label_ids.append(label[word_idx])\n            else:\n                label_ids.append(-100)\n            previous_word_idx = word_idx\n        encoded_labels.append(label_ids)\n    return EncodedBatch(\n        input_ids=encodings[\"input_ids\"],\n        attention_mask=encodings[\"attention_mask\"],\n        labels=torch.tensor(encoded_labels)\n    )\n\ndef convert_outputs(preds: torch.Tensor) -> List[List[int]]:\n    return preds.argmax(dim=-1).tolist()\n\ndef group_minibatches(data: List[Tuple[List[str], List[int]]], batch_size: int):\n    for i in range(0, len(data), batch_size):\n        batch = data[i:i+batch_size]\n        texts, labels = zip(*batch)\n        yield list(texts), list(labels)\n\ndef evaluate_sequences(model, tokenizer, data, max_length, batch_size, device):\n    model.eval()\n    correct, total = 0, 0\n    with torch.no_grad():\n        for texts, labels in group_minibatches(data, batch_size):\n            batch = convert_inputs(tokenizer, texts, labels, max_length)\n            input_ids = batch.input_ids.to(device)\n            attention_mask = batch.attention_mask.to(device)\n            labels_tensor = batch.labels.to(device)\n            outputs = model(input_ids=input_ids, attention_mask=attention_mask)\n            logits = outputs.last_hidden_state\n            preds = logits.argmax(dim=-1)\n            mask = labels_tensor != -100\n            correct += ((preds == labels_tensor) & mask).sum().item()\n            total += mask.sum().item()\n    return correct / total if total > 0 else 0.0\n\ndef create_transformer_tagger_model(model_name: str, num_labels: int, device: str):\n    class TransformerTagger(torch.nn.Module):\n        def __init__(self, model_name, num_labels):\n            super().__init__()\n            self.transformer = create_transformer_model(model_name, num_labels)\n            hidden_size = self.transformer.config.hidden_size\n            self.classifier = torch.nn.Linear(hidden_size, num_labels)\n\n        def forward(self, input_ids, attention_mask):\n            outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)\n            sequence_output = outputs.last_hidden_state\n            logits = self.classifier(sequence_output)\n            return logits\n\n    model = TransformerTagger(model_name, num_labels)\n    model.to(device)\n    return model\n\ndef load_dataset(file_path: str) -> List[Tuple[List[str], List[int]]]:\n    # Dummy loader: expects file with one sentence per line, tokens and labels separated by space\n    # Example: \"John B-PER lives O in O London B-LOC\"\n    data = []\n    with open(file_path, \"r\", encoding=\"utf-8\") as f:\n        for line in f:\n            tokens_labels = line.strip().split()\n            tokens = tokens_labels[::2]\n            labels = [int(x) for x in tokens_labels[1::2]]\n            data.append((tokens, labels))\n    return data\n\ndef main():\n    # Check for GPU\n    device = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n    # Load config\n    config = Config(device=device)\n    # Resolve config\n    tokenizer = create_transformer_tokenizer(config.model_name)\n    model = create_transformer_tagger_model(config.model_name, config.num_labels, config.device)\n    optimizer = Adam(model.parameters(), lr=config.learning_rate)\n    # Load dataset\n    train_data = load_dataset(config.train_file)\n    valid_data = load_dataset(config.valid_file)\n    # Training loop\n    for epoch in range(config.epochs):\n        model.train()\n        total_loss = 0.0\n        for texts, labels in group_minibatches(train_data, config.batch_size):\n            batch = convert_inputs(tokenizer, texts, labels, config.max_length)\n            input_ids = batch.input_ids.to(config.device)\n            attention_mask = batch.attention_mask.to(config.device)\n            labels_tensor = batch.labels.to(config.device)\n            optimizer.zero_grad()\n            logits = model(input_ids=input_ids, attention_mask=attention_mask)\n            loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)\n            loss = loss_fct(logits.view(-1, config.num_labels), labels_tensor.view(-1))\n            loss.backward()\n            optimizer.step()\n            total_loss += loss.item()\n        acc = evaluate_sequences(model, tokenizer, valid_data, config.max_length, config.batch_size, config.device)\n        print(f\"Epoch {epoch+1}/{config.epochs} - Loss: {total_loss:.4f} - Val Acc: {acc:.4f}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.775332055000035,
+  "usage": {
+    "completion_tokens": 1415,
+    "prompt_tokens": 283,
+    "total_tokens": 1698,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11886,
+  "response_sha256": "16a7227a8400d997f04f144ae506fac8cd8e2f8477cfff20a96a7764ce81c224",
+  "artifact_sha256": "f631d791bd99973648d9c240e37c780ec04f79aa2689b2da1e1679751cbd765b"
+}

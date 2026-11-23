@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 1,
+    "task_sha256": "865caec50afb0c6c3ea3e11d2f07a3f36e66807c663f216a6d400c976866fd75",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves the heat conduction equation using the adaptive finite element method on a triangular mesh. The code should allow the user to specify the number of spatial and temporal divisions, the adaptive refinement stop threshold, and the adaptive refinement and coarsening parameters. The code should use the 2D equation model from the fealpy library for the heat conduction equation, and the lagrange finite element space. The code should also handle Dirichlet boundary conditions. The code should iteratively refine the mesh based on the recovery estimate until the error is below the specified threshold. The code should also coarsen the mesh after each time step. The code should save a plot of the mesh at each refinement and coarsening step. The code should also print the error at each time step and plot the numerical solution at specified time steps."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4ckzk1V0CPXZfT52rJ9cAS8cvQR",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.boundarycondition import DirichletBC\nfrom fealpy.timeintegratoralg import UniformTimeLine\nfrom fealpy.tools import showmultirate\nfrom fealpy.mesh.mesh_tools import find_node_with_value\nfrom fealpy.decorator import timer\nfrom fealpy.model.heat_conduction_model_2d import HeatConductionModel2D\n\nimport os\n\ndef main(\n    nx=10, ny=10,  # spatial divisions\n    nt=20,         # temporal divisions\n    theta=0.2,     # adaptive refinement stop threshold\n    refine_mark=0.3, # fraction of elements to refine\n    coarsen_mark=0.05, # fraction of elements to coarsen\n    T=0.1,         # final time\n    plot_steps=[0, 5, 10, 15, 20], # time steps to plot solution\n    mesh_dir='mesh_plots',\n    solution_dir='solution_plots'\n):\n    if not os.path.exists(mesh_dir):\n        os.makedirs(mesh_dir)\n    if not os.path.exists(solution_dir):\n        os.makedirs(solution_dir)\n\n    # Define the model\n    model = HeatConductionModel2D()\n    domain = model.domain()\n    mesh = TriangleMesh.from_box(domain, nx=nx, ny=ny)\n    timeline = UniformTimeLine(0, T, nt)\n    dt = timeline.dt\n\n    # Finite element space\n    p = 1\n    space = LagrangeFiniteElementSpace(mesh, p=p)\n    u = space.function()  # initial solution\n\n    # Initial condition\n    u[:] = model.u0(space.node)\n\n    # Dirichlet boundary condition\n    bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n    # Time stepping\n    for k, t1 in enumerate(timeline[1:]):\n        t0 = timeline[k]\n        print(f\"Time step {k+1}/{nt}, t = {t1:.4f}\")\n\n        # Assemble matrices\n        A = space.stiff_matrix()\n        M = space.mass_matrix()\n        F = space.source_vector(lambda x: model.f(x, t1))\n\n        # Left-hand side and right-hand side\n        lhs = M + dt * A\n        rhs = M @ u + dt * F\n\n        # Apply Dirichlet BC\n        bc.apply(lhs, rhs, u0=lambda x: model.dirichlet(x, t1))\n\n        # Solve linear system\n        u[:] = np.linalg.solve(lhs, rhs)\n\n        # Error estimation and adaptive refinement\n        while True:\n            # Recovery-based error estimator\n            eta = space.recovery_estimate(u)\n            total_error = np.sqrt(np.sum(eta**2))\n            print(f\"  Recovery error: {total_error:.6e}\")\n\n            # Save mesh plot\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh at t={t1:.4f}, error={total_error:.2e}\")\n            plt.savefig(f\"{mesh_dir}/mesh_t{k+1}_refine.png\")\n            plt.close()\n\n            if total_error < theta:\n                break\n\n            # Mark elements for refinement\n            idx = np.argsort(-eta)\n            nrefine = max(1, int(refine_mark * mesh.number_of_cells()))\n            cell_mark = np.zeros(mesh.number_of_cells(), dtype=np.int8)\n            cell_mark[idx[:nrefine]] = 1  # mark for refinement\n\n            # Refine mesh\n            mesh.refine(cell_mark)\n            space = LagrangeFiniteElementSpace(mesh, p=p)\n            u = space.interpolation(u)\n            bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n        # Coarsening\n        eta = space.recovery_estimate(u)\n        idx = np.argsort(eta)\n        ncoarsen = max(1, int(coarsen_mark * mesh.number_of_cells()))\n        cell_mark = np.zeros(mesh.number_of_cells(), dtype=np.int8)\n        cell_mark[idx[:ncoarsen]] = -1  # mark for coarsening\n\n        mesh.coarsen(cell_mark)\n        space = LagrangeFiniteElementSpace(mesh, p=p)\n        u = space.interpolation(u)\n        bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n        # Save mesh plot after coarsening\n        plt.figure()\n        mesh.add_plot(plt)\n        plt.title(f\"Mesh at t={t1:.4f} after coarsening\")\n        plt.savefig(f\"{mesh_dir}/mesh_t{k+1}_coarsen.png\")\n        plt.close()\n\n        # Print error\n        l2_error = space.integralalg.L2_error(lambda x: model.solution(x, t1), u)\n        print(f\"  L2 error at t={t1:.4f}: {l2_error:.6e}\")\n\n        # Plot solution at specified steps\n        if (k+1) in plot_steps:\n            fig = plt.figure()\n            ax = fig.gca(projection='3d')\n            space.add_plot(ax, u, cmap='rainbow')\n            plt.title(f\"Numerical solution at t={t1:.4f}\")\n            plt.savefig(f\"{solution_dir}/solution_t{k+1}.png\")\n            plt.close()\n\nif __name__ == '__main__':\n    main(\n        nx=10,\n        ny=10,\n        nt=20,\n        theta=0.01,\n        refine_mark=0.3,\n        coarsen_mark=0.05,\n        T=0.1,\n        plot_steps=[0, 5, 10, 15, 20],\n        mesh_dir='mesh_plots',\n        solution_dir='solution_plots'\n    )\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126226,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_019fa6b647",
+    "usage": {
+      "completion_tokens": 1267,
+      "prompt_tokens": 198,
+      "total_tokens": 1465,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.boundarycondition import DirichletBC\nfrom fealpy.timeintegratoralg import UniformTimeLine\nfrom fealpy.tools import showmultirate\nfrom fealpy.mesh.mesh_tools import find_node_with_value\nfrom fealpy.decorator import timer\nfrom fealpy.model.heat_conduction_model_2d import HeatConductionModel2D\n\nimport os\n\ndef main(\n    nx=10, ny=10,  # spatial divisions\n    nt=20,         # temporal divisions\n    theta=0.2,     # adaptive refinement stop threshold\n    refine_mark=0.3, # fraction of elements to refine\n    coarsen_mark=0.05, # fraction of elements to coarsen\n    T=0.1,         # final time\n    plot_steps=[0, 5, 10, 15, 20], # time steps to plot solution\n    mesh_dir='mesh_plots',\n    solution_dir='solution_plots'\n):\n    if not os.path.exists(mesh_dir):\n        os.makedirs(mesh_dir)\n    if not os.path.exists(solution_dir):\n        os.makedirs(solution_dir)\n\n    # Define the model\n    model = HeatConductionModel2D()\n    domain = model.domain()\n    mesh = TriangleMesh.from_box(domain, nx=nx, ny=ny)\n    timeline = UniformTimeLine(0, T, nt)\n    dt = timeline.dt\n\n    # Finite element space\n    p = 1\n    space = LagrangeFiniteElementSpace(mesh, p=p)\n    u = space.function()  # initial solution\n\n    # Initial condition\n    u[:] = model.u0(space.node)\n\n    # Dirichlet boundary condition\n    bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n    # Time stepping\n    for k, t1 in enumerate(timeline[1:]):\n        t0 = timeline[k]\n        print(f\"Time step {k+1}/{nt}, t = {t1:.4f}\")\n\n        # Assemble matrices\n        A = space.stiff_matrix()\n        M = space.mass_matrix()\n        F = space.source_vector(lambda x: model.f(x, t1))\n\n        # Left-hand side and right-hand side\n        lhs = M + dt * A\n        rhs = M @ u + dt * F\n\n        # Apply Dirichlet BC\n        bc.apply(lhs, rhs, u0=lambda x: model.dirichlet(x, t1))\n\n        # Solve linear system\n        u[:] = np.linalg.solve(lhs, rhs)\n\n        # Error estimation and adaptive refinement\n        while True:\n            # Recovery-based error estimator\n            eta = space.recovery_estimate(u)\n            total_error = np.sqrt(np.sum(eta**2))\n            print(f\"  Recovery error: {total_error:.6e}\")\n\n            # Save mesh plot\n            plt.figure()\n            mesh.add_plot(plt)\n            plt.title(f\"Mesh at t={t1:.4f}, error={total_error:.2e}\")\n            plt.savefig(f\"{mesh_dir}/mesh_t{k+1}_refine.png\")\n            plt.close()\n\n            if total_error < theta:\n                break\n\n            # Mark elements for refinement\n            idx = np.argsort(-eta)\n            nrefine = max(1, int(refine_mark * mesh.number_of_cells()))\n            cell_mark = np.zeros(mesh.number_of_cells(), dtype=np.int8)\n            cell_mark[idx[:nrefine]] = 1  # mark for refinement\n\n            # Refine mesh\n            mesh.refine(cell_mark)\n            space = LagrangeFiniteElementSpace(mesh, p=p)\n            u = space.interpolation(u)\n            bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n        # Coarsening\n        eta = space.recovery_estimate(u)\n        idx = np.argsort(eta)\n        ncoarsen = max(1, int(coarsen_mark * mesh.number_of_cells()))\n        cell_mark = np.zeros(mesh.number_of_cells(), dtype=np.int8)\n        cell_mark[idx[:ncoarsen]] = -1  # mark for coarsening\n\n        mesh.coarsen(cell_mark)\n        space = LagrangeFiniteElementSpace(mesh, p=p)\n        u = space.interpolation(u)\n        bc = DirichletBC(space, model.dirichlet, model.is_dirichlet_boundary)\n\n        # Save mesh plot after coarsening\n        plt.figure()\n        mesh.add_plot(plt)\n        plt.title(f\"Mesh at t={t1:.4f} after coarsening\")\n        plt.savefig(f\"{mesh_dir}/mesh_t{k+1}_coarsen.png\")\n        plt.close()\n\n        # Print error\n        l2_error = space.integralalg.L2_error(lambda x: model.solution(x, t1), u)\n        print(f\"  L2 error at t={t1:.4f}: {l2_error:.6e}\")\n\n        # Plot solution at specified steps\n        if (k+1) in plot_steps:\n            fig = plt.figure()\n            ax = fig.gca(projection='3d')\n            space.add_plot(ax, u, cmap='rainbow')\n            plt.title(f\"Numerical solution at t={t1:.4f}\")\n            plt.savefig(f\"{solution_dir}/solution_t{k+1}.png\")\n            plt.close()\n\nif __name__ == '__main__':\n    main(\n        nx=10,\n        ny=10,\n        nt=20,\n        theta=0.01,\n        refine_mark=0.3,\n        coarsen_mark=0.05,\n        T=0.1,\n        plot_steps=[0, 5, 10, 15, 20],\n        mesh_dir='mesh_plots',\n        solution_dir='solution_plots'\n    )\n```",
+  "latency_seconds": 7.311956900999576,
+  "usage": {
+    "completion_tokens": 1267,
+    "prompt_tokens": 198,
+    "total_tokens": 1465,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10532,
+  "response_sha256": "868635b0f9ca2993ab01320fa26afe201b6340e7a8fb9813074a5e03bde003f0",
+  "artifact_sha256": "f072c74bfe6dceab2ee85f5e27276907c8a25f889b6d661b7251f4a17f25ee39"
+}

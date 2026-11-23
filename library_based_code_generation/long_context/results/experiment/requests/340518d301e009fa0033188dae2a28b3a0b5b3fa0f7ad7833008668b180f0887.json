@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 35,
+    "task_sha256": "d49fcb216b4d51b33588ea1f4e2fd483be082c63c5c92c1bd1e5e26ad153f37c",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a StarCraft II bot using the python-sc2 library. The bot should be able to manage resources, build structures, train units, and engage in combat. It should be able to distribute workers, build pylons when on low supply, train probes, build gateways, build gas, research warp gate, morph to warp gate when research is complete, warp new units, make stalkers attack either closest enemy unit or enemy spawn location, build proxy pylon, and chrono boost nexus or cybercore. The bot should also be able to handle situations when there are no nexuses left. The bot should be run on the \"(2)CatalystLE\" map against a Protoss computer opponent with easy difficulty.\n\nYou can find the following APIs from the library helpful:\nbuild_gas, build, warp_in, build_progress, worker_en_route_to_build, build_bot_object_from_pickle_data, can_be_attacked, _abilities_count_and_build_progress, Bot, select_build_worker, debug_fast_build, run_bot_iteration, closest_to, on_enemy_unit_left_vision, structure_type_build_progress, EmptyBot, ExporterBot, BotAI, TestBot, BotProcess"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em528TwiHY0xXhmQdfkl4OHQbF1qY",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport random\nimport asyncio\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.constants import *\nfrom sc2.bot_ai import BotAI\nfrom sc2.position import Point2\n\nPROXY_PYLON_DISTANCE = 30\n\nclass ProtossBot(BotAI):\n    async def on_step(self, iteration):\n        await self.distribute_workers()\n        await self.build_pylons()\n        await self.train_probes()\n        await self.build_assimilators()\n        await self.build_gateway()\n        await self.build_cybercore()\n        await self.research_warpgate()\n        await self.morph_gateways()\n        await self.build_proxy_pylon()\n        await self.warp_in_stalkers()\n        await self.chrono_boost()\n        await self.attack()\n\n    async def build_pylons(self):\n        if self.supply_left < 5 and not self.already_pending(PYLON):\n            nexuses = self.townhalls.ready\n            if nexuses.exists:\n                await self.build(PYLON, near=nexuses.first.position.towards(self.game_info.map_center, 5))\n\n    async def train_probes(self):\n        for nexus in self.townhalls.ready.idle:\n            if self.can_afford(PROBE) and self.workers.amount < self.townhalls.amount * 22:\n                nexus.train(PROBE)\n\n    async def build_assimilators(self):\n        for nexus in self.townhalls.ready:\n            vgs = self.vespene_geyser.closer_than(10, nexus)\n            for vg in vgs:\n                if not self.gas_buildings.closer_than(1, vg).exists and not self.workers_en_route_to_build(vg):\n                    if self.can_afford(ASSIMILATOR):\n                        worker = self.select_build_worker(vg.position)\n                        if worker:\n                            worker.build(ASSIMILATOR, vg)\n                            break\n\n    async def build_gateway(self):\n        if self.structures(PYLON).ready.exists:\n            pylon = self.structures(PYLON).ready.random\n            if self.structures(GATEWAY).amount + self.already_pending(GATEWAY) < 2:\n                if self.can_afford(GATEWAY):\n                    await self.build(GATEWAY, near=pylon)\n\n    async def build_cybercore(self):\n        if self.structures(GATEWAY).ready.exists and not self.structures(CYBERNETICSCORE):\n            pylon = self.structures(PYLON).ready.random\n            if self.can_afford(CYBERNETICSCORE):\n                await self.build(CYBERNETICSCORE, near=pylon)\n\n    async def research_warpgate(self):\n        for core in self.structures(CYBERNETICSCORE).ready.idle:\n            if self.can_afford(RESEARCH_WARPGATE) and not self.already_pending_upgrade(WARPGATERESEARCH):\n                core.research(WARPGATERESEARCH)\n\n    async def morph_gateways(self):\n        if self.already_pending_upgrade(WARPGATERESEARCH) == 0 and self.structures(CYBERNETICSCORE).ready.exists:\n            if self.structures(GATEWAY).ready.exists:\n                for gw in self.structures(GATEWAY).ready:\n                    abilities = await self.get_available_abilities(gw)\n                    if AbilityId.MORPH_WARPGATE in abilities:\n                        gw(AbilityId.MORPH_WARPGATE)\n\n    async def build_proxy_pylon(self):\n        if self.structures(PYLON).amount < 3 and self.structures(GATEWAY).ready.exists:\n            enemy_pos = self.enemy_start_locations[0]\n            pos = self.start_location.towards(enemy_pos, PROXY_PYLON_DISTANCE)\n            if self.can_afford(PYLON) and not self.structures(PYLON).closer_than(8, pos).exists:\n                await self.build(PYLON, near=pos)\n\n    async def warp_in_stalkers(self):\n        if self.structures(WARPGATE).ready.exists and self.structures(PYLON).ready.exists:\n            for warpgate in self.structures(WARPGATE).ready:\n                abilities = await self.get_available_abilities(warpgate)\n                if AbilityId.WARPGATETRAIN_STALKER in abilities and self.can_afford(STALKER):\n                    pylon = self.structures(PYLON).ready.closest_to(self.enemy_start_locations[0])\n                    placement = await self.find_placement(AbilityId.WARPGATETRAIN_STALKER, pylon.position, placement_step=1)\n                    if placement:\n                        warpgate.warp_in(STALKER, placement)\n\n    async def chrono_boost(self):\n        for nexus in self.townhalls.ready:\n            abilities = await self.get_available_abilities(nexus)\n            if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:\n                if self.structures(CYBERNETICSCORE).ready.exists and self.structures(CYBERNETICSCORE).ready.first.is_idle is False:\n                    target = self.structures(CYBERNETICSCORE).ready.first\n                else:\n                    target = nexus\n                nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, target)\n                break\n\n    async def attack(self):\n        stalkers = self.units(STALKER).idle\n        if stalkers.exists:\n            targets = self.enemy_units\n            if targets.exists:\n                for stalker in stalkers:\n                    stalker.attack(targets.closest_to(stalker))\n            else:\n                for stalker in stalkers:\n                    stalker.attack(self.enemy_start_locations[0])\n\n    async def on_unit_destroyed(self, unit_tag):\n        if not self.townhalls.exists:\n            for unit in self.units:\n                unit.attack(self.enemy_start_locations[0])\n\ndef main():\n    run_game(\n        maps.get(\"(2)CatalystLE\"),\n        [Bot(Race.Protoss, ProtossBot()), Computer(Race.Protoss, Difficulty.Easy)],\n        realtime=False,\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127800,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1296,
+      "prompt_tokens": 269,
+      "total_tokens": 1565,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport random\nimport asyncio\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.constants import *\nfrom sc2.bot_ai import BotAI\nfrom sc2.position import Point2\n\nPROXY_PYLON_DISTANCE = 30\n\nclass ProtossBot(BotAI):\n    async def on_step(self, iteration):\n        await self.distribute_workers()\n        await self.build_pylons()\n        await self.train_probes()\n        await self.build_assimilators()\n        await self.build_gateway()\n        await self.build_cybercore()\n        await self.research_warpgate()\n        await self.morph_gateways()\n        await self.build_proxy_pylon()\n        await self.warp_in_stalkers()\n        await self.chrono_boost()\n        await self.attack()\n\n    async def build_pylons(self):\n        if self.supply_left < 5 and not self.already_pending(PYLON):\n            nexuses = self.townhalls.ready\n            if nexuses.exists:\n                await self.build(PYLON, near=nexuses.first.position.towards(self.game_info.map_center, 5))\n\n    async def train_probes(self):\n        for nexus in self.townhalls.ready.idle:\n            if self.can_afford(PROBE) and self.workers.amount < self.townhalls.amount * 22:\n                nexus.train(PROBE)\n\n    async def build_assimilators(self):\n        for nexus in self.townhalls.ready:\n            vgs = self.vespene_geyser.closer_than(10, nexus)\n            for vg in vgs:\n                if not self.gas_buildings.closer_than(1, vg).exists and not self.workers_en_route_to_build(vg):\n                    if self.can_afford(ASSIMILATOR):\n                        worker = self.select_build_worker(vg.position)\n                        if worker:\n                            worker.build(ASSIMILATOR, vg)\n                            break\n\n    async def build_gateway(self):\n        if self.structures(PYLON).ready.exists:\n            pylon = self.structures(PYLON).ready.random\n            if self.structures(GATEWAY).amount + self.already_pending(GATEWAY) < 2:\n                if self.can_afford(GATEWAY):\n                    await self.build(GATEWAY, near=pylon)\n\n    async def build_cybercore(self):\n        if self.structures(GATEWAY).ready.exists and not self.structures(CYBERNETICSCORE):\n            pylon = self.structures(PYLON).ready.random\n            if self.can_afford(CYBERNETICSCORE):\n                await self.build(CYBERNETICSCORE, near=pylon)\n\n    async def research_warpgate(self):\n        for core in self.structures(CYBERNETICSCORE).ready.idle:\n            if self.can_afford(RESEARCH_WARPGATE) and not self.already_pending_upgrade(WARPGATERESEARCH):\n                core.research(WARPGATERESEARCH)\n\n    async def morph_gateways(self):\n        if self.already_pending_upgrade(WARPGATERESEARCH) == 0 and self.structures(CYBERNETICSCORE).ready.exists:\n            if self.structures(GATEWAY).ready.exists:\n                for gw in self.structures(GATEWAY).ready:\n                    abilities = await self.get_available_abilities(gw)\n                    if AbilityId.MORPH_WARPGATE in abilities:\n                        gw(AbilityId.MORPH_WARPGATE)\n\n    async def build_proxy_pylon(self):\n        if self.structures(PYLON).amount < 3 and self.structures(GATEWAY).ready.exists:\n            enemy_pos = self.enemy_start_locations[0]\n            pos = self.start_location.towards(enemy_pos, PROXY_PYLON_DISTANCE)\n            if self.can_afford(PYLON) and not self.structures(PYLON).closer_than(8, pos).exists:\n                await self.build(PYLON, near=pos)\n\n    async def warp_in_stalkers(self):\n        if self.structures(WARPGATE).ready.exists and self.structures(PYLON).ready.exists:\n            for warpgate in self.structures(WARPGATE).ready:\n                abilities = await self.get_available_abilities(warpgate)\n                if AbilityId.WARPGATETRAIN_STALKER in abilities and self.can_afford(STALKER):\n                    pylon = self.structures(PYLON).ready.closest_to(self.enemy_start_locations[0])\n                    placement = await self.find_placement(AbilityId.WARPGATETRAIN_STALKER, pylon.position, placement_step=1)\n                    if placement:\n                        warpgate.warp_in(STALKER, placement)\n\n    async def chrono_boost(self):\n        for nexus in self.townhalls.ready:\n            abilities = await self.get_available_abilities(nexus)\n            if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:\n                if self.structures(CYBERNETICSCORE).ready.exists and self.structures(CYBERNETICSCORE).ready.first.is_idle is False:\n                    target = self.structures(CYBERNETICSCORE).ready.first\n                else:\n                    target = nexus\n                nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, target)\n                break\n\n    async def attack(self):\n        stalkers = self.units(STALKER).idle\n        if stalkers.exists:\n            targets = self.enemy_units\n            if targets.exists:\n                for stalker in stalkers:\n                    stalker.attack(targets.closest_to(stalker))\n            else:\n                for stalker in stalkers:\n                    stalker.attack(self.enemy_start_locations[0])\n\n    async def on_unit_destroyed(self, unit_tag):\n        if not self.townhalls.exists:\n            for unit in self.units:\n                unit.attack(self.enemy_start_locations[0])\n\ndef main():\n    run_game(\n        maps.get(\"(2)CatalystLE\"),\n        [Bot(Race.Protoss, ProtossBot()), Computer(Race.Protoss, Difficulty.Easy)],\n        realtime=False,\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 8.202672415000052,
+  "usage": {
+    "completion_tokens": 1296,
+    "prompt_tokens": 269,
+    "total_tokens": 1565,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10906,
+  "response_sha256": "a6fc5e55ae84b80bae3a3b801ce4d8873bccd7b28ac189011e26a49ed322ce84",
+  "artifact_sha256": "2d198228c6989aab3743984e9494aa80eb799b18ed06f3bfe35c0ffea83f32b3"
+}

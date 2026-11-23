@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 27,
+    "task_sha256": "ea72f31eca52028d9bd6b8077c73f11e22519f1f66fe21d806f81725b811c77b",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that simulates the energy balance in a plasma by plotting ohmic heating and radiative losses as a function of temperature at equilibrium ionization. The simulation should be performed using the DREAM library. The simulation should include setting up a radial grid, setting time steps, adding ions, setting up temperature and electric field, and disabling runaway and hot-tail grid. The simulation should be run in four stages: initialization, ionization, equilibration, and radiation. After each stage, the settings should be saved and the simulation should be run. Finally, the results should be plotted."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4vK3FyksTngsbmsa9Cjw9k6UGnw",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport DREAM\nfrom DREAM.DREAMSettings import DREAMSettings\nfrom DREAM.Settings.Equations.Ions import Ions\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.Equations.ElectricField import ElectricField\nfrom DREAM.Settings.Equations.Temperature import Temperature\nfrom DREAM.Settings.Equations.RunawayElectrons import RunawayElectrons\nfrom DREAM.Settings.Equations.HotTailDistribution import HotTailDistribution\nfrom DREAM.Output import DREAMOutput\n\n# Parameters\nnr = 10\nr_wall = 0.22\nr_max = 0.2\ntmax = 1e-3\nnt = 100\nn_e = 5e19  # m^-3\nT_e0 = 100  # eV\nE_field = 0.1  # V/m\n\n# Temperature range for plotting\nTe_range = np.linspace(10, 2000, 100)  # eV\n\n# Stage 1: Initialization\nds = DREAMSettings()\n\n# Radial grid\nds.radialgrid.setB0(2.5)\nds.radialgrid.setMinorRadius(r_max)\nds.radialgrid.setWallRadius(r_wall)\nds.radialgrid.setNr(nr)\n\n# Time steps\nds.timestep.setTmax(tmax)\nds.timestep.setNt(nt)\n\n# Add ions (e.g., deuterium plasma)\nds.eqsys.n_i.addIon(name='D', Z=1, n=n_e, iontype=Ions.IONTYPE_LITE)\n\n# Set initial temperature and electric field\nds.eqsys.T_cold.setInitialProfile(T_e0)\nds.eqsys.E_field.setInitialProfile(E_field)\n\n# Disable runaway and hot-tail grids\nds.hottailgrid.setEnabled(False)\nds.runawaygrid.setEnabled(False)\n\n# Save settings and run\nds.save('settings_stage1.h5')\ndo = DREAM.runiface(ds, 'output_stage1.h5', quiet=True)\n\n# Stage 2: Ionization\nds2 = DREAMSettings('settings_stage1.h5')\nds2.eqsys.n_i.setIonization(True)\nds2.save('settings_stage2.h5')\ndo2 = DREAM.runiface(ds2, 'output_stage2.h5', quiet=True)\n\n# Stage 3: Equilibration\nds3 = DREAMSettings('settings_stage2.h5')\nds3.eqsys.n_i.setEquilibrium(True)\nds3.save('settings_stage3.h5')\ndo3 = DREAM.runiface(ds3, 'output_stage3.h5', quiet=True)\n\n# Stage 4: Radiation\nds4 = DREAMSettings('settings_stage3.h5')\nds4.eqsys.n_i.setIncludeRadiation(True)\nds4.save('settings_stage4.h5')\ndo4 = DREAM.runiface(ds4, 'output_stage4.h5', quiet=True)\n\n# Calculate ohmic heating and radiative losses as a function of temperature\nohmic_heating = []\nradiative_losses = []\n\nfor Te in Te_range:\n    ds_tmp = DREAMSettings('settings_stage4.h5')\n    ds_tmp.eqsys.T_cold.setInitialProfile(Te)\n    ds_tmp.save('settings_tmp.h5')\n    do_tmp = DREAM.runiface(ds_tmp, 'output_tmp.h5', quiet=True)\n    out = DREAMOutput('output_tmp.h5')\n    # Get ohmic heating and radiative losses at final time and center\n    ohmic = out.eqsys.W_ohmic[-1, 0]\n    rad = out.eqsys.W_rad_tot[-1, 0]\n    ohmic_heating.append(ohmic)\n    radiative_losses.append(rad)\n\nohmic_heating = np.array(ohmic_heating)\nradiative_losses = np.array(radiative_losses)\n\nplt.figure(figsize=(8,6))\nplt.plot(Te_range, ohmic_heating, label='Ohmic Heating')\nplt.plot(Te_range, radiative_losses, label='Radiative Losses')\nplt.xlabel('Electron Temperature [eV]')\nplt.ylabel('Power Density [W/m$^3$]')\nplt.title('Ohmic Heating and Radiative Losses vs Temperature')\nplt.legend()\nplt.grid(True)\nplt.tight_layout()\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127378,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_bce17ff7c2",
+    "usage": {
+      "completion_tokens": 883,
+      "prompt_tokens": 147,
+      "total_tokens": 1030,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport DREAM\nfrom DREAM.DREAMSettings import DREAMSettings\nfrom DREAM.Settings.Equations.Ions import Ions\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.Equations.ElectricField import ElectricField\nfrom DREAM.Settings.Equations.Temperature import Temperature\nfrom DREAM.Settings.Equations.RunawayElectrons import RunawayElectrons\nfrom DREAM.Settings.Equations.HotTailDistribution import HotTailDistribution\nfrom DREAM.Output import DREAMOutput\n\n# Parameters\nnr = 10\nr_wall = 0.22\nr_max = 0.2\ntmax = 1e-3\nnt = 100\nn_e = 5e19  # m^-3\nT_e0 = 100  # eV\nE_field = 0.1  # V/m\n\n# Temperature range for plotting\nTe_range = np.linspace(10, 2000, 100)  # eV\n\n# Stage 1: Initialization\nds = DREAMSettings()\n\n# Radial grid\nds.radialgrid.setB0(2.5)\nds.radialgrid.setMinorRadius(r_max)\nds.radialgrid.setWallRadius(r_wall)\nds.radialgrid.setNr(nr)\n\n# Time steps\nds.timestep.setTmax(tmax)\nds.timestep.setNt(nt)\n\n# Add ions (e.g., deuterium plasma)\nds.eqsys.n_i.addIon(name='D', Z=1, n=n_e, iontype=Ions.IONTYPE_LITE)\n\n# Set initial temperature and electric field\nds.eqsys.T_cold.setInitialProfile(T_e0)\nds.eqsys.E_field.setInitialProfile(E_field)\n\n# Disable runaway and hot-tail grids\nds.hottailgrid.setEnabled(False)\nds.runawaygrid.setEnabled(False)\n\n# Save settings and run\nds.save('settings_stage1.h5')\ndo = DREAM.runiface(ds, 'output_stage1.h5', quiet=True)\n\n# Stage 2: Ionization\nds2 = DREAMSettings('settings_stage1.h5')\nds2.eqsys.n_i.setIonization(True)\nds2.save('settings_stage2.h5')\ndo2 = DREAM.runiface(ds2, 'output_stage2.h5', quiet=True)\n\n# Stage 3: Equilibration\nds3 = DREAMSettings('settings_stage2.h5')\nds3.eqsys.n_i.setEquilibrium(True)\nds3.save('settings_stage3.h5')\ndo3 = DREAM.runiface(ds3, 'output_stage3.h5', quiet=True)\n\n# Stage 4: Radiation\nds4 = DREAMSettings('settings_stage3.h5')\nds4.eqsys.n_i.setIncludeRadiation(True)\nds4.save('settings_stage4.h5')\ndo4 = DREAM.runiface(ds4, 'output_stage4.h5', quiet=True)\n\n# Calculate ohmic heating and radiative losses as a function of temperature\nohmic_heating = []\nradiative_losses = []\n\nfor Te in Te_range:\n    ds_tmp = DREAMSettings('settings_stage4.h5')\n    ds_tmp.eqsys.T_cold.setInitialProfile(Te)\n    ds_tmp.save('settings_tmp.h5')\n    do_tmp = DREAM.runiface(ds_tmp, 'output_tmp.h5', quiet=True)\n    out = DREAMOutput('output_tmp.h5')\n    # Get ohmic heating and radiative losses at final time and center\n    ohmic = out.eqsys.W_ohmic[-1, 0]\n    rad = out.eqsys.W_rad_tot[-1, 0]\n    ohmic_heating.append(ohmic)\n    radiative_losses.append(rad)\n\nohmic_heating = np.array(ohmic_heating)\nradiative_losses = np.array(radiative_losses)\n\nplt.figure(figsize=(8,6))\nplt.plot(Te_range, ohmic_heating, label='Ohmic Heating')\nplt.plot(Te_range, radiative_losses, label='Radiative Losses')\nplt.xlabel('Electron Temperature [eV]')\nplt.ylabel('Power Density [W/m$^3$]')\nplt.title('Ohmic Heating and Radiative Losses vs Temperature')\nplt.legend()\nplt.grid(True)\nplt.tight_layout()\nplt.show()\n```",
+  "latency_seconds": 11.001454175000617,
+  "usage": {
+    "completion_tokens": 883,
+    "prompt_tokens": 147,
+    "total_tokens": 1030,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7358,
+  "response_sha256": "82aa34160495668b3cb1d5d274fd5d32ee4f40b2d1a1f1d1f3fd5a8a89f57720",
+  "artifact_sha256": "1752409648be6452594ca67069efb92c95e3b8870738b2f308483554f2ff9fc8"
+}

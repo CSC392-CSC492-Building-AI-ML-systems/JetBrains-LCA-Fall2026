@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 129,
+    "task_sha256": "d5650e87600ee93241b854d9c40c8e36e5f70bebabb8eb64fc4dd6db9199f58d",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a simple ICMP6 ping. The code should take source and destination IP addresses as command line arguments. It should create an IP6 packet with the source and destination addresses, and send an ICMP echo request to the destination IP. The code should then wait for an echo reply, decode the reply using the ImpactDecoder, and print the size of the reply, the destination IP, and the echo sequence number if the reply type is an echo reply. The code should continue to send echo requests and listen for replies in an infinite loop.\n\nYou can find the following APIs from the library helpful:\ntheClass, Echo_Reply, swapSourceAndDestination, sendReplyError, echo, Echo_Request, get_echo_sequence_number, parseReply, replyField, SOCKS4_REPLY, SOCKS5_REPLY, Destination, should_serve_wpad, decodeKPasswdReply, AndRestriction, Node_Information_Reply, SMBEcho_Data, SMBEcho_Parameters, get_ts_echo, __build_echo_message"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5yENt8lSy4JBjjbvfRUkUXBFLVx",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport time\nimport socket\nimport struct\nfrom impacket import ImpactPacket\nfrom impacket.ImpactDecoder import EthDecoder, LinuxIp6Decoder\n\ndef main():\n    if len(sys.argv) != 3:\n        print(f\"Usage: {sys.argv[0]} <src_ipv6> <dst_ipv6>\")\n        sys.exit(1)\n\n    src_ip = sys.argv[1]\n    dst_ip = sys.argv[2]\n\n    # Create raw socket for ICMPv6\n    try:\n        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)\n    except PermissionError:\n        print(\"You need to run this script as root.\")\n        sys.exit(1)\n\n    s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_HDRINCL, 1)\n\n    decoder = LinuxIp6Decoder()\n    seq = 0\n    identifier = 0x1234\n\n    while True:\n        # Build ICMPv6 Echo Request\n        icmp6 = ImpactPacket.ICMP6()\n        icmp6.set_icmp6_type(ImpactPacket.ICMP6.ICMP6_ECHO_REQUEST)\n        icmp6.set_icmp6_code(0)\n        icmp6.set_icmp6_id(identifier)\n        icmp6.set_icmp6_seq(seq)\n        icmp6.contains(ImpactPacket.Data(b'ping6data'))\n\n        # Build IPv6 packet\n        ip6 = ImpactPacket.IP6()\n        ip6.set_source_address(src_ip)\n        ip6.set_destination_address(dst_ip)\n        ip6.set_next_header(ImpactPacket.IP6.IPPROTO_ICMPV6)\n        ip6.contains(icmp6)\n\n        # Send packet\n        pkt = ip6.get_packet()\n        s.sendto(pkt, (dst_ip, 0, 0, 0))\n\n        # Wait for reply\n        while True:\n            reply, addr = s.recvfrom(65535)\n            decoded = decoder.decode(reply)\n            ip6_reply = decoded.child()\n            if not isinstance(ip6_reply, ImpactPacket.IP6):\n                continue\n            icmp6_reply = ip6_reply.child()\n            if not isinstance(icmp6_reply, ImpactPacket.ICMP6):\n                continue\n            if (icmp6_reply.get_icmp6_type() == ImpactPacket.ICMP6.ICMP6_ECHO_REPLY and\n                icmp6_reply.get_icmp6_id() == identifier and\n                icmp6_reply.get_icmp6_seq() == seq):\n                data = icmp6_reply.child().get_bytes()\n                print(f\"Reply: {len(data)} bytes from {ip6_reply.get_source_address()} seq={icmp6_reply.get_icmp6_seq()}\")\n                break\n\n        seq = (seq + 1) & 0xffff\n        time.sleep(1)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131402,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_2347ee4825",
+    "usage": {
+      "completion_tokens": 605,
+      "prompt_tokens": 236,
+      "total_tokens": 841,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport time\nimport socket\nimport struct\nfrom impacket import ImpactPacket\nfrom impacket.ImpactDecoder import EthDecoder, LinuxIp6Decoder\n\ndef main():\n    if len(sys.argv) != 3:\n        print(f\"Usage: {sys.argv[0]} <src_ipv6> <dst_ipv6>\")\n        sys.exit(1)\n\n    src_ip = sys.argv[1]\n    dst_ip = sys.argv[2]\n\n    # Create raw socket for ICMPv6\n    try:\n        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)\n    except PermissionError:\n        print(\"You need to run this script as root.\")\n        sys.exit(1)\n\n    s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_HDRINCL, 1)\n\n    decoder = LinuxIp6Decoder()\n    seq = 0\n    identifier = 0x1234\n\n    while True:\n        # Build ICMPv6 Echo Request\n        icmp6 = ImpactPacket.ICMP6()\n        icmp6.set_icmp6_type(ImpactPacket.ICMP6.ICMP6_ECHO_REQUEST)\n        icmp6.set_icmp6_code(0)\n        icmp6.set_icmp6_id(identifier)\n        icmp6.set_icmp6_seq(seq)\n        icmp6.contains(ImpactPacket.Data(b'ping6data'))\n\n        # Build IPv6 packet\n        ip6 = ImpactPacket.IP6()\n        ip6.set_source_address(src_ip)\n        ip6.set_destination_address(dst_ip)\n        ip6.set_next_header(ImpactPacket.IP6.IPPROTO_ICMPV6)\n        ip6.contains(icmp6)\n\n        # Send packet\n        pkt = ip6.get_packet()\n        s.sendto(pkt, (dst_ip, 0, 0, 0))\n\n        # Wait for reply\n        while True:\n            reply, addr = s.recvfrom(65535)\n            decoded = decoder.decode(reply)\n            ip6_reply = decoded.child()\n            if not isinstance(ip6_reply, ImpactPacket.IP6):\n                continue\n            icmp6_reply = ip6_reply.child()\n            if not isinstance(icmp6_reply, ImpactPacket.ICMP6):\n                continue\n            if (icmp6_reply.get_icmp6_type() == ImpactPacket.ICMP6.ICMP6_ECHO_REPLY and\n                icmp6_reply.get_icmp6_id() == identifier and\n                icmp6_reply.get_icmp6_seq() == seq):\n                data = icmp6_reply.child().get_bytes()\n                print(f\"Reply: {len(data)} bytes from {ip6_reply.get_source_address()} seq={icmp6_reply.get_icmp6_seq()}\")\n                break\n\n        seq = (seq + 1) & 0xffff\n        time.sleep(1)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 3.1015185699980066,
+  "usage": {
+    "completion_tokens": 605,
+    "prompt_tokens": 236,
+    "total_tokens": 841,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 5312,
+  "response_sha256": "753974bcefdcccdb11015830bf98d0f57fadd00cc57c4b4072826d5912898750",
+  "artifact_sha256": "5ed57ef14fb7087f2805789163ede2ff20575659f3b29949a8f2bd71e12b30ed"
+}

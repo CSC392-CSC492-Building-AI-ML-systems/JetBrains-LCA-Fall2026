@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 37,
+    "task_sha256": "13aca529f665fbf925720f0881db81b8bd214f8f8966dc2a9dcbb2215167f30f",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the blenderproc library:\n\n1. Parse command line arguments for a house.json file path, a chair object path, and an optional output directory.\n2. Initialize blenderproc.\n3. Load objects from the house.json file into the scene using a label mapping from a csv file.\n4. Load a chair object from the provided path and replace all chair objects in the scene with this chair object. The replacement should ignore collisions with floor objects and copy properties from the original objects. The pose of the new chair objects should be randomly rotated around the z-axis.\n5. Filter out invalid objects from the scene.\n6. Make all Suncg objects in the scene emit light.\n7. Initialize a point sampler for sampling locations inside the loaded house and a bvh tree containing all mesh objects.\n8. Sample camera poses inside the house, ensuring that obstacles are at least 1 meter away from the camera and the view covers at least 40% of the scene. Add these camera poses to the scene.\n9. Enable normal, depth, and segmentation rendering. Add an alpha channel to textures.\n10. Render the scene and write the rendered data to a .hdf5 file in the specified output directory.\n\nYou can find the following APIs from the library helpful:\nget_the_one_node_with_type, get_node_connected_to_the_output_and_unlink_it, check_if_setup_utilities_are_at_the_top, create_mesh_objects_from_file, replace_objects, get_all_mesh_objects, merge_objects, visible_objects, _colorize_objects_for_instance_segmentation, load_and_create, transform_and_colorize_object, get_all_blender_mesh_objects, get_type_and_value_from_mat, join_with_other_objects, create_bvh_tree_multi_objects, set_camera_parameters_from_config_file, load_bop_scene, min_and_max_point, from_csv, light_suncg_scene"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em53xfRmQCM3yau7r7YcgQph6yzfc",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport os\nimport blenderproc as bproc\nimport numpy as np\nimport random\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"BlenderProc pipeline for house and chair replacement\")\n    parser.add_argument(\"--house_json\", required=True, help=\"Path to the house.json file\")\n    parser.add_argument(\"--chair_obj\", required=True, help=\"Path to the chair object file (.obj/.ply/.blend)\")\n    parser.add_argument(\"--label_csv\", required=True, help=\"Path to the label mapping CSV file\")\n    parser.add_argument(\"--output_dir\", default=\"output\", help=\"Output directory\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    os.makedirs(args.output_dir, exist_ok=True)\n\n    bproc.init()\n\n    # Load label mapping\n    label_mapping = bproc.utility.LabelIdMapping.from_csv(args.label_csv)\n\n    # Load house objects\n    house_objects = bproc.loader.load_suncg(args.house_json, label_mapping=label_mapping)\n\n    # Load chair object\n    chair_objs = bproc.loader.load_obj(args.chair_obj)\n    if len(chair_objs) == 0:\n        raise RuntimeError(\"No chair object loaded from {}\".format(args.chair_obj))\n    chair_obj = chair_objs[0]\n\n    # Find all chair objects in the scene\n    chair_class_ids = [label_mapping.get_id_from_label(\"chair\")]\n    chairs_in_scene = [obj for obj in bproc.object.get_all_mesh_objects() if obj.get_cp(\"category_id\") in chair_class_ids]\n\n    # Find all floor objects (to ignore collisions)\n    floor_class_ids = [label_mapping.get_id_from_label(\"floor\")]\n    floor_objs = [obj for obj in bproc.object.get_all_mesh_objects() if obj.get_cp(\"category_id\") in floor_class_ids]\n\n    # Replace all chair objects\n    for orig_chair in chairs_in_scene:\n        # Duplicate the loaded chair object\n        new_chair = chair_obj.copy()\n        new_chair.set_cp(\"category_id\", orig_chair.get_cp(\"category_id\"))\n        new_chair.set_cp(\"class_name\", orig_chair.get_cp(\"class_name\"))\n        # Copy pose\n        new_chair.set_local2world_mat(orig_chair.get_local2world_mat())\n        # Randomly rotate around z-axis\n        rot_angle = random.uniform(0, 2 * np.pi)\n        rot_mat = bproc.math.build_transformation_mat([0, 0, 0], [0, 0, rot_angle])\n        new_pose = orig_chair.get_local2world_mat() @ rot_mat\n        new_chair.set_local2world_mat(new_pose)\n        # Copy other properties\n        for key in orig_chair.get_cp_keys():\n            new_chair.set_cp(key, orig_chair.get_cp(key))\n        # Link to scene\n        bproc.object.link_to_scene(new_chair)\n        # Remove original chair\n        bproc.object.remove_from_scene(orig_chair)\n\n    # Filter out invalid objects\n    bproc.object.delete_invalid()\n\n    # Make all Suncg objects emit light\n    bproc.lighting.light_suncg_scene()\n\n    # Initialize point sampler and BVH tree\n    mesh_objs = bproc.object.get_all_mesh_objects()\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(mesh_objs)\n    point_sampler = bproc.sampler.CameraPoseSampler(bvh_tree)\n\n    # Sample camera poses\n    cam_poses = []\n    num_poses = 5\n    for _ in range(num_poses):\n        location = point_sampler.sample_inside_house(min_distance=1.0)\n        if location is None:\n            continue\n        # Ensure view covers at least 40% of the scene\n        cam2world = bproc.math.build_transformation_mat(location, [np.pi/2, 0, random.uniform(-np.pi, np.pi)])\n        coverage = bproc.camera.coverage_of_scene(cam2world, mesh_objs)\n        if coverage < 0.4:\n            continue\n        cam_poses.append(cam2world)\n        bproc.camera.add_camera_pose(cam2world)\n\n    # Enable normal, depth, segmentation rendering, add alpha channel\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output()\n    bproc.renderer.enable_alpha_channel()\n\n    # Render and write to .hdf5\n    data = bproc.renderer.render()\n    bproc.writer.write_hdf5(os.path.join(args.output_dir, \"output.hdf5\"), data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127913,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_cfcc27b179",
+    "usage": {
+      "completion_tokens": 962,
+      "prompt_tokens": 410,
+      "total_tokens": 1372,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport os\nimport blenderproc as bproc\nimport numpy as np\nimport random\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"BlenderProc pipeline for house and chair replacement\")\n    parser.add_argument(\"--house_json\", required=True, help=\"Path to the house.json file\")\n    parser.add_argument(\"--chair_obj\", required=True, help=\"Path to the chair object file (.obj/.ply/.blend)\")\n    parser.add_argument(\"--label_csv\", required=True, help=\"Path to the label mapping CSV file\")\n    parser.add_argument(\"--output_dir\", default=\"output\", help=\"Output directory\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    os.makedirs(args.output_dir, exist_ok=True)\n\n    bproc.init()\n\n    # Load label mapping\n    label_mapping = bproc.utility.LabelIdMapping.from_csv(args.label_csv)\n\n    # Load house objects\n    house_objects = bproc.loader.load_suncg(args.house_json, label_mapping=label_mapping)\n\n    # Load chair object\n    chair_objs = bproc.loader.load_obj(args.chair_obj)\n    if len(chair_objs) == 0:\n        raise RuntimeError(\"No chair object loaded from {}\".format(args.chair_obj))\n    chair_obj = chair_objs[0]\n\n    # Find all chair objects in the scene\n    chair_class_ids = [label_mapping.get_id_from_label(\"chair\")]\n    chairs_in_scene = [obj for obj in bproc.object.get_all_mesh_objects() if obj.get_cp(\"category_id\") in chair_class_ids]\n\n    # Find all floor objects (to ignore collisions)\n    floor_class_ids = [label_mapping.get_id_from_label(\"floor\")]\n    floor_objs = [obj for obj in bproc.object.get_all_mesh_objects() if obj.get_cp(\"category_id\") in floor_class_ids]\n\n    # Replace all chair objects\n    for orig_chair in chairs_in_scene:\n        # Duplicate the loaded chair object\n        new_chair = chair_obj.copy()\n        new_chair.set_cp(\"category_id\", orig_chair.get_cp(\"category_id\"))\n        new_chair.set_cp(\"class_name\", orig_chair.get_cp(\"class_name\"))\n        # Copy pose\n        new_chair.set_local2world_mat(orig_chair.get_local2world_mat())\n        # Randomly rotate around z-axis\n        rot_angle = random.uniform(0, 2 * np.pi)\n        rot_mat = bproc.math.build_transformation_mat([0, 0, 0], [0, 0, rot_angle])\n        new_pose = orig_chair.get_local2world_mat() @ rot_mat\n        new_chair.set_local2world_mat(new_pose)\n        # Copy other properties\n        for key in orig_chair.get_cp_keys():\n            new_chair.set_cp(key, orig_chair.get_cp(key))\n        # Link to scene\n        bproc.object.link_to_scene(new_chair)\n        # Remove original chair\n        bproc.object.remove_from_scene(orig_chair)\n\n    # Filter out invalid objects\n    bproc.object.delete_invalid()\n\n    # Make all Suncg objects emit light\n    bproc.lighting.light_suncg_scene()\n\n    # Initialize point sampler and BVH tree\n    mesh_objs = bproc.object.get_all_mesh_objects()\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(mesh_objs)\n    point_sampler = bproc.sampler.CameraPoseSampler(bvh_tree)\n\n    # Sample camera poses\n    cam_poses = []\n    num_poses = 5\n    for _ in range(num_poses):\n        location = point_sampler.sample_inside_house(min_distance=1.0)\n        if location is None:\n            continue\n        # Ensure view covers at least 40% of the scene\n        cam2world = bproc.math.build_transformation_mat(location, [np.pi/2, 0, random.uniform(-np.pi, np.pi)])\n        coverage = bproc.camera.coverage_of_scene(cam2world, mesh_objs)\n        if coverage < 0.4:\n            continue\n        cam_poses.append(cam2world)\n        bproc.camera.add_camera_pose(cam2world)\n\n    # Enable normal, depth, segmentation rendering, add alpha channel\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output()\n    bproc.renderer.enable_alpha_channel()\n\n    # Render and write to .hdf5\n    data = bproc.renderer.render()\n    bproc.writer.write_hdf5(os.path.join(args.output_dir, \"output.hdf5\"), data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.25873012899865,
+  "usage": {
+    "completion_tokens": 962,
+    "prompt_tokens": 410,
+    "total_tokens": 1372,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8516,
+  "response_sha256": "d8a1c3208bc71ce454744a7291e59e2a50c34c5a2bdd5cec551810d908d8a4d3",
+  "artifact_sha256": "dcb3631573c3b3e8c0701289688d487cb34ecaf39fc9c9bdbba49f600ecec2af"
+}

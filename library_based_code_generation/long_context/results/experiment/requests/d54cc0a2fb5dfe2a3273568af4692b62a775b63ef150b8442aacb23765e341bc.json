@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 108,
+    "task_sha256": "1c1de2f444d3007a381177a57283366c4c1bd9c1cb8e37f59d22dffde2932c8c",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates an experiment using the nplab library. The experiment should involve a shutter and a spectrometer. The experiment should open and close the shutter, wait for a specified amount of time, and then take a spectrum. The experiment should also have a user interface that allows the user to control the irradiation time and wait time. The code should also include a GUI for the experiment that includes a data browser, spectrometer controls, and shutter controls. The experiment and its GUI should be tested using dummy spectrometer and shutter."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5mMAzHkItFCoogr0xlrIrljDqlN",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nfrom PyQt5 import QtWidgets, QtCore\nfrom nplab.experiment import Experiment\nfrom nplab.instrument.shutter import DummyShutter\nfrom nplab.instrument.spectrometer import DummySpectrometer\nfrom nplab.ui.data_browser import DataBrowser\nfrom nplab.ui.spectrometer_widget import SpectrometerWidget\nfrom nplab.ui.shutter_widget import ShutterWidget\n\nclass ShutterSpectrometerExperiment(Experiment):\n    def __init__(self, shutter, spectrometer):\n        super().__init__()\n        self.shutter = shutter\n        self.spectrometer = spectrometer\n        self.parameters.declare('irradiation_time', 1.0, units='s', description='Time to keep shutter open')\n        self.parameters.declare('wait_time', 1.0, units='s', description='Time to wait after closing shutter')\n        self.data.new_table('spectra', 'Spectra taken after irradiation')\n        self.data['spectra'].create_column('wavelength')\n        self.data['spectra'].create_column('intensity')\n\n    def run(self):\n        irradiation_time = self.parameters['irradiation_time']\n        wait_time = self.parameters['wait_time']\n        self.shutter.open()\n        self.log('Shutter opened')\n        self.wait(irradiation_time)\n        self.shutter.close()\n        self.log('Shutter closed')\n        self.wait(wait_time)\n        spectrum = self.spectrometer.get_spectrum()\n        self.data['spectra'].append({'wavelength': spectrum[0], 'intensity': spectrum[1]})\n        self.log('Spectrum acquired')\n\nclass ExperimentGUI(QtWidgets.QWidget):\n    def __init__(self, experiment):\n        super().__init__()\n        self.experiment = experiment\n        self.init_ui()\n\n    def init_ui(self):\n        layout = QtWidgets.QVBoxLayout(self)\n\n        # Parameter controls\n        param_group = QtWidgets.QGroupBox(\"Experiment Parameters\")\n        param_layout = QtWidgets.QFormLayout()\n        self.irradiation_time_spin = QtWidgets.QDoubleSpinBox()\n        self.irradiation_time_spin.setRange(0.1, 100)\n        self.irradiation_time_spin.setValue(self.experiment.parameters['irradiation_time'])\n        self.irradiation_time_spin.setSuffix(\" s\")\n        self.irradiation_time_spin.valueChanged.connect(\n            lambda val: self.experiment.parameters.set('irradiation_time', val)\n        )\n        self.wait_time_spin = QtWidgets.QDoubleSpinBox()\n        self.wait_time_spin.setRange(0.1, 100)\n        self.wait_time_spin.setValue(self.experiment.parameters['wait_time'])\n        self.wait_time_spin.setSuffix(\" s\")\n        self.wait_time_spin.valueChanged.connect(\n            lambda val: self.experiment.parameters.set('wait_time', val)\n        )\n        param_layout.addRow(\"Irradiation Time:\", self.irradiation_time_spin)\n        param_layout.addRow(\"Wait Time:\", self.wait_time_spin)\n        param_group.setLayout(param_layout)\n        layout.addWidget(param_group)\n\n        # Run button\n        self.run_button = QtWidgets.QPushButton(\"Run Experiment\")\n        self.run_button.clicked.connect(self.run_experiment)\n        layout.addWidget(self.run_button)\n\n        # Data browser\n        self.data_browser = DataBrowser(self.experiment.data)\n        layout.addWidget(self.data_browser)\n\n        # Spectrometer controls\n        self.spectrometer_widget = SpectrometerWidget(self.experiment.spectrometer)\n        layout.addWidget(self.spectrometer_widget)\n\n        # Shutter controls\n        self.shutter_widget = ShutterWidget(self.experiment.shutter)\n        layout.addWidget(self.shutter_widget)\n\n        self.setLayout(layout)\n        self.setWindowTitle(\"Shutter-Spectrometer Experiment\")\n\n    def run_experiment(self):\n        self.run_button.setEnabled(False)\n        QtCore.QTimer.singleShot(100, self._run_experiment)\n\n    def _run_experiment(self):\n        self.experiment.run()\n        self.data_browser.refresh()\n        self.run_button.setEnabled(True)\n\ndef main():\n    app = QtWidgets.QApplication(sys.argv)\n    shutter = DummyShutter()\n    spectrometer = DummySpectrometer()\n    experiment = ShutterSpectrometerExperiment(shutter, spectrometer)\n    gui = ExperimentGUI(experiment)\n    gui.show()\n    sys.exit(app.exec_())\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130666,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_ba4ba10ffe",
+    "usage": {
+      "completion_tokens": 922,
+      "prompt_tokens": 138,
+      "total_tokens": 1060,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nfrom PyQt5 import QtWidgets, QtCore\nfrom nplab.experiment import Experiment\nfrom nplab.instrument.shutter import DummyShutter\nfrom nplab.instrument.spectrometer import DummySpectrometer\nfrom nplab.ui.data_browser import DataBrowser\nfrom nplab.ui.spectrometer_widget import SpectrometerWidget\nfrom nplab.ui.shutter_widget import ShutterWidget\n\nclass ShutterSpectrometerExperiment(Experiment):\n    def __init__(self, shutter, spectrometer):\n        super().__init__()\n        self.shutter = shutter\n        self.spectrometer = spectrometer\n        self.parameters.declare('irradiation_time', 1.0, units='s', description='Time to keep shutter open')\n        self.parameters.declare('wait_time', 1.0, units='s', description='Time to wait after closing shutter')\n        self.data.new_table('spectra', 'Spectra taken after irradiation')\n        self.data['spectra'].create_column('wavelength')\n        self.data['spectra'].create_column('intensity')\n\n    def run(self):\n        irradiation_time = self.parameters['irradiation_time']\n        wait_time = self.parameters['wait_time']\n        self.shutter.open()\n        self.log('Shutter opened')\n        self.wait(irradiation_time)\n        self.shutter.close()\n        self.log('Shutter closed')\n        self.wait(wait_time)\n        spectrum = self.spectrometer.get_spectrum()\n        self.data['spectra'].append({'wavelength': spectrum[0], 'intensity': spectrum[1]})\n        self.log('Spectrum acquired')\n\nclass ExperimentGUI(QtWidgets.QWidget):\n    def __init__(self, experiment):\n        super().__init__()\n        self.experiment = experiment\n        self.init_ui()\n\n    def init_ui(self):\n        layout = QtWidgets.QVBoxLayout(self)\n\n        # Parameter controls\n        param_group = QtWidgets.QGroupBox(\"Experiment Parameters\")\n        param_layout = QtWidgets.QFormLayout()\n        self.irradiation_time_spin = QtWidgets.QDoubleSpinBox()\n        self.irradiation_time_spin.setRange(0.1, 100)\n        self.irradiation_time_spin.setValue(self.experiment.parameters['irradiation_time'])\n        self.irradiation_time_spin.setSuffix(\" s\")\n        self.irradiation_time_spin.valueChanged.connect(\n            lambda val: self.experiment.parameters.set('irradiation_time', val)\n        )\n        self.wait_time_spin = QtWidgets.QDoubleSpinBox()\n        self.wait_time_spin.setRange(0.1, 100)\n        self.wait_time_spin.setValue(self.experiment.parameters['wait_time'])\n        self.wait_time_spin.setSuffix(\" s\")\n        self.wait_time_spin.valueChanged.connect(\n            lambda val: self.experiment.parameters.set('wait_time', val)\n        )\n        param_layout.addRow(\"Irradiation Time:\", self.irradiation_time_spin)\n        param_layout.addRow(\"Wait Time:\", self.wait_time_spin)\n        param_group.setLayout(param_layout)\n        layout.addWidget(param_group)\n\n        # Run button\n        self.run_button = QtWidgets.QPushButton(\"Run Experiment\")\n        self.run_button.clicked.connect(self.run_experiment)\n        layout.addWidget(self.run_button)\n\n        # Data browser\n        self.data_browser = DataBrowser(self.experiment.data)\n        layout.addWidget(self.data_browser)\n\n        # Spectrometer controls\n        self.spectrometer_widget = SpectrometerWidget(self.experiment.spectrometer)\n        layout.addWidget(self.spectrometer_widget)\n\n        # Shutter controls\n        self.shutter_widget = ShutterWidget(self.experiment.shutter)\n        layout.addWidget(self.shutter_widget)\n\n        self.setLayout(layout)\n        self.setWindowTitle(\"Shutter-Spectrometer Experiment\")\n\n    def run_experiment(self):\n        self.run_button.setEnabled(False)\n        QtCore.QTimer.singleShot(100, self._run_experiment)\n\n    def _run_experiment(self):\n        self.experiment.run()\n        self.data_browser.refresh()\n        self.run_button.setEnabled(True)\n\ndef main():\n    app = QtWidgets.QApplication(sys.argv)\n    shutter = DummyShutter()\n    spectrometer = DummySpectrometer()\n    experiment = ShutterSpectrometerExperiment(shutter, spectrometer)\n    gui = ExperimentGUI(experiment)\n    gui.show()\n    sys.exit(app.exec_())\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 4.8749917580025794,
+  "usage": {
+    "completion_tokens": 922,
+    "prompt_tokens": 138,
+    "total_tokens": 1060,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7652,
+  "response_sha256": "ec662e9a925e7357251f46406e7951a7fb35d30cde4623f23609844dde5dadc2",
+  "artifact_sha256": "d17e9eafee4e65669b564f2dc9eda64a2dfd4f20aef3e3c9d41a104a38835d99"
+}

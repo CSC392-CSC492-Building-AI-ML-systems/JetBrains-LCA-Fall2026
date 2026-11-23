@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 58,
+    "task_sha256": "0108cb8b8bf8d54b19b6385a3061aa7a9ba508743c57abd97b50a37948545791",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary modules from the torchrec library and defines two functions: `_get_random_dataloader` and `train`. The `_get_random_dataloader` function should take in the number of embeddings, batch size, and a boolean indicating whether to pin memory, and return a DataLoader object. The `train` function should take in parameters for the number of embeddings, embedding dimension, dense architecture layer sizes, over architecture layer sizes, and learning rate. It should initialize the process group, device, rank, and backend, construct a DLRM model, enable optimizer fusion, distribute the model across devices, overlap communication, compute, and device transfer during training, and finally train the model using a training iterator. The script should call the `train` function if it is the main module.\n\nYou can find the following APIs from the library helpful:\n_pin_and_move, gen_model_and_input, initialize_and_test_parameters, should_compute, _generate_dmps_and_batch, _setup_cpu_model_and_opt, calculate_shard_sizes_and_offsets, test_trace_and_script, _update_and_evict, seed_and_log, test_dataset_train_val_and_test_sets, test_should_compute, compute_and_output_dist, create_module_and_freeze, _calculate_cw_shard_sizes_and_offsets, _calculate_rw_shard_sizes_and_offsets, _shuffle_and_load_data_for_rank, _get_batch_inputs_and_shardable_parameters, convert_optimizer_type_and_kwargs, test_fx_and_shape"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5HmGN2YzwiylFu01G9orL8xU3uR",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nfrom torch.utils.data import DataLoader, Dataset\nfrom torchrec.modules.embedding_modules import EmbeddingBagCollection\nfrom torchrec.models.dlrm import DLRM\nfrom torchrec.optim.fused import FusedOptimizer\nfrom torchrec.distributed import DistributedModelParallel\nfrom torchrec.distributed.comm import overlap_wrapper\nimport torch.distributed as dist\nimport torch.multiprocessing as mp\n\nclass RandomDataset(Dataset):\n    def __init__(self, num_embeddings, embedding_dim, batch_size):\n        self.num_embeddings = num_embeddings\n        self.embedding_dim = embedding_dim\n        self.batch_size = batch_size\n\n    def __len__(self):\n        return 1000\n\n    def __getitem__(self, idx):\n        dense = torch.randn(self.batch_size, self.embedding_dim)\n        sparse = {\n            \"sparse_feature\": torch.randint(0, self.num_embeddings, (self.batch_size,))\n        }\n        label = torch.randint(0, 2, (self.batch_size, 1)).float()\n        return dense, sparse, label\n\ndef _get_random_dataloader(num_embeddings, batch_size, pin_memory):\n    dataset = RandomDataset(num_embeddings, 16, batch_size)\n    return DataLoader(dataset, batch_size=1, pin_memory=pin_memory)\n\ndef train_worker(rank, world_size, num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate):\n    dist.init_process_group(backend=\"nccl\", rank=rank, world_size=world_size)\n    device = torch.device(f\"cuda:{rank}\" if torch.cuda.is_available() else \"cpu\")\n\n    embedding_bag_collection = EmbeddingBagCollection(\n        tables=[\n            torchrec.modules.embedding_modules.EmbeddingBagConfig(\n                name=\"sparse_feature\",\n                embedding_dim=embedding_dim,\n                num_embeddings=num_embeddings,\n                feature_names=[\"sparse_feature\"],\n            )\n        ],\n        device=device,\n    )\n\n    model = DLRM(\n        embedding_bag_collection=embedding_bag_collection,\n        dense_in_features=embedding_dim,\n        dense_arch_layer_sizes=dense_arch_layer_sizes,\n        over_arch_layer_sizes=over_arch_layer_sizes,\n    ).to(device)\n\n    optimizer = FusedOptimizer(\n        model.parameters(),\n        lr=learning_rate,\n    )\n\n    model = DistributedModelParallel(model, device_ids=[rank])\n    model = overlap_wrapper(model)\n\n    dataloader = _get_random_dataloader(num_embeddings, batch_size=128, pin_memory=True)\n\n    model.train()\n    for epoch in range(2):\n        for dense, sparse, label in dataloader:\n            dense = dense.squeeze(0).to(device)\n            sparse = {k: v.squeeze(0).to(device) for k, v in sparse.items()}\n            label = label.squeeze(0).to(device)\n            optimizer.zero_grad()\n            output = model(dense, sparse)\n            loss = torch.nn.functional.binary_cross_entropy_with_logits(output, label)\n            loss.backward()\n            optimizer.step()\n\n    dist.destroy_process_group()\n\ndef train(num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate):\n    world_size = torch.cuda.device_count() if torch.cuda.is_available() else 1\n    mp.spawn(\n        train_worker,\n        args=(world_size, num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate),\n        nprocs=world_size,\n        join=True,\n    )\n\nif __name__ == \"__main__\":\n    train(\n        num_embeddings=10000,\n        embedding_dim=16,\n        dense_arch_layer_sizes=[64, 32],\n        over_arch_layer_sizes=[32, 16, 1],\n        learning_rate=0.01,\n    )\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128770,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_d1445ec092",
+    "usage": {
+      "completion_tokens": 772,
+      "prompt_tokens": 326,
+      "total_tokens": 1098,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nfrom torch.utils.data import DataLoader, Dataset\nfrom torchrec.modules.embedding_modules import EmbeddingBagCollection\nfrom torchrec.models.dlrm import DLRM\nfrom torchrec.optim.fused import FusedOptimizer\nfrom torchrec.distributed import DistributedModelParallel\nfrom torchrec.distributed.comm import overlap_wrapper\nimport torch.distributed as dist\nimport torch.multiprocessing as mp\n\nclass RandomDataset(Dataset):\n    def __init__(self, num_embeddings, embedding_dim, batch_size):\n        self.num_embeddings = num_embeddings\n        self.embedding_dim = embedding_dim\n        self.batch_size = batch_size\n\n    def __len__(self):\n        return 1000\n\n    def __getitem__(self, idx):\n        dense = torch.randn(self.batch_size, self.embedding_dim)\n        sparse = {\n            \"sparse_feature\": torch.randint(0, self.num_embeddings, (self.batch_size,))\n        }\n        label = torch.randint(0, 2, (self.batch_size, 1)).float()\n        return dense, sparse, label\n\ndef _get_random_dataloader(num_embeddings, batch_size, pin_memory):\n    dataset = RandomDataset(num_embeddings, 16, batch_size)\n    return DataLoader(dataset, batch_size=1, pin_memory=pin_memory)\n\ndef train_worker(rank, world_size, num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate):\n    dist.init_process_group(backend=\"nccl\", rank=rank, world_size=world_size)\n    device = torch.device(f\"cuda:{rank}\" if torch.cuda.is_available() else \"cpu\")\n\n    embedding_bag_collection = EmbeddingBagCollection(\n        tables=[\n            torchrec.modules.embedding_modules.EmbeddingBagConfig(\n                name=\"sparse_feature\",\n                embedding_dim=embedding_dim,\n                num_embeddings=num_embeddings,\n                feature_names=[\"sparse_feature\"],\n            )\n        ],\n        device=device,\n    )\n\n    model = DLRM(\n        embedding_bag_collection=embedding_bag_collection,\n        dense_in_features=embedding_dim,\n        dense_arch_layer_sizes=dense_arch_layer_sizes,\n        over_arch_layer_sizes=over_arch_layer_sizes,\n    ).to(device)\n\n    optimizer = FusedOptimizer(\n        model.parameters(),\n        lr=learning_rate,\n    )\n\n    model = DistributedModelParallel(model, device_ids=[rank])\n    model = overlap_wrapper(model)\n\n    dataloader = _get_random_dataloader(num_embeddings, batch_size=128, pin_memory=True)\n\n    model.train()\n    for epoch in range(2):\n        for dense, sparse, label in dataloader:\n            dense = dense.squeeze(0).to(device)\n            sparse = {k: v.squeeze(0).to(device) for k, v in sparse.items()}\n            label = label.squeeze(0).to(device)\n            optimizer.zero_grad()\n            output = model(dense, sparse)\n            loss = torch.nn.functional.binary_cross_entropy_with_logits(output, label)\n            loss.backward()\n            optimizer.step()\n\n    dist.destroy_process_group()\n\ndef train(num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate):\n    world_size = torch.cuda.device_count() if torch.cuda.is_available() else 1\n    mp.spawn(\n        train_worker,\n        args=(world_size, num_embeddings, embedding_dim, dense_arch_layer_sizes, over_arch_layer_sizes, learning_rate),\n        nprocs=world_size,\n        join=True,\n    )\n\nif __name__ == \"__main__\":\n    train(\n        num_embeddings=10000,\n        embedding_dim=16,\n        dense_arch_layer_sizes=[64, 32],\n        over_arch_layer_sizes=[32, 16, 1],\n        learning_rate=0.01,\n    )\n```",
+  "latency_seconds": 3.3076176769991434,
+  "usage": {
+    "completion_tokens": 772,
+    "prompt_tokens": 326,
+    "total_tokens": 1098,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6828,
+  "response_sha256": "dc32fab1b423f3340223e3c3aa57c4d324de23f9758ddbfe2d751926adfa45ae",
+  "artifact_sha256": "6bc41fb05fe4286a5cdc350199c34edd951f5793e1c374c001fc037fd89a9c14"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 67,
+    "task_sha256": "1de85693db853d010a51e312121ff806d1d76556ccb598bcaa0fb7d8b08fe526",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the pyaedt library to create a 2D Extractor CPWG (coplanar waveguide with ground) design and run a simulation. The code should import the necessary libraries, set the non-graphical mode, launch AEDT and 2D Extractor, define variables, create primitives, create a signal, create a coplanar ground, create a reference ground plane, create a dielectric, create a conformal coating, assign a conductor to the signal, create a reference ground, assign the Huray model on the signal, create the setup, analyze it, plot solution data, save the project and close AEDT."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5N20hoFeT9y6mU2MLh5DB2FmHVz",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom pyaedt import Hfss3dLayout, Desktop\nfrom pyaedt import generate_unique_name\nimport matplotlib.pyplot as plt\n\n# Set non-graphical mode\nnon_graphical = True\n\n# Launch AEDT and 2D Extractor\ndesktop = Desktop(specified_version=\"2023.2\", non_graphical=non_graphical, new_desktop_session=True)\nextractor = Hfss3dLayout(projectname=\"CPWG_2D_Extractor\", designname=\"CPWG_Design\", solution_type=\"2D Extractor\")\n\n# Define variables\nextractor[\"w\"] = \"0.5mm\"      # Signal width\nextractor[\"s\"] = \"0.3mm\"      # Gap\nextractor[\"g\"] = \"2mm\"        # Ground width\nextractor[\"l\"] = \"10mm\"       # Length\nextractor[\"h\"] = \"0.8mm\"      # Substrate height\nextractor[\"t\"] = \"0.035mm\"    # Conductor thickness\nextractor[\"eps_r\"] = \"4.4\"    # Dielectric constant\nextractor[\"cc_t\"] = \"0.01mm\"  # Conformal coating thickness\n\n# Create primitives\norigin_x = \"0mm\"\norigin_y = \"0mm\"\n\n# Signal trace\nsignal_name = generate_unique_name(\"Signal\")\nsignal = extractor.modeler.create_rectangle(\n    position=[origin_x, origin_y],\n    dimension_list=[\"w\", \"l\"],\n    name=signal_name,\n    layer_name=\"TOP\"\n)\n\n# Left ground\nleft_ground_name = generate_unique_name(\"LeftGround\")\nleft_ground = extractor.modeler.create_rectangle(\n    position=[\"-g-s-w\", origin_y],\n    dimension_list=[\"g\", \"l\"],\n    name=left_ground_name,\n    layer_name=\"TOP\"\n)\n\n# Right ground\nright_ground_name = generate_unique_name(\"RightGround\")\nright_ground = extractor.modeler.create_rectangle(\n    position=[\"w+s\", origin_y],\n    dimension_list=[\"g\", \"l\"],\n    name=right_ground_name,\n    layer_name=\"TOP\"\n)\n\n# Reference ground plane (bottom layer)\nref_ground_name = generate_unique_name(\"RefGround\")\nref_ground = extractor.modeler.create_rectangle(\n    position=[\"-g-s-w\", \"-0.1mm\"],\n    dimension_list=[\"2*g+2*s+w\", \"l+0.2mm\"],\n    name=ref_ground_name,\n    layer_name=\"BOTTOM\"\n)\n\n# Create dielectric\ndielectric_name = generate_unique_name(\"Substrate\")\nextractor.modeler.create_dielectric(\n    position=[\"-g-s-w\", \"-0.1mm\"],\n    dimension_list=[\"2*g+2*s+w\", \"l+0.2mm\", \"h\"],\n    material=\"FR4_epoxy\",\n    name=dielectric_name\n)\nextractor.modeler.layers.add_layer(\"COATING\", \"ConformalCoating\", thickness=\"cc_t\")\n\n# Create conformal coating\ncoating_name = generate_unique_name(\"Coating\")\nextractor.modeler.create_rectangle(\n    position=[origin_x, origin_y],\n    dimension_list=[\"w\", \"l\"],\n    name=coating_name,\n    layer_name=\"COATING\"\n)\n\n# Assign conductor to signal\nextractor.assign_single_conductor(signal_name, signal_type=\"Signal\")\nextractor.assign_single_conductor(left_ground_name, signal_type=\"ReferenceGround\")\nextractor.assign_single_conductor(right_ground_name, signal_type=\"ReferenceGround\")\nextractor.assign_single_conductor(ref_ground_name, signal_type=\"ReferenceGround\", layer_name=\"BOTTOM\")\n\n# Assign Huray model to signal\nextractor.assign_huray_surface(signal_name, radius=0.5e-6, ratio=2.0)\n\n# Create setup\nsetup = extractor.create_setup(\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\n\n# Analyze\nextractor.analyze()\n\n# Plot solution data\nsolution_data = extractor.post.get_solution_data(\n    expressions=[\"Z0\"],\n    context=\"Original\",\n    sweep_variable=\"Freq\"\n)\nplt.plot(solution_data.sweeps[\"Freq\"], solution_data.data_real(\"Z0\"))\nplt.xlabel(\"Frequency (Hz)\")\nplt.ylabel(\"Z0 (Ohm)\")\nplt.title(\"Characteristic Impedance vs Frequency\")\nplt.grid(True)\nplt.show()\n\n# Save project and close AEDT\nextractor.save_project()\nextractor.release_desktop(close_projects=True, close_desktop=True)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129096,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 922,
+      "prompt_tokens": 164,
+      "total_tokens": 1086,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom pyaedt import Hfss3dLayout, Desktop\nfrom pyaedt import generate_unique_name\nimport matplotlib.pyplot as plt\n\n# Set non-graphical mode\nnon_graphical = True\n\n# Launch AEDT and 2D Extractor\ndesktop = Desktop(specified_version=\"2023.2\", non_graphical=non_graphical, new_desktop_session=True)\nextractor = Hfss3dLayout(projectname=\"CPWG_2D_Extractor\", designname=\"CPWG_Design\", solution_type=\"2D Extractor\")\n\n# Define variables\nextractor[\"w\"] = \"0.5mm\"      # Signal width\nextractor[\"s\"] = \"0.3mm\"      # Gap\nextractor[\"g\"] = \"2mm\"        # Ground width\nextractor[\"l\"] = \"10mm\"       # Length\nextractor[\"h\"] = \"0.8mm\"      # Substrate height\nextractor[\"t\"] = \"0.035mm\"    # Conductor thickness\nextractor[\"eps_r\"] = \"4.4\"    # Dielectric constant\nextractor[\"cc_t\"] = \"0.01mm\"  # Conformal coating thickness\n\n# Create primitives\norigin_x = \"0mm\"\norigin_y = \"0mm\"\n\n# Signal trace\nsignal_name = generate_unique_name(\"Signal\")\nsignal = extractor.modeler.create_rectangle(\n    position=[origin_x, origin_y],\n    dimension_list=[\"w\", \"l\"],\n    name=signal_name,\n    layer_name=\"TOP\"\n)\n\n# Left ground\nleft_ground_name = generate_unique_name(\"LeftGround\")\nleft_ground = extractor.modeler.create_rectangle(\n    position=[\"-g-s-w\", origin_y],\n    dimension_list=[\"g\", \"l\"],\n    name=left_ground_name,\n    layer_name=\"TOP\"\n)\n\n# Right ground\nright_ground_name = generate_unique_name(\"RightGround\")\nright_ground = extractor.modeler.create_rectangle(\n    position=[\"w+s\", origin_y],\n    dimension_list=[\"g\", \"l\"],\n    name=right_ground_name,\n    layer_name=\"TOP\"\n)\n\n# Reference ground plane (bottom layer)\nref_ground_name = generate_unique_name(\"RefGround\")\nref_ground = extractor.modeler.create_rectangle(\n    position=[\"-g-s-w\", \"-0.1mm\"],\n    dimension_list=[\"2*g+2*s+w\", \"l+0.2mm\"],\n    name=ref_ground_name,\n    layer_name=\"BOTTOM\"\n)\n\n# Create dielectric\ndielectric_name = generate_unique_name(\"Substrate\")\nextractor.modeler.create_dielectric(\n    position=[\"-g-s-w\", \"-0.1mm\"],\n    dimension_list=[\"2*g+2*s+w\", \"l+0.2mm\", \"h\"],\n    material=\"FR4_epoxy\",\n    name=dielectric_name\n)\nextractor.modeler.layers.add_layer(\"COATING\", \"ConformalCoating\", thickness=\"cc_t\")\n\n# Create conformal coating\ncoating_name = generate_unique_name(\"Coating\")\nextractor.modeler.create_rectangle(\n    position=[origin_x, origin_y],\n    dimension_list=[\"w\", \"l\"],\n    name=coating_name,\n    layer_name=\"COATING\"\n)\n\n# Assign conductor to signal\nextractor.assign_single_conductor(signal_name, signal_type=\"Signal\")\nextractor.assign_single_conductor(left_ground_name, signal_type=\"ReferenceGround\")\nextractor.assign_single_conductor(right_ground_name, signal_type=\"ReferenceGround\")\nextractor.assign_single_conductor(ref_ground_name, signal_type=\"ReferenceGround\", layer_name=\"BOTTOM\")\n\n# Assign Huray model to signal\nextractor.assign_huray_surface(signal_name, radius=0.5e-6, ratio=2.0)\n\n# Create setup\nsetup = extractor.create_setup(\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\n\n# Analyze\nextractor.analyze()\n\n# Plot solution data\nsolution_data = extractor.post.get_solution_data(\n    expressions=[\"Z0\"],\n    context=\"Original\",\n    sweep_variable=\"Freq\"\n)\nplt.plot(solution_data.sweeps[\"Freq\"], solution_data.data_real(\"Z0\"))\nplt.xlabel(\"Frequency (Hz)\")\nplt.ylabel(\"Z0 (Ohm)\")\nplt.title(\"Characteristic Impedance vs Frequency\")\nplt.grid(True)\nplt.show()\n\n# Save project and close AEDT\nextractor.save_project()\nextractor.release_desktop(close_projects=True, close_desktop=True)\n```",
+  "latency_seconds": 8.818063604001509,
+  "usage": {
+    "completion_tokens": 922,
+    "prompt_tokens": 164,
+    "total_tokens": 1086,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7704,
+  "response_sha256": "2f7fbd6d2c20ce3c3c518272cf9fd7b3735133f8f5a8ca9ebfe51f20fd421204",
+  "artifact_sha256": "1a42da7b5f47ab5b5ce3dd0315be9be91f844cea02f6fafdb44f36c6ee842d86"
+}

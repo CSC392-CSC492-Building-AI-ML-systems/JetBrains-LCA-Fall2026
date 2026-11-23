@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 20,
+    "task_sha256": "f4755b449740f3a86e4af7ccb53f741b9306893c407c25795dc590635ae25e3d",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up a Monte Carlo simulation using the Basilisk library, specifically using the Python Spice setup. The simulation should create a simple spacecraft with specific initial conditions. The code should also include the loading of Spice kernels within Python to pull the Hubble states from Spice. This Python Spice call should be performed within each Monte Carlo thread. The Hubble states should then be printed to the terminal. The Monte Carlo scenario should be set up to run 12 times. The code should also include a Controller class with Spice kernel loading code that is commented out. The simulation should be set up within a class called \"MySimulation\". The code should also include a function to access the Spice Kernel and print out the state. Finally, the code should include a main function that sets up and executes the Monte Carlo simulation, and cleans up the data after the test.\n\nYou can find the following APIs from the library helpful:\ntest_MonteCarloSimulation, setShouldArchiveParameters, setShouldDisperseSeeds, test_MonteCarloSimulationDatashader, AStar, replaceCode, overwriteSwigCode, unloadSpiceKernels, unitSpice, createSpiceInterface, setSimulationFunction, effortBasedAStar, test_unitSpice, unitSpiceSc, test_scenarioFlybySpice, test_unitSpiceSc, test_scenarioHelioTransSpice, SimulationParameters, SimulationExecutor, ExecuteSimulation"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4ptrSHcp8ZnvI785Y60ClP2sch9",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport numpy as np\nfrom Basilisk.simulation import spacecraft\nfrom Basilisk.architecture import bskSim\nfrom Basilisk.utilities import SimulationParameters, SimulationExecutor\nfrom Basilisk.test import test_MonteCarloSimulation\nfrom Basilisk.fswAlgorithms import createSpiceInterface, unloadSpiceKernels\n\n# Path to SPICE kernels (update as needed)\nSPICE_KERNELS = [\n    \"naif0012.tls\",  # leapseconds\n    \"de430.bsp\",     # planetary ephemeris\n    \"hubbl_2020.bsp\" # Hubble ephemeris\n]\n\nHUBBLE_ID = -48  # NAIF ID for Hubble\n\ndef load_spice_kernels(spice_interface):\n    for kernel in SPICE_KERNELS:\n        spice_interface.loadSpiceKernel(kernel)\n\ndef get_hubble_state(spice_interface, et):\n    state, lt = spice_interface.getBodyState(HUBBLE_ID, et, \"J2000\", \"NONE\", 399)\n    return state\n\nclass Controller:\n    def __init__(self):\n        pass\n\n    # def load_spice_kernels(self):\n    #     # Example commented-out code for loading kernels\n    #     for kernel in SPICE_KERNELS:\n    #         self.spice_interface.loadSpiceKernel(kernel)\n    #     print(\"SPICE kernels loaded in Controller.\")\n\nclass MySimulation:\n    def __init__(self, run_number):\n        self.run_number = run_number\n        self.sim = bskSim.BSKSim()\n        self.spice_interface = createSpiceInterface()\n        self.scObject = spacecraft.Spacecraft()\n        self.sim.AddModelToTask(self.sim.GetTaskName(), self.scObject)\n        self.sim.AddModelToTask(self.sim.GetTaskName(), self.spice_interface)\n        self.initial_conditions()\n        self.load_spice_kernels()\n\n    def initial_conditions(self):\n        self.scObject.hub.r_CN_NInit = np.array([7000.0e3, 0.0, 0.0])\n        self.scObject.hub.v_CN_NInit = np.array([0.0, 7.5e3, 0.0])\n        self.scObject.hub.sigma_BNInit = np.array([0.0, 0.0, 0.0])\n        self.scObject.hub.omega_BN_BInit = np.array([0.0, 0.0, 0.0])\n\n    def load_spice_kernels(self):\n        load_spice_kernels(self.spice_interface)\n\n    def print_hubble_state(self):\n        et = self.spice_interface.convertUTCTime(\"2024-01-01T00:00:00.0\")\n        state = get_hubble_state(self.spice_interface, et)\n        print(f\"Run {self.run_number}: Hubble State at 2024-01-01T00:00:00.0: {state}\")\n\n    def run(self):\n        self.sim.InitializeSimulationAndDiscover()\n        self.sim.ConfigureStopTime(0.0)\n        self.sim.ExecuteSimulation()\n        self.print_hubble_state()\n        unloadSpiceKernels()\n\ndef monte_carlo_simulation_function(run_number, sim_params):\n    sim = MySimulation(run_number)\n    sim.run()\n\ndef main():\n    num_runs = 12\n    sim_params = SimulationParameters()\n    sim_params.setShouldArchiveParameters(False)\n    sim_params.setShouldDisperseSeeds(False)\n    executor = SimulationExecutor(monte_carlo_simulation_function, sim_params)\n    test_MonteCarloSimulation(num_runs, executor)\n    # Clean up data after test\n    for kernel in SPICE_KERNELS:\n        if os.path.exists(kernel):\n            try:\n                os.remove(kernel)\n            except Exception:\n                pass\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127041,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_b50162a62f",
+    "usage": {
+      "completion_tokens": 806,
+      "prompt_tokens": 319,
+      "total_tokens": 1125,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport numpy as np\nfrom Basilisk.simulation import spacecraft\nfrom Basilisk.architecture import bskSim\nfrom Basilisk.utilities import SimulationParameters, SimulationExecutor\nfrom Basilisk.test import test_MonteCarloSimulation\nfrom Basilisk.fswAlgorithms import createSpiceInterface, unloadSpiceKernels\n\n# Path to SPICE kernels (update as needed)\nSPICE_KERNELS = [\n    \"naif0012.tls\",  # leapseconds\n    \"de430.bsp\",     # planetary ephemeris\n    \"hubbl_2020.bsp\" # Hubble ephemeris\n]\n\nHUBBLE_ID = -48  # NAIF ID for Hubble\n\ndef load_spice_kernels(spice_interface):\n    for kernel in SPICE_KERNELS:\n        spice_interface.loadSpiceKernel(kernel)\n\ndef get_hubble_state(spice_interface, et):\n    state, lt = spice_interface.getBodyState(HUBBLE_ID, et, \"J2000\", \"NONE\", 399)\n    return state\n\nclass Controller:\n    def __init__(self):\n        pass\n\n    # def load_spice_kernels(self):\n    #     # Example commented-out code for loading kernels\n    #     for kernel in SPICE_KERNELS:\n    #         self.spice_interface.loadSpiceKernel(kernel)\n    #     print(\"SPICE kernels loaded in Controller.\")\n\nclass MySimulation:\n    def __init__(self, run_number):\n        self.run_number = run_number\n        self.sim = bskSim.BSKSim()\n        self.spice_interface = createSpiceInterface()\n        self.scObject = spacecraft.Spacecraft()\n        self.sim.AddModelToTask(self.sim.GetTaskName(), self.scObject)\n        self.sim.AddModelToTask(self.sim.GetTaskName(), self.spice_interface)\n        self.initial_conditions()\n        self.load_spice_kernels()\n\n    def initial_conditions(self):\n        self.scObject.hub.r_CN_NInit = np.array([7000.0e3, 0.0, 0.0])\n        self.scObject.hub.v_CN_NInit = np.array([0.0, 7.5e3, 0.0])\n        self.scObject.hub.sigma_BNInit = np.array([0.0, 0.0, 0.0])\n        self.scObject.hub.omega_BN_BInit = np.array([0.0, 0.0, 0.0])\n\n    def load_spice_kernels(self):\n        load_spice_kernels(self.spice_interface)\n\n    def print_hubble_state(self):\n        et = self.spice_interface.convertUTCTime(\"2024-01-01T00:00:00.0\")\n        state = get_hubble_state(self.spice_interface, et)\n        print(f\"Run {self.run_number}: Hubble State at 2024-01-01T00:00:00.0: {state}\")\n\n    def run(self):\n        self.sim.InitializeSimulationAndDiscover()\n        self.sim.ConfigureStopTime(0.0)\n        self.sim.ExecuteSimulation()\n        self.print_hubble_state()\n        unloadSpiceKernels()\n\ndef monte_carlo_simulation_function(run_number, sim_params):\n    sim = MySimulation(run_number)\n    sim.run()\n\ndef main():\n    num_runs = 12\n    sim_params = SimulationParameters()\n    sim_params.setShouldArchiveParameters(False)\n    sim_params.setShouldDisperseSeeds(False)\n    executor = SimulationExecutor(monte_carlo_simulation_function, sim_params)\n    test_MonteCarloSimulation(num_runs, executor)\n    # Clean up data after test\n    for kernel in SPICE_KERNELS:\n        if os.path.exists(kernel):\n            try:\n                os.remove(kernel)\n            except Exception:\n                pass\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.1066882140003145,
+  "usage": {
+    "completion_tokens": 806,
+    "prompt_tokens": 319,
+    "total_tokens": 1125,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7086,
+  "response_sha256": "91d425d26050cff40e6aef8fc2e8a714644bc51f991cfffdb45067e7a4bf8cb9",
+  "artifact_sha256": "98bd762a7708b1ced7cb573d9d5a64e07cc775af9fc6608c2e148142c1ae676a"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 149,
+    "task_sha256": "3cd88745c92db6a570f655b62c89cc998cdef7424e66ee3d91977e00206c98a1",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a stage-II coil optimization problem using the simsopt library. The goal is to find coils that generate a specific target normal field on a given surface. The target equilibrium is a W7-X configuration with an average beta of 4%. The code should use a virtual casing calculation to compute the target B_{External}·n. The objective function is given by J = (1/2) ∫ |B_{BiotSavart}·n - B_{External}·n|^2 ds + LENGTH_PENALTY * Σ ½(CurveLength - L0)^2. The code should also include a Taylor test and run the optimization using the L-BFGS-B method. The results should be saved in the \"output\" directory.\n\nYou can find the following APIs from the library helpful:\nA, A_and_dA_vjp, A_vjp, _A_impl, test_biotsavart_B_is_curlA, dA_by_dcoilcurrents, _dA_by_dX_impl, test_dA_by_dcoilcoeff_reverse_taylortest, is_fixed, is_free, coil_optimization, test_IotaTargetMetric_J, IotaTargetMetric, test_is_fixed, test_is_free, test_IotaTargetMetric_dJ, IotaTargetMetricTests, VirtualCasing, coils_to_makegrid, coils_to_focus"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em695Z3AHahGyVOKcvZB82TvdVgXp",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport numpy as np\nfrom simsopt._core import load\nfrom simsopt.field.coil import coils_via_symmetries, BiotSavart\nfrom simsopt.field.virtualcasing import VirtualCasing\nfrom simsopt.field.coil_optimization import CoilLength, CoilCurveLengthPenalty, CoilOptimizationProblem\nfrom simsopt.field.coil import CurveLength\nfrom simsopt.field.coil import curves_to_vtk\nfrom simsopt.objectives import SquaredFlux\nfrom simsopt.util import TaylorTest\nfrom simsopt.geo import SurfaceRZFourier\nfrom simsopt.mhd import VMEC\nfrom simsopt.solve import minimize\nimport shutil\n\n# Parameters\nLENGTH_PENALTY = 1e-2\nL0 = 10.0  # Reference length for penalty (arbitrary, adjust as needed)\nOUTPUT_DIR = \"output\"\nos.makedirs(OUTPUT_DIR, exist_ok=True)\n\n# Load W7-X equilibrium (assume wout_w7x.nc is available)\nvmec = VMEC('wout_w7x.nc')\nvmec.run()\nsurf = vmec.boundary\n\n# Generate target B·n using virtual casing\nvc = VirtualCasing(surf, vmec)\nBext_dot_n = vc.Bn()\n\n# Load initial coils (assume coils.w7x.json is available)\ncoils = load(\"coils.w7x.json\")\nbs = BiotSavart(coils)\n\n# Set up the squared flux objective (normal field error)\nsquared_flux = SquaredFlux(surf, bs, Bext_dot_n)\n\n# Length penalty\nlength_penalty_terms = []\nfor c in coils:\n    length_penalty_terms.append(CoilCurveLengthPenalty(c, L0, LENGTH_PENALTY))\nlength_penalty = sum(length_penalty_terms)\n\n# Total objective\ndef objective():\n    return squared_flux.J() + length_penalty.J()\n\ndef grad():\n    return squared_flux.dJ() + length_penalty.dJ()\n\n# Taylor test\ndef taylor_test():\n    def fun(x):\n        for i, c in enumerate(coils):\n            c.x = x[i*c.dof:(i+1)*c.dof]\n        return objective()\n    def grad_fun(x):\n        for i, c in enumerate(coils):\n            c.x = x[i*c.dof:(i+1)*c.dof]\n        return grad()\n    x0 = np.concatenate([c.x for c in coils])\n    TaylorTest(fun, grad_fun, x0).run()\n\ntaylor_test()\n\n# Optimization\nx0 = np.concatenate([c.x for c in coils])\nbounds = []\nfor c in coils:\n    for i in range(c.dof):\n        bounds.append((None, None))\nres = minimize(objective, x0, jac=grad, method='L-BFGS-B', bounds=bounds, options={'maxiter': 200})\n\n# Update coils with optimized parameters\nx_opt = res.x\nfor i, c in enumerate(coils):\n    c.x = x_opt[i*c.dof:(i+1)*c.dof]\n\n# Save results\nfor i, c in enumerate(coils):\n    c.save(os.path.join(OUTPUT_DIR, f\"coil_{i}.json\"))\ncurves_to_vtk(coils, os.path.join(OUTPUT_DIR, \"coils_opt.vtk\"))\nnp.save(os.path.join(OUTPUT_DIR, \"x_opt.npy\"), x_opt)\nwith open(os.path.join(OUTPUT_DIR, \"optimization_result.txt\"), \"w\") as f:\n    f.write(str(res))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795132075,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0c9884ecfa",
+    "usage": {
+      "completion_tokens": 741,
+      "prompt_tokens": 315,
+      "total_tokens": 1056,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport numpy as np\nfrom simsopt._core import load\nfrom simsopt.field.coil import coils_via_symmetries, BiotSavart\nfrom simsopt.field.virtualcasing import VirtualCasing\nfrom simsopt.field.coil_optimization import CoilLength, CoilCurveLengthPenalty, CoilOptimizationProblem\nfrom simsopt.field.coil import CurveLength\nfrom simsopt.field.coil import curves_to_vtk\nfrom simsopt.objectives import SquaredFlux\nfrom simsopt.util import TaylorTest\nfrom simsopt.geo import SurfaceRZFourier\nfrom simsopt.mhd import VMEC\nfrom simsopt.solve import minimize\nimport shutil\n\n# Parameters\nLENGTH_PENALTY = 1e-2\nL0 = 10.0  # Reference length for penalty (arbitrary, adjust as needed)\nOUTPUT_DIR = \"output\"\nos.makedirs(OUTPUT_DIR, exist_ok=True)\n\n# Load W7-X equilibrium (assume wout_w7x.nc is available)\nvmec = VMEC('wout_w7x.nc')\nvmec.run()\nsurf = vmec.boundary\n\n# Generate target B·n using virtual casing\nvc = VirtualCasing(surf, vmec)\nBext_dot_n = vc.Bn()\n\n# Load initial coils (assume coils.w7x.json is available)\ncoils = load(\"coils.w7x.json\")\nbs = BiotSavart(coils)\n\n# Set up the squared flux objective (normal field error)\nsquared_flux = SquaredFlux(surf, bs, Bext_dot_n)\n\n# Length penalty\nlength_penalty_terms = []\nfor c in coils:\n    length_penalty_terms.append(CoilCurveLengthPenalty(c, L0, LENGTH_PENALTY))\nlength_penalty = sum(length_penalty_terms)\n\n# Total objective\ndef objective():\n    return squared_flux.J() + length_penalty.J()\n\ndef grad():\n    return squared_flux.dJ() + length_penalty.dJ()\n\n# Taylor test\ndef taylor_test():\n    def fun(x):\n        for i, c in enumerate(coils):\n            c.x = x[i*c.dof:(i+1)*c.dof]\n        return objective()\n    def grad_fun(x):\n        for i, c in enumerate(coils):\n            c.x = x[i*c.dof:(i+1)*c.dof]\n        return grad()\n    x0 = np.concatenate([c.x for c in coils])\n    TaylorTest(fun, grad_fun, x0).run()\n\ntaylor_test()\n\n# Optimization\nx0 = np.concatenate([c.x for c in coils])\nbounds = []\nfor c in coils:\n    for i in range(c.dof):\n        bounds.append((None, None))\nres = minimize(objective, x0, jac=grad, method='L-BFGS-B', bounds=bounds, options={'maxiter': 200})\n\n# Update coils with optimized parameters\nx_opt = res.x\nfor i, c in enumerate(coils):\n    c.x = x_opt[i*c.dof:(i+1)*c.dof]\n\n# Save results\nfor i, c in enumerate(coils):\n    c.save(os.path.join(OUTPUT_DIR, f\"coil_{i}.json\"))\ncurves_to_vtk(coils, os.path.join(OUTPUT_DIR, \"coils_opt.vtk\"))\nnp.save(os.path.join(OUTPUT_DIR, \"x_opt.npy\"), x_opt)\nwith open(os.path.join(OUTPUT_DIR, \"optimization_result.txt\"), \"w\") as f:\n    f.write(str(res))\n```",
+  "latency_seconds": 4.3712906439977814,
+  "usage": {
+    "completion_tokens": 741,
+    "prompt_tokens": 315,
+    "total_tokens": 1056,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6558,
+  "response_sha256": "a74aed80a488e3810cb03944303f0388761ec797d294b365e181d35c0ea44bb6",
+  "artifact_sha256": "b727a86058771a70dc0c6a0a92ca3a9c84805232e6f96b806f967b38939c2f6f"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 23,
+    "task_sha256": "3643faec67f904e0941691f79bb4677e5691d91c26ebd394f6133701195cb3e2",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a custom class named \"SelectableGrid\" that inherits from \"FocusBehavior\", \"CompoundSelectionBehavior\", and \"GridLayout\" from the Kivy library. This class should have methods to handle key down and key up events, navigate to a node by typing its number, select and deselect nodes, and handle touch events. The selection of a node should change its background color. The class should also print the selected nodes when the selection changes. After defining the class, create an instance of it with specific parameters and add 40 buttons to it, each with a unique number as its text. Bind the touch down event of each button to the touch handling method of the grid. Finally, run the application with the grid as the root widget."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4sHq4TEeDjQq0D4ZVPz53t47XdN",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom kivy.app import App\nfrom kivy.uix.button import Button\nfrom kivy.uix.gridlayout import GridLayout\nfrom kivy.uix.behaviors import FocusBehavior\nfrom kivy.uix.behaviors.compoundselection import CompoundSelectionBehavior\nfrom kivy.core.window import Window\nfrom kivy.properties import ListProperty\nfrom kivy.clock import Clock\n\nclass SelectableGrid(FocusBehavior, CompoundSelectionBehavior, GridLayout):\n    selected_color = ListProperty([0.2, 0.6, 1, 1])\n    normal_color = ListProperty([1, 1, 1, 1])\n\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self._number_buffer = ''\n        self._number_buffer_ev = None\n        self.multiselect = True\n        self.touch_deselect_last = False\n        Window.bind(on_key_down=self._on_key_down, on_key_up=self._on_key_up)\n        self.bind(selected_nodes=self.on_selection_change)\n\n    def _on_key_down(self, window, key, scancode, codepoint, modifiers):\n        if codepoint and codepoint.isdigit():\n            self._number_buffer += codepoint\n            if self._number_buffer_ev:\n                self._number_buffer_ev.cancel()\n            self._number_buffer_ev = Clock.schedule_once(self._process_number_buffer, 0.7)\n        elif key == 273:  # up\n            self.select_node_by_offset(-self.cols)\n        elif key == 274:  # down\n            self.select_node_by_offset(self.cols)\n        elif key == 275:  # right\n            self.select_node_by_offset(1)\n        elif key == 276:  # left\n            self.select_node_by_offset(-1)\n        elif key == 32:  # space\n            self.toggle_node_selection(self._last_selected_node())\n        elif key == 27:  # escape\n            self.clear_selection()\n        return True\n\n    def _on_key_up(self, window, key, scancode):\n        return True\n\n    def _process_number_buffer(self, dt):\n        if self._number_buffer:\n            idx = int(self._number_buffer) - 1\n            if 0 <= idx < len(self.children):\n                node = self.children[::-1][idx]\n                self.select_node(node)\n            self._number_buffer = ''\n\n    def select_node_by_offset(self, offset):\n        if not self.selected_nodes:\n            idx = 0\n        else:\n            idx = self.children[::-1].index(self._last_selected_node())\n            idx = max(0, min(len(self.children) - 1, idx + offset))\n        node = self.children[::-1][idx]\n        self.select_node(node)\n\n    def select_node(self, node):\n        if node not in self.selected_nodes:\n            self.select_with_touch(node, None)\n        else:\n            self.deselect_node(node)\n\n    def deselect_node(self, node):\n        if node in self.selected_nodes:\n            self.deselect_node(node)\n\n    def toggle_node_selection(self, node):\n        if node in self.selected_nodes:\n            self.deselect_node(node)\n        else:\n            self.select_node(node)\n\n    def _last_selected_node(self):\n        if self.selected_nodes:\n            return self.selected_nodes[-1]\n        return None\n\n    def select_with_touch(self, node, touch=None):\n        super().select_with_touch(node, touch)\n        self.update_node_colors()\n\n    def deselect_node(self, node):\n        super().deselect_node(node)\n        self.update_node_colors()\n\n    def clear_selection(self):\n        super().clear_selection()\n        self.update_node_colors()\n\n    def update_node_colors(self):\n        for child in self.children:\n            if child in self.selected_nodes:\n                child.background_color = self.selected_color\n            else:\n                child.background_color = self.normal_color\n\n    def on_selection_change(self, *args):\n        print(\"Selected nodes:\", [btn.text for btn in self.selected_nodes])\n        self.update_node_colors()\n\n    def on_touch_down(self, touch):\n        if not self.collide_point(*touch.pos):\n            return super().on_touch_down(touch)\n        for child in self.children:\n            if child.collide_point(*touch.pos):\n                self.select_with_touch(child, touch)\n                return True\n        return super().on_touch_down(touch)\n\n    def on_touch_up(self, touch):\n        return super().on_touch_up(touch)\n\nclass TestApp(App):\n    def build(self):\n        grid = SelectableGrid(cols=8, rows=5, spacing=5, padding=5, size_hint=(1, 1))\n        for i in range(1, 41):\n            btn = Button(text=str(i), background_color=[1, 1, 1, 1])\n            btn.bind(on_touch_down=grid.on_touch_down)\n            grid.add_widget(btn)\n        return grid\n\nif __name__ == '__main__':\n    TestApp().run()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127189,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_e64e16bf30",
+    "usage": {
+      "completion_tokens": 1036,
+      "prompt_tokens": 184,
+      "total_tokens": 1220,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom kivy.app import App\nfrom kivy.uix.button import Button\nfrom kivy.uix.gridlayout import GridLayout\nfrom kivy.uix.behaviors import FocusBehavior\nfrom kivy.uix.behaviors.compoundselection import CompoundSelectionBehavior\nfrom kivy.core.window import Window\nfrom kivy.properties import ListProperty\nfrom kivy.clock import Clock\n\nclass SelectableGrid(FocusBehavior, CompoundSelectionBehavior, GridLayout):\n    selected_color = ListProperty([0.2, 0.6, 1, 1])\n    normal_color = ListProperty([1, 1, 1, 1])\n\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self._number_buffer = ''\n        self._number_buffer_ev = None\n        self.multiselect = True\n        self.touch_deselect_last = False\n        Window.bind(on_key_down=self._on_key_down, on_key_up=self._on_key_up)\n        self.bind(selected_nodes=self.on_selection_change)\n\n    def _on_key_down(self, window, key, scancode, codepoint, modifiers):\n        if codepoint and codepoint.isdigit():\n            self._number_buffer += codepoint\n            if self._number_buffer_ev:\n                self._number_buffer_ev.cancel()\n            self._number_buffer_ev = Clock.schedule_once(self._process_number_buffer, 0.7)\n        elif key == 273:  # up\n            self.select_node_by_offset(-self.cols)\n        elif key == 274:  # down\n            self.select_node_by_offset(self.cols)\n        elif key == 275:  # right\n            self.select_node_by_offset(1)\n        elif key == 276:  # left\n            self.select_node_by_offset(-1)\n        elif key == 32:  # space\n            self.toggle_node_selection(self._last_selected_node())\n        elif key == 27:  # escape\n            self.clear_selection()\n        return True\n\n    def _on_key_up(self, window, key, scancode):\n        return True\n\n    def _process_number_buffer(self, dt):\n        if self._number_buffer:\n            idx = int(self._number_buffer) - 1\n            if 0 <= idx < len(self.children):\n                node = self.children[::-1][idx]\n                self.select_node(node)\n            self._number_buffer = ''\n\n    def select_node_by_offset(self, offset):\n        if not self.selected_nodes:\n            idx = 0\n        else:\n            idx = self.children[::-1].index(self._last_selected_node())\n            idx = max(0, min(len(self.children) - 1, idx + offset))\n        node = self.children[::-1][idx]\n        self.select_node(node)\n\n    def select_node(self, node):\n        if node not in self.selected_nodes:\n            self.select_with_touch(node, None)\n        else:\n            self.deselect_node(node)\n\n    def deselect_node(self, node):\n        if node in self.selected_nodes:\n            self.deselect_node(node)\n\n    def toggle_node_selection(self, node):\n        if node in self.selected_nodes:\n            self.deselect_node(node)\n        else:\n            self.select_node(node)\n\n    def _last_selected_node(self):\n        if self.selected_nodes:\n            return self.selected_nodes[-1]\n        return None\n\n    def select_with_touch(self, node, touch=None):\n        super().select_with_touch(node, touch)\n        self.update_node_colors()\n\n    def deselect_node(self, node):\n        super().deselect_node(node)\n        self.update_node_colors()\n\n    def clear_selection(self):\n        super().clear_selection()\n        self.update_node_colors()\n\n    def update_node_colors(self):\n        for child in self.children:\n            if child in self.selected_nodes:\n                child.background_color = self.selected_color\n            else:\n                child.background_color = self.normal_color\n\n    def on_selection_change(self, *args):\n        print(\"Selected nodes:\", [btn.text for btn in self.selected_nodes])\n        self.update_node_colors()\n\n    def on_touch_down(self, touch):\n        if not self.collide_point(*touch.pos):\n            return super().on_touch_down(touch)\n        for child in self.children:\n            if child.collide_point(*touch.pos):\n                self.select_with_touch(child, touch)\n                return True\n        return super().on_touch_down(touch)\n\n    def on_touch_up(self, touch):\n        return super().on_touch_up(touch)\n\nclass TestApp(App):\n    def build(self):\n        grid = SelectableGrid(cols=8, rows=5, spacing=5, padding=5, size_hint=(1, 1))\n        for i in range(1, 41):\n            btn = Button(text=str(i), background_color=[1, 1, 1, 1])\n            btn.bind(on_touch_down=grid.on_touch_down)\n            grid.add_widget(btn)\n        return grid\n\nif __name__ == '__main__':\n    TestApp().run()\n```",
+  "latency_seconds": 8.474731565000184,
+  "usage": {
+    "completion_tokens": 1036,
+    "prompt_tokens": 184,
+    "total_tokens": 1220,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8656,
+  "response_sha256": "769372ce4fb4957e4374cf0a54f800f5bbb73546182aae612266539343060eb0",
+  "artifact_sha256": "65b8f1b9974ec4ccccd60dca5b43dd50bf13169a920480c0c5c720dadd247c50"
+}

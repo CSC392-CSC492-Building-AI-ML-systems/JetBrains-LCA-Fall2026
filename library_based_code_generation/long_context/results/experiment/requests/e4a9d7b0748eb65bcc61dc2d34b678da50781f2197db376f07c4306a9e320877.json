@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 2,
+    "task_sha256": "575848c24f211b29083b9cdf8733944b3786e4b590d2bc4ed0508393f3114511",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks:\n\n1. Import necessary libraries and modules including numpy, argparse, matplotlib, scipy, and fealpy.\n2. Define command line arguments for time division, initial spatial division, and number of spatial iterations.\n3. Create an initial 2D triangular mesh using the fealpy library.\n4. Define the parameters for the PDE (Partial Differential Equation) using the ADI_2d class from fealpy.\n5. Initialize the electric and magnetic fields using the FirstKindNedelecFiniteElementSpace2d and ScaledMonomialSpace2d classes from fealpy.\n6. Define a function to get the phi curl matrix.\n7. Create mass and curl matrices using the fealpy library.\n8. Iterate over the number of spatial iterations, in each iteration:\n   - Compute the right-hand side of the equation for the next time layer.\n   - Handle the boundary conditions for the next time layer.\n   - Compute the electric and magnetic fields for the next time layer.\n   - Calculate the error between the computed and actual solutions for the electric and magnetic fields.\n9. If not the last iteration, refine the mesh uniformly.\n10. Finally, display the error matrix and plot the error rates using the fealpy library.\n\nYou can find the following APIs from the library helpful:\n__and__, assembly_for_sspace_and_vspace_with_vector_basis, get_quadrature_points_and_weights, get_quadrature_point_and_weight, get_gauss_point_and_weight, test_assembly_cell_righthand_side_and_matrix, get_next_time, get_all_gauss_point_and_weight, test_assembly_cell_righthand_side_and_dof_matrix, add_number_for_line, next_time_level, get_next_current_time, test_dirichlet_and_neumann_bc_on_interval_mesh, test_dirichlte_and_neumann_bc_on_tetrahedron_mesh, number_of_time_levels, get_number_of_time_steps, test_uniform_mesh2d_cell_area_and_edge_length, time_mesh, apply_for_other_space, BoundaryLayerField"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4eKomowpaTzbVUVvpR2gKWeOcav",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport argparse\nimport matplotlib.pyplot as plt\nfrom scipy import linalg\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import FirstKindNedelecFiniteElementSpace2d, ScaledMonomialSpace2d\nfrom fealpy.pde.adi_2d import ADI_2d\nfrom fealpy.tools.show import showmultirate\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='2D ADI PDE Solver with FEALPy')\n    parser.add_argument('--time_division', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--init_spatial_division', type=int, default=4, help='Initial spatial division')\n    parser.add_argument('--spatial_iterations', type=int, default=3, help='Number of spatial iterations')\n    return parser.parse_args()\n\ndef get_phi_curl_matrix(sspace, vspace):\n    cell2dof = sspace.cell_to_dof()\n    cellmeasure = sspace.mesh.entity_measure('cell')\n    bcs, ws = sspace.integrator.get_quadrature_points_and_weights()\n    phi = sspace.basis(bcs)\n    curl_phi = sspace.curl_basis(bcs)\n    vphi = vspace.basis(bcs)\n    mat = np.einsum('qc, q, qci, qj, c->ij', curl_phi, ws, phi, vphi, cellmeasure)\n    return mat\n\ndef main():\n    args = parse_args()\n    time_division = args.time_division\n    init_spatial_division = args.init_spatial_division\n    spatial_iterations = args.spatial_iterations\n\n    # 1. Create initial mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx=init_spatial_division, ny=init_spatial_division)\n\n    # 2. Define PDE parameters\n    pde = ADI_2d()\n    T = pde.T\n    dt = T / time_division\n    time_mesh = np.linspace(0, T, time_division + 1)\n\n    error_matrix = np.zeros((spatial_iterations, 2))\n    h_list = []\n\n    for it in range(spatial_iterations):\n        # 3. Define function spaces\n        sspace = FirstKindNedelecFiniteElementSpace2d(mesh, p=1)\n        vspace = ScaledMonomialSpace2d(mesh, p=1)\n\n        # 4. Initial fields\n        E = sspace.interpolation(pde.E0)\n        H = vspace.interpolation(pde.H0)\n\n        # 5. Mass and curl matrices\n        M = sspace.mass_matrix()\n        C = sspace.curl_matrix(vspace)\n        Mv = vspace.mass_matrix()\n\n        # 6. Time stepping\n        for n in range(time_division):\n            t1 = time_mesh[n]\n            t2 = time_mesh[n+1]\n\n            # Right-hand side for E\n            fE = sspace.source_vector(lambda x: pde.source_E(x, t2))\n            rhs_E = M @ E + dt * (C @ H + fE)\n\n            # Dirichlet BC for E\n            is_boundary = sspace.is_boundary_dof()\n            E_bc = sspace.interpolation(lambda x: pde.E_exact(x, t2))\n            rhs_E[is_boundary] = E_bc[is_boundary]\n\n            # Solve for E at next time\n            E_new = linalg.spsolve(M, rhs_E)\n\n            # Right-hand side for H\n            fH = vspace.source_vector(lambda x: pde.source_H(x, t2))\n            rhs_H = Mv @ H + dt * (C.T @ E_new + fH)\n\n            # Dirichlet BC for H\n            is_boundary_v = vspace.is_boundary_dof()\n            H_bc = vspace.interpolation(lambda x: pde.H_exact(x, t2))\n            rhs_H[is_boundary_v] = H_bc[is_boundary_v]\n\n            # Solve for H at next time\n            H_new = linalg.spsolve(Mv, rhs_H)\n\n            E = E_new\n            H = H_new\n\n        # 7. Compute errors\n        E_exact = sspace.interpolation(lambda x: pde.E_exact(x, T))\n        H_exact = vspace.interpolation(lambda x: pde.H_exact(x, T))\n        error_E = sspace.integralalg.L2_error(E, pde.E_exact, T)\n        error_H = vspace.integralalg.L2_error(H, pde.H_exact, T)\n        error_matrix[it, 0] = error_E\n        error_matrix[it, 1] = error_H\n        h_list.append(mesh.hmin())\n\n        # 8. Refine mesh if not last iteration\n        if it < spatial_iterations - 1:\n            mesh = mesh.uniform_refine()\n\n    # 9. Display error matrix and plot error rates\n    print(\"Error matrix (E, H):\")\n    print(error_matrix)\n    showmultirate(plt, h_list, [error_matrix[:, 0], error_matrix[:, 1]], \n                  labels=['E error', 'H error'])\n    plt.show()\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126324,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 1133,
+      "prompt_tokens": 447,
+      "total_tokens": 1580,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport argparse\nimport matplotlib.pyplot as plt\nfrom scipy import linalg\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import FirstKindNedelecFiniteElementSpace2d, ScaledMonomialSpace2d\nfrom fealpy.pde.adi_2d import ADI_2d\nfrom fealpy.tools.show import showmultirate\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='2D ADI PDE Solver with FEALPy')\n    parser.add_argument('--time_division', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--init_spatial_division', type=int, default=4, help='Initial spatial division')\n    parser.add_argument('--spatial_iterations', type=int, default=3, help='Number of spatial iterations')\n    return parser.parse_args()\n\ndef get_phi_curl_matrix(sspace, vspace):\n    cell2dof = sspace.cell_to_dof()\n    cellmeasure = sspace.mesh.entity_measure('cell')\n    bcs, ws = sspace.integrator.get_quadrature_points_and_weights()\n    phi = sspace.basis(bcs)\n    curl_phi = sspace.curl_basis(bcs)\n    vphi = vspace.basis(bcs)\n    mat = np.einsum('qc, q, qci, qj, c->ij', curl_phi, ws, phi, vphi, cellmeasure)\n    return mat\n\ndef main():\n    args = parse_args()\n    time_division = args.time_division\n    init_spatial_division = args.init_spatial_division\n    spatial_iterations = args.spatial_iterations\n\n    # 1. Create initial mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx=init_spatial_division, ny=init_spatial_division)\n\n    # 2. Define PDE parameters\n    pde = ADI_2d()\n    T = pde.T\n    dt = T / time_division\n    time_mesh = np.linspace(0, T, time_division + 1)\n\n    error_matrix = np.zeros((spatial_iterations, 2))\n    h_list = []\n\n    for it in range(spatial_iterations):\n        # 3. Define function spaces\n        sspace = FirstKindNedelecFiniteElementSpace2d(mesh, p=1)\n        vspace = ScaledMonomialSpace2d(mesh, p=1)\n\n        # 4. Initial fields\n        E = sspace.interpolation(pde.E0)\n        H = vspace.interpolation(pde.H0)\n\n        # 5. Mass and curl matrices\n        M = sspace.mass_matrix()\n        C = sspace.curl_matrix(vspace)\n        Mv = vspace.mass_matrix()\n\n        # 6. Time stepping\n        for n in range(time_division):\n            t1 = time_mesh[n]\n            t2 = time_mesh[n+1]\n\n            # Right-hand side for E\n            fE = sspace.source_vector(lambda x: pde.source_E(x, t2))\n            rhs_E = M @ E + dt * (C @ H + fE)\n\n            # Dirichlet BC for E\n            is_boundary = sspace.is_boundary_dof()\n            E_bc = sspace.interpolation(lambda x: pde.E_exact(x, t2))\n            rhs_E[is_boundary] = E_bc[is_boundary]\n\n            # Solve for E at next time\n            E_new = linalg.spsolve(M, rhs_E)\n\n            # Right-hand side for H\n            fH = vspace.source_vector(lambda x: pde.source_H(x, t2))\n            rhs_H = Mv @ H + dt * (C.T @ E_new + fH)\n\n            # Dirichlet BC for H\n            is_boundary_v = vspace.is_boundary_dof()\n            H_bc = vspace.interpolation(lambda x: pde.H_exact(x, t2))\n            rhs_H[is_boundary_v] = H_bc[is_boundary_v]\n\n            # Solve for H at next time\n            H_new = linalg.spsolve(Mv, rhs_H)\n\n            E = E_new\n            H = H_new\n\n        # 7. Compute errors\n        E_exact = sspace.interpolation(lambda x: pde.E_exact(x, T))\n        H_exact = vspace.interpolation(lambda x: pde.H_exact(x, T))\n        error_E = sspace.integralalg.L2_error(E, pde.E_exact, T)\n        error_H = vspace.integralalg.L2_error(H, pde.H_exact, T)\n        error_matrix[it, 0] = error_E\n        error_matrix[it, 1] = error_H\n        h_list.append(mesh.hmin())\n\n        # 8. Refine mesh if not last iteration\n        if it < spatial_iterations - 1:\n            mesh = mesh.uniform_refine()\n\n    # 9. Display error matrix and plot error rates\n    print(\"Error matrix (E, H):\")\n    print(error_matrix)\n    showmultirate(plt, h_list, [error_matrix[:, 0], error_matrix[:, 1]], \n                  labels=['E error', 'H error'])\n    plt.show()\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 7.781197451999105,
+  "usage": {
+    "completion_tokens": 1133,
+    "prompt_tokens": 447,
+    "total_tokens": 1580,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9958,
+  "response_sha256": "98897e4b75ae6db98cf61543645d1a93a0c06f28b8d03108e0b4909f50630b7d",
+  "artifact_sha256": "e39eb2ce3b122b8f76a70bd15093b0391284bc8e41820ae162f7c35979e0118a"
+}

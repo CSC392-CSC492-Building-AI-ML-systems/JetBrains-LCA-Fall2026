@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 80,
+    "task_sha256": "a7c30f2491b3c631cc7f1c066952e044ab81041946cba276d934150080c51177",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that adapts the Avalanche library to use Huggingface models and datasets for a machine translation task. The code should include a custom data collator class that pads labels and prepares decoder input ids. It should also include a class that modifies the Avalanche Naive training strategy to handle Huggingface minibatches and adapt the forward and criterion methods for machine translation tasks. The main function should load a tokenizer and a dataset, preprocess the dataset, create a sequence-to-sequence model, and set up a continual learning scenario with the Avalanche library. The model should be trained and evaluated on the continual learning benchmark.\n\nYou can find the following APIs from the library helpful:\nCelebA, phase_and_task, check_model_and_optimizer, LayerAndParameter, _flatten_datasets_and_reindex, _get_datasets_and_batch_sizes, get_paths_and_targets, get_layers_and_params, test_flatten_and_reindex, grouped_and_ordered_indexes, filter_bn_and_brn, _update_metrics_and_loggers, _download_and_extract_archive, declare_state_and_memory, test_avalanche_dataset_multiple_outputs_and_float_y, _check_and_adapt_user_stream_def, test_custom_streams_name_and_length, test_set_random_seeds_and_align, generate_code, _get_experience_and_load_if_needed"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5VdDwe9Z0F12mzbUmv3Yyxajvqp",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nfrom torch.utils.data import DataLoader\nfrom transformers import (\n    AutoTokenizer,\n    AutoModelForSeq2SeqLM,\n    DataCollatorForSeq2Seq,\n)\nfrom datasets import load_dataset\nfrom avalanche.benchmarks import nc_benchmark\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom avalanche.logging import InteractiveLogger\n\nclass MTDataCollator:\n    def __init__(self, tokenizer, padding=True, max_length=None):\n        self.tokenizer = tokenizer\n        self.padding = padding\n        self.max_length = max_length\n\n    def __call__(self, batch):\n        input_ids = [item['input_ids'] for item in batch]\n        labels = [item['labels'] for item in batch]\n        batch_inputs = self.tokenizer.pad(\n            {'input_ids': input_ids},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )\n        batch_labels = self.tokenizer.pad(\n            {'input_ids': labels},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )\n        labels = batch_labels['input_ids']\n        labels[labels == self.tokenizer.pad_token_id] = -100\n        decoder_input_ids = self._shift_right(labels)\n        return {\n            'input_ids': batch_inputs['input_ids'],\n            'attention_mask': batch_inputs['attention_mask'],\n            'labels': labels,\n            'decoder_input_ids': decoder_input_ids\n        }\n\n    def _shift_right(self, labels):\n        decoder_input_ids = labels.clone()\n        decoder_input_ids[:, 1:] = labels[:, :-1]\n        decoder_input_ids[:, 0] = self.tokenizer.bos_token_id if self.tokenizer.bos_token_id is not None else self.tokenizer.cls_token_id\n        decoder_input_ids[decoder_input_ids == -100] = self.tokenizer.pad_token_id\n        return decoder_input_ids\n\nclass NaiveMT(Naive):\n    def forward(self, minibatch):\n        input_ids = minibatch['input_ids'].to(self.device)\n        attention_mask = minibatch['attention_mask'].to(self.device)\n        labels = minibatch['labels'].to(self.device)\n        decoder_input_ids = minibatch['decoder_input_ids'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            decoder_input_ids=decoder_input_ids,\n            labels=labels,\n        )\n        return outputs\n\n    def criterion(self, outputs, minibatch):\n        return outputs.loss\n\ndef preprocess_function(examples, tokenizer, src_lang, tgt_lang, max_length=128):\n    inputs = examples[src_lang]\n    targets = examples[tgt_lang]\n    model_inputs = tokenizer(\n        inputs, max_length=max_length, truncation=True, padding=False\n    )\n    with tokenizer.as_target_tokenizer():\n        labels = tokenizer(\n            targets, max_length=max_length, truncation=True, padding=False\n        )\n    model_inputs['labels'] = labels['input_ids']\n    return model_inputs\n\ndef main():\n    model_checkpoint = \"Helsinki-NLP/opus-mt-en-de\"\n    src_lang = \"en\"\n    tgt_lang = \"de\"\n    max_length = 64\n\n    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)\n    model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)\n\n    dataset = load_dataset(\"wmt14\", \"de-en\", split={'train': 'train[:1%]', 'test': 'test[:1%]'})\n    train_dataset = dataset['train'].map(\n        lambda x: preprocess_function(x, tokenizer, src_lang, tgt_lang, max_length),\n        batched=True,\n        remove_columns=dataset['train'].column_names\n    )\n    test_dataset = dataset['test'].map(\n        lambda x: preprocess_function(x, tokenizer, src_lang, tgt_lang, max_length),\n        batched=True,\n        remove_columns=dataset['test'].column_names\n    )\n\n    # Split train into experiences for continual learning\n    n_experiences = 3\n    train_splits = train_dataset.train_test_split(test_size=1/n_experiences)\n    train_experiences = [train_splits['train']]\n    for _ in range(n_experiences - 1):\n        train_splits = train_splits['test'].train_test_split(test_size=0.5)\n        train_experiences.append(train_splits['train'])\n    train_experiences.append(train_splits['test'])\n\n    scenario = nc_benchmark(\n        train_datasets=train_experiences,\n        test_datasets=[test_dataset],\n        task_labels=False\n    )\n\n    data_collator = MTDataCollator(tokenizer, padding=True, max_length=max_length)\n\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        loggers=[InteractiveLogger()]\n    )\n\n    strategy = NaiveMT(\n        model=model,\n        optimizer=torch.optim.AdamW(model.parameters(), lr=2e-5),\n        criterion=None,\n        train_mb_size=8,\n        train_epochs=1,\n        eval_mb_size=8,\n        device='cuda' if torch.cuda.is_available() else 'cpu',\n        evaluator=eval_plugin,\n        eval_every=1,\n        data_loader= lambda dataset, **kwargs: DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=data_collator)\n    )\n\n    for experience in scenario.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        strategy.train(experience)\n        print(\"End training, evaluating...\")\n        strategy.eval(scenario.test_stream)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129629,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 1211,
+      "prompt_tokens": 291,
+      "total_tokens": 1502,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nfrom torch.utils.data import DataLoader\nfrom transformers import (\n    AutoTokenizer,\n    AutoModelForSeq2SeqLM,\n    DataCollatorForSeq2Seq,\n)\nfrom datasets import load_dataset\nfrom avalanche.benchmarks import nc_benchmark\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom avalanche.logging import InteractiveLogger\n\nclass MTDataCollator:\n    def __init__(self, tokenizer, padding=True, max_length=None):\n        self.tokenizer = tokenizer\n        self.padding = padding\n        self.max_length = max_length\n\n    def __call__(self, batch):\n        input_ids = [item['input_ids'] for item in batch]\n        labels = [item['labels'] for item in batch]\n        batch_inputs = self.tokenizer.pad(\n            {'input_ids': input_ids},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )\n        batch_labels = self.tokenizer.pad(\n            {'input_ids': labels},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )\n        labels = batch_labels['input_ids']\n        labels[labels == self.tokenizer.pad_token_id] = -100\n        decoder_input_ids = self._shift_right(labels)\n        return {\n            'input_ids': batch_inputs['input_ids'],\n            'attention_mask': batch_inputs['attention_mask'],\n            'labels': labels,\n            'decoder_input_ids': decoder_input_ids\n        }\n\n    def _shift_right(self, labels):\n        decoder_input_ids = labels.clone()\n        decoder_input_ids[:, 1:] = labels[:, :-1]\n        decoder_input_ids[:, 0] = self.tokenizer.bos_token_id if self.tokenizer.bos_token_id is not None else self.tokenizer.cls_token_id\n        decoder_input_ids[decoder_input_ids == -100] = self.tokenizer.pad_token_id\n        return decoder_input_ids\n\nclass NaiveMT(Naive):\n    def forward(self, minibatch):\n        input_ids = minibatch['input_ids'].to(self.device)\n        attention_mask = minibatch['attention_mask'].to(self.device)\n        labels = minibatch['labels'].to(self.device)\n        decoder_input_ids = minibatch['decoder_input_ids'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            decoder_input_ids=decoder_input_ids,\n            labels=labels,\n        )\n        return outputs\n\n    def criterion(self, outputs, minibatch):\n        return outputs.loss\n\ndef preprocess_function(examples, tokenizer, src_lang, tgt_lang, max_length=128):\n    inputs = examples[src_lang]\n    targets = examples[tgt_lang]\n    model_inputs = tokenizer(\n        inputs, max_length=max_length, truncation=True, padding=False\n    )\n    with tokenizer.as_target_tokenizer():\n        labels = tokenizer(\n            targets, max_length=max_length, truncation=True, padding=False\n        )\n    model_inputs['labels'] = labels['input_ids']\n    return model_inputs\n\ndef main():\n    model_checkpoint = \"Helsinki-NLP/opus-mt-en-de\"\n    src_lang = \"en\"\n    tgt_lang = \"de\"\n    max_length = 64\n\n    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)\n    model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)\n\n    dataset = load_dataset(\"wmt14\", \"de-en\", split={'train': 'train[:1%]', 'test': 'test[:1%]'})\n    train_dataset = dataset['train'].map(\n        lambda x: preprocess_function(x, tokenizer, src_lang, tgt_lang, max_length),\n        batched=True,\n        remove_columns=dataset['train'].column_names\n    )\n    test_dataset = dataset['test'].map(\n        lambda x: preprocess_function(x, tokenizer, src_lang, tgt_lang, max_length),\n        batched=True,\n        remove_columns=dataset['test'].column_names\n    )\n\n    # Split train into experiences for continual learning\n    n_experiences = 3\n    train_splits = train_dataset.train_test_split(test_size=1/n_experiences)\n    train_experiences = [train_splits['train']]\n    for _ in range(n_experiences - 1):\n        train_splits = train_splits['test'].train_test_split(test_size=0.5)\n        train_experiences.append(train_splits['train'])\n    train_experiences.append(train_splits['test'])\n\n    scenario = nc_benchmark(\n        train_datasets=train_experiences,\n        test_datasets=[test_dataset],\n        task_labels=False\n    )\n\n    data_collator = MTDataCollator(tokenizer, padding=True, max_length=max_length)\n\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        loggers=[InteractiveLogger()]\n    )\n\n    strategy = NaiveMT(\n        model=model,\n        optimizer=torch.optim.AdamW(model.parameters(), lr=2e-5),\n        criterion=None,\n        train_mb_size=8,\n        train_epochs=1,\n        eval_mb_size=8,\n        device='cuda' if torch.cuda.is_available() else 'cpu',\n        evaluator=eval_plugin,\n        eval_every=1,\n        data_loader= lambda dataset, **kwargs: DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=data_collator)\n    )\n\n    for experience in scenario.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        strategy.train(experience)\n        print(\"End training, evaluating...\")\n        strategy.eval(scenario.test_stream)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 9.641860611001903,
+  "usage": {
+    "completion_tokens": 1211,
+    "prompt_tokens": 291,
+    "total_tokens": 1502,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10270,
+  "response_sha256": "4c3f0c9811d40ecd8fac4eb3d3606e4185a727f7e72361dd2804ca0322b0252b",
+  "artifact_sha256": "4cc99fe3ba5bbb3097733c15e7df356c8db8763f6d11685dfc12c4e28445024c"
+}

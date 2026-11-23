@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 132,
+    "task_sha256": "e49b87cfc29d0f63487817375d8236857c1a296e22c948e0304f7534743b10c5",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the bcc library to create a histogram of system-wide strlen return values. The code should handle the case where strlen is an indirect function. It should define two BPF programs, one for counting the return values and another for submitting the addresses of the resolver and implementation functions. The code should also include functions to get the symbol of the indirect function, set the addresses of the resolver and implementation functions, and find the offset of the implementation function. In the main function, it should get the symbol of the indirect function, find the offset of the implementation function, and attach the counting BPF program to the implementation function. The code should then enter a loop where it sleeps for one second, prints the histogram, and clears the histogram. The loop should continue until a KeyboardInterrupt is received.\n\nYou can find the following APIs from the library helpful:\nFunction, get_user_functions_and_addresses, _add_function, _display_function, _generate_streq_function, load_bpf_code, items_lookup_and_delete_batch, _generate_functions, TestHistogram, get_user_functions, get_kprobe_functions, _items_lookup_and_optionally_delete_batch, handle_loop, _main_loop, test_lookup_and_delete_batch_all_keys, bcc_symbol, find_library, get_user_addresses, find_bpf_fds, comm_for_pid"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5zGHKABAJASfIO1xoSMFGGnn6Xy",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom bcc import BPF, USDT, BPF\nfrom bcc.utils import printb\nimport ctypes as ct\nimport time\nimport sys\nimport os\n\n# BPF program for counting strlen return values\nbpf_text_count = \"\"\"\n#include <uapi/linux/ptrace.h>\n\nBPF_HISTOGRAM(retvals);\n\nint count_strlen_ret(struct pt_regs *ctx) {\n    int ret = PT_REGS_RC(ctx);\n    retvals.increment(bpf_log2l(ret));\n    return 0;\n}\n\"\"\"\n\n# BPF program for submitting resolver and implementation addresses\nbpf_text_submit = \"\"\"\n#include <uapi/linux/ptrace.h>\n\nBPF_PERF_OUTPUT(events);\n\nstruct data_t {\n    u64 resolver_addr;\n    u64 impl_addr;\n};\n\nint submit_addrs(struct pt_regs *ctx) {\n    struct data_t data = {};\n    data.resolver_addr = (u64)PT_REGS_PARM1(ctx);\n    data.impl_addr = (u64)PT_REGS_PARM2(ctx);\n    events.perf_submit(ctx, &data, sizeof(data));\n    return 0;\n}\n\"\"\"\n\ndef get_symbol_of_indirect_func(libc_path, func_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    syms = []\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == func_name:\n            syms.append(sym)\n    if not syms:\n        raise Exception(\"Function %s not found in %s\" % (func_name, libc_path))\n    return syms[0]\n\ndef set_addresses_of_resolver_and_impl(libc_path, resolver_name, impl_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    resolver_addr = None\n    impl_addr = None\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == resolver_name:\n            resolver_addr = sym.addr\n        if sym.name == impl_name:\n            impl_addr = sym.addr\n    if resolver_addr is None or impl_addr is None:\n        raise Exception(\"Resolver or implementation function not found\")\n    return resolver_addr, impl_addr\n\ndef find_offset_of_impl_func(libc_path, impl_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == impl_name:\n            return sym.offset\n    raise Exception(\"Implementation function not found\")\n\ndef main():\n    libc_path = BPF.find_library(\"c\")\n    if not libc_path:\n        print(\"libc not found\")\n        sys.exit(1)\n\n    # Get the symbol of the indirect function (strlen)\n    strlen_sym = get_symbol_of_indirect_func(libc_path, \"strlen\")\n    strlen_addr = strlen_sym.addr\n\n    # Find the offset of the implementation function (__strlen_avx2 for example)\n    # This may vary by system; you may need to adjust the implementation name\n    impl_name = \"__strlen_avx2\"\n    try:\n        impl_offset = find_offset_of_impl_func(libc_path, impl_name)\n    except Exception:\n        # fallback to __strlen_sse2 or other known implementation\n        impl_name = \"__strlen_sse2\"\n        impl_offset = find_offset_of_impl_func(libc_path, impl_name)\n\n    # Set the addresses of the resolver and implementation functions\n    resolver_name = \"__strlen_ifunc\"\n    resolver_addr, impl_addr = set_addresses_of_resolver_and_impl(libc_path, resolver_name, impl_name)\n\n    # Load the counting BPF program\n    b = BPF(text=bpf_text_count)\n    # Attach to the implementation function\n    b.attach_uprobe(name=libc_path, sym=impl_name, fn_name=\"count_strlen_ret\", retprobe=True)\n\n    print(\"Tracing strlen return values... Hit Ctrl-C to end.\")\n\n    while True:\n        try:\n            time.sleep(1)\n            print(\"\\nHistogram of strlen return values:\")\n            b[\"retvals\"].print_log2_hist(\"strlen return\")\n            b[\"retvals\"].clear()\n        except KeyboardInterrupt:\n            break\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131466,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 891,
+      "prompt_tokens": 297,
+      "total_tokens": 1188,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom bcc import BPF, USDT, BPF\nfrom bcc.utils import printb\nimport ctypes as ct\nimport time\nimport sys\nimport os\n\n# BPF program for counting strlen return values\nbpf_text_count = \"\"\"\n#include <uapi/linux/ptrace.h>\n\nBPF_HISTOGRAM(retvals);\n\nint count_strlen_ret(struct pt_regs *ctx) {\n    int ret = PT_REGS_RC(ctx);\n    retvals.increment(bpf_log2l(ret));\n    return 0;\n}\n\"\"\"\n\n# BPF program for submitting resolver and implementation addresses\nbpf_text_submit = \"\"\"\n#include <uapi/linux/ptrace.h>\n\nBPF_PERF_OUTPUT(events);\n\nstruct data_t {\n    u64 resolver_addr;\n    u64 impl_addr;\n};\n\nint submit_addrs(struct pt_regs *ctx) {\n    struct data_t data = {};\n    data.resolver_addr = (u64)PT_REGS_PARM1(ctx);\n    data.impl_addr = (u64)PT_REGS_PARM2(ctx);\n    events.perf_submit(ctx, &data, sizeof(data));\n    return 0;\n}\n\"\"\"\n\ndef get_symbol_of_indirect_func(libc_path, func_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    syms = []\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == func_name:\n            syms.append(sym)\n    if not syms:\n        raise Exception(\"Function %s not found in %s\" % (func_name, libc_path))\n    return syms[0]\n\ndef set_addresses_of_resolver_and_impl(libc_path, resolver_name, impl_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    resolver_addr = None\n    impl_addr = None\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == resolver_name:\n            resolver_addr = sym.addr\n        if sym.name == impl_name:\n            impl_addr = sym.addr\n    if resolver_addr is None or impl_addr is None:\n        raise Exception(\"Resolver or implementation function not found\")\n    return resolver_addr, impl_addr\n\ndef find_offset_of_impl_func(libc_path, impl_name):\n    from bcc import SymbolCache\n    symcache = SymbolCache(-1, [libc_path])\n    for sym in symcache.get_syms(libc_path):\n        if sym.name == impl_name:\n            return sym.offset\n    raise Exception(\"Implementation function not found\")\n\ndef main():\n    libc_path = BPF.find_library(\"c\")\n    if not libc_path:\n        print(\"libc not found\")\n        sys.exit(1)\n\n    # Get the symbol of the indirect function (strlen)\n    strlen_sym = get_symbol_of_indirect_func(libc_path, \"strlen\")\n    strlen_addr = strlen_sym.addr\n\n    # Find the offset of the implementation function (__strlen_avx2 for example)\n    # This may vary by system; you may need to adjust the implementation name\n    impl_name = \"__strlen_avx2\"\n    try:\n        impl_offset = find_offset_of_impl_func(libc_path, impl_name)\n    except Exception:\n        # fallback to __strlen_sse2 or other known implementation\n        impl_name = \"__strlen_sse2\"\n        impl_offset = find_offset_of_impl_func(libc_path, impl_name)\n\n    # Set the addresses of the resolver and implementation functions\n    resolver_name = \"__strlen_ifunc\"\n    resolver_addr, impl_addr = set_addresses_of_resolver_and_impl(libc_path, resolver_name, impl_name)\n\n    # Load the counting BPF program\n    b = BPF(text=bpf_text_count)\n    # Attach to the implementation function\n    b.attach_uprobe(name=libc_path, sym=impl_name, fn_name=\"count_strlen_ret\", retprobe=True)\n\n    print(\"Tracing strlen return values... Hit Ctrl-C to end.\")\n\n    while True:\n        try:\n            time.sleep(1)\n            print(\"\\nHistogram of strlen return values:\")\n            b[\"retvals\"].print_log2_hist(\"strlen return\")\n            b[\"retvals\"].clear()\n        except KeyboardInterrupt:\n            break\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 4.551687030998437,
+  "usage": {
+    "completion_tokens": 891,
+    "prompt_tokens": 297,
+    "total_tokens": 1188,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7722,
+  "response_sha256": "122ad17067ae637c0eda2ade4b7df7016c52521a85c573e819b129ad5e53b88f",
+  "artifact_sha256": "e79115e49d2c857aa0fe7ab2fa177f88551b281c69f970ccba0e4c6275769772"
+}

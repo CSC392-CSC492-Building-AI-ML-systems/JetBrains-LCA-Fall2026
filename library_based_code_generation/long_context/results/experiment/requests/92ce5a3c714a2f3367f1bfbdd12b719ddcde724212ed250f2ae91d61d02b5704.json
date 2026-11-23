@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 43,
+    "task_sha256": "afa552d74809c1793dbb72362c5ed71ba77a8d3ffc7a78690ce0d1c768466339",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs ensemble verification of a probabilistic extrapolation nowcast using MeteoSwiss radar data. The code should read precipitation field data, upscale it to 2 km resolution, and convert it to rain rate. It should also log-transform the data and handle missing values. The code should estimate the motion field and perform an ensemble nowcast using the STEPS approach. It should then back-transform the nowcast to rain rates and plot some of the realizations. Finally, the code should verify the probabilistic forecasts using the ROC curve, reliability diagrams, and rank histograms.\n\nYou can find the following APIs from the library helpful:\n_create_and_install_plugin, data, nowcast_main_loop, _plot_field, test_nowcast_main_loop, to_reflectivity, to_rainrate, to_raindepth, _create_motion_field, test_numerical_example_with_float_slope_and_float_list_timesteps, _convert_grid_mapping_to_proj4, _convert_proj4_to_grid_mapping, plot_precip_field, DataModelError, _create_data_univariate, _test_download_data, download_mrms_data, _create_data_multivariate, download_pysteps_data, _transform_to_lagrangian"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5796JC3MbLBxVgSdSTDoIrsw8Nz",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pysteps import io, motion, nowcasts, utils, verification, transformation\nfrom pysteps.visualization import plot_precip_field\nfrom pysteps.utils import conversion, transformation as tr\nfrom pysteps.verification import roc, reliability, rank\nimport warnings\n\n# Suppress warnings for cleaner output\nwarnings.filterwarnings(\"ignore\")\n\n# 1. Read MeteoSwiss radar data\nroot_path = \"data\"  # Adjust path as needed\ndata_source = io.get_method(\"mch\")\nfns = io.find_files(root_path, \"AQC\", \"201806010600\", \"201806010700\", data_source.ext)\ninput_files = [f[1] for f in fns]\nR, _, metadata = io.read_timeseries(input_files, data_source, **data_source.importer_kwargs)\n\n# 2. Upscale to 2 km resolution\nR_upscaled = utils.aggregate_fields_space(R, 2)\n\n# 3. Convert to rain rate (mm/h)\nif metadata[\"unit\"] == \"mm/h\":\n    R_rainrate = R_upscaled\nelif metadata[\"unit\"] == \"mm\":\n    R_rainrate = conversion.to_rainrate(R_upscaled, metadata)\nelif metadata[\"unit\"] == \"dBZ\":\n    R_rainrate = conversion.to_rainrate(conversion.to_reflectivity(R_upscaled, metadata), metadata)\nelse:\n    raise ValueError(\"Unknown unit: %s\" % metadata[\"unit\"])\n\n# 4. Log-transform and handle missing values\nR_rainrate[R_rainrate < 0] = 0\nR_log, R_thr = tr.dB_transform(R_rainrate, threshold=0.1, zerovalue=-15.0, inverse=False)\nR_log = np.ma.masked_invalid(R_log)\n\n# 5. Estimate motion field\noflow_method = motion.get_method(\"lucaskanade\")\nV = oflow_method(R_log[-3:])\n\n# 6. STEPS ensemble nowcast\nn_ens_members = 8\nn_lead_times = 12\nnowcast_method = nowcasts.get_method(\"steps\")\nsteps = nowcast_method(R_log[-1], V, n_lead_times, R_thr, n_ens_members,\n                       noise_method=\"nonparametric\", ar_order=2, mask=~np.isnan(R_log[-1]))\n\n# 7. Back-transform to rain rates\nnowcast_ens = []\nfor i in range(n_ens_members):\n    ens_member = []\n    for t in range(n_lead_times):\n        field = steps[t][..., i]\n        field = tr.dB_transform(field, threshold=R_thr, zerovalue=-15.0, inverse=True)\n        ens_member.append(field)\n    nowcast_ens.append(np.stack(ens_member))\nnowcast_ens = np.stack(nowcast_ens)  # shape: (n_ens_members, n_lead_times, H, W)\n\n# 8. Plot some realizations\nplt.figure(figsize=(15, 8))\nfor i in range(4):\n    plt.subplot(2, 2, i+1)\n    plot_precip_field(nowcast_ens[i, 2], geodata=metadata, title=f\"Ensemble member {i+1}, +15 min\")\nplt.tight_layout()\nplt.show()\n\n# 9. Verification: ROC, reliability, rank histogram\n# Prepare observations (truth)\nobs = R_rainrate[-1 + np.arange(1, n_lead_times+1)]\nobs = np.nan_to_num(obs, nan=0.0)\n\n# Prepare forecasts: shape (n_lead_times, n_ens_members, H, W)\nfcst = np.transpose(nowcast_ens, (1, 0, 2, 3))\n\n# ROC curve for threshold 1 mm/h\nroc_auc = []\nfor t in range(n_lead_times):\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    prob = (f >= 1.0).mean(axis=0)\n    mask = ~np.isnan(o)\n    auc = roc.roc_auc(prob[mask], (o[mask] >= 1.0).astype(int))\n    roc_auc.append(auc)\nplt.figure()\nplt.plot(np.arange(5, 65, 5), roc_auc, marker='o')\nplt.xlabel(\"Lead time (min)\")\nplt.ylabel(\"ROC AUC (1 mm/h)\")\nplt.title(\"ROC AUC vs Lead Time\")\nplt.show()\n\n# Reliability diagram\nplt.figure()\nfor t in [0, 5, 11]:\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    prob = (f >= 1.0).mean(axis=0)\n    mask = ~np.isnan(o)\n    reliability.reliability_diagram(prob[mask], (o[mask] >= 1.0).astype(int), n_bins=10, plot_kwargs={'label':f'+{(t+1)*5} min'})\nplt.legend()\nplt.title(\"Reliability Diagram (1 mm/h)\")\nplt.show()\n\n# Rank histogram\nplt.figure()\nfor t in [0, 5, 11]:\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    mask = ~np.isnan(o)\n    rank.rank_histogram(f[:, mask], o[mask], n_bins=n_ens_members+1, plot_kwargs={'label':f'+{(t+1)*5} min'})\nplt.legend()\nplt.title(\"Rank Histogram\")\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128111,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_43478567f6",
+    "usage": {
+      "completion_tokens": 1199,
+      "prompt_tokens": 277,
+      "total_tokens": 1476,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pysteps import io, motion, nowcasts, utils, verification, transformation\nfrom pysteps.visualization import plot_precip_field\nfrom pysteps.utils import conversion, transformation as tr\nfrom pysteps.verification import roc, reliability, rank\nimport warnings\n\n# Suppress warnings for cleaner output\nwarnings.filterwarnings(\"ignore\")\n\n# 1. Read MeteoSwiss radar data\nroot_path = \"data\"  # Adjust path as needed\ndata_source = io.get_method(\"mch\")\nfns = io.find_files(root_path, \"AQC\", \"201806010600\", \"201806010700\", data_source.ext)\ninput_files = [f[1] for f in fns]\nR, _, metadata = io.read_timeseries(input_files, data_source, **data_source.importer_kwargs)\n\n# 2. Upscale to 2 km resolution\nR_upscaled = utils.aggregate_fields_space(R, 2)\n\n# 3. Convert to rain rate (mm/h)\nif metadata[\"unit\"] == \"mm/h\":\n    R_rainrate = R_upscaled\nelif metadata[\"unit\"] == \"mm\":\n    R_rainrate = conversion.to_rainrate(R_upscaled, metadata)\nelif metadata[\"unit\"] == \"dBZ\":\n    R_rainrate = conversion.to_rainrate(conversion.to_reflectivity(R_upscaled, metadata), metadata)\nelse:\n    raise ValueError(\"Unknown unit: %s\" % metadata[\"unit\"])\n\n# 4. Log-transform and handle missing values\nR_rainrate[R_rainrate < 0] = 0\nR_log, R_thr = tr.dB_transform(R_rainrate, threshold=0.1, zerovalue=-15.0, inverse=False)\nR_log = np.ma.masked_invalid(R_log)\n\n# 5. Estimate motion field\noflow_method = motion.get_method(\"lucaskanade\")\nV = oflow_method(R_log[-3:])\n\n# 6. STEPS ensemble nowcast\nn_ens_members = 8\nn_lead_times = 12\nnowcast_method = nowcasts.get_method(\"steps\")\nsteps = nowcast_method(R_log[-1], V, n_lead_times, R_thr, n_ens_members,\n                       noise_method=\"nonparametric\", ar_order=2, mask=~np.isnan(R_log[-1]))\n\n# 7. Back-transform to rain rates\nnowcast_ens = []\nfor i in range(n_ens_members):\n    ens_member = []\n    for t in range(n_lead_times):\n        field = steps[t][..., i]\n        field = tr.dB_transform(field, threshold=R_thr, zerovalue=-15.0, inverse=True)\n        ens_member.append(field)\n    nowcast_ens.append(np.stack(ens_member))\nnowcast_ens = np.stack(nowcast_ens)  # shape: (n_ens_members, n_lead_times, H, W)\n\n# 8. Plot some realizations\nplt.figure(figsize=(15, 8))\nfor i in range(4):\n    plt.subplot(2, 2, i+1)\n    plot_precip_field(nowcast_ens[i, 2], geodata=metadata, title=f\"Ensemble member {i+1}, +15 min\")\nplt.tight_layout()\nplt.show()\n\n# 9. Verification: ROC, reliability, rank histogram\n# Prepare observations (truth)\nobs = R_rainrate[-1 + np.arange(1, n_lead_times+1)]\nobs = np.nan_to_num(obs, nan=0.0)\n\n# Prepare forecasts: shape (n_lead_times, n_ens_members, H, W)\nfcst = np.transpose(nowcast_ens, (1, 0, 2, 3))\n\n# ROC curve for threshold 1 mm/h\nroc_auc = []\nfor t in range(n_lead_times):\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    prob = (f >= 1.0).mean(axis=0)\n    mask = ~np.isnan(o)\n    auc = roc.roc_auc(prob[mask], (o[mask] >= 1.0).astype(int))\n    roc_auc.append(auc)\nplt.figure()\nplt.plot(np.arange(5, 65, 5), roc_auc, marker='o')\nplt.xlabel(\"Lead time (min)\")\nplt.ylabel(\"ROC AUC (1 mm/h)\")\nplt.title(\"ROC AUC vs Lead Time\")\nplt.show()\n\n# Reliability diagram\nplt.figure()\nfor t in [0, 5, 11]:\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    prob = (f >= 1.0).mean(axis=0)\n    mask = ~np.isnan(o)\n    reliability.reliability_diagram(prob[mask], (o[mask] >= 1.0).astype(int), n_bins=10, plot_kwargs={'label':f'+{(t+1)*5} min'})\nplt.legend()\nplt.title(\"Reliability Diagram (1 mm/h)\")\nplt.show()\n\n# Rank histogram\nplt.figure()\nfor t in [0, 5, 11]:\n    f = fcst[t].reshape(n_ens_members, -1)\n    o = obs[t].reshape(-1)\n    mask = ~np.isnan(o)\n    rank.rank_histogram(f[:, mask], o[mask], n_bins=n_ens_members+1, plot_kwargs={'label':f'+{(t+1)*5} min'})\nplt.legend()\nplt.title(\"Rank Histogram\")\nplt.show()\n```",
+  "latency_seconds": 10.19104192099985,
+  "usage": {
+    "completion_tokens": 1199,
+    "prompt_tokens": 277,
+    "total_tokens": 1476,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10146,
+  "response_sha256": "bccd487786ac0bd771e799b2fb5290a0a9bd7b5656280e87a3f232fe38acbb84",
+  "artifact_sha256": "9f7b0c366e5121fff8502971596243b5f1f975fdda671cc648327b773ad8e0f6"
+}

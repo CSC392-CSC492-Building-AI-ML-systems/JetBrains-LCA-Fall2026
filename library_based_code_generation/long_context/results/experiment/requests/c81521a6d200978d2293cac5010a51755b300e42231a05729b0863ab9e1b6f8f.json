@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 37,
+    "task_sha256": "13aca529f665fbf925720f0881db81b8bd214f8f8966dc2a9dcbb2215167f30f",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the blenderproc library:\n\n1. Parse command line arguments for a house.json file path, a chair object path, and an optional output directory.\n2. Initialize blenderproc.\n3. Load objects from the house.json file into the scene using a label mapping from a csv file.\n4. Load a chair object from the provided path and replace all chair objects in the scene with this chair object. The replacement should ignore collisions with floor objects and copy properties from the original objects. The pose of the new chair objects should be randomly rotated around the z-axis.\n5. Filter out invalid objects from the scene.\n6. Make all Suncg objects in the scene emit light.\n7. Initialize a point sampler for sampling locations inside the loaded house and a bvh tree containing all mesh objects.\n8. Sample camera poses inside the house, ensuring that obstacles are at least 1 meter away from the camera and the view covers at least 40% of the scene. Add these camera poses to the scene.\n9. Enable normal, depth, and segmentation rendering. Add an alpha channel to textures.\n10. Render the scene and write the rendered data to a .hdf5 file in the specified output directory."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em53UELYlBfWk0jBFrXNDYeiHxVmp",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport os\nimport blenderproc as bproc\nimport numpy as np\nimport random\n\ndef parse_args():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--house_json\", required=True, help=\"Path to the house.json file\")\n    parser.add_argument(\"--chair_obj\", required=True, help=\"Path to the chair object file\")\n    parser.add_argument(\"--label_map_csv\", required=True, help=\"Path to the label mapping CSV file\")\n    parser.add_argument(\"--output_dir\", default=\"output\", help=\"Output directory\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    os.makedirs(args.output_dir, exist_ok=True)\n\n    bproc.init()\n\n    # Load house objects with label mapping\n    house_objects = bproc.loader.load_suncg(args.house_json, label_mapping_csv=args.label_map_csv)\n\n    # Load chair object\n    chair_objs = bproc.loader.load_obj(args.chair_obj)\n    chair_obj = chair_objs[0]\n\n    # Find all chair objects in the scene\n    chair_class_ids = [obj.get_cp(\"category_id\") for obj in house_objects if \"chair\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 8]\n    chair_objs_in_scene = [obj for obj in house_objects if \"chair\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 8]\n\n    # Find floor objects (for collision ignore)\n    floor_objs = [obj for obj in house_objects if \"floor\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 0]\n\n    # Replace all chair objects\n    for orig_chair in chair_objs_in_scene:\n        # Duplicate the loaded chair object\n        new_chair = chair_obj.copy()\n        # Copy properties\n        for k, v in orig_chair.get_all_cp().items():\n            new_chair.set_cp(k, v)\n        # Set pose: match location, random z rotation\n        location = orig_chair.get_location()\n        rotation = orig_chair.get_rotation_euler()\n        random_z = random.uniform(0, 2 * np.pi)\n        new_chair.set_location(location)\n        new_chair.set_rotation_euler([rotation[0], rotation[1], random_z])\n        # Ignore collision with floors\n        for floor in floor_objs:\n            bproc.object.disable_collision_between(new_chair, floor)\n        # Add to scene\n        bproc.scene.add_object(new_chair)\n        # Remove original chair\n        bproc.scene.remove_object(orig_chair)\n\n    # Filter out invalid objects\n    bproc.object.delete_invalid()\n\n    # Make all Suncg objects emit light\n    for obj in bproc.scene.get_objects():\n        if obj.get_cp(\"category_id\") is not None:\n            obj.make_emissive(emission_strength=5.0)\n\n    # Initialize point sampler and BVH tree\n    point_sampler = bproc.sampler.SuncgRoomPointSampler(house_json_path=args.house_json)\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(bproc.scene.get_objects())\n\n    # Sample camera poses\n    camera_poses = []\n    num_cameras = 5\n    for _ in range(num_cameras):\n        for _ in range(100):  # Try up to 100 times to find a valid pose\n            location = point_sampler.sample()\n            # Ensure at least 1m from obstacles\n            min_dist = bvh_tree.compute_min_distance(location)\n            if min_dist < 1.0:\n                continue\n            # Look at random point in the house\n            target = point_sampler.sample()\n            cam2world_matrix = bproc.camera.camera_pose_utils.look_at(location, target)\n            # Check if view covers at least 40% of the scene\n            if bproc.camera.is_pose_valid(cam2world_matrix, bproc.scene.get_objects(), min_visible_ratio=0.4):\n                camera_poses.append(cam2world_matrix)\n                break\n\n    # Add cameras to the scene\n    bproc.camera.add_camera_pose(camera_poses)\n\n    # Enable normal, depth, segmentation rendering, add alpha channel\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output()\n    bproc.renderer.set_output_format(\"PNG\")\n    bproc.renderer.set_alpha_mode(\"TRANSPARENT\")\n\n    # Render and write to .hdf5\n    data = bproc.renderer.render()\n    bproc.writer.write_hdf5(os.path.join(args.output_dir, \"output.hdf5\"), data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127884,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_cfcc27b179",
+    "usage": {
+      "completion_tokens": 968,
+      "prompt_tokens": 281,
+      "total_tokens": 1249,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport os\nimport blenderproc as bproc\nimport numpy as np\nimport random\n\ndef parse_args():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--house_json\", required=True, help=\"Path to the house.json file\")\n    parser.add_argument(\"--chair_obj\", required=True, help=\"Path to the chair object file\")\n    parser.add_argument(\"--label_map_csv\", required=True, help=\"Path to the label mapping CSV file\")\n    parser.add_argument(\"--output_dir\", default=\"output\", help=\"Output directory\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    os.makedirs(args.output_dir, exist_ok=True)\n\n    bproc.init()\n\n    # Load house objects with label mapping\n    house_objects = bproc.loader.load_suncg(args.house_json, label_mapping_csv=args.label_map_csv)\n\n    # Load chair object\n    chair_objs = bproc.loader.load_obj(args.chair_obj)\n    chair_obj = chair_objs[0]\n\n    # Find all chair objects in the scene\n    chair_class_ids = [obj.get_cp(\"category_id\") for obj in house_objects if \"chair\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 8]\n    chair_objs_in_scene = [obj for obj in house_objects if \"chair\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 8]\n\n    # Find floor objects (for collision ignore)\n    floor_objs = [obj for obj in house_objects if \"floor\" in obj.get_name().lower() or obj.get_cp(\"category_id\") == 0]\n\n    # Replace all chair objects\n    for orig_chair in chair_objs_in_scene:\n        # Duplicate the loaded chair object\n        new_chair = chair_obj.copy()\n        # Copy properties\n        for k, v in orig_chair.get_all_cp().items():\n            new_chair.set_cp(k, v)\n        # Set pose: match location, random z rotation\n        location = orig_chair.get_location()\n        rotation = orig_chair.get_rotation_euler()\n        random_z = random.uniform(0, 2 * np.pi)\n        new_chair.set_location(location)\n        new_chair.set_rotation_euler([rotation[0], rotation[1], random_z])\n        # Ignore collision with floors\n        for floor in floor_objs:\n            bproc.object.disable_collision_between(new_chair, floor)\n        # Add to scene\n        bproc.scene.add_object(new_chair)\n        # Remove original chair\n        bproc.scene.remove_object(orig_chair)\n\n    # Filter out invalid objects\n    bproc.object.delete_invalid()\n\n    # Make all Suncg objects emit light\n    for obj in bproc.scene.get_objects():\n        if obj.get_cp(\"category_id\") is not None:\n            obj.make_emissive(emission_strength=5.0)\n\n    # Initialize point sampler and BVH tree\n    point_sampler = bproc.sampler.SuncgRoomPointSampler(house_json_path=args.house_json)\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(bproc.scene.get_objects())\n\n    # Sample camera poses\n    camera_poses = []\n    num_cameras = 5\n    for _ in range(num_cameras):\n        for _ in range(100):  # Try up to 100 times to find a valid pose\n            location = point_sampler.sample()\n            # Ensure at least 1m from obstacles\n            min_dist = bvh_tree.compute_min_distance(location)\n            if min_dist < 1.0:\n                continue\n            # Look at random point in the house\n            target = point_sampler.sample()\n            cam2world_matrix = bproc.camera.camera_pose_utils.look_at(location, target)\n            # Check if view covers at least 40% of the scene\n            if bproc.camera.is_pose_valid(cam2world_matrix, bproc.scene.get_objects(), min_visible_ratio=0.4):\n                camera_poses.append(cam2world_matrix)\n                break\n\n    # Add cameras to the scene\n    bproc.camera.add_camera_pose(camera_poses)\n\n    # Enable normal, depth, segmentation rendering, add alpha channel\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output()\n    bproc.renderer.set_output_format(\"PNG\")\n    bproc.renderer.set_alpha_mode(\"TRANSPARENT\")\n\n    # Render and write to .hdf5\n    data = bproc.renderer.render()\n    bproc.writer.write_hdf5(os.path.join(args.output_dir, \"output.hdf5\"), data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 5.549675672000376,
+  "usage": {
+    "completion_tokens": 968,
+    "prompt_tokens": 281,
+    "total_tokens": 1249,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8306,
+  "response_sha256": "3abc985165bc97d9f61a483282bdcc36803c50fc7c1d024651e65e839c30b372",
+  "artifact_sha256": "40c80948a5ff4f276ec1ea9b44ae6ad02348aed5d027d8c9ebe710c4fd98a628"
+}

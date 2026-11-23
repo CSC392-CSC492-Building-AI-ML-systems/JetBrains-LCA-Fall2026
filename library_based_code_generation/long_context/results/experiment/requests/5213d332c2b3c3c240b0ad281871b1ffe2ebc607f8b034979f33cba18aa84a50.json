@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 75,
+    "task_sha256": "1b64a21ec564f92347ad45bdef538d35722bcf14d96761542da6b0b22944ff29",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that defines several classes for preprocessing, augmenting, and visualizing bounding boxes and images for object detection using the paz library. The classes should include:\n\n1. `PreprocessBoxes` that preprocesses bounding boxes by matching them, encoding them, and converting the box class to a one-hot vector.\n2. `PreprocessImage` that preprocesses an RGB image by resizing it and either subtracting a mean or normalizing it.\n3. `AugmentImage` that augments an RGB image by resizing it, blending it with a random cropped background, and applying random contrast, brightness, saturation, and hue adjustments.\n4. `AugmentBoxes` that augments bounding boxes by converting them to image box coordinates, expanding them, applying random sample cropping and random flipping.\n5. `DrawBoxData2D` that draws 2D box data on an image.\n6. `ShowBoxes` that shows the boxes on an image after resizing the image, decoding the boxes, denormalizing them, and drawing them on the image.\n7. `AugmentDetection` that augments boxes and images for object detection by loading an image, applying image and box augmentation if in training mode, preprocessing the image and boxes, and wrapping the sequence.\n\nFinally, the code should also include a main section that sets up GPU memory growth, loads a model and data, and applies the `AugmentDetection` and `ShowBoxes` processors to each sample in the dataset."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5RomKNhBdJk73YIUQIeBbodjjPR",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport tensorflow as tf\nimport numpy as np\nimport paz\nfrom paz.backend.image import resize_image, random_crop, blend_images\nfrom paz.backend.image import random_contrast, random_brightness, random_saturation, random_hue\nfrom paz.backend.boxes import to_image_box_coordinates, expand_boxes, random_sample_crop, random_flip_boxes\nfrom paz.backend.boxes import match_boxes, encode_boxes, decode_boxes, denormalize_boxes\nfrom paz.backend.boxes import draw_boxes2D\nfrom paz.backend.image import load_image\nfrom paz.processors import Processor, SequentialProcessor\n\nclass PreprocessBoxes(Processor):\n    def __init__(self, anchors, num_classes):\n        super(PreprocessBoxes, self).__init__()\n        self.anchors = anchors\n        self.num_classes = num_classes\n\n    def call(self, boxes):\n        matched_boxes = match_boxes(boxes, self.anchors)\n        encoded_boxes = encode_boxes(matched_boxes, self.anchors)\n        one_hot_classes = np.eye(self.num_classes)[encoded_boxes[:, -1].astype(int)]\n        processed_boxes = np.concatenate([encoded_boxes[:, :-1], one_hot_classes], axis=-1)\n        return processed_boxes\n\nclass PreprocessImage(Processor):\n    def __init__(self, image_size, mean=None, normalize=False):\n        super(PreprocessImage, self).__init__()\n        self.image_size = image_size\n        self.mean = mean\n        self.normalize = normalize\n\n    def call(self, image):\n        image = resize_image(image, self.image_size)\n        if self.mean is not None:\n            image = image.astype(np.float32) - self.mean\n        if self.normalize:\n            image = image / 255.0\n        return image\n\nclass AugmentImage(Processor):\n    def __init__(self, image_size, backgrounds=None):\n        super(AugmentImage, self).__init__()\n        self.image_size = image_size\n        self.backgrounds = backgrounds\n\n    def call(self, image):\n        image = resize_image(image, self.image_size)\n        if self.backgrounds is not None:\n            bg = self.backgrounds[np.random.randint(len(self.backgrounds))]\n            bg = random_crop(bg, self.image_size)\n            image = blend_images(image, bg)\n        image = random_contrast(image)\n        image = random_brightness(image)\n        image = random_saturation(image)\n        image = random_hue(image)\n        return image\n\nclass AugmentBoxes(Processor):\n    def __init__(self, image_size):\n        super(AugmentBoxes, self).__init__()\n        self.image_size = image_size\n\n    def call(self, boxes):\n        boxes = to_image_box_coordinates(boxes, self.image_size)\n        boxes = expand_boxes(boxes)\n        boxes = random_sample_crop(boxes, self.image_size)\n        boxes = random_flip_boxes(boxes, self.image_size)\n        return boxes\n\nclass DrawBoxData2D(Processor):\n    def __init__(self, class_names, colors=None):\n        super(DrawBoxData2D, self).__init__()\n        self.class_names = class_names\n        self.colors = colors\n\n    def call(self, image, boxes):\n        return draw_boxes2D(image, boxes, self.class_names, self.colors)\n\nclass ShowBoxes(Processor):\n    def __init__(self, image_size, anchors, class_names, colors=None):\n        super(ShowBoxes, self).__init__()\n        self.image_size = image_size\n        self.anchors = anchors\n        self.class_names = class_names\n        self.colors = colors\n\n    def call(self, image, boxes):\n        image = resize_image(image, self.image_size)\n        decoded_boxes = decode_boxes(boxes, self.anchors)\n        denorm_boxes = denormalize_boxes(decoded_boxes, self.image_size)\n        image = draw_boxes2D(image, denorm_boxes, self.class_names, self.colors)\n        return image\n\nclass AugmentDetection(SequentialProcessor):\n    def __init__(self, image_size, anchors, num_classes, class_names, backgrounds=None, mean=None, normalize=False, training=True):\n        super(AugmentDetection, self).__init__()\n        self.training = training\n        self.add(load_image)\n        if self.training:\n            self.add(AugmentImage(image_size, backgrounds))\n            self.add(AugmentBoxes(image_size))\n        self.add(PreprocessImage(image_size, mean, normalize))\n        self.add(PreprocessBoxes(anchors, num_classes))\n\nif __name__ == \"__main__\":\n    # Set up GPU memory growth\n    gpus = tf.config.experimental.list_physical_devices('GPU')\n    for gpu in gpus:\n        tf.config.experimental.set_memory_growth(gpu, True)\n\n    # Dummy model and data loading (replace with actual model and data)\n    model = paz.models.mini_SSD()\n    anchors = np.random.rand(8732, 4)\n    num_classes = 21\n    class_names = [f'class_{i}' for i in range(num_classes)]\n    image_size = (300, 300)\n    mean = np.array([123., 117., 104.])\n    backgrounds = [np.random.randint(0, 255, (500, 500, 3), dtype=np.uint8) for _ in range(10)]\n    dataset = [{'image_path': 'path/to/image.jpg', 'boxes': np.random.rand(5, 5)} for _ in range(3)]\n\n    augment_detection = AugmentDetection(\n        image_size, anchors, num_classes, class_names,\n        backgrounds=backgrounds, mean=mean, normalize=True, training=True\n    )\n    show_boxes = ShowBoxes(image_size, anchors, class_names)\n\n    for sample in dataset:\n        image = load_image(sample['image_path'])\n        boxes = sample['boxes']\n        processed_boxes = augment_detection(boxes)\n        output_image = show_boxes(image, processed_boxes)\n        # Display or save output_image as needed\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129392,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 1231,
+      "prompt_tokens": 329,
+      "total_tokens": 1560,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport tensorflow as tf\nimport numpy as np\nimport paz\nfrom paz.backend.image import resize_image, random_crop, blend_images\nfrom paz.backend.image import random_contrast, random_brightness, random_saturation, random_hue\nfrom paz.backend.boxes import to_image_box_coordinates, expand_boxes, random_sample_crop, random_flip_boxes\nfrom paz.backend.boxes import match_boxes, encode_boxes, decode_boxes, denormalize_boxes\nfrom paz.backend.boxes import draw_boxes2D\nfrom paz.backend.image import load_image\nfrom paz.processors import Processor, SequentialProcessor\n\nclass PreprocessBoxes(Processor):\n    def __init__(self, anchors, num_classes):\n        super(PreprocessBoxes, self).__init__()\n        self.anchors = anchors\n        self.num_classes = num_classes\n\n    def call(self, boxes):\n        matched_boxes = match_boxes(boxes, self.anchors)\n        encoded_boxes = encode_boxes(matched_boxes, self.anchors)\n        one_hot_classes = np.eye(self.num_classes)[encoded_boxes[:, -1].astype(int)]\n        processed_boxes = np.concatenate([encoded_boxes[:, :-1], one_hot_classes], axis=-1)\n        return processed_boxes\n\nclass PreprocessImage(Processor):\n    def __init__(self, image_size, mean=None, normalize=False):\n        super(PreprocessImage, self).__init__()\n        self.image_size = image_size\n        self.mean = mean\n        self.normalize = normalize\n\n    def call(self, image):\n        image = resize_image(image, self.image_size)\n        if self.mean is not None:\n            image = image.astype(np.float32) - self.mean\n        if self.normalize:\n            image = image / 255.0\n        return image\n\nclass AugmentImage(Processor):\n    def __init__(self, image_size, backgrounds=None):\n        super(AugmentImage, self).__init__()\n        self.image_size = image_size\n        self.backgrounds = backgrounds\n\n    def call(self, image):\n        image = resize_image(image, self.image_size)\n        if self.backgrounds is not None:\n            bg = self.backgrounds[np.random.randint(len(self.backgrounds))]\n            bg = random_crop(bg, self.image_size)\n            image = blend_images(image, bg)\n        image = random_contrast(image)\n        image = random_brightness(image)\n        image = random_saturation(image)\n        image = random_hue(image)\n        return image\n\nclass AugmentBoxes(Processor):\n    def __init__(self, image_size):\n        super(AugmentBoxes, self).__init__()\n        self.image_size = image_size\n\n    def call(self, boxes):\n        boxes = to_image_box_coordinates(boxes, self.image_size)\n        boxes = expand_boxes(boxes)\n        boxes = random_sample_crop(boxes, self.image_size)\n        boxes = random_flip_boxes(boxes, self.image_size)\n        return boxes\n\nclass DrawBoxData2D(Processor):\n    def __init__(self, class_names, colors=None):\n        super(DrawBoxData2D, self).__init__()\n        self.class_names = class_names\n        self.colors = colors\n\n    def call(self, image, boxes):\n        return draw_boxes2D(image, boxes, self.class_names, self.colors)\n\nclass ShowBoxes(Processor):\n    def __init__(self, image_size, anchors, class_names, colors=None):\n        super(ShowBoxes, self).__init__()\n        self.image_size = image_size\n        self.anchors = anchors\n        self.class_names = class_names\n        self.colors = colors\n\n    def call(self, image, boxes):\n        image = resize_image(image, self.image_size)\n        decoded_boxes = decode_boxes(boxes, self.anchors)\n        denorm_boxes = denormalize_boxes(decoded_boxes, self.image_size)\n        image = draw_boxes2D(image, denorm_boxes, self.class_names, self.colors)\n        return image\n\nclass AugmentDetection(SequentialProcessor):\n    def __init__(self, image_size, anchors, num_classes, class_names, backgrounds=None, mean=None, normalize=False, training=True):\n        super(AugmentDetection, self).__init__()\n        self.training = training\n        self.add(load_image)\n        if self.training:\n            self.add(AugmentImage(image_size, backgrounds))\n            self.add(AugmentBoxes(image_size))\n        self.add(PreprocessImage(image_size, mean, normalize))\n        self.add(PreprocessBoxes(anchors, num_classes))\n\nif __name__ == \"__main__\":\n    # Set up GPU memory growth\n    gpus = tf.config.experimental.list_physical_devices('GPU')\n    for gpu in gpus:\n        tf.config.experimental.set_memory_growth(gpu, True)\n\n    # Dummy model and data loading (replace with actual model and data)\n    model = paz.models.mini_SSD()\n    anchors = np.random.rand(8732, 4)\n    num_classes = 21\n    class_names = [f'class_{i}' for i in range(num_classes)]\n    image_size = (300, 300)\n    mean = np.array([123., 117., 104.])\n    backgrounds = [np.random.randint(0, 255, (500, 500, 3), dtype=np.uint8) for _ in range(10)]\n    dataset = [{'image_path': 'path/to/image.jpg', 'boxes': np.random.rand(5, 5)} for _ in range(3)]\n\n    augment_detection = AugmentDetection(\n        image_size, anchors, num_classes, class_names,\n        backgrounds=backgrounds, mean=mean, normalize=True, training=True\n    )\n    show_boxes = ShowBoxes(image_size, anchors, class_names)\n\n    for sample in dataset:\n        image = load_image(sample['image_path'])\n        boxes = sample['boxes']\n        processed_boxes = augment_detection(boxes)\n        output_image = show_boxes(image, processed_boxes)\n        # Display or save output_image as needed\n```",
+  "latency_seconds": 12.272298653002508,
+  "usage": {
+    "completion_tokens": 1231,
+    "prompt_tokens": 329,
+    "total_tokens": 1560,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10506,
+  "response_sha256": "a6caa61944214adeba7c0df59a352967750e26fc2874fb3e9067c6465d43c2b4",
+  "artifact_sha256": "84892ab3d82ea641cba1b438eb75124ffe55c0469af36eb45d35afba2fec3f91"
+}

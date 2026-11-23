@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 65,
+    "task_sha256": "e09e40e55504929cb5255e562014a06b3654c1d5fdef681ee4564c39a1df60c4",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that tests radial transport of n_re with a constant scalar diffusion coefficient using the DREAM library. The code should set up a simulation with specific parameters such as initial and final temperatures, time steps, ion species, electric field, and cold electron temperature. It should also set up a radial grid, time stepper, and ions. The code should then set the E_field and cold electron temperature, and enable the hot tail grid. The code should also set up the transport settings, and finally, run the simulation. The code should also include conditions for different transport modes and whether the hot tail grid is enabled or not.\n\nYou can find the following APIs from the library helpful:\n__and__, loadCODE, getTimeAndUnit, formatTimeAndUnit, ColdElectronTemperature, RadialGrid, construct_A, TransportSettings, setGrid, changeRadialGrid, runSimulation, setHot, TransportCoefficientReader, setTemperature, HotElectronDistribution, setCustomGrid, setBiuniformGrid, TransportException, Grid, TimeStepper"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5M9pOc1jTFKVKXDibtKDW6M008s",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport DREAM\nfrom DREAM import DREAMSettings, runiface\nfrom DREAM.Settings.Equations import IonSpecies, ColdElectronTemperature, E_field, TransportSettings\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.TimeStepper import TimeStepper\nfrom DREAM.Settings.HotElectronDistribution import HotElectronDistribution\n\n# Simulation parameters\nnr = 10\nr0 = 0.0\nr1 = 0.2\nnt = 50\nt0 = 0.0\nt1 = 1e-3\nTe0 = 10  # Initial temperature [eV]\nTe1 = 1000  # Final temperature [eV]\nEfield = 0.0  # Electric field [V/m]\nion_species = [{'name': 'D', 'Z': 1, 'n': 1e20}]\nD_scalar = 1.0  # Constant diffusion coefficient [m^2/s]\nhot_tail_enabled = True  # Set to False to disable hot tail grid\ntransport_mode = 'diffusive'  # Options: 'diffusive', 'advective', 'off'\n\n# Create DREAM settings object\nds = DREAMSettings()\n\n# Set up radial grid\nds.radialgrid.setB0(2.0)\nds.radialgrid.setMinorRadius(r1)\nds.radialgrid.setNr(nr)\nds.radialgrid.setWallRadius(r1*1.1)\n\n# Set up time stepper\ntimes = np.linspace(t0, t1, nt)\nds.timestep.setT0(t0)\nds.timestep.setTimes(times)\n\n# Set up ions\nfor ion in ion_species:\n    ds.eqsys.ions.addIon(name=ion['name'], Z=ion['Z'], n=ion['n'], iontype=IonSpecies.IONS_DYNAMIC)\n\n# Set up cold electron temperature profile (linear ramp)\nTe_profile = np.linspace(Te0, Te1, nt)\nds.eqsys.T_cold.setPrescribedData(Te_profile, times=times)\n\n# Set up electric field\nds.eqsys.E_field.setPrescribedData(Efield)\n\n# Enable or disable hot tail grid\nif hot_tail_enabled:\n    ds.hottailgrid.setEnabled(True)\n    ds.hottailgrid.setNxi(10)\n    ds.hottailgrid.setNp(40)\n    ds.hottailgrid.setPmax(1.0)\nelse:\n    ds.hottailgrid.setEnabled(False)\n\n# Set up transport settings for n_re\nif transport_mode == 'diffusive':\n    ds.eqsys.n_re.transport.setDiffusion(D_scalar)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\n    ds.eqsys.n_re.transport.setAdvection(0)\nelif transport_mode == 'advective':\n    ds.eqsys.n_re.transport.setDiffusion(0)\n    ds.eqsys.n_re.transport.setAdvection(D_scalar)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\nelif transport_mode == 'off':\n    ds.eqsys.n_re.transport.setDiffusion(0)\n    ds.eqsys.n_re.transport.setAdvection(0)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\nelse:\n    raise ValueError(\"Unknown transport mode: {}\".format(transport_mode))\n\n# Set initial runaway electron density\nds.eqsys.n_re.setInitialProfile(0)\n\n# Set up hot electron distribution if hot tail is enabled\nif hot_tail_enabled:\n    ds.eqsys.f_hot.setInitialProfile(0)\n    ds.eqsys.f_hot.setType(HotElectronDistribution.TYPE_PRESCRIBED)\n\n# Run simulation\nruniface(ds, 'output_radial_transport.h5', quiet=False)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129041,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 786,
+      "prompt_tokens": 238,
+      "total_tokens": 1024,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport DREAM\nfrom DREAM import DREAMSettings, runiface\nfrom DREAM.Settings.Equations import IonSpecies, ColdElectronTemperature, E_field, TransportSettings\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.TimeStepper import TimeStepper\nfrom DREAM.Settings.HotElectronDistribution import HotElectronDistribution\n\n# Simulation parameters\nnr = 10\nr0 = 0.0\nr1 = 0.2\nnt = 50\nt0 = 0.0\nt1 = 1e-3\nTe0 = 10  # Initial temperature [eV]\nTe1 = 1000  # Final temperature [eV]\nEfield = 0.0  # Electric field [V/m]\nion_species = [{'name': 'D', 'Z': 1, 'n': 1e20}]\nD_scalar = 1.0  # Constant diffusion coefficient [m^2/s]\nhot_tail_enabled = True  # Set to False to disable hot tail grid\ntransport_mode = 'diffusive'  # Options: 'diffusive', 'advective', 'off'\n\n# Create DREAM settings object\nds = DREAMSettings()\n\n# Set up radial grid\nds.radialgrid.setB0(2.0)\nds.radialgrid.setMinorRadius(r1)\nds.radialgrid.setNr(nr)\nds.radialgrid.setWallRadius(r1*1.1)\n\n# Set up time stepper\ntimes = np.linspace(t0, t1, nt)\nds.timestep.setT0(t0)\nds.timestep.setTimes(times)\n\n# Set up ions\nfor ion in ion_species:\n    ds.eqsys.ions.addIon(name=ion['name'], Z=ion['Z'], n=ion['n'], iontype=IonSpecies.IONS_DYNAMIC)\n\n# Set up cold electron temperature profile (linear ramp)\nTe_profile = np.linspace(Te0, Te1, nt)\nds.eqsys.T_cold.setPrescribedData(Te_profile, times=times)\n\n# Set up electric field\nds.eqsys.E_field.setPrescribedData(Efield)\n\n# Enable or disable hot tail grid\nif hot_tail_enabled:\n    ds.hottailgrid.setEnabled(True)\n    ds.hottailgrid.setNxi(10)\n    ds.hottailgrid.setNp(40)\n    ds.hottailgrid.setPmax(1.0)\nelse:\n    ds.hottailgrid.setEnabled(False)\n\n# Set up transport settings for n_re\nif transport_mode == 'diffusive':\n    ds.eqsys.n_re.transport.setDiffusion(D_scalar)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\n    ds.eqsys.n_re.transport.setAdvection(0)\nelif transport_mode == 'advective':\n    ds.eqsys.n_re.transport.setDiffusion(0)\n    ds.eqsys.n_re.transport.setAdvection(D_scalar)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\nelif transport_mode == 'off':\n    ds.eqsys.n_re.transport.setDiffusion(0)\n    ds.eqsys.n_re.transport.setAdvection(0)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_F_0)\nelse:\n    raise ValueError(\"Unknown transport mode: {}\".format(transport_mode))\n\n# Set initial runaway electron density\nds.eqsys.n_re.setInitialProfile(0)\n\n# Set up hot electron distribution if hot tail is enabled\nif hot_tail_enabled:\n    ds.eqsys.f_hot.setInitialProfile(0)\n    ds.eqsys.f_hot.setType(HotElectronDistribution.TYPE_PRESCRIBED)\n\n# Run simulation\nruniface(ds, 'output_radial_transport.h5', quiet=False)\n```",
+  "latency_seconds": 5.316581398999915,
+  "usage": {
+    "completion_tokens": 786,
+    "prompt_tokens": 238,
+    "total_tokens": 1024,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6764,
+  "response_sha256": "d970cb49927844d564622353923cdd55b6b028a95ac3c0f1070ccbb69e7e45bc",
+  "artifact_sha256": "23016b5fd0968e6f72dc9eb2e3d9861c2102ee8c8662d95d57c6b2bf47b395eb"
+}

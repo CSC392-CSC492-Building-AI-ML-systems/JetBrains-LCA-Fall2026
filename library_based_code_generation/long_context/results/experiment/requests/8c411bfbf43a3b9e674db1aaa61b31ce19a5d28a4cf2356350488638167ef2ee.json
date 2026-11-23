@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 50,
+    "task_sha256": "cf5d27390bbc58532843f0e5a00e59510546bed6c0c0185b92cea6e20e7b940f",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up and runs a behavioral cloning (BC) experiment on a specified environment using the Acme library. The code should define several flags for configuring the experiment, such as the environment name, number of demonstrations, learning steps, batch size, learning rate, dropout rate, and network parameters. It should also include functions to create a demonstration dataset factory, an environment factory, and a network factory. The network should be a multi-layer perceptron (MLP) with ReLU activation and dropout. The code should also include a function to build the experiment configuration, which uses the previously defined factories and the BC builder. Finally, the code should include a main function that builds the experiment configuration and runs the experiment, either in a distributed or single-threaded manner.\n\nYou can find the following APIs from the library helpful:\nshould_terminate, create_experiment_logger_factory, environment_factory, ExperimentConfig, run_experiment, make_distributed_experiment, NetworkFactory, network_factory, make_distributed_offline_experiment, _slice_and_pad, pad_and_crop, sample_and_postprocess, _loss_and_fetches, apply_and_sample, update_and_wait, split_and_put, make_experiment_logger, OfflineExperimentConfig, _get_experiment_config, RunExperimentTest"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5CvsBWzOb92VCX0a2t5NHTHBfLU",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport functools\nfrom absl import app, flags\nimport acme\nfrom acme import specs\nfrom acme.agents.jax import behavioral_cloning\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nfrom acme.utils import loggers\nimport haiku as hk\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport rlax\nimport dm_env\nimport gym\n\nFLAGS = flags.FLAGS\n\nflags.DEFINE_string('env_name', 'CartPole-v1', 'Name of the environment.')\nflags.DEFINE_integer('num_demonstrations', 100, 'Number of demonstration episodes.')\nflags.DEFINE_integer('learning_steps', 100_000, 'Number of learning steps.')\nflags.DEFINE_integer('batch_size', 64, 'Batch size for training.')\nflags.DEFINE_float('learning_rate', 1e-3, 'Learning rate for optimizer.')\nflags.DEFINE_float('dropout_rate', 0.1, 'Dropout rate for MLP.')\nflags.DEFINE_list('mlp_layers', ['256', '256'], 'Sizes of hidden layers in the MLP.')\nflags.DEFINE_bool('distributed', False, 'Whether to run distributed experiment.')\n\ndef make_environment_factory(env_name):\n    def environment_factory(seed: int) -> dm_env.Environment:\n        env = gym.make(env_name)\n        env.seed(seed)\n        return acme.wrappers.GymWrapper(env)\n    return environment_factory\n\ndef make_demonstrations_factory(env_factory, num_demonstrations):\n    def demonstrations_factory():\n        env = env_factory(seed=0)\n        spec = specs.make_environment_spec(env)\n        demonstrations = []\n        for _ in range(num_demonstrations):\n            episode = []\n            timestep = env.reset()\n            while not timestep.last():\n                action = env.action_spec().generate_value()\n                episode.append((timestep, action))\n                timestep = env.step(action)\n            demonstrations.append(episode)\n        return demonstrations\n    return demonstrations_factory\n\ndef make_network_factory(mlp_layers, dropout_rate):\n    def network_factory(spec: specs.EnvironmentSpec):\n        num_actions = spec.actions.num_values if hasattr(spec.actions, 'num_values') else spec.actions.shape[0]\n        def net_fn(obs, is_training=True):\n            mlp = hk.Sequential([\n                hk.Flatten(),\n                hk.nets.MLP([int(x) for x in mlp_layers], activation=jax.nn.relu, activate_final=True),\n                hk.dropout(hk.next_rng_key(), dropout_rate, jnp.ones([int(mlp_layers[-1])])),\n                hk.Linear(num_actions),\n            ])\n            return mlp(obs)\n        return hk.without_apply_rng(hk.transform(net_fn))\n    return network_factory\n\ndef build_experiment_config():\n    env_factory = make_environment_factory(FLAGS.env_name)\n    demonstrations_factory = make_demonstrations_factory(env_factory, FLAGS.num_demonstrations)\n    network_factory = make_network_factory(FLAGS.mlp_layers, FLAGS.dropout_rate)\n    bc_builder = behavioral_cloning.BCBuilder(\n        learning_rate=FLAGS.learning_rate,\n        batch_size=FLAGS.batch_size,\n        num_steps=FLAGS.learning_steps,\n    )\n    logger_factory = experiments.create_experiment_logger_factory(\n        log_to_bigtable=False,\n        log_to_terminal=True,\n        log_to_csv=True,\n        csv_path='logs',\n    )\n    return experiments.OfflineExperimentConfig(\n        builder=bc_builder,\n        environment_factory=env_factory,\n        network_factory=network_factory,\n        demonstration_dataset_factory=demonstrations_factory,\n        logger_factory=logger_factory,\n        max_num_actor_steps=FLAGS.learning_steps,\n    )\n\ndef main(_):\n    config = build_experiment_config()\n    if FLAGS.distributed:\n        experiment = experiments.make_distributed_offline_experiment(config)\n        experiment.launch()\n    else:\n        experiments.run_experiment(config)\n\nif __name__ == '__main__':\n    app.run(main)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128469,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_67c7cfda46",
+    "usage": {
+      "completion_tokens": 816,
+      "prompt_tokens": 288,
+      "total_tokens": 1104,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport functools\nfrom absl import app, flags\nimport acme\nfrom acme import specs\nfrom acme.agents.jax import behavioral_cloning\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nfrom acme.utils import loggers\nimport haiku as hk\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport rlax\nimport dm_env\nimport gym\n\nFLAGS = flags.FLAGS\n\nflags.DEFINE_string('env_name', 'CartPole-v1', 'Name of the environment.')\nflags.DEFINE_integer('num_demonstrations', 100, 'Number of demonstration episodes.')\nflags.DEFINE_integer('learning_steps', 100_000, 'Number of learning steps.')\nflags.DEFINE_integer('batch_size', 64, 'Batch size for training.')\nflags.DEFINE_float('learning_rate', 1e-3, 'Learning rate for optimizer.')\nflags.DEFINE_float('dropout_rate', 0.1, 'Dropout rate for MLP.')\nflags.DEFINE_list('mlp_layers', ['256', '256'], 'Sizes of hidden layers in the MLP.')\nflags.DEFINE_bool('distributed', False, 'Whether to run distributed experiment.')\n\ndef make_environment_factory(env_name):\n    def environment_factory(seed: int) -> dm_env.Environment:\n        env = gym.make(env_name)\n        env.seed(seed)\n        return acme.wrappers.GymWrapper(env)\n    return environment_factory\n\ndef make_demonstrations_factory(env_factory, num_demonstrations):\n    def demonstrations_factory():\n        env = env_factory(seed=0)\n        spec = specs.make_environment_spec(env)\n        demonstrations = []\n        for _ in range(num_demonstrations):\n            episode = []\n            timestep = env.reset()\n            while not timestep.last():\n                action = env.action_spec().generate_value()\n                episode.append((timestep, action))\n                timestep = env.step(action)\n            demonstrations.append(episode)\n        return demonstrations\n    return demonstrations_factory\n\ndef make_network_factory(mlp_layers, dropout_rate):\n    def network_factory(spec: specs.EnvironmentSpec):\n        num_actions = spec.actions.num_values if hasattr(spec.actions, 'num_values') else spec.actions.shape[0]\n        def net_fn(obs, is_training=True):\n            mlp = hk.Sequential([\n                hk.Flatten(),\n                hk.nets.MLP([int(x) for x in mlp_layers], activation=jax.nn.relu, activate_final=True),\n                hk.dropout(hk.next_rng_key(), dropout_rate, jnp.ones([int(mlp_layers[-1])])),\n                hk.Linear(num_actions),\n            ])\n            return mlp(obs)\n        return hk.without_apply_rng(hk.transform(net_fn))\n    return network_factory\n\ndef build_experiment_config():\n    env_factory = make_environment_factory(FLAGS.env_name)\n    demonstrations_factory = make_demonstrations_factory(env_factory, FLAGS.num_demonstrations)\n    network_factory = make_network_factory(FLAGS.mlp_layers, FLAGS.dropout_rate)\n    bc_builder = behavioral_cloning.BCBuilder(\n        learning_rate=FLAGS.learning_rate,\n        batch_size=FLAGS.batch_size,\n        num_steps=FLAGS.learning_steps,\n    )\n    logger_factory = experiments.create_experiment_logger_factory(\n        log_to_bigtable=False,\n        log_to_terminal=True,\n        log_to_csv=True,\n        csv_path='logs',\n    )\n    return experiments.OfflineExperimentConfig(\n        builder=bc_builder,\n        environment_factory=env_factory,\n        network_factory=network_factory,\n        demonstration_dataset_factory=demonstrations_factory,\n        logger_factory=logger_factory,\n        max_num_actor_steps=FLAGS.learning_steps,\n    )\n\ndef main(_):\n    config = build_experiment_config()\n    if FLAGS.distributed:\n        experiment = experiments.make_distributed_offline_experiment(config)\n        experiment.launch()\n    else:\n        experiments.run_experiment(config)\n\nif __name__ == '__main__':\n    app.run(main)\n```",
+  "latency_seconds": 4.14336295800058,
+  "usage": {
+    "completion_tokens": 816,
+    "prompt_tokens": 288,
+    "total_tokens": 1104,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7104,
+  "response_sha256": "37729264e8a85a621877de3184ed786272bf2dfd34923a30c8de9ae714655e99",
+  "artifact_sha256": "6d0238fab8e88d25390129f8f1c688fd9185c41ce76c8bf3b037ca49062fba85"
+}

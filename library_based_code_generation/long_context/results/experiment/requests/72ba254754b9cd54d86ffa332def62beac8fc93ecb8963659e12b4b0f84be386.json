@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 130,
+    "task_sha256": "3698dedda3b66265467a5f8030f62b174ae6d9791340627709128cdb07203baf",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary modules and functions from the mpi-sppy library and other necessary libraries. The code should define a function to parse arguments from the command line and set up a configuration object with various parameters. Then, it should define a main function that uses the parsed arguments to set up a scenario creator and a list of scenario names. The main function should also check if the number of scenarios is in a predefined list of available scenarios. Depending on the configuration, the main function should set up different extensions and spokes for the scenario. The main function should also create a WheelSpinner object with the hub and spokes, spin the wheel, and write the solution to a file if a solution directory is provided. Finally, the code should call the main function if the script is run as the main program.\n\nYou can find the following APIs from the library helpful:\nspin_the_wheel, write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution, main, production_cost_function, ph_main, fwph_main, APH_main, _main_body, _set_weights_and_solve, calculate_spinning_reserve_available_rule_part_a, enforce_storage_output_limits_rule_part_a, enforce_storage_input_limits_rule_part_a, setUp, add_and_assign, _look_and_leap, _write_W_and_xbar, _add_data_and_write, _disable_W_and_prox, _update_weights_and_solve"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5yL4xucPKrIuy7rJGTzNl2Lqlll",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport os\nfrom mpi4py import MPI\nfrom mpi_sppy.spin_the_wheel import WheelSpinner, spin_the_wheel\nfrom mpi_sppy.utils import write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Run mpi-sppy scenario optimization.\")\n    parser.add_argument(\"--num-scenarios\", type=int, required=True, help=\"Number of scenarios to use.\")\n    parser.add_argument(\"--solution-dir\", type=str, default=None, help=\"Directory to write solution files.\")\n    parser.add_argument(\"--extension\", type=str, choices=[\"ph\", \"fwph\", \"aph\"], default=\"ph\", help=\"Extension to use.\")\n    parser.add_argument(\"--spokes\", nargs='*', default=[], help=\"List of spokes to use.\")\n    parser.add_argument(\"--config-param\", type=str, default=None, help=\"Additional config parameter.\")\n    parser.add_argument(\"--available-scenarios\", nargs='+', type=int, default=[2, 4, 8, 16], help=\"Available scenario counts.\")\n    return parser.parse_args()\n\nclass Config:\n    def __init__(self, args):\n        self.num_scenarios = args.num_scenarios\n        self.solution_dir = args.solution_dir\n        self.extension = args.extension\n        self.spokes = args.spokes\n        self.config_param = args.config_param\n        self.available_scenarios = args.available_scenarios\n\ndef scenario_creator(scenario_name, **kwargs):\n    # Placeholder for actual scenario creation logic\n    return {\"name\": scenario_name}\n\ndef main():\n    args = parse_args()\n    config = Config(args)\n\n    if config.num_scenarios not in config.available_scenarios:\n        raise ValueError(f\"Number of scenarios {config.num_scenarios} not in available scenarios {config.available_scenarios}\")\n\n    scenario_names = [f\"Scenario{i+1}\" for i in range(config.num_scenarios)]\n\n    # Set up extensions and spokes\n    extensions = {}\n    spokes = []\n\n    if config.extension == \"ph\":\n        from mpi_sppy.extensions.ph import PHExtension\n        extensions[\"ph\"] = PHExtension\n    elif config.extension == \"fwph\":\n        from mpi_sppy.extensions.fwph import FWPHExtension\n        extensions[\"fwph\"] = FWPHExtension\n    elif config.extension == \"aph\":\n        from mpi_sppy.extensions.aph import APHExtension\n        extensions[\"aph\"] = APHExtension\n\n    for spoke in config.spokes:\n        if spoke == \"fwph\":\n            from mpi_sppy.spoke_fwph import FWPHSpoke\n            spokes.append(FWPHSpoke)\n        elif spoke == \"ph\":\n            from mpi_sppy.spoke_ph import PHSpoke\n            spokes.append(PHSpoke)\n        elif spoke == \"xhatshuffle\":\n            from mpi_sppy.spoke_xhatshuffle import XhatShuffleSpoke\n            spokes.append(XhatShuffleSpoke)\n        elif spoke == \"xhatlooper\":\n            from mpi_sppy.spoke_xhatlooper import XhatLooperSpoke\n            spokes.append(XhatLooperSpoke)\n        # Add more spokes as needed\n\n    hub_class = None\n    if config.extension == \"ph\":\n        from mpi_sppy.hub import PHHub\n        hub_class = PHHub\n    elif config.extension == \"fwph\":\n        from mpi_sppy.hub import FWPHHub\n        hub_class = FWPHHub\n    elif config.extension == \"aph\":\n        from mpi_sppy.hub import APHHub\n        hub_class = APHHub\n\n    hub = hub_class(\n        scenario_creator=scenario_creator,\n        scenario_names=scenario_names,\n        extensions=extensions,\n        config=config\n    )\n\n    spoke_objs = []\n    for spoke_class in spokes:\n        spoke_objs.append(\n            spoke_class(\n                scenario_creator=scenario_creator,\n                scenario_names=scenario_names,\n                config=config\n            )\n        )\n\n    wheel = WheelSpinner(hub, spoke_objs)\n    spin_the_wheel(wheel)\n\n    if config.solution_dir is not None and MPI.COMM_WORLD.Get_rank() == 0:\n        os.makedirs(config.solution_dir, exist_ok=True)\n        write_spin_the_wheel_first_stage_solution(wheel, config.solution_dir)\n        write_spin_the_wheel_tree_solution(wheel, config.solution_dir)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131409,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 928,
+      "prompt_tokens": 317,
+      "total_tokens": 1245,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport os\nfrom mpi4py import MPI\nfrom mpi_sppy.spin_the_wheel import WheelSpinner, spin_the_wheel\nfrom mpi_sppy.utils import write_spin_the_wheel_tree_solution, write_spin_the_wheel_first_stage_solution\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Run mpi-sppy scenario optimization.\")\n    parser.add_argument(\"--num-scenarios\", type=int, required=True, help=\"Number of scenarios to use.\")\n    parser.add_argument(\"--solution-dir\", type=str, default=None, help=\"Directory to write solution files.\")\n    parser.add_argument(\"--extension\", type=str, choices=[\"ph\", \"fwph\", \"aph\"], default=\"ph\", help=\"Extension to use.\")\n    parser.add_argument(\"--spokes\", nargs='*', default=[], help=\"List of spokes to use.\")\n    parser.add_argument(\"--config-param\", type=str, default=None, help=\"Additional config parameter.\")\n    parser.add_argument(\"--available-scenarios\", nargs='+', type=int, default=[2, 4, 8, 16], help=\"Available scenario counts.\")\n    return parser.parse_args()\n\nclass Config:\n    def __init__(self, args):\n        self.num_scenarios = args.num_scenarios\n        self.solution_dir = args.solution_dir\n        self.extension = args.extension\n        self.spokes = args.spokes\n        self.config_param = args.config_param\n        self.available_scenarios = args.available_scenarios\n\ndef scenario_creator(scenario_name, **kwargs):\n    # Placeholder for actual scenario creation logic\n    return {\"name\": scenario_name}\n\ndef main():\n    args = parse_args()\n    config = Config(args)\n\n    if config.num_scenarios not in config.available_scenarios:\n        raise ValueError(f\"Number of scenarios {config.num_scenarios} not in available scenarios {config.available_scenarios}\")\n\n    scenario_names = [f\"Scenario{i+1}\" for i in range(config.num_scenarios)]\n\n    # Set up extensions and spokes\n    extensions = {}\n    spokes = []\n\n    if config.extension == \"ph\":\n        from mpi_sppy.extensions.ph import PHExtension\n        extensions[\"ph\"] = PHExtension\n    elif config.extension == \"fwph\":\n        from mpi_sppy.extensions.fwph import FWPHExtension\n        extensions[\"fwph\"] = FWPHExtension\n    elif config.extension == \"aph\":\n        from mpi_sppy.extensions.aph import APHExtension\n        extensions[\"aph\"] = APHExtension\n\n    for spoke in config.spokes:\n        if spoke == \"fwph\":\n            from mpi_sppy.spoke_fwph import FWPHSpoke\n            spokes.append(FWPHSpoke)\n        elif spoke == \"ph\":\n            from mpi_sppy.spoke_ph import PHSpoke\n            spokes.append(PHSpoke)\n        elif spoke == \"xhatshuffle\":\n            from mpi_sppy.spoke_xhatshuffle import XhatShuffleSpoke\n            spokes.append(XhatShuffleSpoke)\n        elif spoke == \"xhatlooper\":\n            from mpi_sppy.spoke_xhatlooper import XhatLooperSpoke\n            spokes.append(XhatLooperSpoke)\n        # Add more spokes as needed\n\n    hub_class = None\n    if config.extension == \"ph\":\n        from mpi_sppy.hub import PHHub\n        hub_class = PHHub\n    elif config.extension == \"fwph\":\n        from mpi_sppy.hub import FWPHHub\n        hub_class = FWPHHub\n    elif config.extension == \"aph\":\n        from mpi_sppy.hub import APHHub\n        hub_class = APHHub\n\n    hub = hub_class(\n        scenario_creator=scenario_creator,\n        scenario_names=scenario_names,\n        extensions=extensions,\n        config=config\n    )\n\n    spoke_objs = []\n    for spoke_class in spokes:\n        spoke_objs.append(\n            spoke_class(\n                scenario_creator=scenario_creator,\n                scenario_names=scenario_names,\n                config=config\n            )\n        )\n\n    wheel = WheelSpinner(hub, spoke_objs)\n    spin_the_wheel(wheel)\n\n    if config.solution_dir is not None and MPI.COMM_WORLD.Get_rank() == 0:\n        os.makedirs(config.solution_dir, exist_ok=True)\n        write_spin_the_wheel_first_stage_solution(wheel, config.solution_dir)\n        write_spin_the_wheel_tree_solution(wheel, config.solution_dir)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 4.683467708000535,
+  "usage": {
+    "completion_tokens": 928,
+    "prompt_tokens": 317,
+    "total_tokens": 1245,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8058,
+  "response_sha256": "0451054599e5698f298b842c7979a29ae0568c6113e71d39bed897e8bd7431ba",
+  "artifact_sha256": "809fc1589f75dd99b934d17266043c078a5c1ec9b402838b135fb9a1387f58c1"
+}

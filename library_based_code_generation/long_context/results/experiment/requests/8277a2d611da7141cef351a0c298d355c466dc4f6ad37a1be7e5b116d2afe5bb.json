@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 84,
+    "task_sha256": "7d955dee6d0e304057c7ea7019ed388256cdd2e588163aedeb2cc9bd425d3074",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that constructs Maximally Localized Wannier Functions (MLWFs) using the pywannier90 tool from the pyscf library. The code should define a unit cell, perform a PBE calculation, save and load the kks object, construct MLWFs, export the MLWFs in xsf format for plotting, export certain matrices and run a wannier90 using these, interpolate the Fock or band structure using the Slater-Koster scheme, print the difference in the eigenvalues interpolated by scf.get_bands function and by pywannier90, and plot the band structure using mcu."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5XrniFysBLHMqWgYymrfj53ilVH",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, dft\nfrom pyscf.pbc import gto as pbcgto, scf as pbcscf, dft as pbcdft\nfrom pyscf.pbc.tools import band_structure\nfrom pyscf.pbc.tools import k2gamma\nfrom pyscf.pbc.tools import pyscf2wannier90\nfrom pyscf.pbc.tools import mcu\nfrom pywannier90 import pywannier90\n\n# 1. Define a unit cell (Silicon as example)\ncell = pbcgto.Cell()\ncell.atom = '''\nSi 0.000000 0.000000 0.000000\nSi 1.357500 1.357500 1.357500\n'''\ncell.a = '''\n0.000000 2.715000 2.715000\n2.715000 0.000000 2.715000\n2.715000 2.715000 0.000000\n'''\ncell.unit = 'B'\ncell.basis = 'gth-szv'\ncell.pseudo = 'gth-pade'\ncell.verbose = 4\ncell.build()\n\n# 2. Perform a PBE calculation\nkmesh = [4, 4, 4]\nkmf = pbcdft.KRKS(cell, kpts=cell.make_kpts(kmesh))\nkmf.xc = 'PBE'\nkmf.kernel()\n\n# 3. Save and load the kks object\nimport pickle\nwith open('kks.pkl', 'wb') as f:\n    pickle.dump(kmf, f)\nwith open('kks.pkl', 'rb') as f:\n    kmf = pickle.load(f)\n\n# 4. Construct MLWFs using pywannier90\n# Prepare input for Wannier90\nwannier = pywannier90.PyWannier90(cell, kmf)\nwannier.num_wann = 4\nwannier.num_bands = 8\nwannier.proj = ['Si : sp3', 'Si : sp3']\nwannier.setup()\nwannier.run()\n\n# 5. Export the MLWFs in xsf format for plotting\nwannier.export_wf_xsf('wannier_functions.xsf')\n\n# 6. Export certain matrices (hamiltonian, overlap, etc.)\nwannier.export_hr('wannier_hr.dat')\nwannier.export_unk('wannier_unk')\n\n# 7. Run wannier90 using these\nwannier.run_wannier90()\n\n# 8. Interpolate the Fock or band structure using the Slater-Koster scheme\nkpts_band = cell.make_kpts([20,1,1], with_gamma_point=True)\ne_wannier = wannier.interpolate_bands(kpts_band)\n\n# 9. Print the difference in the eigenvalues interpolated by scf.get_bands and by pywannier90\ne_scf, _ = kmf.get_bands(kpts_band)\ndiff = np.abs(e_scf[:wannier.num_wann] - e_wannier)\nprint(\"Max difference between SCF and Wannier interpolated bands:\", np.max(diff))\n\n# 10. Plot the band structure using mcu\nimport matplotlib.pyplot as plt\nplt.figure()\nfor i in range(e_wannier.shape[1]):\n    plt.plot(np.arange(len(kpts_band)), e_wannier[:,i], label=f'Wannier band {i+1}')\nfor i in range(e_scf.shape[1]):\n    plt.plot(np.arange(len(kpts_band)), e_scf[:,i], '--', label=f'SCF band {i+1}')\nplt.xlabel('k-point index')\nplt.ylabel('Energy (eV)')\nplt.legend()\nplt.title('Band structure: SCF vs Wannier90')\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129767,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 803,
+      "prompt_tokens": 158,
+      "total_tokens": 961,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, dft\nfrom pyscf.pbc import gto as pbcgto, scf as pbcscf, dft as pbcdft\nfrom pyscf.pbc.tools import band_structure\nfrom pyscf.pbc.tools import k2gamma\nfrom pyscf.pbc.tools import pyscf2wannier90\nfrom pyscf.pbc.tools import mcu\nfrom pywannier90 import pywannier90\n\n# 1. Define a unit cell (Silicon as example)\ncell = pbcgto.Cell()\ncell.atom = '''\nSi 0.000000 0.000000 0.000000\nSi 1.357500 1.357500 1.357500\n'''\ncell.a = '''\n0.000000 2.715000 2.715000\n2.715000 0.000000 2.715000\n2.715000 2.715000 0.000000\n'''\ncell.unit = 'B'\ncell.basis = 'gth-szv'\ncell.pseudo = 'gth-pade'\ncell.verbose = 4\ncell.build()\n\n# 2. Perform a PBE calculation\nkmesh = [4, 4, 4]\nkmf = pbcdft.KRKS(cell, kpts=cell.make_kpts(kmesh))\nkmf.xc = 'PBE'\nkmf.kernel()\n\n# 3. Save and load the kks object\nimport pickle\nwith open('kks.pkl', 'wb') as f:\n    pickle.dump(kmf, f)\nwith open('kks.pkl', 'rb') as f:\n    kmf = pickle.load(f)\n\n# 4. Construct MLWFs using pywannier90\n# Prepare input for Wannier90\nwannier = pywannier90.PyWannier90(cell, kmf)\nwannier.num_wann = 4\nwannier.num_bands = 8\nwannier.proj = ['Si : sp3', 'Si : sp3']\nwannier.setup()\nwannier.run()\n\n# 5. Export the MLWFs in xsf format for plotting\nwannier.export_wf_xsf('wannier_functions.xsf')\n\n# 6. Export certain matrices (hamiltonian, overlap, etc.)\nwannier.export_hr('wannier_hr.dat')\nwannier.export_unk('wannier_unk')\n\n# 7. Run wannier90 using these\nwannier.run_wannier90()\n\n# 8. Interpolate the Fock or band structure using the Slater-Koster scheme\nkpts_band = cell.make_kpts([20,1,1], with_gamma_point=True)\ne_wannier = wannier.interpolate_bands(kpts_band)\n\n# 9. Print the difference in the eigenvalues interpolated by scf.get_bands and by pywannier90\ne_scf, _ = kmf.get_bands(kpts_band)\ndiff = np.abs(e_scf[:wannier.num_wann] - e_wannier)\nprint(\"Max difference between SCF and Wannier interpolated bands:\", np.max(diff))\n\n# 10. Plot the band structure using mcu\nimport matplotlib.pyplot as plt\nplt.figure()\nfor i in range(e_wannier.shape[1]):\n    plt.plot(np.arange(len(kpts_band)), e_wannier[:,i], label=f'Wannier band {i+1}')\nfor i in range(e_scf.shape[1]):\n    plt.plot(np.arange(len(kpts_band)), e_scf[:,i], '--', label=f'SCF band {i+1}')\nplt.xlabel('k-point index')\nplt.ylabel('Energy (eV)')\nplt.legend()\nplt.title('Band structure: SCF vs Wannier90')\nplt.show()\n```",
+  "latency_seconds": 7.355920851001429,
+  "usage": {
+    "completion_tokens": 803,
+    "prompt_tokens": 158,
+    "total_tokens": 961,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6740,
+  "response_sha256": "7b37edfbba8180471ad94602ec0889a2d930e8f0ae3c7b0393effd2e265e8c8d",
+  "artifact_sha256": "910ed9dbc01a476cb7652fa50214d074f64401202b3a3aab4b00b6d418f60138"
+}

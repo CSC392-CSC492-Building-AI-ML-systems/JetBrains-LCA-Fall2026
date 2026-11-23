@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 80,
+    "task_sha256": "a7c30f2491b3c631cc7f1c066952e044ab81041946cba276d934150080c51177",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that adapts the Avalanche library to use Huggingface models and datasets for a machine translation task. The code should include a custom data collator class that pads labels and prepares decoder input ids. It should also include a class that modifies the Avalanche Naive training strategy to handle Huggingface minibatches and adapt the forward and criterion methods for machine translation tasks. The main function should load a tokenizer and a dataset, preprocess the dataset, create a sequence-to-sequence model, and set up a continual learning scenario with the Avalanche library. The model should be trained and evaluated on the continual learning benchmark."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5UrMFgy0bK3KeE5ESaEukblhZZy",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nfrom torch.utils.data import DataLoader\nfrom transformers import (\n    AutoTokenizer,\n    AutoModelForSeq2SeqLM,\n    DataCollatorForSeq2Seq,\n)\nfrom datasets import load_dataset\nfrom avalanche.benchmarks import nc_benchmark\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom avalanche.logging import InteractiveLogger\n\nclass MTDataCollator:\n    def __init__(self, tokenizer, model, padding=True, max_length=None):\n        self.tokenizer = tokenizer\n        self.model = model\n        self.padding = padding\n        self.max_length = max_length\n\n    def __call__(self, batch):\n        input_ids = [item['input_ids'] for item in batch]\n        labels = [item['labels'] for item in batch]\n        input_ids = self.tokenizer.pad(\n            {'input_ids': input_ids},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )['input_ids']\n        labels = self.tokenizer.pad(\n            {'input_ids': labels},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )['input_ids']\n        labels[labels == self.tokenizer.pad_token_id] = -100\n        decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(labels)\n        return {\n            'input_ids': input_ids,\n            'labels': labels,\n            'decoder_input_ids': decoder_input_ids,\n            'attention_mask': (input_ids != self.tokenizer.pad_token_id).long()\n        }\n\nclass NaiveMT(Naive):\n    def __init__(self, *args, **kwargs):\n        super().__init__(*args, **kwargs)\n    \n    def forward(self):\n        batch = self.mbatch\n        input_ids = batch['input_ids'].to(self.device)\n        attention_mask = batch['attention_mask'].to(self.device)\n        labels = batch['labels'].to(self.device)\n        decoder_input_ids = batch['decoder_input_ids'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            decoder_input_ids=decoder_input_ids,\n            labels=labels,\n        )\n        return outputs\n\n    def criterion(self):\n        return self.mb_output.loss\n\ndef preprocess_function(examples, tokenizer, max_source_length=128, max_target_length=128, src_lang='en', tgt_lang='de'):\n    inputs = examples['translation'][src_lang]\n    targets = examples['translation'][tgt_lang]\n    model_inputs = tokenizer(\n        inputs, max_length=max_source_length, truncation=True, padding=False\n    )\n    with tokenizer.as_target_tokenizer():\n        labels = tokenizer(\n            targets, max_length=max_target_length, truncation=True, padding=False\n        )\n    model_inputs['labels'] = labels['input_ids']\n    return model_inputs\n\ndef main():\n    model_name = \"Helsinki-NLP/opus-mt-en-de\"\n    tokenizer = AutoTokenizer.from_pretrained(model_name)\n    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)\n\n    dataset = load_dataset(\"wmt14\", \"de-en\", split='train[:2000]')\n    test_dataset = load_dataset(\"wmt14\", \"de-en\", split='test[:500]')\n\n    src_lang = 'en'\n    tgt_lang = 'de'\n    max_source_length = 64\n    max_target_length = 64\n\n    def preprocess(examples):\n        return preprocess_function(\n            examples, tokenizer, max_source_length, max_target_length, src_lang, tgt_lang\n        )\n\n    dataset = dataset.map(preprocess, batched=True)\n    test_dataset = test_dataset.map(preprocess, batched=True)\n\n    # Split into 2 experiences for demonstration\n    train_exps = [\n        dataset.select(range(0, 1000)),\n        dataset.select(range(1000, 2000))\n    ]\n    test_exps = [\n        test_dataset.select(range(0, 250)),\n        test_dataset.select(range(250, 500))\n    ]\n\n    scenario = nc_benchmark(\n        train_datasets=train_exps,\n        test_datasets=test_exps,\n        task_labels=False,\n        shuffle=False,\n        seed=42\n    )\n\n    data_collator = MTDataCollator(tokenizer, model, padding=True, max_length=max_source_length)\n\n    logger = InteractiveLogger()\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        loggers=[logger]\n    )\n\n    strategy = NaiveMT(\n        model,\n        torch.optim.AdamW(model.parameters(), lr=2e-5),\n        torch.nn.CrossEntropyLoss(ignore_index=-100),\n        train_mb_size=8,\n        train_epochs=1,\n        eval_mb_size=8,\n        device='cuda' if torch.cuda.is_available() else 'cpu',\n        evaluator=eval_plugin,\n        eval_every=1,\n        data_loader=DataLoader,\n        collate_fn=data_collator\n    )\n\n    for experience in scenario.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        strategy.train(experience.dataset)\n        print(\"Training completed\")\n        print(\"Computing accuracy on the test set\")\n        strategy.eval(scenario.test_stream)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129581,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 1134,
+      "prompt_tokens": 153,
+      "total_tokens": 1287,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nfrom torch.utils.data import DataLoader\nfrom transformers import (\n    AutoTokenizer,\n    AutoModelForSeq2SeqLM,\n    DataCollatorForSeq2Seq,\n)\nfrom datasets import load_dataset\nfrom avalanche.benchmarks import nc_benchmark\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom avalanche.logging import InteractiveLogger\n\nclass MTDataCollator:\n    def __init__(self, tokenizer, model, padding=True, max_length=None):\n        self.tokenizer = tokenizer\n        self.model = model\n        self.padding = padding\n        self.max_length = max_length\n\n    def __call__(self, batch):\n        input_ids = [item['input_ids'] for item in batch]\n        labels = [item['labels'] for item in batch]\n        input_ids = self.tokenizer.pad(\n            {'input_ids': input_ids},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )['input_ids']\n        labels = self.tokenizer.pad(\n            {'input_ids': labels},\n            padding=self.padding,\n            max_length=self.max_length,\n            return_tensors='pt'\n        )['input_ids']\n        labels[labels == self.tokenizer.pad_token_id] = -100\n        decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(labels)\n        return {\n            'input_ids': input_ids,\n            'labels': labels,\n            'decoder_input_ids': decoder_input_ids,\n            'attention_mask': (input_ids != self.tokenizer.pad_token_id).long()\n        }\n\nclass NaiveMT(Naive):\n    def __init__(self, *args, **kwargs):\n        super().__init__(*args, **kwargs)\n    \n    def forward(self):\n        batch = self.mbatch\n        input_ids = batch['input_ids'].to(self.device)\n        attention_mask = batch['attention_mask'].to(self.device)\n        labels = batch['labels'].to(self.device)\n        decoder_input_ids = batch['decoder_input_ids'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            decoder_input_ids=decoder_input_ids,\n            labels=labels,\n        )\n        return outputs\n\n    def criterion(self):\n        return self.mb_output.loss\n\ndef preprocess_function(examples, tokenizer, max_source_length=128, max_target_length=128, src_lang='en', tgt_lang='de'):\n    inputs = examples['translation'][src_lang]\n    targets = examples['translation'][tgt_lang]\n    model_inputs = tokenizer(\n        inputs, max_length=max_source_length, truncation=True, padding=False\n    )\n    with tokenizer.as_target_tokenizer():\n        labels = tokenizer(\n            targets, max_length=max_target_length, truncation=True, padding=False\n        )\n    model_inputs['labels'] = labels['input_ids']\n    return model_inputs\n\ndef main():\n    model_name = \"Helsinki-NLP/opus-mt-en-de\"\n    tokenizer = AutoTokenizer.from_pretrained(model_name)\n    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)\n\n    dataset = load_dataset(\"wmt14\", \"de-en\", split='train[:2000]')\n    test_dataset = load_dataset(\"wmt14\", \"de-en\", split='test[:500]')\n\n    src_lang = 'en'\n    tgt_lang = 'de'\n    max_source_length = 64\n    max_target_length = 64\n\n    def preprocess(examples):\n        return preprocess_function(\n            examples, tokenizer, max_source_length, max_target_length, src_lang, tgt_lang\n        )\n\n    dataset = dataset.map(preprocess, batched=True)\n    test_dataset = test_dataset.map(preprocess, batched=True)\n\n    # Split into 2 experiences for demonstration\n    train_exps = [\n        dataset.select(range(0, 1000)),\n        dataset.select(range(1000, 2000))\n    ]\n    test_exps = [\n        test_dataset.select(range(0, 250)),\n        test_dataset.select(range(250, 500))\n    ]\n\n    scenario = nc_benchmark(\n        train_datasets=train_exps,\n        test_datasets=test_exps,\n        task_labels=False,\n        shuffle=False,\n        seed=42\n    )\n\n    data_collator = MTDataCollator(tokenizer, model, padding=True, max_length=max_source_length)\n\n    logger = InteractiveLogger()\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        loggers=[logger]\n    )\n\n    strategy = NaiveMT(\n        model,\n        torch.optim.AdamW(model.parameters(), lr=2e-5),\n        torch.nn.CrossEntropyLoss(ignore_index=-100),\n        train_mb_size=8,\n        train_epochs=1,\n        eval_mb_size=8,\n        device='cuda' if torch.cuda.is_available() else 'cpu',\n        evaluator=eval_plugin,\n        eval_every=1,\n        data_loader=DataLoader,\n        collate_fn=data_collator\n    )\n\n    for experience in scenario.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        strategy.train(experience.dataset)\n        print(\"Training completed\")\n        print(\"Computing accuracy on the test set\")\n        strategy.eval(scenario.test_stream)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 7.719049817998894,
+  "usage": {
+    "completion_tokens": 1134,
+    "prompt_tokens": 153,
+    "total_tokens": 1287,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9378,
+  "response_sha256": "2944b269a756ccce2907eb525fdc9501f3d7e22edcf873b466270d2be9fd348f",
+  "artifact_sha256": "f3fa9226daee417b149a046ba10b207f0c979be612a5576fe871809da59da81d"
+}

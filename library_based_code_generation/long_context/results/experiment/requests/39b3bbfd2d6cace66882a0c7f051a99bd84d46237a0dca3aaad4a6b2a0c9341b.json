@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 50,
+    "task_sha256": "cf5d27390bbc58532843f0e5a00e59510546bed6c0c0185b92cea6e20e7b940f",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up and runs a behavioral cloning (BC) experiment on a specified environment using the Acme library. The code should define several flags for configuring the experiment, such as the environment name, number of demonstrations, learning steps, batch size, learning rate, dropout rate, and network parameters. It should also include functions to create a demonstration dataset factory, an environment factory, and a network factory. The network should be a multi-layer perceptron (MLP) with ReLU activation and dropout. The code should also include a function to build the experiment configuration, which uses the previously defined factories and the BC builder. Finally, the code should include a main function that builds the experiment configuration and runs the experiment, either in a distributed or single-threaded manner."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5CqTzbc6TTIeqnqJM7MqpB2gGq9",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport functools\nfrom absl import app, flags\nimport acme\nfrom acme import specs\nfrom acme.agents.jax import behavioral_cloning\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport haiku as hk\nimport optax\nimport rlax\nimport gym\n\nFLAGS = flags.FLAGS\n\nflags.DEFINE_string('env_name', 'CartPole-v1', 'Name of the environment.')\nflags.DEFINE_integer('num_demonstrations', 100, 'Number of demonstration episodes.')\nflags.DEFINE_integer('learning_steps', 100_000, 'Number of learning steps.')\nflags.DEFINE_integer('batch_size', 64, 'Batch size for training.')\nflags.DEFINE_float('learning_rate', 1e-3, 'Learning rate for optimizer.')\nflags.DEFINE_float('dropout_rate', 0.1, 'Dropout rate for MLP.')\nflags.DEFINE_list('mlp_layers', ['256', '256'], 'Sizes of MLP hidden layers.')\nflags.DEFINE_bool('distributed', False, 'Run experiment in distributed mode.')\n\ndef make_demonstrations(env_name, num_demonstrations):\n    env = gym.make(env_name)\n    demonstrations = []\n    for _ in range(num_demonstrations):\n        obs = env.reset()\n        done = False\n        episode = []\n        while not done:\n            action = env.action_space.sample()\n            next_obs, reward, done, info = env.step(action)\n            transition = {\n                'observation': obs,\n                'action': action,\n                'reward': reward,\n                'discount': 1.0 - float(done),\n                'next_observation': next_obs,\n            }\n            episode.append(transition)\n            obs = next_obs\n        demonstrations.extend(episode)\n    env.close()\n    # Convert to Acme's demonstration dataset format\n    def generator():\n        for t in demonstrations:\n            yield acme.types.Transition(\n                observation=np.array(t['observation']),\n                action=np.array(t['action']),\n                reward=np.array(t['reward']),\n                discount=np.array(t['discount']),\n                next_observation=np.array(t['next_observation']),\n            )\n    return generator\n\ndef demonstration_dataset_factory():\n    return make_demonstrations(FLAGS.env_name, FLAGS.num_demonstrations)\n\ndef environment_factory(seed: int = 0):\n    def make_env():\n        env = gym.make(FLAGS.env_name)\n        env.seed(seed)\n        return env\n    return make_env\n\ndef network_factory(spec: specs.EnvironmentSpec, is_training: bool = True):\n    mlp_layers = [int(x) for x in FLAGS.mlp_layers]\n    dropout_rate = FLAGS.dropout_rate\n\n    def net_fn(obs):\n        mlp = hk.Sequential([\n            hk.Flatten(),\n            hk.nets.MLP(mlp_layers, activation=jax.nn.relu),\n            hk.dropout(hk.next_rng_key(), dropout_rate, jnp.ones(mlp_layers[-1])) if is_training and dropout_rate > 0 else lambda x: x,\n            hk.Linear(spec.actions.num_values if hasattr(spec.actions, 'num_values') else spec.actions.shape[0]),\n        ])\n        return mlp(obs)\n    return hk.without_apply_rng(hk.transform(net_fn))\n\ndef build_experiment_config():\n    env_factory = environment_factory()\n    env = env_factory()\n    env_spec = acme.make_environment_spec(env)\n    net_factory = functools.partial(network_factory, is_training=True)\n    bc_builder = behavioral_cloning.BCBuilder(\n        demonstrations=demonstration_dataset_factory(),\n        batch_size=FLAGS.batch_size,\n        learning_rate=FLAGS.learning_rate,\n        num_steps=FLAGS.learning_steps,\n        policy_network_factory=net_factory,\n        dropout_rate=FLAGS.dropout_rate,\n    )\n    return experiments.ExperimentConfig(\n        builder=bc_builder,\n        environment_factory=env_factory,\n        network_factory=net_factory,\n        seed=0,\n        max_num_actor_steps=FLAGS.learning_steps,\n        evaluator_factories=[],\n    )\n\ndef main(_):\n    config = build_experiment_config()\n    if FLAGS.distributed:\n        program = experiments.make_distributed_experiment(config)\n        acme.launch_program(program)\n    else:\n        experiments.run_experiment(config)\n\nif __name__ == '__main__':\n    app.run(main)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128464,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_67c7cfda46",
+    "usage": {
+      "completion_tokens": 910,
+      "prompt_tokens": 187,
+      "total_tokens": 1097,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport functools\nfrom absl import app, flags\nimport acme\nfrom acme import specs\nfrom acme.agents.jax import behavioral_cloning\nfrom acme.jax import experiments\nfrom acme.jax import utils as acme_utils\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport haiku as hk\nimport optax\nimport rlax\nimport gym\n\nFLAGS = flags.FLAGS\n\nflags.DEFINE_string('env_name', 'CartPole-v1', 'Name of the environment.')\nflags.DEFINE_integer('num_demonstrations', 100, 'Number of demonstration episodes.')\nflags.DEFINE_integer('learning_steps', 100_000, 'Number of learning steps.')\nflags.DEFINE_integer('batch_size', 64, 'Batch size for training.')\nflags.DEFINE_float('learning_rate', 1e-3, 'Learning rate for optimizer.')\nflags.DEFINE_float('dropout_rate', 0.1, 'Dropout rate for MLP.')\nflags.DEFINE_list('mlp_layers', ['256', '256'], 'Sizes of MLP hidden layers.')\nflags.DEFINE_bool('distributed', False, 'Run experiment in distributed mode.')\n\ndef make_demonstrations(env_name, num_demonstrations):\n    env = gym.make(env_name)\n    demonstrations = []\n    for _ in range(num_demonstrations):\n        obs = env.reset()\n        done = False\n        episode = []\n        while not done:\n            action = env.action_space.sample()\n            next_obs, reward, done, info = env.step(action)\n            transition = {\n                'observation': obs,\n                'action': action,\n                'reward': reward,\n                'discount': 1.0 - float(done),\n                'next_observation': next_obs,\n            }\n            episode.append(transition)\n            obs = next_obs\n        demonstrations.extend(episode)\n    env.close()\n    # Convert to Acme's demonstration dataset format\n    def generator():\n        for t in demonstrations:\n            yield acme.types.Transition(\n                observation=np.array(t['observation']),\n                action=np.array(t['action']),\n                reward=np.array(t['reward']),\n                discount=np.array(t['discount']),\n                next_observation=np.array(t['next_observation']),\n            )\n    return generator\n\ndef demonstration_dataset_factory():\n    return make_demonstrations(FLAGS.env_name, FLAGS.num_demonstrations)\n\ndef environment_factory(seed: int = 0):\n    def make_env():\n        env = gym.make(FLAGS.env_name)\n        env.seed(seed)\n        return env\n    return make_env\n\ndef network_factory(spec: specs.EnvironmentSpec, is_training: bool = True):\n    mlp_layers = [int(x) for x in FLAGS.mlp_layers]\n    dropout_rate = FLAGS.dropout_rate\n\n    def net_fn(obs):\n        mlp = hk.Sequential([\n            hk.Flatten(),\n            hk.nets.MLP(mlp_layers, activation=jax.nn.relu),\n            hk.dropout(hk.next_rng_key(), dropout_rate, jnp.ones(mlp_layers[-1])) if is_training and dropout_rate > 0 else lambda x: x,\n            hk.Linear(spec.actions.num_values if hasattr(spec.actions, 'num_values') else spec.actions.shape[0]),\n        ])\n        return mlp(obs)\n    return hk.without_apply_rng(hk.transform(net_fn))\n\ndef build_experiment_config():\n    env_factory = environment_factory()\n    env = env_factory()\n    env_spec = acme.make_environment_spec(env)\n    net_factory = functools.partial(network_factory, is_training=True)\n    bc_builder = behavioral_cloning.BCBuilder(\n        demonstrations=demonstration_dataset_factory(),\n        batch_size=FLAGS.batch_size,\n        learning_rate=FLAGS.learning_rate,\n        num_steps=FLAGS.learning_steps,\n        policy_network_factory=net_factory,\n        dropout_rate=FLAGS.dropout_rate,\n    )\n    return experiments.ExperimentConfig(\n        builder=bc_builder,\n        environment_factory=env_factory,\n        network_factory=net_factory,\n        seed=0,\n        max_num_actor_steps=FLAGS.learning_steps,\n        evaluator_factories=[],\n    )\n\ndef main(_):\n    config = build_experiment_config()\n    if FLAGS.distributed:\n        program = experiments.make_distributed_experiment(config)\n        acme.launch_program(program)\n    else:\n        experiments.run_experiment(config)\n\nif __name__ == '__main__':\n    app.run(main)\n```",
+  "latency_seconds": 4.969877769999584,
+  "usage": {
+    "completion_tokens": 910,
+    "prompt_tokens": 187,
+    "total_tokens": 1097,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7654,
+  "response_sha256": "fa9bb0ac37814bf15c1fef00e07e0db233084581c5780e9226e75775e9da1d37",
+  "artifact_sha256": "48e058baacca5d94cede67e7df4880ff01bee586700d34ea3bf8e94a81dad42a"
+}

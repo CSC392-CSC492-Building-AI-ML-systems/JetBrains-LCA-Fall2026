@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 61,
+    "task_sha256": "43a3467462e6e64e16c76fc4a83951eac710bcb62d97b6db99ef9069a09ad57d",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs an iterative reconstruction with radial phase encoding (RPE) data using the SIRF library. The code should include command-line options for specifying the raw data file, path to data files, output file for simulated data, reconstruction engine, and whether to run the reconstruction if non-cartesian code was compiled. It should also include an option for specifying the trajectory type (cartesian, radial, goldenangle or grpe) and whether to show plots. The code should import the necessary engine module from the SIRF library based on the specified engine option. It should then process the command-line options and define a symmetrical operator for cg-optimisation. The code should also define a function for performing the Conjugate Gradient method, which includes computing coil sensitivity maps, setting up the acquisition model, performing backward projection, and implementing the iterative reconstruction. Finally, the code should define a main function that locates the k-space raw data file, reads the acquisition data from an HDF file, pre-processes the acquisition data, sets the trajectory, sorts the processed acquisition data, and performs the reconstruction if the relevant option is set. The code should handle any errors that occur during execution and print an appropriate error message.\n\nYou can find the following APIs from the library helpful:\nfrom_acquisition_data, AcquisitionData, PoissonLogLikelihoodWithLinearModelForMeanAndProjData, set_acquisition_data, TestSTIRAcquisitionDataAlgebraFile, AcquisitionDataProcessor, new_acquisition_data, preprocess_acquisition_data, set_data_trajectory, CoilSensitivityData, data_type, get_data_trajectory, label_and_name, name_and_parameters, DataHandleVector, CoilImagesData, examples_data_path, mr_data_path, petmr_data_path, ImageData"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5Jmw6XoFnjXN0pLpn01oim2B0GX",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport os\nimport argparse\nimport traceback\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='Iterative reconstruction with RPE data using SIRF.')\n    parser.add_argument('--raw-data-file', type=str, default=None, help='Raw k-space data file (HDF5).')\n    parser.add_argument('--data-path', type=str, default=None, help='Path to data files.')\n    parser.add_argument('--simulated-data-out', type=str, default=None, help='Output file for simulated data.')\n    parser.add_argument('--engine', type=str, default='Gadgetron', choices=['Gadgetron', 'ISMRMRD'], help='Reconstruction engine.')\n    parser.add_argument('--run-recon', action='store_true', help='Run the reconstruction if non-cartesian code was compiled.')\n    parser.add_argument('--trajectory', type=str, default='radial', choices=['cartesian', 'radial', 'goldenangle', 'grpe'], help='Trajectory type.')\n    parser.add_argument('--show-plots', action='store_true', help='Show plots.')\n    return parser.parse_args()\n\ndef import_engine(engine_name):\n    if engine_name.lower() == 'gadgetron':\n        import sirf.Gadgetron as engine\n    elif engine_name.lower() == 'ismrmrd':\n        import sirf.ISMRMRD as engine\n    else:\n        raise ValueError(f\"Unknown engine: {engine_name}\")\n    return engine\n\ndef cg_reconstruction(engine, acq_data, num_iter=10):\n    # Compute coil sensitivity maps\n    csms = engine.CoilSensitivityData()\n    csms.calculate(acq_data)\n    # Set up acquisition model\n    acq_model = engine.AcquisitionModel(acq_data, csms)\n    # Define symmetrical operator for CG\n    class SymOp:\n        def __init__(self, acq_model, acq_data):\n            self.acq_model = acq_model\n            self.acq_data = acq_data\n        def mult(self, x):\n            return self.acq_model.backward(self.acq_model.forward(x))\n    sym_op = SymOp(acq_model, acq_data)\n    # Backward projection (adjoint)\n    rhs = acq_model.backward(acq_data)\n    # CG iterations\n    x = rhs.clone()\n    x.fill(0)\n    r = rhs.clone()\n    r -= sym_op.mult(x)\n    p = r.clone()\n    rsold = (r * r).sum()\n    for i in range(num_iter):\n        Ap = sym_op.mult(p)\n        alpha = rsold / ((p * Ap).sum() + 1e-10)\n        x += p * alpha\n        r -= Ap * alpha\n        rsnew = (r * r).sum()\n        if rsnew.sqrt() < 1e-6:\n            break\n        p = r + p * (rsnew / rsold)\n        rsold = rsnew\n    return x\n\ndef main():\n    args = parse_args()\n    try:\n        engine = import_engine(args.engine)\n        # Locate raw data file\n        if args.raw_data_file:\n            raw_data_file = args.raw_data_file\n        else:\n            data_path = args.data_path or engine.examples_data_path('MR')\n            raw_data_file = os.path.join(data_path, 'simulated_radial.h5')\n        if not os.path.isfile(raw_data_file):\n            raise FileNotFoundError(f\"Raw data file not found: {raw_data_file}\")\n        # Read acquisition data\n        acq_data = engine.AcquisitionData(raw_data_file)\n        # Pre-process acquisition data\n        processor = engine.AcquisitionDataProcessor()\n        processed_acq_data = processor.preprocess_acquisition_data(acq_data)\n        # Set trajectory\n        processed_acq_data.set_data_trajectory(args.trajectory)\n        # Sort processed acquisition data\n        processed_acq_data.sort()\n        # Optionally save simulated data\n        if args.simulated_data_out:\n            processed_acq_data.write(args.simulated_data_out)\n        # Perform reconstruction if requested\n        if args.run_recon:\n            recon_img = cg_reconstruction(engine, processed_acq_data)\n            recon_img.write('recon_image.h5')\n            if args.show_plots:\n                try:\n                    import matplotlib.pyplot as plt\n                    plt.imshow(recon_img.as_array()[0,0,:,:], cmap='gray')\n                    plt.title('Reconstructed Image')\n                    plt.show()\n                except Exception as e:\n                    print(f\"Plotting failed: {e}\")\n        print(\"Reconstruction completed successfully.\")\n    except Exception as e:\n        print(\"An error occurred during execution:\")\n        print(str(e))\n        traceback.print_exc()\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128894,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_c685e7bb08",
+    "usage": {
+      "completion_tokens": 992,
+      "prompt_tokens": 387,
+      "total_tokens": 1379,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport os\nimport argparse\nimport traceback\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='Iterative reconstruction with RPE data using SIRF.')\n    parser.add_argument('--raw-data-file', type=str, default=None, help='Raw k-space data file (HDF5).')\n    parser.add_argument('--data-path', type=str, default=None, help='Path to data files.')\n    parser.add_argument('--simulated-data-out', type=str, default=None, help='Output file for simulated data.')\n    parser.add_argument('--engine', type=str, default='Gadgetron', choices=['Gadgetron', 'ISMRMRD'], help='Reconstruction engine.')\n    parser.add_argument('--run-recon', action='store_true', help='Run the reconstruction if non-cartesian code was compiled.')\n    parser.add_argument('--trajectory', type=str, default='radial', choices=['cartesian', 'radial', 'goldenangle', 'grpe'], help='Trajectory type.')\n    parser.add_argument('--show-plots', action='store_true', help='Show plots.')\n    return parser.parse_args()\n\ndef import_engine(engine_name):\n    if engine_name.lower() == 'gadgetron':\n        import sirf.Gadgetron as engine\n    elif engine_name.lower() == 'ismrmrd':\n        import sirf.ISMRMRD as engine\n    else:\n        raise ValueError(f\"Unknown engine: {engine_name}\")\n    return engine\n\ndef cg_reconstruction(engine, acq_data, num_iter=10):\n    # Compute coil sensitivity maps\n    csms = engine.CoilSensitivityData()\n    csms.calculate(acq_data)\n    # Set up acquisition model\n    acq_model = engine.AcquisitionModel(acq_data, csms)\n    # Define symmetrical operator for CG\n    class SymOp:\n        def __init__(self, acq_model, acq_data):\n            self.acq_model = acq_model\n            self.acq_data = acq_data\n        def mult(self, x):\n            return self.acq_model.backward(self.acq_model.forward(x))\n    sym_op = SymOp(acq_model, acq_data)\n    # Backward projection (adjoint)\n    rhs = acq_model.backward(acq_data)\n    # CG iterations\n    x = rhs.clone()\n    x.fill(0)\n    r = rhs.clone()\n    r -= sym_op.mult(x)\n    p = r.clone()\n    rsold = (r * r).sum()\n    for i in range(num_iter):\n        Ap = sym_op.mult(p)\n        alpha = rsold / ((p * Ap).sum() + 1e-10)\n        x += p * alpha\n        r -= Ap * alpha\n        rsnew = (r * r).sum()\n        if rsnew.sqrt() < 1e-6:\n            break\n        p = r + p * (rsnew / rsold)\n        rsold = rsnew\n    return x\n\ndef main():\n    args = parse_args()\n    try:\n        engine = import_engine(args.engine)\n        # Locate raw data file\n        if args.raw_data_file:\n            raw_data_file = args.raw_data_file\n        else:\n            data_path = args.data_path or engine.examples_data_path('MR')\n            raw_data_file = os.path.join(data_path, 'simulated_radial.h5')\n        if not os.path.isfile(raw_data_file):\n            raise FileNotFoundError(f\"Raw data file not found: {raw_data_file}\")\n        # Read acquisition data\n        acq_data = engine.AcquisitionData(raw_data_file)\n        # Pre-process acquisition data\n        processor = engine.AcquisitionDataProcessor()\n        processed_acq_data = processor.preprocess_acquisition_data(acq_data)\n        # Set trajectory\n        processed_acq_data.set_data_trajectory(args.trajectory)\n        # Sort processed acquisition data\n        processed_acq_data.sort()\n        # Optionally save simulated data\n        if args.simulated_data_out:\n            processed_acq_data.write(args.simulated_data_out)\n        # Perform reconstruction if requested\n        if args.run_recon:\n            recon_img = cg_reconstruction(engine, processed_acq_data)\n            recon_img.write('recon_image.h5')\n            if args.show_plots:\n                try:\n                    import matplotlib.pyplot as plt\n                    plt.imshow(recon_img.as_array()[0,0,:,:], cmap='gray')\n                    plt.title('Reconstructed Image')\n                    plt.show()\n                except Exception as e:\n                    print(f\"Plotting failed: {e}\")\n        print(\"Reconstruction completed successfully.\")\n    except Exception as e:\n        print(\"An error occurred during execution:\")\n        print(str(e))\n        traceback.print_exc()\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 4.953414726000119,
+  "usage": {
+    "completion_tokens": 992,
+    "prompt_tokens": 387,
+    "total_tokens": 1379,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8710,
+  "response_sha256": "3627b649e85ead43c36ab4f55644bdf5417ce7f5e7bcade3f5b6796a4b6d782e",
+  "artifact_sha256": "a13484b86614375bee97590564ea1b90d42e4d5659b096f182ba8eb2e0657538"
+}

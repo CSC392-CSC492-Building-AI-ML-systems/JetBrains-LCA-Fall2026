@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 95,
+    "task_sha256": "e624f00e8e3960de227c13c79dbb21fc9c3977a17a99fd45c840a432f6480d6e",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the Avalanche library for a question answering task on the SQuAD dataset using the T5 model from HuggingFace's transformers library. The code should include a custom class that extends Avalanche's Naive class to adapt it for machine translation tasks. The main function should load the SQuAD dataset, preprocess it, and divide it into training and validation sets. It should then initialize the T5 model, set up the continual learning scenario with Avalanche, and train the model on the training set. Finally, the code should test the model by asking it a question and printing the model's answer.\n\nYou can find the following APIs from the library helpful:\ngenerate_code, check_model_and_optimizer, CelebA, load_model, avalanche_model_adaptation, setUpClass, TrainEvalModel, phase_and_task, wrap_model, create_model, unwrap_model, ExpertModel, get_model, SCRModel, AbsModel, model_adaptation, BaseModel, hash_model, save_model, test_set_random_seeds_and_align"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5dvLmJvhYIXqfeW1JMWecPyWMst",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nfrom torch.utils.data import Dataset, DataLoader, random_split\nfrom transformers import T5Tokenizer, T5ForConditionalGeneration, AdamW\nfrom avalanche.benchmarks import AvalancheDataset\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom datasets import load_dataset\n\nclass QADataset(Dataset):\n    def __init__(self, data, tokenizer, max_input_length=512, max_output_length=64):\n        self.data = data\n        self.tokenizer = tokenizer\n        self.max_input_length = max_input_length\n        self.max_output_length = max_output_length\n\n    def __len__(self):\n        return len(self.data)\n\n    def __getitem__(self, idx):\n        item = self.data[idx]\n        question = item['question']\n        context = item['context']\n        answer = item['answers']['text'][0] if len(item['answers']['text']) > 0 else \"\"\n        input_text = f\"question: {question} context: {context}\"\n        input_enc = self.tokenizer(\n            input_text,\n            truncation=True,\n            padding='max_length',\n            max_length=self.max_input_length,\n            return_tensors='pt'\n        )\n        target_enc = self.tokenizer(\n            answer,\n            truncation=True,\n            padding='max_length',\n            max_length=self.max_output_length,\n            return_tensors='pt'\n        )\n        return {\n            'input_ids': input_enc['input_ids'].squeeze(),\n            'attention_mask': input_enc['attention_mask'].squeeze(),\n            'labels': target_enc['input_ids'].squeeze()\n        }\n\nclass NaiveMT(Naive):\n    def __init__(self, model, optimizer, criterion, train_mb_size=8, eval_mb_size=8, device='cuda'):\n        super().__init__(\n            model=model,\n            optimizer=optimizer,\n            criterion=criterion,\n            train_mb_size=train_mb_size,\n            eval_mb_size=eval_mb_size,\n            device=device\n        )\n\n    def forward(self):\n        input_ids = self.mb_x['input_ids'].to(self.device)\n        attention_mask = self.mb_x['attention_mask'].to(self.device)\n        labels = self.mb_y['labels'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            labels=labels\n        )\n        return outputs.loss, outputs.logits\n\n    def criterion(self):\n        # Loss is computed in the model's forward pass\n        return self.mb_output[0]\n\ndef preprocess_squad(dataset, tokenizer):\n    data = []\n    for item in dataset:\n        if len(item['answers']['text']) > 0:\n            data.append(item)\n    return data\n\ndef main():\n    device = 'cuda' if torch.cuda.is_available() else 'cpu'\n    tokenizer = T5Tokenizer.from_pretrained('t5-small')\n    model = T5ForConditionalGeneration.from_pretrained('t5-small').to(device)\n\n    squad = load_dataset('squad')\n    train_data = preprocess_squad(squad['train'], tokenizer)\n    val_data = preprocess_squad(squad['validation'], tokenizer)\n\n    train_dataset = QADataset(train_data, tokenizer)\n    val_dataset = QADataset(val_data, tokenizer)\n\n    # Split train into train/val if needed, here we use SQuAD's own split\n    avalanche_train = AvalancheDataset(train_dataset)\n    avalanche_val = AvalancheDataset(val_dataset)\n\n    optimizer = AdamW(model.parameters(), lr=3e-4)\n    criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)\n\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True),\n        loss_metrics(epoch=True, experience=True),\n        loggers=[]\n    )\n\n    cl_strategy = NaiveMT(\n        model=model,\n        optimizer=optimizer,\n        criterion=criterion,\n        train_mb_size=8,\n        eval_mb_size=8,\n        device=device\n    )\n\n    # Training\n    cl_strategy.train(avalanche_train, num_epochs=1)\n\n    # Testing with a sample question\n    sample = val_data[0]\n    question = sample['question']\n    context = sample['context']\n    input_text = f\"question: {question} context: {context}\"\n    input_enc = tokenizer(\n        input_text,\n        return_tensors='pt',\n        truncation=True,\n        padding='max_length',\n        max_length=512\n    ).to(device)\n    with torch.no_grad():\n        output_ids = model.generate(\n            input_ids=input_enc['input_ids'],\n            attention_mask=input_enc['attention_mask'],\n            max_length=64\n        )\n    answer = tokenizer.decode(output_ids[0], skip_special_tokens=True)\n    print(f\"Question: {question}\")\n    print(f\"Predicted Answer: {answer}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130143,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8f7529d0f0",
+    "usage": {
+      "completion_tokens": 1024,
+      "prompt_tokens": 238,
+      "total_tokens": 1262,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nfrom torch.utils.data import Dataset, DataLoader, random_split\nfrom transformers import T5Tokenizer, T5ForConditionalGeneration, AdamW\nfrom avalanche.benchmarks import AvalancheDataset\nfrom avalanche.training.strategies import Naive\nfrom avalanche.training.plugins import EvaluationPlugin\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics\nfrom datasets import load_dataset\n\nclass QADataset(Dataset):\n    def __init__(self, data, tokenizer, max_input_length=512, max_output_length=64):\n        self.data = data\n        self.tokenizer = tokenizer\n        self.max_input_length = max_input_length\n        self.max_output_length = max_output_length\n\n    def __len__(self):\n        return len(self.data)\n\n    def __getitem__(self, idx):\n        item = self.data[idx]\n        question = item['question']\n        context = item['context']\n        answer = item['answers']['text'][0] if len(item['answers']['text']) > 0 else \"\"\n        input_text = f\"question: {question} context: {context}\"\n        input_enc = self.tokenizer(\n            input_text,\n            truncation=True,\n            padding='max_length',\n            max_length=self.max_input_length,\n            return_tensors='pt'\n        )\n        target_enc = self.tokenizer(\n            answer,\n            truncation=True,\n            padding='max_length',\n            max_length=self.max_output_length,\n            return_tensors='pt'\n        )\n        return {\n            'input_ids': input_enc['input_ids'].squeeze(),\n            'attention_mask': input_enc['attention_mask'].squeeze(),\n            'labels': target_enc['input_ids'].squeeze()\n        }\n\nclass NaiveMT(Naive):\n    def __init__(self, model, optimizer, criterion, train_mb_size=8, eval_mb_size=8, device='cuda'):\n        super().__init__(\n            model=model,\n            optimizer=optimizer,\n            criterion=criterion,\n            train_mb_size=train_mb_size,\n            eval_mb_size=eval_mb_size,\n            device=device\n        )\n\n    def forward(self):\n        input_ids = self.mb_x['input_ids'].to(self.device)\n        attention_mask = self.mb_x['attention_mask'].to(self.device)\n        labels = self.mb_y['labels'].to(self.device)\n        outputs = self.model(\n            input_ids=input_ids,\n            attention_mask=attention_mask,\n            labels=labels\n        )\n        return outputs.loss, outputs.logits\n\n    def criterion(self):\n        # Loss is computed in the model's forward pass\n        return self.mb_output[0]\n\ndef preprocess_squad(dataset, tokenizer):\n    data = []\n    for item in dataset:\n        if len(item['answers']['text']) > 0:\n            data.append(item)\n    return data\n\ndef main():\n    device = 'cuda' if torch.cuda.is_available() else 'cpu'\n    tokenizer = T5Tokenizer.from_pretrained('t5-small')\n    model = T5ForConditionalGeneration.from_pretrained('t5-small').to(device)\n\n    squad = load_dataset('squad')\n    train_data = preprocess_squad(squad['train'], tokenizer)\n    val_data = preprocess_squad(squad['validation'], tokenizer)\n\n    train_dataset = QADataset(train_data, tokenizer)\n    val_dataset = QADataset(val_data, tokenizer)\n\n    # Split train into train/val if needed, here we use SQuAD's own split\n    avalanche_train = AvalancheDataset(train_dataset)\n    avalanche_val = AvalancheDataset(val_dataset)\n\n    optimizer = AdamW(model.parameters(), lr=3e-4)\n    criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)\n\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True),\n        loss_metrics(epoch=True, experience=True),\n        loggers=[]\n    )\n\n    cl_strategy = NaiveMT(\n        model=model,\n        optimizer=optimizer,\n        criterion=criterion,\n        train_mb_size=8,\n        eval_mb_size=8,\n        device=device\n    )\n\n    # Training\n    cl_strategy.train(avalanche_train, num_epochs=1)\n\n    # Testing with a sample question\n    sample = val_data[0]\n    question = sample['question']\n    context = sample['context']\n    input_text = f\"question: {question} context: {context}\"\n    input_enc = tokenizer(\n        input_text,\n        return_tensors='pt',\n        truncation=True,\n        padding='max_length',\n        max_length=512\n    ).to(device)\n    with torch.no_grad():\n        output_ids = model.generate(\n            input_ids=input_enc['input_ids'],\n            attention_mask=input_enc['attention_mask'],\n            max_length=64\n        )\n    answer = tokenizer.decode(output_ids[0], skip_special_tokens=True)\n    print(f\"Question: {question}\")\n    print(f\"Predicted Answer: {answer}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 8.220491336000123,
+  "usage": {
+    "completion_tokens": 1024,
+    "prompt_tokens": 238,
+    "total_tokens": 1262,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8668,
+  "response_sha256": "81054a081a4a27d0a85893edeced60555c91669d972781e7d7161cb80b3a8d86",
+  "artifact_sha256": "a0980af8ecf81321c040099f65b2f20d7c607ebad2a1e5707a546591ba9a063c"
+}

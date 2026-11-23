@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 83,
+    "task_sha256": "4fb7721ec93256608a0505d4dca5903fabef85968b9695176b75e33f77008a4c",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that downloads an image and performs various image and box augmentations using the paz library. The code should include the creation of sequential pipelines for image and box augmentation, as well as preprocessing. The image augmentation pipeline should include random contrast, brightness, saturation, and hue adjustments. The box augmentation pipeline should include conversion to image box coordinates, expansion, random sample cropping, and random flipping of boxes left and right. The code should also include a pipeline for drawing boxes and a pipeline for preprocessing boxes, which includes matching boxes to a set of default boxes, encoding them, and expanding the class label to a one-hot vector. Finally, the code should put everything together in a single processor and demonstrate the image and box augmentations. The code should also include a sequence generator for processing batches of data.\n\nYou can find the following APIs from the library helpful:\ntest_nms_per_class_and_merge_box, ProcessorA, GetHeatmapsAndTags, ToImageBoxCoordinates, code_snippet, test_deterministic_and_stochastic_in_sequential_processor, test_stochastic_and_deterministic_in_sequential_processor, point2D_a, TransformA, target_A, transform_A, origin_A, test_controlmap_reduction_and_keep, test_controlmap_reduction_and_retention, split_and_normalize_alpha_channel, test_controlmap_reduction_and_flip, test_controlmap_reduction_and_selection_to_arg_1, test_controlmap_reduction_and_selection_to_arg_2, box_coordinates, RandomFlipBoxesLeftRight"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5XjFW2byM9M4EYlVy0dLAkYCfBM",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport requests\nfrom io import BytesIO\nfrom PIL import Image\nimport paz\nfrom paz.backend.image import show_image\nfrom paz.processors import (\n    SequentialProcessor, RandomContrast, RandomBrightness, RandomSaturation,\n    RandomHue, ToImageBoxCoordinates, ExpandBoxes, RandomSampleCrop,\n    RandomFlipBoxesLeftRight, DrawBoxes2D, MatchBoxes, EncodeBoxes,\n    OneHotEncodeClassLabels, NormalizeImage, ResizeImage, ToFloat32Image,\n    ToImageArray, ToBoxes2D, ToClassLabels, ToBoxes2DAndClassLabels\n)\n\n# Download an image\nurl = 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg'\nresponse = requests.get(url)\nimage = Image.open(BytesIO(response.content)).convert('RGB')\nimage = np.array(image)\n\n# Dummy boxes and class labels for demonstration\nboxes = np.array([[50, 50, 200, 200], [300, 100, 400, 300]], dtype=np.float32)\nclass_labels = np.array([1, 2], dtype=np.int32)\n\n# Image augmentation pipeline\nimage_augmentation = SequentialProcessor([\n    RandomContrast(0.5, 1.5),\n    RandomBrightness(0.5, 1.5),\n    RandomSaturation(0.5, 1.5),\n    RandomHue(18)\n])\n\n# Box augmentation pipeline\nbox_augmentation = SequentialProcessor([\n    ToImageBoxCoordinates(),\n    ExpandBoxes(max_ratio=4.0, mean=[0.485, 0.456, 0.406]),\n    RandomSampleCrop(),\n    RandomFlipBoxesLeftRight()\n])\n\n# Pipeline for drawing boxes\ndraw_boxes = DrawBoxes2D(class_names=['BG', 'Class1', 'Class2'])\n\n# Preprocessing pipeline for images\nimage_preprocessing = SequentialProcessor([\n    ResizeImage((300, 300)),\n    ToFloat32Image(),\n    NormalizeImage()\n])\n\n# Preprocessing pipeline for boxes\ndefault_boxes = np.random.rand(8732, 4)  # Dummy default boxes for demonstration\nbox_preprocessing = SequentialProcessor([\n    MatchBoxes(default_boxes, threshold=0.5),\n    EncodeBoxes(default_boxes),\n    OneHotEncodeClassLabels(num_classes=3)\n])\n\n# Complete processor\nclass CompleteProcessor(SequentialProcessor):\n    def __init__(self):\n        super().__init__([\n            image_augmentation,\n            box_augmentation,\n            image_preprocessing,\n            box_preprocessing\n        ])\n\n    def call(self, image, boxes, class_labels):\n        image = self.processors[0](image)\n        boxes, class_labels = self.processors[1]((boxes, class_labels))\n        image = self.processors[2](image)\n        boxes, class_labels = self.processors[3]((boxes, class_labels))\n        return image, boxes, class_labels\n\nprocessor = CompleteProcessor()\n\n# Demonstrate image and box augmentations\naug_image = image_augmentation(image)\naug_boxes, aug_class_labels = box_augmentation((boxes, class_labels))\nimage_with_boxes = draw_boxes(aug_image, aug_boxes, aug_class_labels)\nshow_image(image_with_boxes)\n\n# Sequence generator for batch processing\nclass SequenceGenerator:\n    def __init__(self, images, boxes, class_labels, batch_size, processor):\n        self.images = images\n        self.boxes = boxes\n        self.class_labels = class_labels\n        self.batch_size = batch_size\n        self.processor = processor\n        self.num_samples = len(images)\n\n    def __len__(self):\n        return int(np.ceil(self.num_samples / self.batch_size))\n\n    def __getitem__(self, idx):\n        batch_images = self.images[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_boxes = self.boxes[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_labels = self.class_labels[idx * self.batch_size:(idx + 1) * self.batch_size]\n        processed_images, processed_boxes, processed_labels = [], [], []\n        for img, box, label in zip(batch_images, batch_boxes, batch_labels):\n            img, box, label = self.processor(img, box, label)\n            processed_images.append(img)\n            processed_boxes.append(box)\n            processed_labels.append(label)\n        return np.array(processed_images), np.array(processed_boxes), np.array(processed_labels)\n\n# Example usage of sequence generator\nimages = [image] * 4\nboxes_list = [boxes] * 4\nlabels_list = [class_labels] * 4\nbatch_size = 2\ngenerator = SequenceGenerator(images, boxes_list, labels_list, batch_size, processor)\nbatch_images, batch_boxes, batch_labels = generator[0]\nprint(batch_images.shape, batch_boxes.shape, batch_labels.shape)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129759,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8f7529d0f0",
+    "usage": {
+      "completion_tokens": 1009,
+      "prompt_tokens": 334,
+      "total_tokens": 1343,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport requests\nfrom io import BytesIO\nfrom PIL import Image\nimport paz\nfrom paz.backend.image import show_image\nfrom paz.processors import (\n    SequentialProcessor, RandomContrast, RandomBrightness, RandomSaturation,\n    RandomHue, ToImageBoxCoordinates, ExpandBoxes, RandomSampleCrop,\n    RandomFlipBoxesLeftRight, DrawBoxes2D, MatchBoxes, EncodeBoxes,\n    OneHotEncodeClassLabels, NormalizeImage, ResizeImage, ToFloat32Image,\n    ToImageArray, ToBoxes2D, ToClassLabels, ToBoxes2DAndClassLabels\n)\n\n# Download an image\nurl = 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg'\nresponse = requests.get(url)\nimage = Image.open(BytesIO(response.content)).convert('RGB')\nimage = np.array(image)\n\n# Dummy boxes and class labels for demonstration\nboxes = np.array([[50, 50, 200, 200], [300, 100, 400, 300]], dtype=np.float32)\nclass_labels = np.array([1, 2], dtype=np.int32)\n\n# Image augmentation pipeline\nimage_augmentation = SequentialProcessor([\n    RandomContrast(0.5, 1.5),\n    RandomBrightness(0.5, 1.5),\n    RandomSaturation(0.5, 1.5),\n    RandomHue(18)\n])\n\n# Box augmentation pipeline\nbox_augmentation = SequentialProcessor([\n    ToImageBoxCoordinates(),\n    ExpandBoxes(max_ratio=4.0, mean=[0.485, 0.456, 0.406]),\n    RandomSampleCrop(),\n    RandomFlipBoxesLeftRight()\n])\n\n# Pipeline for drawing boxes\ndraw_boxes = DrawBoxes2D(class_names=['BG', 'Class1', 'Class2'])\n\n# Preprocessing pipeline for images\nimage_preprocessing = SequentialProcessor([\n    ResizeImage((300, 300)),\n    ToFloat32Image(),\n    NormalizeImage()\n])\n\n# Preprocessing pipeline for boxes\ndefault_boxes = np.random.rand(8732, 4)  # Dummy default boxes for demonstration\nbox_preprocessing = SequentialProcessor([\n    MatchBoxes(default_boxes, threshold=0.5),\n    EncodeBoxes(default_boxes),\n    OneHotEncodeClassLabels(num_classes=3)\n])\n\n# Complete processor\nclass CompleteProcessor(SequentialProcessor):\n    def __init__(self):\n        super().__init__([\n            image_augmentation,\n            box_augmentation,\n            image_preprocessing,\n            box_preprocessing\n        ])\n\n    def call(self, image, boxes, class_labels):\n        image = self.processors[0](image)\n        boxes, class_labels = self.processors[1]((boxes, class_labels))\n        image = self.processors[2](image)\n        boxes, class_labels = self.processors[3]((boxes, class_labels))\n        return image, boxes, class_labels\n\nprocessor = CompleteProcessor()\n\n# Demonstrate image and box augmentations\naug_image = image_augmentation(image)\naug_boxes, aug_class_labels = box_augmentation((boxes, class_labels))\nimage_with_boxes = draw_boxes(aug_image, aug_boxes, aug_class_labels)\nshow_image(image_with_boxes)\n\n# Sequence generator for batch processing\nclass SequenceGenerator:\n    def __init__(self, images, boxes, class_labels, batch_size, processor):\n        self.images = images\n        self.boxes = boxes\n        self.class_labels = class_labels\n        self.batch_size = batch_size\n        self.processor = processor\n        self.num_samples = len(images)\n\n    def __len__(self):\n        return int(np.ceil(self.num_samples / self.batch_size))\n\n    def __getitem__(self, idx):\n        batch_images = self.images[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_boxes = self.boxes[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_labels = self.class_labels[idx * self.batch_size:(idx + 1) * self.batch_size]\n        processed_images, processed_boxes, processed_labels = [], [], []\n        for img, box, label in zip(batch_images, batch_boxes, batch_labels):\n            img, box, label = self.processor(img, box, label)\n            processed_images.append(img)\n            processed_boxes.append(box)\n            processed_labels.append(label)\n        return np.array(processed_images), np.array(processed_boxes), np.array(processed_labels)\n\n# Example usage of sequence generator\nimages = [image] * 4\nboxes_list = [boxes] * 4\nlabels_list = [class_labels] * 4\nbatch_size = 2\ngenerator = SequenceGenerator(images, boxes_list, labels_list, batch_size, processor)\nbatch_images, batch_boxes, batch_labels = generator[0]\nprint(batch_images.shape, batch_boxes.shape, batch_labels.shape)\n```",
+  "latency_seconds": 7.643094169998221,
+  "usage": {
+    "completion_tokens": 1009,
+    "prompt_tokens": 334,
+    "total_tokens": 1343,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8740,
+  "response_sha256": "033e6d7289ab061890102242fe56b127463862d78d22ed3ea9630d316e08a0bf",
+  "artifact_sha256": "2d9eba8e86ac2afb35cbad516a54bd261899351cc898e90864560806ae1dae57"
+}

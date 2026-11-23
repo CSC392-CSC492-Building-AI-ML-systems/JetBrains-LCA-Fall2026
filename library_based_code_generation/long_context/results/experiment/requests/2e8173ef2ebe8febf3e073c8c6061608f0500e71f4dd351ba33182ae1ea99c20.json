@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 71,
+    "task_sha256": "87e70b3b4563d3bfea37064fc838b4805d97f1328c26b896c9b7004f3cd193b6",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a command-line interface for parsing arguments related to model directory, tokenizer vocab path, inference device, runtime backend, batch size, sequence length, logging interval, and usage of FP16 mode and fast tokenizer. The code should also define a function to batchify text data. \n\nThen, create a class for sequence classification prediction using the Ernie model. This class should initialize the tokenizer and runtime, preprocess the input texts, perform inference, postprocess the inference data, and predict the output for given texts. \n\nIn the main function, the code should parse the arguments, instantiate the prediction class, batchify the text data, and predict the output for each batch of texts. The output should include the batch id, example id, input sentences, predicted label, and confidence score.\n\nYou can find the following APIs from the library helpful:\nthe_answer, test_save_model_does_convert_and_saves_the_model, test_save_model_does_not_convert_to_external_data_and_saves_the_model, testUnhandledCxxExceptionsAbortTheProgram, testExitCodeAndOutput, TestExitCodeAndOutput, And, load_external_data_for_model, batch_predict, test_split_predict_and_lift_lexical_references_for_caffe2_backend, RunAndReturnOutput, test_load_external_data_for_model, create_and_destroy, output_info_of_runtime, _GetReturnTypeAndClassName, _get_predict_id, LogicalAnd, test_And, DLDataTypeCode, load_external_data_for_tensor"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5QSRaxonAzh756HZukEuffYhxyH",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport numpy as np\n\nclass DummyErnieTokenizer:\n    def __init__(self, vocab_path, use_fast=False):\n        self.vocab_path = vocab_path\n        self.use_fast = use_fast\n\n    def encode(self, text, max_length, padding='max_length', truncation=True):\n        # Dummy encoding: convert chars to int, pad/truncate to max_length\n        ids = [ord(c) % 100 for c in text][:max_length]\n        if len(ids) < max_length:\n            ids += [0] * (max_length - len(ids))\n        return ids\n\nclass DummyErnieRuntime:\n    def __init__(self, model_dir, device, backend, use_fp16):\n        self.model_dir = model_dir\n        self.device = device\n        self.backend = backend\n        self.use_fp16 = use_fp16\n\n    def infer(self, input_ids, batch_size):\n        # Dummy inference: random logits for 2 classes\n        logits = np.random.rand(len(input_ids), 2)\n        return logits\n\ndef batchify(data, batch_size):\n    batches = []\n    for i in range(0, len(data), batch_size):\n        batches.append(data[i:i+batch_size])\n    return batches\n\nclass ErnieSequenceClassifier:\n    def __init__(self, model_dir, vocab_path, device, backend, use_fp16, use_fast, max_seq_length):\n        self.tokenizer = DummyErnieTokenizer(vocab_path, use_fast=use_fast)\n        self.runtime = DummyErnieRuntime(model_dir, device, backend, use_fp16)\n        self.max_seq_length = max_seq_length\n\n    def preprocess(self, texts):\n        input_ids = [self.tokenizer.encode(text, self.max_seq_length) for text in texts]\n        return np.array(input_ids)\n\n    def infer(self, input_ids, batch_size):\n        logits = self.runtime.infer(input_ids, batch_size)\n        return logits\n\n    def postprocess(self, logits):\n        probs = self.softmax(logits)\n        preds = np.argmax(probs, axis=1)\n        confs = np.max(probs, axis=1)\n        return preds, confs\n\n    def predict(self, texts, batch_size):\n        input_ids = self.preprocess(texts)\n        logits = self.infer(input_ids, batch_size)\n        preds, confs = self.postprocess(logits)\n        return preds, confs\n\n    @staticmethod\n    def softmax(x):\n        e_x = np.exp(x - np.max(x, axis=1, keepdims=True))\n        return e_x / e_x.sum(axis=1, keepdims=True)\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Ernie Sequence Classification CLI\")\n    parser.add_argument('--model_dir', type=str, required=True, help='Path to model directory')\n    parser.add_argument('--vocab_path', type=str, required=True, help='Path to tokenizer vocab file')\n    parser.add_argument('--device', type=str, default='cpu', help='Inference device (cpu/gpu)')\n    parser.add_argument('--backend', type=str, default='onnxruntime', help='Runtime backend')\n    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for inference')\n    parser.add_argument('--max_seq_length', type=int, default=128, help='Max sequence length')\n    parser.add_argument('--log_interval', type=int, default=10, help='Logging interval')\n    parser.add_argument('--use_fp16', action='store_true', help='Use FP16 mode')\n    parser.add_argument('--use_fast', action='store_true', help='Use fast tokenizer')\n    parser.add_argument('--input_file', type=str, required=True, help='Input text file, one sentence per line')\n    args = parser.parse_args()\n\n    with open(args.input_file, 'r', encoding='utf-8') as f:\n        texts = [line.strip() for line in f if line.strip()]\n\n    classifier = ErnieSequenceClassifier(\n        model_dir=args.model_dir,\n        vocab_path=args.vocab_path,\n        device=args.device,\n        backend=args.backend,\n        use_fp16=args.use_fp16,\n        use_fast=args.use_fast,\n        max_seq_length=args.max_seq_length\n    )\n\n    batches = batchify(texts, args.batch_size)\n    example_id = 0\n    for batch_id, batch in enumerate(batches):\n        preds, confs = classifier.predict(batch, args.batch_size)\n        for i, (text, pred, conf) in enumerate(zip(batch, preds, confs)):\n            print(f\"Batch {batch_id}, Example {example_id}, Input: \\\"{text}\\\", Predicted Label: {pred}, Confidence: {conf:.4f}\")\n            example_id += 1\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129308,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 1009,
+      "prompt_tokens": 333,
+      "total_tokens": 1342,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport numpy as np\n\nclass DummyErnieTokenizer:\n    def __init__(self, vocab_path, use_fast=False):\n        self.vocab_path = vocab_path\n        self.use_fast = use_fast\n\n    def encode(self, text, max_length, padding='max_length', truncation=True):\n        # Dummy encoding: convert chars to int, pad/truncate to max_length\n        ids = [ord(c) % 100 for c in text][:max_length]\n        if len(ids) < max_length:\n            ids += [0] * (max_length - len(ids))\n        return ids\n\nclass DummyErnieRuntime:\n    def __init__(self, model_dir, device, backend, use_fp16):\n        self.model_dir = model_dir\n        self.device = device\n        self.backend = backend\n        self.use_fp16 = use_fp16\n\n    def infer(self, input_ids, batch_size):\n        # Dummy inference: random logits for 2 classes\n        logits = np.random.rand(len(input_ids), 2)\n        return logits\n\ndef batchify(data, batch_size):\n    batches = []\n    for i in range(0, len(data), batch_size):\n        batches.append(data[i:i+batch_size])\n    return batches\n\nclass ErnieSequenceClassifier:\n    def __init__(self, model_dir, vocab_path, device, backend, use_fp16, use_fast, max_seq_length):\n        self.tokenizer = DummyErnieTokenizer(vocab_path, use_fast=use_fast)\n        self.runtime = DummyErnieRuntime(model_dir, device, backend, use_fp16)\n        self.max_seq_length = max_seq_length\n\n    def preprocess(self, texts):\n        input_ids = [self.tokenizer.encode(text, self.max_seq_length) for text in texts]\n        return np.array(input_ids)\n\n    def infer(self, input_ids, batch_size):\n        logits = self.runtime.infer(input_ids, batch_size)\n        return logits\n\n    def postprocess(self, logits):\n        probs = self.softmax(logits)\n        preds = np.argmax(probs, axis=1)\n        confs = np.max(probs, axis=1)\n        return preds, confs\n\n    def predict(self, texts, batch_size):\n        input_ids = self.preprocess(texts)\n        logits = self.infer(input_ids, batch_size)\n        preds, confs = self.postprocess(logits)\n        return preds, confs\n\n    @staticmethod\n    def softmax(x):\n        e_x = np.exp(x - np.max(x, axis=1, keepdims=True))\n        return e_x / e_x.sum(axis=1, keepdims=True)\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Ernie Sequence Classification CLI\")\n    parser.add_argument('--model_dir', type=str, required=True, help='Path to model directory')\n    parser.add_argument('--vocab_path', type=str, required=True, help='Path to tokenizer vocab file')\n    parser.add_argument('--device', type=str, default='cpu', help='Inference device (cpu/gpu)')\n    parser.add_argument('--backend', type=str, default='onnxruntime', help='Runtime backend')\n    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for inference')\n    parser.add_argument('--max_seq_length', type=int, default=128, help='Max sequence length')\n    parser.add_argument('--log_interval', type=int, default=10, help='Logging interval')\n    parser.add_argument('--use_fp16', action='store_true', help='Use FP16 mode')\n    parser.add_argument('--use_fast', action='store_true', help='Use fast tokenizer')\n    parser.add_argument('--input_file', type=str, required=True, help='Input text file, one sentence per line')\n    args = parser.parse_args()\n\n    with open(args.input_file, 'r', encoding='utf-8') as f:\n        texts = [line.strip() for line in f if line.strip()]\n\n    classifier = ErnieSequenceClassifier(\n        model_dir=args.model_dir,\n        vocab_path=args.vocab_path,\n        device=args.device,\n        backend=args.backend,\n        use_fp16=args.use_fp16,\n        use_fast=args.use_fast,\n        max_seq_length=args.max_seq_length\n    )\n\n    batches = batchify(texts, args.batch_size)\n    example_id = 0\n    for batch_id, batch in enumerate(batches):\n        preds, confs = classifier.predict(batch, args.batch_size)\n        for i, (text, pred, conf) in enumerate(zip(batch, preds, confs)):\n            print(f\"Batch {batch_id}, Example {example_id}, Input: \\\"{text}\\\", Predicted Label: {pred}, Confidence: {conf:.4f}\")\n            example_id += 1\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 7.618152556999121,
+  "usage": {
+    "completion_tokens": 1009,
+    "prompt_tokens": 333,
+    "total_tokens": 1342,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8738,
+  "response_sha256": "04a0e3673ba96c0a38fa69a440aa205e832b69d2c61330448e2dbe55b4f3740e",
+  "artifact_sha256": "dae2c548cf2a449e6519381edea4c1eb2bbeb3f5c892a2c5a480845d3d2c4fcf"
+}

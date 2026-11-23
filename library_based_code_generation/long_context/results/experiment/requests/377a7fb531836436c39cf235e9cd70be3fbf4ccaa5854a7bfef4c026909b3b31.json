@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 114,
+    "task_sha256": "18ba33b35dbff0138ef68aa753033051143e0432c8e5e987afe3289fd1c80e10",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up a secure data sharing policy using the nucypher library. The code should perform the following tasks:\n\n1. Set up logging and environment variables for the Ethereum RPC endpoint, wallet filepath, and Alice's Ethereum address.\n2. Connect to the Ethereum provider and layer 2 provider.\n3. Unlock Alice's Ethereum wallet using a password.\n4. Set up Alice's payment method using the SubscriptionManagerPayment class.\n5. Create an instance of Alice with her Ethereum address, signer, domain, Ethereum provider URI, and payment method.\n6. Start Alice's learning loop.\n7. Create a policy label and get the policy public key associated with the label.\n8. Generate heart rate samples using a heart monitor and save them as a file.\n9. Get the public keys of the recipient (Doctor) and create an instance of Bob with these keys.\n10. Set up policy details such as the policy expiration date and m-out-of-n shares.\n11. Grant access to Bob by creating a policy and sending it to the NuCypher network.\n12. Store additional information about the policy in a JSON file.\n\nYou can find the following APIs from the library helpful:\nWorkTrackerThatFailsHalfTheTime, test_tls_hosting_certificate_remains_the_same, create_policy, NotAPublicKey, setUp, log_in_and_out_of_test, NotASigner, retrieve_and_decrypt, merge_and_update, transact_and_log, approve_and_call, policy_rate, Policy, verify_and_parse_node_or_host_and_port, EthereumClient, generate_policy_parameters, test_alice_can_grant_even_when_the_first_nodes_she_tries_are_down, _get_ethereum_tester, NotASignature, NotACert"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5pTI21j4ARCUGUCUDqeBR8Zduul",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport logging\nimport json\nimport datetime\nfrom nucypher.characters.lawful import Alice, Bob\nfrom nucypher.blockchain.eth.interfaces import EthereumClient\nfrom nucypher.blockchain.eth.signers import Signer\nfrom nucypher.blockchain.eth.payment import SubscriptionManagerPayment\nfrom nucypher.policy.label import Label\nfrom nucypher.policy.policy import Policy\nfrom nucypher.crypto.kits import UmbralMessageKit\nfrom nucypher.crypto.powers import DecryptingPower, SigningPower\nfrom nucypher.crypto.signing import Signer as CryptoSigner\nfrom nucypher.utilities.logging import GlobalLoggerSettings\nfrom nucypher.utilities.sandbox.constants import TEMPORARY_DOMAIN\nfrom nucypher.utilities.sandbox.keypairs import generate_keypair\nfrom nucypher.utilities.sandbox.mock_data import HeartMonitor\nfrom eth_account import Account\n\n# 1. Set up logging and environment variables\nGlobalLoggerSettings.start_console_logging()\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\nETH_RPC_ENDPOINT = os.environ.get('ETH_RPC_ENDPOINT', 'http://localhost:8545')\nWALLET_FILEPATH = os.environ.get('WALLET_FILEPATH', './alice_wallet.json')\nALICE_ETH_ADDRESS = os.environ.get('ALICE_ETH_ADDRESS')\n\nif not ALICE_ETH_ADDRESS:\n    raise EnvironmentError(\"ALICE_ETH_ADDRESS environment variable not set.\")\n\n# 2. Connect to the Ethereum provider and layer 2 provider\neth_client = EthereumClient(provider_uri=ETH_RPC_ENDPOINT)\n\n# 3. Unlock Alice's Ethereum wallet using a password\nWALLET_PASSWORD = os.environ.get('WALLET_PASSWORD')\nif not WALLET_PASSWORD:\n    raise EnvironmentError(\"WALLET_PASSWORD environment variable not set.\")\n\nwith open(WALLET_FILEPATH, 'r') as wallet_file:\n    wallet_json = wallet_file.read()\nalice_account = Account.decrypt(wallet_json, WALLET_PASSWORD)\nalice_signer = Signer(private_key=alice_account)\n\n# 4. Set up Alice's payment method\npayment_method = SubscriptionManagerPayment(\n    eth_provider_uri=ETH_RPC_ENDPOINT,\n    signer=alice_signer,\n    account=ALICE_ETH_ADDRESS\n)\n\n# 5. Create an instance of Alice\nalice = Alice(\n    ethereum_address=ALICE_ETH_ADDRESS,\n    signer=alice_signer,\n    domain=TEMPORARY_DOMAIN,\n    eth_provider_uri=ETH_RPC_ENDPOINT,\n    payment_method=payment_method\n)\n\n# 6. Start Alice's learning loop\nalice.start_learning_loop(now=True)\n\n# 7. Create a policy label and get the policy public key\npolicy_label = Label(b\"heart-rate-data\")\npolicy_pubkey = alice.get_policy_pubkey_from_label(policy_label)\n\n# 8. Generate heart rate samples and save as a file\nheart_monitor = HeartMonitor()\nheart_rate_samples = heart_monitor.measure(num_samples=100)\nheart_rate_file = 'heart_rate_samples.json'\nwith open(heart_rate_file, 'w') as f:\n    json.dump(heart_rate_samples, f)\n\n# 9. Get the public keys of the recipient (Doctor) and create Bob\nDOCTOR_ENCRYPTING_KEY = os.environ.get('DOCTOR_ENCRYPTING_KEY')\nDOCTOR_SIGNING_KEY = os.environ.get('DOCTOR_SIGNING_KEY')\nif not DOCTOR_ENCRYPTING_KEY or not DOCTOR_SIGNING_KEY:\n    raise EnvironmentError(\"Doctor's public keys not set in environment variables.\")\n\ndoctor_encrypting_power = DecryptingPower.from_bytes(bytes.fromhex(DOCTOR_ENCRYPTING_KEY))\ndoctor_signing_power = SigningPower.from_bytes(bytes.fromhex(DOCTOR_SIGNING_KEY))\nbob = Bob(\n    decrypting_power=doctor_encrypting_power,\n    signing_power=doctor_signing_power\n)\n\n# 10. Set up policy details\npolicy_expiration = datetime.datetime.utcnow() + datetime.timedelta(days=30)\nm = 2\nn = 3\n\n# 11. Grant access to Bob by creating a policy\npolicy = alice.grant(\n    bob=bob,\n    label=policy_label,\n    m=m,\n    n=n,\n    expiration=policy_expiration\n)\n\n# 12. Store additional information about the policy in a JSON file\npolicy_info = {\n    'policy_id': policy.id.hex(),\n    'label': policy_label.to_bytes().hex(),\n    'policy_pubkey': policy_pubkey.to_bytes().hex(),\n    'expiration': policy_expiration.isoformat(),\n    'm': m,\n    'n': n,\n    'bob_encrypting_key': DOCTOR_ENCRYPTING_KEY,\n    'bob_signing_key': DOCTOR_SIGNING_KEY\n}\nwith open('policy_info.json', 'w') as f:\n    json.dump(policy_info, f, indent=2)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130859,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_381463323f",
+    "usage": {
+      "completion_tokens": 991,
+      "prompt_tokens": 380,
+      "total_tokens": 1371,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport logging\nimport json\nimport datetime\nfrom nucypher.characters.lawful import Alice, Bob\nfrom nucypher.blockchain.eth.interfaces import EthereumClient\nfrom nucypher.blockchain.eth.signers import Signer\nfrom nucypher.blockchain.eth.payment import SubscriptionManagerPayment\nfrom nucypher.policy.label import Label\nfrom nucypher.policy.policy import Policy\nfrom nucypher.crypto.kits import UmbralMessageKit\nfrom nucypher.crypto.powers import DecryptingPower, SigningPower\nfrom nucypher.crypto.signing import Signer as CryptoSigner\nfrom nucypher.utilities.logging import GlobalLoggerSettings\nfrom nucypher.utilities.sandbox.constants import TEMPORARY_DOMAIN\nfrom nucypher.utilities.sandbox.keypairs import generate_keypair\nfrom nucypher.utilities.sandbox.mock_data import HeartMonitor\nfrom eth_account import Account\n\n# 1. Set up logging and environment variables\nGlobalLoggerSettings.start_console_logging()\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\nETH_RPC_ENDPOINT = os.environ.get('ETH_RPC_ENDPOINT', 'http://localhost:8545')\nWALLET_FILEPATH = os.environ.get('WALLET_FILEPATH', './alice_wallet.json')\nALICE_ETH_ADDRESS = os.environ.get('ALICE_ETH_ADDRESS')\n\nif not ALICE_ETH_ADDRESS:\n    raise EnvironmentError(\"ALICE_ETH_ADDRESS environment variable not set.\")\n\n# 2. Connect to the Ethereum provider and layer 2 provider\neth_client = EthereumClient(provider_uri=ETH_RPC_ENDPOINT)\n\n# 3. Unlock Alice's Ethereum wallet using a password\nWALLET_PASSWORD = os.environ.get('WALLET_PASSWORD')\nif not WALLET_PASSWORD:\n    raise EnvironmentError(\"WALLET_PASSWORD environment variable not set.\")\n\nwith open(WALLET_FILEPATH, 'r') as wallet_file:\n    wallet_json = wallet_file.read()\nalice_account = Account.decrypt(wallet_json, WALLET_PASSWORD)\nalice_signer = Signer(private_key=alice_account)\n\n# 4. Set up Alice's payment method\npayment_method = SubscriptionManagerPayment(\n    eth_provider_uri=ETH_RPC_ENDPOINT,\n    signer=alice_signer,\n    account=ALICE_ETH_ADDRESS\n)\n\n# 5. Create an instance of Alice\nalice = Alice(\n    ethereum_address=ALICE_ETH_ADDRESS,\n    signer=alice_signer,\n    domain=TEMPORARY_DOMAIN,\n    eth_provider_uri=ETH_RPC_ENDPOINT,\n    payment_method=payment_method\n)\n\n# 6. Start Alice's learning loop\nalice.start_learning_loop(now=True)\n\n# 7. Create a policy label and get the policy public key\npolicy_label = Label(b\"heart-rate-data\")\npolicy_pubkey = alice.get_policy_pubkey_from_label(policy_label)\n\n# 8. Generate heart rate samples and save as a file\nheart_monitor = HeartMonitor()\nheart_rate_samples = heart_monitor.measure(num_samples=100)\nheart_rate_file = 'heart_rate_samples.json'\nwith open(heart_rate_file, 'w') as f:\n    json.dump(heart_rate_samples, f)\n\n# 9. Get the public keys of the recipient (Doctor) and create Bob\nDOCTOR_ENCRYPTING_KEY = os.environ.get('DOCTOR_ENCRYPTING_KEY')\nDOCTOR_SIGNING_KEY = os.environ.get('DOCTOR_SIGNING_KEY')\nif not DOCTOR_ENCRYPTING_KEY or not DOCTOR_SIGNING_KEY:\n    raise EnvironmentError(\"Doctor's public keys not set in environment variables.\")\n\ndoctor_encrypting_power = DecryptingPower.from_bytes(bytes.fromhex(DOCTOR_ENCRYPTING_KEY))\ndoctor_signing_power = SigningPower.from_bytes(bytes.fromhex(DOCTOR_SIGNING_KEY))\nbob = Bob(\n    decrypting_power=doctor_encrypting_power,\n    signing_power=doctor_signing_power\n)\n\n# 10. Set up policy details\npolicy_expiration = datetime.datetime.utcnow() + datetime.timedelta(days=30)\nm = 2\nn = 3\n\n# 11. Grant access to Bob by creating a policy\npolicy = alice.grant(\n    bob=bob,\n    label=policy_label,\n    m=m,\n    n=n,\n    expiration=policy_expiration\n)\n\n# 12. Store additional information about the policy in a JSON file\npolicy_info = {\n    'policy_id': policy.id.hex(),\n    'label': policy_label.to_bytes().hex(),\n    'policy_pubkey': policy_pubkey.to_bytes().hex(),\n    'expiration': policy_expiration.isoformat(),\n    'm': m,\n    'n': n,\n    'bob_encrypting_key': DOCTOR_ENCRYPTING_KEY,\n    'bob_signing_key': DOCTOR_SIGNING_KEY\n}\nwith open('policy_info.json', 'w') as f:\n    json.dump(policy_info, f, indent=2)\n```",
+  "latency_seconds": 4.638271828000143,
+  "usage": {
+    "completion_tokens": 991,
+    "prompt_tokens": 380,
+    "total_tokens": 1371,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8688,
+  "response_sha256": "c086488620becf162cd7ebafc55a1d0e440f20be6231838a940e0e1a8830654f",
+  "artifact_sha256": "28f11db86eaf98a9750f3eeb7c58428bdac733b9f351b2ff0e68760d72984f3d"
+}

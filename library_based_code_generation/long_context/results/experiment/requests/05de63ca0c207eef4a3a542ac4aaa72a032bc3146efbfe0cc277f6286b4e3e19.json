@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 121,
+    "task_sha256": "13b9b7e97e32a71fbc94218246a810b33bb2a8644da39a3b5a3c133e0af61df1",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a Bokeh application to visualize population data. The application should include two plots: a population pyramid and a line chart showing known and predicted population values. The population pyramid should be divided into male and female sections, and the line chart should differentiate between known and predicted values. The application should allow users to select a year and a location, and the plots should update based on these selections. The application should be served using Bokeh server and the layout should be saved into an HTML file named \"widget.html\". The application should continue running until it is manually stopped.\n\nYou can find the following APIs from the library helpful:\nshould_discard_ignoring_block, test_the_default_titles_settings_and_ensure_outside_any_axes, Application, application, test_figure_title_should_accept_title, test_figure_title_should_accept_string, load_population, LoopAndGroup, create_and_build, _find_and_remove, merge_and_push, application_context, ApplicationContext, AClass, test_wheel_zoom_can_be_selected_and_deselected, _process_axis_and_grid, _pop_colors_and_alpha, test_arg_and_kwarg, test_nans_and_infs, test_if_legend_is_a_string_and_source_with_that_column_then_field"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5tbGNFybqf0B2w1DiSfk9HAHHSX",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom bokeh.io import curdoc, output_file, save\nfrom bokeh.layouts import row, column\nfrom bokeh.models import ColumnDataSource, Select, Slider, Legend, LegendItem\nfrom bokeh.plotting import figure\nimport pandas as pd\nimport numpy as np\n\n# Simulate population data\nnp.random.seed(42)\nyears = list(range(2000, 2031))\nlocations = ['Country A', 'Country B', 'Country C']\nage_groups = [f\"{i}-{i+4}\" for i in range(0, 85, 5)] + ['85+']\n\ndata = []\nfor loc in locations:\n    for year in years:\n        for age in age_groups:\n            male_pop = np.random.randint(1000, 10000)\n            female_pop = np.random.randint(1000, 10000)\n            data.append({\n                'location': loc,\n                'year': year,\n                'age_group': age,\n                'male': male_pop,\n                'female': female_pop\n            })\ndf = pd.DataFrame(data)\n\n# Simulate total population (known: 2000-2020, predicted: 2021-2030)\npop_data = []\nfor loc in locations:\n    base = 1_000_000 + np.random.randint(-100_000, 100_000)\n    for i, year in enumerate(years):\n        if year <= 2020:\n            pop = base + i * 20_000 + np.random.randint(-10_000, 10_000)\n            known = True\n        else:\n            pop = base + i * 20_000 + np.random.randint(-20_000, 20_000)\n            known = False\n        pop_data.append({\n            'location': loc,\n            'year': year,\n            'population': pop,\n            'known': known\n        })\npop_df = pd.DataFrame(pop_data)\n\n# Widgets\nlocation_select = Select(title=\"Location\", value=locations[0], options=locations)\nyear_slider = Slider(start=min(years), end=max(years), value=2020, step=1, title=\"Year\")\n\n# Data sources\ndef get_pyramid_source(location, year):\n    d = df[(df['location'] == location) & (df['year'] == year)]\n    return ColumnDataSource(data={\n        'age_group': d['age_group'],\n        'male': -d['male'],  # Negative for left side\n        'female': d['female']\n    })\n\ndef get_line_source(location):\n    d = pop_df[pop_df['location'] == location]\n    return ColumnDataSource(data={\n        'year': d['year'],\n        'population': d['population'],\n        'known': d['known']\n    })\n\npyramid_source = get_pyramid_source(location_select.value, year_slider.value)\nline_source = get_line_source(location_select.value)\n\n# Population Pyramid Plot\npyramid_plot = figure(y_range=age_groups, plot_height=400, plot_width=400,\n                      title=\"Population Pyramid\", toolbar_location=None, x_axis_label=\"Population\", y_axis_label=\"Age Group\")\nmale_bar = pyramid_plot.hbar(y='age_group', right='male', left=0, height=0.8, color=\"#718dbf\", source=pyramid_source, legend_label=\"Male\")\nfemale_bar = pyramid_plot.hbar(y='age_group', right=0, left='female', height=0.8, color=\"#e84d60\", source=pyramid_source, legend_label=\"Female\")\npyramid_plot.legend.location = \"top_left\"\npyramid_plot.x_range.start = -12000\npyramid_plot.x_range.end = 12000\n\n# Line Chart Plot\nline_plot = figure(plot_height=400, plot_width=600, title=\"Population Over Time\",\n                   x_axis_label=\"Year\", y_axis_label=\"Population\")\nknown = pop_df[(pop_df['location'] == location_select.value) & (pop_df['known'])]\npred = pop_df[(pop_df['location'] == location_select.value) & (~pop_df['known'])]\nknown_line = line_plot.line('year', 'population', source=line_source, line_width=2, color=\"green\", legend_label=\"Known\", \n                            line_dash=\"solid\", muted_alpha=0.2)\npred_line = line_plot.line('year', 'population', source=line_source, line_width=2, color=\"orange\", legend_label=\"Predicted\", \n                           line_dash=\"dashed\", muted_alpha=0.2)\nline_plot.legend.location = \"top_left\"\nline_plot.legend.click_policy = \"mute\"\n\n# Update function\ndef update(attr, old, new):\n    location = location_select.value\n    year = year_slider.value\n    # Update pyramid\n    new_pyramid = get_pyramid_source(location, year)\n    pyramid_source.data = new_pyramid.data\n    # Update line\n    new_line = get_line_source(location)\n    line_source.data = new_line.data\n\nlocation_select.on_change('value', update)\nyear_slider.on_change('value', update)\n\n# Layout\nlayout = column(row(location_select, year_slider), row(pyramid_plot, line_plot))\n\n# Save layout to HTML\noutput_file(\"widget.html\")\nsave(layout)\n\n# Add to document for Bokeh server\ncurdoc().add_root(layout)\ncurdoc().title = \"Population Visualization\"\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131115,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_9d208c6c27",
+    "usage": {
+      "completion_tokens": 1122,
+      "prompt_tokens": 279,
+      "total_tokens": 1401,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom bokeh.io import curdoc, output_file, save\nfrom bokeh.layouts import row, column\nfrom bokeh.models import ColumnDataSource, Select, Slider, Legend, LegendItem\nfrom bokeh.plotting import figure\nimport pandas as pd\nimport numpy as np\n\n# Simulate population data\nnp.random.seed(42)\nyears = list(range(2000, 2031))\nlocations = ['Country A', 'Country B', 'Country C']\nage_groups = [f\"{i}-{i+4}\" for i in range(0, 85, 5)] + ['85+']\n\ndata = []\nfor loc in locations:\n    for year in years:\n        for age in age_groups:\n            male_pop = np.random.randint(1000, 10000)\n            female_pop = np.random.randint(1000, 10000)\n            data.append({\n                'location': loc,\n                'year': year,\n                'age_group': age,\n                'male': male_pop,\n                'female': female_pop\n            })\ndf = pd.DataFrame(data)\n\n# Simulate total population (known: 2000-2020, predicted: 2021-2030)\npop_data = []\nfor loc in locations:\n    base = 1_000_000 + np.random.randint(-100_000, 100_000)\n    for i, year in enumerate(years):\n        if year <= 2020:\n            pop = base + i * 20_000 + np.random.randint(-10_000, 10_000)\n            known = True\n        else:\n            pop = base + i * 20_000 + np.random.randint(-20_000, 20_000)\n            known = False\n        pop_data.append({\n            'location': loc,\n            'year': year,\n            'population': pop,\n            'known': known\n        })\npop_df = pd.DataFrame(pop_data)\n\n# Widgets\nlocation_select = Select(title=\"Location\", value=locations[0], options=locations)\nyear_slider = Slider(start=min(years), end=max(years), value=2020, step=1, title=\"Year\")\n\n# Data sources\ndef get_pyramid_source(location, year):\n    d = df[(df['location'] == location) & (df['year'] == year)]\n    return ColumnDataSource(data={\n        'age_group': d['age_group'],\n        'male': -d['male'],  # Negative for left side\n        'female': d['female']\n    })\n\ndef get_line_source(location):\n    d = pop_df[pop_df['location'] == location]\n    return ColumnDataSource(data={\n        'year': d['year'],\n        'population': d['population'],\n        'known': d['known']\n    })\n\npyramid_source = get_pyramid_source(location_select.value, year_slider.value)\nline_source = get_line_source(location_select.value)\n\n# Population Pyramid Plot\npyramid_plot = figure(y_range=age_groups, plot_height=400, plot_width=400,\n                      title=\"Population Pyramid\", toolbar_location=None, x_axis_label=\"Population\", y_axis_label=\"Age Group\")\nmale_bar = pyramid_plot.hbar(y='age_group', right='male', left=0, height=0.8, color=\"#718dbf\", source=pyramid_source, legend_label=\"Male\")\nfemale_bar = pyramid_plot.hbar(y='age_group', right=0, left='female', height=0.8, color=\"#e84d60\", source=pyramid_source, legend_label=\"Female\")\npyramid_plot.legend.location = \"top_left\"\npyramid_plot.x_range.start = -12000\npyramid_plot.x_range.end = 12000\n\n# Line Chart Plot\nline_plot = figure(plot_height=400, plot_width=600, title=\"Population Over Time\",\n                   x_axis_label=\"Year\", y_axis_label=\"Population\")\nknown = pop_df[(pop_df['location'] == location_select.value) & (pop_df['known'])]\npred = pop_df[(pop_df['location'] == location_select.value) & (~pop_df['known'])]\nknown_line = line_plot.line('year', 'population', source=line_source, line_width=2, color=\"green\", legend_label=\"Known\", \n                            line_dash=\"solid\", muted_alpha=0.2)\npred_line = line_plot.line('year', 'population', source=line_source, line_width=2, color=\"orange\", legend_label=\"Predicted\", \n                           line_dash=\"dashed\", muted_alpha=0.2)\nline_plot.legend.location = \"top_left\"\nline_plot.legend.click_policy = \"mute\"\n\n# Update function\ndef update(attr, old, new):\n    location = location_select.value\n    year = year_slider.value\n    # Update pyramid\n    new_pyramid = get_pyramid_source(location, year)\n    pyramid_source.data = new_pyramid.data\n    # Update line\n    new_line = get_line_source(location)\n    line_source.data = new_line.data\n\nlocation_select.on_change('value', update)\nyear_slider.on_change('value', update)\n\n# Layout\nlayout = column(row(location_select, year_slider), row(pyramid_plot, line_plot))\n\n# Save layout to HTML\noutput_file(\"widget.html\")\nsave(layout)\n\n# Add to document for Bokeh server\ncurdoc().add_root(layout)\ncurdoc().title = \"Population Visualization\"\n```",
+  "latency_seconds": 5.36486262699691,
+  "usage": {
+    "completion_tokens": 1122,
+    "prompt_tokens": 279,
+    "total_tokens": 1401,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9534,
+  "response_sha256": "4eddf5952db7e9b653c0cbf6ab5f88255ec98a1fae6accea10118f860d5e55a0",
+  "artifact_sha256": "d689120dfd1efc9792c83f392d2f6c2df8044318fa5dfd0605774693acc67504"
+}

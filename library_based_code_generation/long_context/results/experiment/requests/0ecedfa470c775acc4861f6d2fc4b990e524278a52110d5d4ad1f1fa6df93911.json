@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 65,
+    "task_sha256": "e09e40e55504929cb5255e562014a06b3654c1d5fdef681ee4564c39a1df60c4",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that tests radial transport of n_re with a constant scalar diffusion coefficient using the DREAM library. The code should set up a simulation with specific parameters such as initial and final temperatures, time steps, ion species, electric field, and cold electron temperature. It should also set up a radial grid, time stepper, and ions. The code should then set the E_field and cold electron temperature, and enable the hot tail grid. The code should also set up the transport settings, and finally, run the simulation. The code should also include conditions for different transport modes and whether the hot tail grid is enabled or not.\n\nYou can find the following APIs from the library helpful:\n__and__, loadCODE, getTimeAndUnit, formatTimeAndUnit, ColdElectronTemperature, RadialGrid, construct_A, TransportSettings, setGrid, changeRadialGrid, runSimulation, setHot, TransportCoefficientReader, setTemperature, HotElectronDistribution, setCustomGrid, setBiuniformGrid, TransportException, Grid, TimeStepper"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5MSHDpwJZsKUhevGJoscf0OlcsD",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport DREAM\nfrom DREAM import DREAMSettings, runiface\nfrom DREAM.Settings.Equations import IonSpecies, ColdElectronTemperature, E_field\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.Transport import TransportSettings\nfrom DREAM.Settings.TimeStepper import TimeStepper\nfrom DREAM.Settings.HotElectronDistribution import HotElectronDistribution\n\n# Simulation parameters\nnr = 10\nr0 = 0\nr1 = 0.2\nt0 = 0\nt1 = 1e-3\nnt = 20\nTe0 = 10  # Initial cold electron temperature [eV]\nTe1 = 1000  # Final cold electron temperature [eV]\nEfield = 0.0  # Electric field [V/m]\nion_Z = 1\nion_n = 1e20  # [m^-3]\nD_scalar = 1.0  # Constant diffusion coefficient [m^2/s]\ntransport_mode = 'diffusive'  # Options: 'diffusive', 'advective', 'off'\nenable_hot_tail = True\n\nds = DREAMSettings()\n\n# Radial grid\nds.radialgrid.setB0(2.0)\nds.radialgrid.setMinorRadius(r1)\nds.radialgrid.setNr(nr)\n\n# Time stepper\ntimes = np.linspace(t0, t1, nt)\nds.timestep.setT0(t0)\nds.timestep.setTimes(times)\n\n# Ions\nds.eqsys.n_i.addIon(name='H', Z=ion_Z, n=ion_n, iontype=IonSpecies.IONS_DYNAMIC)\nds.eqsys.n_i.setBoundaryCondition(ion='H', bc=IonSpecies.BC_TYPE_ZERO)\n\n# Cold electron temperature\nds.eqsys.T_cold.setInitialProfile(Te0)\nds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_PRESCRIBED)\nds.eqsys.T_cold.setPrescribedData(np.linspace(Te0, Te1, nt), times=times)\n\n# Electric field\nds.eqsys.E_field.setInitialProfile(Efield)\nds.eqsys.E_field.setType(E_field.TYPE_PRESCRIBED)\nds.eqsys.E_field.setPrescribedData(Efield*np.ones(nt), times=times)\n\n# Hot tail grid\nif enable_hot_tail:\n    ds.hottailgrid.setEnabled(True)\n    ds.hottailgrid.setNxi(10)\n    ds.hottailgrid.setNp(20)\n    ds.hottailgrid.setPmax(1)\n    ds.hottailgrid.setBiuniformGrid(psep=0.2, nsep=5)\n    ds.eqsys.f_hot.setInitialProfiles(np.zeros([nr, 10, 20]))\n    ds.eqsys.f_hot.setBoundaryCondition(HotElectronDistribution.BC_F_0)\nelse:\n    ds.hottailgrid.setEnabled(False)\n\n# Transport settings\nif transport_mode == 'diffusive':\n    D = D_scalar * np.ones([nr, nt])\n    ds.eqsys.n_re.transport.setDiffusion(D, times=times)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_ZERO)\n    ds.eqsys.n_re.transport.setAdvection(np.zeros([nr, nt]), times=times)\nelif transport_mode == 'advective':\n    V = D_scalar * np.ones([nr, nt])\n    ds.eqsys.n_re.transport.setAdvection(V, times=times)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_ZERO)\n    ds.eqsys.n_re.transport.setDiffusion(np.zeros([nr, nt]), times=times)\nelif transport_mode == 'off':\n    ds.eqsys.n_re.transport.setOff()\nelse:\n    raise ValueError(\"Unknown transport mode: {}\".format(transport_mode))\n\n# Initial runaway electron density\nds.eqsys.n_re.setInitialProfile(0.0)\n\n# Run simulation\nruniface(ds, 'output.h5', quiet=False)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129060,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 826,
+      "prompt_tokens": 238,
+      "total_tokens": 1064,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport DREAM\nfrom DREAM import DREAMSettings, runiface\nfrom DREAM.Settings.Equations import IonSpecies, ColdElectronTemperature, E_field\nfrom DREAM.Settings.RadialGrid import RadialGrid\nfrom DREAM.Settings.Transport import TransportSettings\nfrom DREAM.Settings.TimeStepper import TimeStepper\nfrom DREAM.Settings.HotElectronDistribution import HotElectronDistribution\n\n# Simulation parameters\nnr = 10\nr0 = 0\nr1 = 0.2\nt0 = 0\nt1 = 1e-3\nnt = 20\nTe0 = 10  # Initial cold electron temperature [eV]\nTe1 = 1000  # Final cold electron temperature [eV]\nEfield = 0.0  # Electric field [V/m]\nion_Z = 1\nion_n = 1e20  # [m^-3]\nD_scalar = 1.0  # Constant diffusion coefficient [m^2/s]\ntransport_mode = 'diffusive'  # Options: 'diffusive', 'advective', 'off'\nenable_hot_tail = True\n\nds = DREAMSettings()\n\n# Radial grid\nds.radialgrid.setB0(2.0)\nds.radialgrid.setMinorRadius(r1)\nds.radialgrid.setNr(nr)\n\n# Time stepper\ntimes = np.linspace(t0, t1, nt)\nds.timestep.setT0(t0)\nds.timestep.setTimes(times)\n\n# Ions\nds.eqsys.n_i.addIon(name='H', Z=ion_Z, n=ion_n, iontype=IonSpecies.IONS_DYNAMIC)\nds.eqsys.n_i.setBoundaryCondition(ion='H', bc=IonSpecies.BC_TYPE_ZERO)\n\n# Cold electron temperature\nds.eqsys.T_cold.setInitialProfile(Te0)\nds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_PRESCRIBED)\nds.eqsys.T_cold.setPrescribedData(np.linspace(Te0, Te1, nt), times=times)\n\n# Electric field\nds.eqsys.E_field.setInitialProfile(Efield)\nds.eqsys.E_field.setType(E_field.TYPE_PRESCRIBED)\nds.eqsys.E_field.setPrescribedData(Efield*np.ones(nt), times=times)\n\n# Hot tail grid\nif enable_hot_tail:\n    ds.hottailgrid.setEnabled(True)\n    ds.hottailgrid.setNxi(10)\n    ds.hottailgrid.setNp(20)\n    ds.hottailgrid.setPmax(1)\n    ds.hottailgrid.setBiuniformGrid(psep=0.2, nsep=5)\n    ds.eqsys.f_hot.setInitialProfiles(np.zeros([nr, 10, 20]))\n    ds.eqsys.f_hot.setBoundaryCondition(HotElectronDistribution.BC_F_0)\nelse:\n    ds.hottailgrid.setEnabled(False)\n\n# Transport settings\nif transport_mode == 'diffusive':\n    D = D_scalar * np.ones([nr, nt])\n    ds.eqsys.n_re.transport.setDiffusion(D, times=times)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_ZERO)\n    ds.eqsys.n_re.transport.setAdvection(np.zeros([nr, nt]), times=times)\nelif transport_mode == 'advective':\n    V = D_scalar * np.ones([nr, nt])\n    ds.eqsys.n_re.transport.setAdvection(V, times=times)\n    ds.eqsys.n_re.transport.setBoundaryCondition(TransportSettings.BC_ZERO)\n    ds.eqsys.n_re.transport.setDiffusion(np.zeros([nr, nt]), times=times)\nelif transport_mode == 'off':\n    ds.eqsys.n_re.transport.setOff()\nelse:\n    raise ValueError(\"Unknown transport mode: {}\".format(transport_mode))\n\n# Initial runaway electron density\nds.eqsys.n_re.setInitialProfile(0.0)\n\n# Run simulation\nruniface(ds, 'output.h5', quiet=False)\n```",
+  "latency_seconds": 6.13050234199909,
+  "usage": {
+    "completion_tokens": 826,
+    "prompt_tokens": 238,
+    "total_tokens": 1064,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7084,
+  "response_sha256": "1fe84e048fed09b3f2dcecf14732fba6b7297330d74a3f88e9fe9c8a411b4d6a",
+  "artifact_sha256": "74132b4a086ab3095752f5bb21e1d899cf155f60300ba80fdb22530f3ae74972"
+}

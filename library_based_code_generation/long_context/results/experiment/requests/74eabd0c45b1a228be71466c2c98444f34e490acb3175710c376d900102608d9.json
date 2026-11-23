@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 67,
+    "task_sha256": "1de85693db853d010a51e312121ff806d1d76556ccb598bcaa0fb7d8b08fe526",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the pyaedt library to create a 2D Extractor CPWG (coplanar waveguide with ground) design and run a simulation. The code should import the necessary libraries, set the non-graphical mode, launch AEDT and 2D Extractor, define variables, create primitives, create a signal, create a coplanar ground, create a reference ground plane, create a dielectric, create a conformal coating, assign a conductor to the signal, create a reference ground, assign the Huray model on the signal, create the setup, analyze it, plot solution data, save the project and close AEDT.\n\nYou can find the following APIs from the library helpful:\npoint_a, icepak_a, hfss3dl_a, test_54b_open_and_load_a_polyline, test_09b_export_report_A, create_sheet_to_ground, _create_conformal, create_waveguide, create_plane, CreateAedtApplication, CreateAedtObj, create, _create_setup, create_setup, source_terms_to_ground, CreateAedtBlockObj, signal, create_new_project, create_dataset1d_project, create_3d_plot"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5NAUTshrwP8Ts2UI9HlKRWcLoOD",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom pyaedt import Hfss2dExtractor, Desktop\nimport os\n\n# Set non-graphical mode\nnon_graphical = True\n\n# Launch AEDT and 2D Extractor\ndesktop = Desktop(specified_version=\"2024.1\", non_graphical=non_graphical, new_desktop_session=True)\nproject_name = \"CPWG_2D_Extractor\"\ndesign_name = \"CPWG_Design\"\naedtapp = Hfss2dExtractor(projectname=project_name, designname=design_name, specified_version=\"2024.1\", new_desktop_session=False)\n\n# Define variables\naedtapp[\"cpw_w\"] = \"2mm\"\naedtapp[\"cpw_s\"] = \"0.2mm\"\naedtapp[\"cpw_g\"] = \"5mm\"\naedtapp[\"cpw_l\"] = \"20mm\"\naedtapp[\"cpw_t\"] = \"0.035mm\"\naedtapp[\"diel_h\"] = \"0.8mm\"\naedtapp[\"diel_er\"] = \"4.4\"\naedtapp[\"diel_loss\"] = \"0.02\"\naedtapp[\"coating_t\"] = \"0.01mm\"\naedtapp[\"coating_er\"] = \"3.0\"\n\n# Create primitives\norigin = [0, 0]\nsignal_start = [0, 0]\nsignal_end = [\"cpw_l\", 0]\nsignal = aedtapp.modeler.create_polyline([signal_start, signal_end], name=\"Signal\", xsection_type=\"Rectangle\", xsection_width=\"cpw_w\", xsection_height=\"cpw_t\")\n\n# Create coplanar ground (two ground strips)\ngnd1_start = [0, \"-(cpw_s+cpw_w/2)\"]\ngnd1_end = [\"cpw_l\", \"-(cpw_s+cpw_w/2)\"]\ngnd1 = aedtapp.modeler.create_polyline([gnd1_start, gnd1_end], name=\"GND1\", xsection_type=\"Rectangle\", xsection_width=\"cpw_g\", xsection_height=\"cpw_t\")\n\ngnd2_start = [0, \"(cpw_s+cpw_w/2)\"]\ngnd2_end = [\"cpw_l\", \"(cpw_s+cpw_w/2)\"]\ngnd2 = aedtapp.modeler.create_polyline([gnd2_start, gnd2_end], name=\"GND2\", xsection_type=\"Rectangle\", xsection_width=\"cpw_g\", xsection_height=\"cpw_t\")\n\n# Create reference ground plane\nref_plane = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"RefGround\", matname=\"copper\")\n\n# Create dielectric\ndiel = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"Dielectric\", matname=\"FR4_epoxy\")\naedtapp.modeler.thicken_sheet(\"Dielectric\", \"diel_h\")\n\n# Create conformal coating\ncoating = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"Coating\", matname=\"pec\")\naedtapp.modeler.thicken_sheet(\"Coating\", \"coating_t\")\n\n# Assign conductor to the signal\naedtapp.assign_single_conductor(signal.name, \"copper\")\n\n# Create reference ground\naedtapp.assign_reference_ground(ref_plane.name)\n\n# Assign Huray model on the signal\naedtapp.assign_huray_surface(signal.name, radius=0.5e-6, ratio=2.0)\n\n# Create setup\nsetup = aedtapp.create_setup(name=\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\n\n# Analyze\naedtapp.analyze_setup(\"Setup1\")\n\n# Plot solution data\nsolution_data = aedtapp.get_solution_data(expressions=[\"Z0\"], setup_sweep_name=\"Setup1 : LastAdaptive\")\nsolution_data.plot(\"Z0\")\n\n# Save the project\naedtapp.save_project()\n\n# Close AEDT\naedtapp.release_desktop(close_projects=True, close_desktop=True)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129104,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 982,
+      "prompt_tokens": 271,
+      "total_tokens": 1253,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom pyaedt import Hfss2dExtractor, Desktop\nimport os\n\n# Set non-graphical mode\nnon_graphical = True\n\n# Launch AEDT and 2D Extractor\ndesktop = Desktop(specified_version=\"2024.1\", non_graphical=non_graphical, new_desktop_session=True)\nproject_name = \"CPWG_2D_Extractor\"\ndesign_name = \"CPWG_Design\"\naedtapp = Hfss2dExtractor(projectname=project_name, designname=design_name, specified_version=\"2024.1\", new_desktop_session=False)\n\n# Define variables\naedtapp[\"cpw_w\"] = \"2mm\"\naedtapp[\"cpw_s\"] = \"0.2mm\"\naedtapp[\"cpw_g\"] = \"5mm\"\naedtapp[\"cpw_l\"] = \"20mm\"\naedtapp[\"cpw_t\"] = \"0.035mm\"\naedtapp[\"diel_h\"] = \"0.8mm\"\naedtapp[\"diel_er\"] = \"4.4\"\naedtapp[\"diel_loss\"] = \"0.02\"\naedtapp[\"coating_t\"] = \"0.01mm\"\naedtapp[\"coating_er\"] = \"3.0\"\n\n# Create primitives\norigin = [0, 0]\nsignal_start = [0, 0]\nsignal_end = [\"cpw_l\", 0]\nsignal = aedtapp.modeler.create_polyline([signal_start, signal_end], name=\"Signal\", xsection_type=\"Rectangle\", xsection_width=\"cpw_w\", xsection_height=\"cpw_t\")\n\n# Create coplanar ground (two ground strips)\ngnd1_start = [0, \"-(cpw_s+cpw_w/2)\"]\ngnd1_end = [\"cpw_l\", \"-(cpw_s+cpw_w/2)\"]\ngnd1 = aedtapp.modeler.create_polyline([gnd1_start, gnd1_end], name=\"GND1\", xsection_type=\"Rectangle\", xsection_width=\"cpw_g\", xsection_height=\"cpw_t\")\n\ngnd2_start = [0, \"(cpw_s+cpw_w/2)\"]\ngnd2_end = [\"cpw_l\", \"(cpw_s+cpw_w/2)\"]\ngnd2 = aedtapp.modeler.create_polyline([gnd2_start, gnd2_end], name=\"GND2\", xsection_type=\"Rectangle\", xsection_width=\"cpw_g\", xsection_height=\"cpw_t\")\n\n# Create reference ground plane\nref_plane = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"RefGround\", matname=\"copper\")\n\n# Create dielectric\ndiel = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"Dielectric\", matname=\"FR4_epoxy\")\naedtapp.modeler.thicken_sheet(\"Dielectric\", \"diel_h\")\n\n# Create conformal coating\ncoating = aedtapp.modeler.create_rectangle(position=[0, \"-(cpw_g+cpw_s+cpw_w/2)\"], dimension_list=[\"cpw_l\", \"2*(cpw_g+cpw_s+cpw_w/2)\"], name=\"Coating\", matname=\"pec\")\naedtapp.modeler.thicken_sheet(\"Coating\", \"coating_t\")\n\n# Assign conductor to the signal\naedtapp.assign_single_conductor(signal.name, \"copper\")\n\n# Create reference ground\naedtapp.assign_reference_ground(ref_plane.name)\n\n# Assign Huray model on the signal\naedtapp.assign_huray_surface(signal.name, radius=0.5e-6, ratio=2.0)\n\n# Create setup\nsetup = aedtapp.create_setup(name=\"Setup1\")\nsetup.props[\"Frequency\"] = \"10GHz\"\nsetup.update()\n\n# Analyze\naedtapp.analyze_setup(\"Setup1\")\n\n# Plot solution data\nsolution_data = aedtapp.get_solution_data(expressions=[\"Z0\"], setup_sweep_name=\"Setup1 : LastAdaptive\")\nsolution_data.plot(\"Z0\")\n\n# Save the project\naedtapp.save_project()\n\n# Close AEDT\naedtapp.release_desktop(close_projects=True, close_desktop=True)\n```",
+  "latency_seconds": 7.029072686000291,
+  "usage": {
+    "completion_tokens": 982,
+    "prompt_tokens": 271,
+    "total_tokens": 1253,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8398,
+  "response_sha256": "dfc04913c98a7a52a349325f40751336d2a449b27dcc6edf9ac06cc673319fbf",
+  "artifact_sha256": "5e6f12057d1382c30c83861cf282c11e1076d6811c22de66fb101a195a223deb"
+}

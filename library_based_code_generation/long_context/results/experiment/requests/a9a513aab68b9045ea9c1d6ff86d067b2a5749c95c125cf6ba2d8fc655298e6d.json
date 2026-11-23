@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 32,
+    "task_sha256": "d80422be3043b2d9c7abd3fe0a623fb9faef3612184e3e0dfbd87ba042d1f775",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that compares different clustering algorithms on various toy datasets. The code should generate several datasets, including noisy circles, noisy moons, blobs, anisotropicly distributed data, blobs with varied variances, and a dataset with no structure. It should then set up parameters for clustering and apply a variety of clustering algorithms to each dataset, including MeanShift, MiniBatchKMeans, AgglomerativeClustering, SpectralClustering, DBSCAN, HDBSCAN, OPTICS, AffinityPropagation, Birch, and GaussianMixture. The code should also handle warnings related to kneighbors_graph and measure the time taken for each algorithm to fit the data. Finally, it should visualize the results of each clustering algorithm on each dataset, displaying the time taken for each algorithm in the plot."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4ztpPm6xHiw50iG7rDgPixf4pv9",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom sklearn import datasets\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.cluster import MeanShift, MiniBatchKMeans, AgglomerativeClustering, SpectralClustering, DBSCAN, AffinityPropagation, Birch\nfrom sklearn.mixture import GaussianMixture\nfrom sklearn.neighbors import kneighbors_graph\nfrom sklearn.utils import shuffle\nfrom sklearn.metrics import pairwise_distances_argmin\nimport warnings\nimport time\n\n# HDBSCAN and OPTICS\ntry:\n    import hdbscan\nexcept ImportError:\n    hdbscan = None\nfrom sklearn.cluster import OPTICS\n\nnp.random.seed(42)\n\n# Generate datasets\nn_samples = 1500\nnoisy_circles = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)\nnoisy_moons = datasets.make_moons(n_samples=n_samples, noise=.05)\nblobs = datasets.make_blobs(n_samples=n_samples, random_state=8)\nrandom_data = np.random.rand(n_samples, 2), None\n\n# Anisotropicly distributed data\nX, y = datasets.make_blobs(n_samples=n_samples, random_state=170)\ntransformation = [[0.6, -0.6], [-0.4, 0.8]]\nX_aniso = np.dot(X, transformation)\nanisotropic = (X_aniso, y)\n\n# Blobs with varied variances\nvaried = datasets.make_blobs(n_samples=n_samples,\n                             cluster_std=[1.0, 2.5, 0.5],\n                             random_state=170)\n\ndatasets_list = [\n    (noisy_circles, \"Noisy Circles\"),\n    (noisy_moons, \"Noisy Moons\"),\n    (blobs, \"Blobs\"),\n    (anisotropic, \"Anisotropic\"),\n    (varied, \"Varied Blobs\"),\n    (random_data, \"No Structure\")\n]\n\n# Set up clustering algorithms\ndefault_base = {\n    'quantile': .3,\n    'eps': .3,\n    'damping': .9,\n    'preference': -200,\n    'n_neighbors': 10,\n    'n_clusters': 3\n}\n\nclustering_algorithms = []\n\n# MeanShift\nclustering_algorithms.append((\n    \"MeanShift\",\n    MeanShift(bin_seeding=True)\n))\n\n# MiniBatchKMeans\nclustering_algorithms.append((\n    \"MiniBatchKMeans\",\n    MiniBatchKMeans(n_clusters=3, n_init=10)\n))\n\n# AgglomerativeClustering\nclustering_algorithms.append((\n    \"AgglomerativeClustering\",\n    AgglomerativeClustering(n_clusters=3, linkage='ward')\n))\n\n# SpectralClustering\nclustering_algorithms.append((\n    \"SpectralClustering\",\n    SpectralClustering(n_clusters=3, affinity='nearest_neighbors', assign_labels='kmeans', random_state=42)\n))\n\n# DBSCAN\nclustering_algorithms.append((\n    \"DBSCAN\",\n    DBSCAN(eps=0.3)\n))\n\n# HDBSCAN\nif hdbscan is not None:\n    clustering_algorithms.append((\n        \"HDBSCAN\",\n        hdbscan.HDBSCAN(min_cluster_size=15)\n    ))\n\n# OPTICS\nclustering_algorithms.append((\n    \"OPTICS\",\n    OPTICS(min_samples=10)\n))\n\n# AffinityPropagation\nclustering_algorithms.append((\n    \"AffinityPropagation\",\n    AffinityPropagation(damping=0.9, preference=-200)\n))\n\n# Birch\nclustering_algorithms.append((\n    \"Birch\",\n    Birch(n_clusters=3)\n))\n\n# GaussianMixture\nclass GMMCluster:\n    def __init__(self, n_components):\n        self.n_components = n_components\n        self.model = GaussianMixture(n_components=n_components, covariance_type='full')\n    def fit(self, X):\n        self.model.fit(X)\n        self.labels_ = self.model.predict(X)\n        return self\nclustering_algorithms.append((\n    \"GaussianMixture\",\n    GMMCluster(n_components=3)\n))\n\nplt.figure(figsize=(len(clustering_algorithms) * 3, len(datasets_list) * 3))\nplot_num = 1\n\nfor i_dataset, (dataset, ds_name) in enumerate(datasets_list):\n    X, y = dataset\n    X = StandardScaler().fit_transform(X)\n\n    for name, algorithm in clustering_algorithms:\n        t0 = time.time()\n        with warnings.catch_warnings():\n            warnings.filterwarnings(\n                \"ignore\",\n                message=\"the number of connected components of the connectivity matrix is [0-9]+\"\n            )\n            warnings.filterwarnings(\n                \"ignore\",\n                message=\"Graph is not fully connected\"\n            )\n            try:\n                if hasattr(algorithm, 'fit_predict'):\n                    y_pred = algorithm.fit_predict(X)\n                elif hasattr(algorithm, 'fit'):\n                    algorithm.fit(X)\n                    y_pred = getattr(algorithm, 'labels_', None)\n                    if y_pred is None and hasattr(algorithm, 'predict'):\n                        y_pred = algorithm.predict(X)\n                else:\n                    y_pred = algorithm.fit(X).labels_\n            except Exception as e:\n                y_pred = np.full(X.shape[0], -1)\n        t1 = time.time()\n        plt.subplot(len(datasets_list), len(clustering_algorithms), plot_num)\n        if y_pred is not None:\n            plt.scatter(X[:, 0], X[:, 1], c=y_pred, s=10, cmap=plt.cm.nipy_spectral)\n        else:\n            plt.scatter(X[:, 0], X[:, 1], color='k', s=10)\n        plt.title(f\"{name}\\n{t1 - t0:.2f}s\", fontsize=9)\n        plt.xticks([])\n        plt.yticks([])\n        if plot_num <= len(clustering_algorithms):\n            plt.xlabel(name, fontsize=10)\n        if plot_num % len(clustering_algorithms) == 1:\n            plt.ylabel(ds_name, fontsize=10)\n        plot_num += 1\n\nplt.tight_layout()\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127661,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_78e0b5c67b",
+    "usage": {
+      "completion_tokens": 1280,
+      "prompt_tokens": 188,
+      "total_tokens": 1468,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom sklearn import datasets\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.cluster import MeanShift, MiniBatchKMeans, AgglomerativeClustering, SpectralClustering, DBSCAN, AffinityPropagation, Birch\nfrom sklearn.mixture import GaussianMixture\nfrom sklearn.neighbors import kneighbors_graph\nfrom sklearn.utils import shuffle\nfrom sklearn.metrics import pairwise_distances_argmin\nimport warnings\nimport time\n\n# HDBSCAN and OPTICS\ntry:\n    import hdbscan\nexcept ImportError:\n    hdbscan = None\nfrom sklearn.cluster import OPTICS\n\nnp.random.seed(42)\n\n# Generate datasets\nn_samples = 1500\nnoisy_circles = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)\nnoisy_moons = datasets.make_moons(n_samples=n_samples, noise=.05)\nblobs = datasets.make_blobs(n_samples=n_samples, random_state=8)\nrandom_data = np.random.rand(n_samples, 2), None\n\n# Anisotropicly distributed data\nX, y = datasets.make_blobs(n_samples=n_samples, random_state=170)\ntransformation = [[0.6, -0.6], [-0.4, 0.8]]\nX_aniso = np.dot(X, transformation)\nanisotropic = (X_aniso, y)\n\n# Blobs with varied variances\nvaried = datasets.make_blobs(n_samples=n_samples,\n                             cluster_std=[1.0, 2.5, 0.5],\n                             random_state=170)\n\ndatasets_list = [\n    (noisy_circles, \"Noisy Circles\"),\n    (noisy_moons, \"Noisy Moons\"),\n    (blobs, \"Blobs\"),\n    (anisotropic, \"Anisotropic\"),\n    (varied, \"Varied Blobs\"),\n    (random_data, \"No Structure\")\n]\n\n# Set up clustering algorithms\ndefault_base = {\n    'quantile': .3,\n    'eps': .3,\n    'damping': .9,\n    'preference': -200,\n    'n_neighbors': 10,\n    'n_clusters': 3\n}\n\nclustering_algorithms = []\n\n# MeanShift\nclustering_algorithms.append((\n    \"MeanShift\",\n    MeanShift(bin_seeding=True)\n))\n\n# MiniBatchKMeans\nclustering_algorithms.append((\n    \"MiniBatchKMeans\",\n    MiniBatchKMeans(n_clusters=3, n_init=10)\n))\n\n# AgglomerativeClustering\nclustering_algorithms.append((\n    \"AgglomerativeClustering\",\n    AgglomerativeClustering(n_clusters=3, linkage='ward')\n))\n\n# SpectralClustering\nclustering_algorithms.append((\n    \"SpectralClustering\",\n    SpectralClustering(n_clusters=3, affinity='nearest_neighbors', assign_labels='kmeans', random_state=42)\n))\n\n# DBSCAN\nclustering_algorithms.append((\n    \"DBSCAN\",\n    DBSCAN(eps=0.3)\n))\n\n# HDBSCAN\nif hdbscan is not None:\n    clustering_algorithms.append((\n        \"HDBSCAN\",\n        hdbscan.HDBSCAN(min_cluster_size=15)\n    ))\n\n# OPTICS\nclustering_algorithms.append((\n    \"OPTICS\",\n    OPTICS(min_samples=10)\n))\n\n# AffinityPropagation\nclustering_algorithms.append((\n    \"AffinityPropagation\",\n    AffinityPropagation(damping=0.9, preference=-200)\n))\n\n# Birch\nclustering_algorithms.append((\n    \"Birch\",\n    Birch(n_clusters=3)\n))\n\n# GaussianMixture\nclass GMMCluster:\n    def __init__(self, n_components):\n        self.n_components = n_components\n        self.model = GaussianMixture(n_components=n_components, covariance_type='full')\n    def fit(self, X):\n        self.model.fit(X)\n        self.labels_ = self.model.predict(X)\n        return self\nclustering_algorithms.append((\n    \"GaussianMixture\",\n    GMMCluster(n_components=3)\n))\n\nplt.figure(figsize=(len(clustering_algorithms) * 3, len(datasets_list) * 3))\nplot_num = 1\n\nfor i_dataset, (dataset, ds_name) in enumerate(datasets_list):\n    X, y = dataset\n    X = StandardScaler().fit_transform(X)\n\n    for name, algorithm in clustering_algorithms:\n        t0 = time.time()\n        with warnings.catch_warnings():\n            warnings.filterwarnings(\n                \"ignore\",\n                message=\"the number of connected components of the connectivity matrix is [0-9]+\"\n            )\n            warnings.filterwarnings(\n                \"ignore\",\n                message=\"Graph is not fully connected\"\n            )\n            try:\n                if hasattr(algorithm, 'fit_predict'):\n                    y_pred = algorithm.fit_predict(X)\n                elif hasattr(algorithm, 'fit'):\n                    algorithm.fit(X)\n                    y_pred = getattr(algorithm, 'labels_', None)\n                    if y_pred is None and hasattr(algorithm, 'predict'):\n                        y_pred = algorithm.predict(X)\n                else:\n                    y_pred = algorithm.fit(X).labels_\n            except Exception as e:\n                y_pred = np.full(X.shape[0], -1)\n        t1 = time.time()\n        plt.subplot(len(datasets_list), len(clustering_algorithms), plot_num)\n        if y_pred is not None:\n            plt.scatter(X[:, 0], X[:, 1], c=y_pred, s=10, cmap=plt.cm.nipy_spectral)\n        else:\n            plt.scatter(X[:, 0], X[:, 1], color='k', s=10)\n        plt.title(f\"{name}\\n{t1 - t0:.2f}s\", fontsize=9)\n        plt.xticks([])\n        plt.yticks([])\n        if plot_num <= len(clustering_algorithms):\n            plt.xlabel(name, fontsize=10)\n        if plot_num % len(clustering_algorithms) == 1:\n            plt.ylabel(ds_name, fontsize=10)\n        plot_num += 1\n\nplt.tight_layout()\nplt.show()\n```",
+  "latency_seconds": 7.568890984000973,
+  "usage": {
+    "completion_tokens": 1280,
+    "prompt_tokens": 188,
+    "total_tokens": 1468,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10616,
+  "response_sha256": "e7300430c5ae97827038a77df5ccbbb7f577dc3c69142e4ef153e1d7c6987082",
+  "artifact_sha256": "ca12b7a479efd730a3217f7f603593d3edc1c836edd53553da8fb23ece325b67"
+}
