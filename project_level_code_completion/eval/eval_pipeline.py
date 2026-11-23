@@ -72,7 +72,7 @@ class EvalPipeline:
         assert inference_params['model'] in MODEL_REGISTRY, (f'config: inference_params: model: '
                                                              f'{inference_params["model"]} is not in MODEL_REGISTRY')
         if MODEL_REGISTRY[inference_params['model']].checkpoint != preprocess_params['tokenizer']:
-            warnings.warn(f'Model and Tokenizer have different paths')
+            warnings.warn('Model and Tokenizer have different paths')
 
         # preprocess_params.dataset = config.dataset
         if isinstance(config.dataset, str):
@@ -118,7 +118,7 @@ class EvalPipeline:
         do_generation = self.config.do_generation
         seed = self.config.seed
         # Run Zero context scenario
-        wb_run = wandb.init(project=self.project_name, group=f"zero_context", name=f"zero_context")
+        wb_run = wandb.init(project=self.project_name, group="zero_context", name="zero_context")
         results = list()
         result_0 = self.run_zero_context()
         results.append(result_0)

@@ -460,9 +460,9 @@ def evaluate_generation(args: GeneratorConfig, input_data: Optional[list[Datapoi
     def process_results(use_zero_context):
         em_dict, es_dict, sc_counts = calculate_metrics(use_zero_context=use_zero_context)
         if use_zero_context:
-            print(f'Final results for zero context:')
+            print('Final results for zero context:')
         else:
-            print(f'Final results for full context:')
+            print('Final results for full context:')
         for sc_name in em_dict.keys():
             em_list = em_dict[sc_name]
             es_list = es_dict[sc_name]
