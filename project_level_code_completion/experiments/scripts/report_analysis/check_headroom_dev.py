@@ -15,7 +15,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
 from analyze_e5_full import load  # noqa: E402
 
-RR = os.path.join(HERE, "..", "..", "..")
+RR = os.path.join(HERE, "..", "..")
 
 
 def signature(rows, dp):
@@ -24,8 +24,8 @@ def signature(rows, dp):
 
 
 def main():
-    e4 = load(os.path.join(RR, "agent", "E5_full", "arms"), "e4_F_N1753")
-    base = os.path.join(RR, "agent", "E5v3_dev", "arms")
+    e4 = load(os.path.join(RR, "results", "agent", "E5_full", "arms"), "e4_F_N1753")
+    base = os.path.join(RR, "results", "agent", "E5v3_dev", "arms")
     dev = {k: load(base, f"e5v3dev_{k}") for k in ("d0", "d1", "d2", "d3", "d6")}
     keys = sorted(dev["d0"])
     sigs = {}
@@ -38,7 +38,9 @@ def main():
         mapping[dp] = found[0]
     split = {}
     with gzip.open(
-        os.path.join(RR, "agent", "E5_full", "arms", "e4_F_N1753", "failure_split.jsonl.gz"), "rt", encoding="utf-8"
+        os.path.join(RR, "results", "agent", "E5_full", "arms", "e4_F_N1753", "failure_split.jsonl.gz"),
+        "rt",
+        encoding="utf-8",
     ) as f:
         for raw in f:
             r = json.loads(raw)

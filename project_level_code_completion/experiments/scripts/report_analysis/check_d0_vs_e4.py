@@ -16,8 +16,8 @@ from eval.analyze_arms import paired_bootstrap  # noqa: E402
 
 
 def main():
-    d0 = load(os.path.join(HERE, "..", "..", "agent", "E5v3_dev", "arms"), "e5v3dev_d0")
-    e4 = load(os.path.join(HERE, "..", "..", "agent", "E5_full", "arms"), "e4_F_N1753")
+    d0 = load(os.path.join(HERE, "..", "..", "results", "agent", "E5v3_dev", "arms"), "e5v3dev_d0")
+    e4 = load(os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms"), "e4_F_N1753")
 
     # The dev split renumbers datapoints, so each dev datapoint is matched to the E4 datapoint with the same repo and the same set of
     # (line number, ground truth) pairs; the match must be unique. E4 rows are then re-keyed by the dev arm's keys.

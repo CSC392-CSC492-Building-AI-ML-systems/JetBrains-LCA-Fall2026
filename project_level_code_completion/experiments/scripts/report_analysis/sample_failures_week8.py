@@ -1,7 +1,7 @@
 """Random samples of wrong lines for the week 8 failure taxonomy (RAG_EXPERIMENT_LOG 8.106), medium set, 224 datapoints, CodeLlama-7B, N = 1,753.
 Groups (seed 0, 25 lines each): wrong lines of no context, path_distance, RAG F and the 7B planner agent; and lines the agent broke (RAG F right,
 agent wrong, context changed). Each item shows the ground truth and the four predictions, so labels can be compared across arms.
-Reads the arms in experiments/agent/E5_full/arms. Writes experiments/reports/final/failure_samples_week8.txt and .json (sample ids with line keys).
+Reads the arms in experiments/results/agent/E5_full/arms. Writes experiments/reports/final/failure_samples_week8.txt and .json (sample ids with line keys).
 Usage: python experiments/scripts/report_analysis/sample_failures_week8.py"""
 
 import json
@@ -14,7 +14,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
 from analyze_e5_full import load, right  # noqa: E402
 
-BASE = os.path.join(HERE, "..", "..", "agent", "E5_full", "arms")
+BASE = os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms")
 ARMS = {"zero": "e4_zero", "pd": "e4_pd_N1753", "F": "e4_F_N1753", "agent": "e5_agent_full"}
 N = 25
 

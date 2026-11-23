@@ -1,7 +1,7 @@
 """Final experiment table for the week 8 deliverable (accuracy, tokens, latency, compute across all approaches).
 Part A (all 224 medium datapoints, 8,676 lines, CodeLlama-7B writer): E4 arms from figures/E4/e4_results_table.csv, the 7B agent arm (E5) from
 figures/E5/e5_results_table.csv. Part B (24 development datapoints, 1,372 lines, one RTX PRO 6000 box): the stronger-agent arms recomputed from
-experiments/agent/E5v3_dev/arms. Writes experiments/reports/final/final_experiment_table.{md,csv}.
+experiments/results/agent/E5v3_dev/arms. Writes experiments/reports/final/final_experiment_table.{md,csv}.
 Compute: GPU hours x $0.69 per hour (the price used in E4). E4 arms: wall hours of the run, cost as stored in the E4 table. Agent arm: summed per-line work hours (the shards ran
 on several machines, so no single wall time exists); part B has no compute column because two arms shared one GPU.
 Usage: python experiments/scripts/report_analysis/make_final_table.py"""
@@ -19,7 +19,7 @@ from analyze_e5_full import dp_means, em, load, seconds  # noqa: E402
 from eval.analyze_arms import paired_bootstrap  # noqa: E402
 
 PRICE = 0.69
-RR = os.path.join(HERE, "..", "..", "..")
+RR = os.path.join(HERE, "..", "..")
 
 
 def read_csv(path):
@@ -60,7 +60,7 @@ def main():
         ]
     )
 
-    base = os.path.join(RR, "agent", "E5v3_dev", "arms")
+    base = os.path.join(RR, "results", "agent", "E5v3_dev", "arms")
     names = [
         ("d0", "RAG F (same card)"),
         ("d1", "7B planner, E5 tools"),

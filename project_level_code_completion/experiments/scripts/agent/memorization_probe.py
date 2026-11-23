@@ -43,7 +43,7 @@ def main():
     parser.add_argument("--dev", action="store_true", help="only the development split of 8.93 (24 datapoints)")
     parser.add_argument("--lines-per-datapoint", type=int, default=10)
     parser.add_argument("--prefix-tokens", type=int, default=1500)
-    parser.add_argument("--arms", default=os.path.join(HERE, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--arms", default=os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--dates", default=os.path.join(HERE, "..", "..", "reports", "E4", "medium_commit_dates.json"))
     parser.add_argument("--out", help="write one JSON row per line to this file")
     args = parser.parse_args()

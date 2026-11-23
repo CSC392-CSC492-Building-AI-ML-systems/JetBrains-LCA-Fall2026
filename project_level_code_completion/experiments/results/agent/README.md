@@ -34,9 +34,9 @@ python experiments/scripts/report_analysis/agent_change_stats.py  # -> experimen
 # random examples of each kind of change (CPU, needs the dataset and the tree-sitter clone; run from the directory that has the clone):
 python experiments/scripts/report_analysis/make_agent_examples.py # -> experiments/reports/E5/agent_examples.md
 # the failure split itself (CPU, about 7 minutes; replays the planner from its logged actions, run from a directory with the tree-sitter grammar clone):
-python -m eval.failure_split --base experiments/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
+python -m eval.failure_split --base experiments/results/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 # rebuild the merged arm from the shards (what `e5_agent_full` is):
-python experiments/scripts/agent/merge_shards.py OUT_DIR experiments/agent/E5_full/shards/c6_s{0,1,2,3,4,5}
+python experiments/scripts/agent/merge_shards.py OUT_DIR experiments/results/agent/E5_full/shards/c6_s{0,1,2,3,4,5}
 python experiments/scripts/agent/planner_probe.py check <unzipped e4_F_N1753 folder> OUT_DIR   # unchanged lines must match RAG F (5,957 of 5,958 do)
 ```
 

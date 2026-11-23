@@ -1,6 +1,6 @@
 """E5 figures and results table: the agent against the three E4 arms at N=1,753 (RAG_EXPERIMENT_LOG sections 8.87-8.89).
 
-Reads the arm folders in experiments/agent/E5_full/arms (summary.json, per_datapoint_scores.json, generation_results.jsonl[.gz]
+Reads the arm folders in experiments/results/agent/E5_full/arms (summary.json, per_datapoint_scores.json, generation_results.jsonl[.gz]
 of e4_zero, e4_pd_N1753, e4_F_N1753 and e5_agent_full) and writes PNG + PDF figures and a table (csv, markdown) to
 experiments/figures/E5/. Same style and colors as make_e4_figures.py: path_distance = blue, RAG F = orange, agent = aqua,
 no context = gray.
@@ -216,7 +216,7 @@ def table(arms, out):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--out", default=os.path.join(HERE, "..", "..", "figures", "E5"))
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)

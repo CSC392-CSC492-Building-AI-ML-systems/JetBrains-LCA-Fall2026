@@ -3,7 +3,7 @@ D3 32B+v3, D4 7B+v3 tools, D5 32B+v3 with one tool call, all on the 24 developme
 for every arm. Applies the pre-registered decision rule of 8.93 to the arm named by --candidate (default d3):
   full run only if the datapoint-mean EM difference to D0 is >= +0.5 points, its 95 % interval lower bound is >= -1.0, and among the lines
   where the planner changed the context, the lines only RAG F gets right are at most 2x the lines only the agent gets right.
-Reads the arms from experiments/agent/E5v3_dev/arms (plain or gzipped per-line files). Writes experiments/reports/E5v3/dev_analysis.md.
+Reads the arms from experiments/results/agent/E5v3_dev/arms (plain or gzipped per-line files). Writes experiments/reports/E5v3/dev_analysis.md.
 Usage: python experiments/scripts/report_analysis/analyze_e5v3_dev.py [--candidate d3]"""
 
 import argparse
@@ -32,7 +32,7 @@ NAMES = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "agent", "E5v3_dev", "arms"))
+    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "results", "agent", "E5v3_dev", "arms"))
     parser.add_argument("--out", default=os.path.join(HERE, "..", "..", "reports", "E5v3", "dev_analysis.md"))
     parser.add_argument("--candidate", default="d3")
     args = parser.parse_args()

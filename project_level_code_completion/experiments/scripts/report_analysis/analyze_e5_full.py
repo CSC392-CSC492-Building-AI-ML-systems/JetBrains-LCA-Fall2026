@@ -7,7 +7,7 @@ the headline over the 216 datapoints not used for design, results by line class,
 Usage (run from project_level_code_completion, with the repository's python):
     python experiments/scripts/report_analysis/analyze_e5_full.py [--base DIR] [--out report.md]
 DIR holds the arm folders e4_zero, e4_pd_N1753, e4_F_N1753 and e5_agent_full (each with generation_results.jsonl, plain or
-.gz); the default is experiments/agent/E5_full/arms, which is in the repository, so the analysis runs from a clean clone.
+.gz); the default is experiments/results/agent/E5_full/arms, which is in the repository, so the analysis runs from a clean clone.
 """
 
 import argparse
@@ -28,7 +28,7 @@ ARMS = {"zero-context": "e4_zero", "path_distance": "e4_pd_N1753", "RAG F": "e4_
 
 
 def open_results(folder):
-    """The arm's per-line file, plain or gzipped (the copies kept in experiments/agent/E5_full/arms are gzipped)."""
+    """The arm's per-line file, plain or gzipped (the copies kept in experiments/results/agent/E5_full/arms are gzipped)."""
     plain = os.path.join(folder, "generation_results.jsonl")
     if os.path.exists(plain):
         return open(plain, encoding="utf8")
@@ -78,7 +78,7 @@ def seconds(row):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     here = os.path.dirname(os.path.abspath(__file__))
-    parser.add_argument("--base", default=os.path.join(here, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--base", default=os.path.join(here, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--out", default=os.path.join(here, "..", "..", "reports", "E5", "e5_full_analysis.md"))
     args = parser.parse_args()
     base = os.path.expanduser(args.base)

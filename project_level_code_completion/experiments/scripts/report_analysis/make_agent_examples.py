@@ -93,7 +93,7 @@ def clip(text, n=110):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--per-kind", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", default=os.path.join(HERE, "..", "..", "reports", "E5", "agent_examples.md"))

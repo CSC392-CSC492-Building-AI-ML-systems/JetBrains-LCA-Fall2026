@@ -27,7 +27,7 @@ def right(row):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--base", default=os.path.join(HERE, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--out", default=os.path.join(HERE, "..", "..", "reports", "E5", "agent_change_stats.txt"))
     args = parser.parse_args()
     rag, agent = rows(args.base, "e4_F_N1753"), rows(args.base, "e5_agent_full")

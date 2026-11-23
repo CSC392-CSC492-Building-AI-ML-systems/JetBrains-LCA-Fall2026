@@ -6,7 +6,7 @@ N=1,753 line by line and asks what the planner's edits did to the visibility of 
 
     python experiments/scripts/report_analysis/analyze_agent_split.py [--base DIR] [--out report.md]
 
-DIR (default experiments/agent/E5_full/arms) holds e4_F_N1753/failure_split.jsonl.gz and e5_agent_full/failure_split.jsonl.gz
+DIR (default experiments/results/agent/E5_full/arms) holds e4_F_N1753/failure_split.jsonl.gz and e5_agent_full/failure_split.jsonl.gz
 (made with eval.failure_split) and the arms' generation_results.jsonl.gz (for the `changed` flag). The screen is lexical (a name can
 be visible without its definition being useful), so it is a screen, not a proof.
 """
@@ -26,7 +26,7 @@ def read_jsonl(path):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", default=os.path.join(here, "..", "..", "agent", "E5_full", "arms"))
+    parser.add_argument("--base", default=os.path.join(here, "..", "..", "results", "agent", "E5_full", "arms"))
     parser.add_argument("--out", default=os.path.join(here, "..", "..", "reports", "E5", "agent_failure_split.md"))
     args = parser.parse_args()
     base = os.path.expanduser(args.base)
