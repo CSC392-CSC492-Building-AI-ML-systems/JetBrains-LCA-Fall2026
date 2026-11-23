@@ -27,5 +27,5 @@ F="rag=F rag.prefix_cap=15900 context_cap=1753"
 run_once e5dev2_rag   $M8 arm=rag $F
 run_once e5dev2_agent $M8 arm=agent agent=append $F agent.planner_model=$PLANNER agent.planner_dtype=$DTYPE
 ARMS=$ART/python/codellama-7b/medium_context/arms
-(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/planner_probe.py check $ARMS/e5dev2_rag $ARMS/e5dev2_agent 2>&1 | grep -v MatMul8bitLt | tee -a $LOG)
+(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/agent/planner_probe.py check $ARMS/e5dev2_rag $ARMS/e5dev2_agent 2>&1 | grep -v MatMul8bitLt | tee -a $LOG)
 mark "MACHINE E5dev2 complete"

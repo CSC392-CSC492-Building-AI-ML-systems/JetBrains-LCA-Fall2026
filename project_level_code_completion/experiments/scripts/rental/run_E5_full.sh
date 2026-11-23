@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # E5 full agent arm (log section 8.87): the v2 planner agent (`agent=append`) on ALL 224 medium datapoints, all lines, N=1753,
-# split over several machines in small shards that are merged afterwards with experiments/scripts/merge_shards.py.
+# split over several machines in small shards that are merged afterwards with experiments/scripts/agent/merge_shards.py.
 # Everything except the planner is identical to the E4 arm `e4_F_N1753` (RAG F, CodeLlama-7B, prefix cap 15900, context cap 1753),
 # which is the comparison arm; nothing is re-run for it.
 #

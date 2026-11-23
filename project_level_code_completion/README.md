@@ -64,7 +64,7 @@ A stronger variant (`agent=v3`: a 32B planner with hybrid search, usage and outl
 24-datapoint development set only and gave no gain; see [`experiments/reports/E5v3/`](experiments/reports/E5v3/dev_analysis.md).
 
 ### Tests and reproducing the results
-* Unit tests (CPU only, 288 tests): `bash experiments/scripts/run_tests.sh with-grammar`. They need the tree-sitter grammar clone
+* Unit tests (CPU only, 288 tests): `bash experiments/scripts/tools/run_tests.sh with-grammar`. They need the tree-sitter grammar clone
   described above in `~/ts_test`; `no-grammar` runs them from an empty folder.
 * Every table and figure of the report can be rebuilt without a GPU from the stored per-line results; the commands are in
   [`experiments/scripts/README.md`](experiments/scripts/README.md), which also lists every other script by purpose.

@@ -125,6 +125,6 @@ lines). Log sections 8.96 to 8.104; table and analysis in `experiments/reports/E
 
 ## Reproduce
 
-`python experiments/scripts/analyze_e5v3_dev.py` (dev arms) and `python experiments/scripts/check_d0_vs_e4.py` (reproduction check), and
-`python experiments/scripts/analyze_e5_full.py` and `python experiments/scripts/make_e5_figures.py` from `project_level_code_completion/`
+`python experiments/scripts/report_analysis/analyze_e5v3_dev.py` (dev arms) and `python experiments/scripts/report_analysis/check_d0_vs_e4.py` (reproduction check), and
+`python experiments/scripts/report_analysis/analyze_e5_full.py` and `python experiments/scripts/report_analysis/make_e5_figures.py` from `project_level_code_completion/`
 (they read the arms kept in `experiments/agent/E5_full/arms`). Layout of the raw results: `experiments/agent/README.md`.

@@ -27,17 +27,17 @@ machine for shards 1 and 4 (E5b) expired and was rerun. All machines were RTX 50
 All from `project_level_code_completion/` with the project's python (the analysis needs numpy and thefuzz; the figures matplotlib).
 
 ```
-python experiments/scripts/analyze_e5_full.py     # -> experiments/reports/E5/e5_full_analysis.md (reads E5_full/arms, runs from a clean clone)
-python experiments/scripts/make_e5_figures.py     # -> experiments/figures/E5/ (3 figures + table)
-python experiments/scripts/analyze_agent_split.py # -> experiments/reports/E5/agent_failure_split.md (agent vs RAG F, uses the failure_split.jsonl.gz files in E5_full/arms)
-python experiments/scripts/agent_change_stats.py  # -> experiments/reports/E5/agent_change_stats.txt (what the planner adds and displaces)
+python experiments/scripts/report_analysis/analyze_e5_full.py     # -> experiments/reports/E5/e5_full_analysis.md (reads E5_full/arms, runs from a clean clone)
+python experiments/scripts/report_analysis/make_e5_figures.py     # -> experiments/figures/E5/ (3 figures + table)
+python experiments/scripts/report_analysis/analyze_agent_split.py # -> experiments/reports/E5/agent_failure_split.md (agent vs RAG F, uses the failure_split.jsonl.gz files in E5_full/arms)
+python experiments/scripts/report_analysis/agent_change_stats.py  # -> experiments/reports/E5/agent_change_stats.txt (what the planner adds and displaces)
 # random examples of each kind of change (CPU, needs the dataset and the tree-sitter clone; run from the directory that has the clone):
-python experiments/scripts/make_agent_examples.py # -> experiments/reports/E5/agent_examples.md
+python experiments/scripts/report_analysis/make_agent_examples.py # -> experiments/reports/E5/agent_examples.md
 # the failure split itself (CPU, about 7 minutes; replays the planner from its logged actions, run from a directory with the tree-sitter grammar clone):
 python -m eval.failure_split --base experiments/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 # rebuild the merged arm from the shards (what `e5_agent_full` is):
-python experiments/scripts/merge_shards.py OUT_DIR experiments/agent/E5_full/shards/c6_s{0,1,2,3,4,5}
-python experiments/scripts/planner_probe.py check <unzipped e4_F_N1753 folder> OUT_DIR   # unchanged lines must match RAG F (5,957 of 5,958 do)
+python experiments/scripts/agent/merge_shards.py OUT_DIR experiments/agent/E5_full/shards/c6_s{0,1,2,3,4,5}
+python experiments/scripts/agent/planner_probe.py check <unzipped e4_F_N1753 folder> OUT_DIR   # unchanged lines must match RAG F (5,957 of 5,958 do)
 ```
 
 To rerun the generation itself: `experiments/scripts/rental/run_E5_full.sh <shard count> <shards>` (and `run_E5_resume.sh` to finish

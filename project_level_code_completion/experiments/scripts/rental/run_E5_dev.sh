@@ -27,13 +27,13 @@ fi
 probe() {  # NAME MODEL
   if [ -f $OUT/$1/probe_summary.json ]; then echo "----- probe $1 already done -----" | tee -a $LOG; return; fi
   echo "===== probe $1 ($2, $DTYPE) start $(date +%T) =====" | tee -a $LOG
-  (cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/planner_probe.py probe --planner $2 --dtype $DTYPE --out $OUT/$1 >> $LOG 2>&1)
+  (cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/agent/planner_probe.py probe --planner $2 --dtype $DTYPE --out $OUT/$1 >> $LOG 2>&1)
   echo "===== probe $1 exit=$? end $(date +%T) =====" | tee -a $LOG
 }
 probe qwen $CAND_A
 probe codellama_instruct $CAND_B
 
-CHOICE=$(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/planner_probe.py choose $OUT/qwen $OUT/codellama_instruct | tee -a $LOG | sed -n 's/^CHOSEN \([^ ]*\) because.*/\1/p')
+CHOICE=$(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/agent/planner_probe.py choose $OUT/qwen $OUT/codellama_instruct | tee -a $LOG | sed -n 's/^CHOSEN \([^ ]*\) because.*/\1/p')
 echo "planner chosen: $CHOICE" | tee -a $LOG
 [ -n "$CHOICE" ] || { echo "no planner chosen (a probe failed); see $LOG" | tee -a $LOG; exit 1; }
 
@@ -42,5 +42,5 @@ F="rag=F rag.prefix_cap=15900 context_cap=1753"
 run_once e5dev_rag   $M4 arm=rag $F
 run_once e5dev_agent $M4 arm=agent $F agent.planner_model=$CHOICE agent.planner_dtype=$DTYPE
 ARMS=$ART/python/codellama-7b/medium_context/arms
-(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/planner_probe.py check $ARMS/e5dev_rag $ARMS/e5dev_agent 2>&1 | tee -a $LOG)
+(cd ~/ts_test && PYTHONPATH=$PROJECT $PY $SCRIPTS/agent/planner_probe.py check $ARMS/e5dev_rag $ARMS/e5dev_agent 2>&1 | tee -a $LOG)
 mark "MACHINE E5dev complete"

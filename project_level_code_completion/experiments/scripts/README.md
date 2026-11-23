@@ -13,15 +13,15 @@ The per-line result files of every arm used in the report are in [`../arms`](../
 
 | step | command (from `project_level_code_completion`, `PYTHONPATH=.`) | writes |
 |---|---|---|
-| tests | `bash experiments/scripts/run_tests.sh with-grammar` | 288 unit tests, CPU only |
-| E4 table and figures | `python experiments/scripts/make_e4_figures.py` | `experiments/figures/E4/` |
-| E5 analysis | `python experiments/scripts/analyze_e5_full.py` | `experiments/reports/E5/` |
-| E5 figures and table | `python experiments/scripts/make_e5_figures.py` | `experiments/figures/E5/` |
-| stronger-agent dev table | `python experiments/scripts/analyze_e5v3_dev.py` | `experiments/reports/E5v3/dev_analysis.md` |
-| D0 against E4 check | `python experiments/scripts/check_d0_vs_e4.py` | `experiments/reports/E5v3/d0_vs_e4.md` |
-| dev headroom | `python experiments/scripts/check_headroom_dev.py` | `experiments/reports/E5v3/dev_headroom.md` |
-| week 8 final table | `python experiments/scripts/make_final_table.py` | `experiments/reports/final/` |
-| failure samples, taxonomy | `python experiments/scripts/sample_failures_week8.py`, then `tabulate_failure_labels.py` | `experiments/reports/final/` |
+| tests | `bash experiments/scripts/tools/run_tests.sh with-grammar` | 288 unit tests, CPU only |
+| E4 table and figures | `python experiments/scripts/report_analysis/make_e4_figures.py` | `experiments/figures/E4/` |
+| E5 analysis | `python experiments/scripts/report_analysis/analyze_e5_full.py` | `experiments/reports/E5/` |
+| E5 figures and table | `python experiments/scripts/report_analysis/make_e5_figures.py` | `experiments/figures/E5/` |
+| stronger-agent dev table | `python experiments/scripts/report_analysis/analyze_e5v3_dev.py` | `experiments/reports/E5v3/dev_analysis.md` |
+| D0 against E4 check | `python experiments/scripts/report_analysis/check_d0_vs_e4.py` | `experiments/reports/E5v3/d0_vs_e4.md` |
+| dev headroom | `python experiments/scripts/report_analysis/check_headroom_dev.py` | `experiments/reports/E5v3/dev_headroom.md` |
+| week 8 final table | `python experiments/scripts/report_analysis/make_final_table.py` | `experiments/reports/final/` |
+| failure samples, taxonomy | `python experiments/scripts/report_analysis/sample_failures_week8.py`, then `tabulate_failure_labels.py` | `experiments/reports/final/` |
 
 ## 2. Running experiments
 
