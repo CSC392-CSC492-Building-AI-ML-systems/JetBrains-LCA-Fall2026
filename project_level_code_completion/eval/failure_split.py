@@ -15,12 +15,12 @@ It is lexical (a name can be visible without its definition being useful), so it
 Example:
     python -m eval.failure_split --base ~/lca_remote/E4/codellama-7b/medium_context/arms \
         --arms e4_F_N1753:rag:1753 e4_pd_N1753:path_distance:1753 e4_F_N12000:rag:12000 e4_pd_N12000:path_distance:12000 \
-        --out rag_results/reports/E4/failure_split.jsonl
+        --out experiments/reports/E4/failure_split.jsonl
 
 An arm of kind `agent` (planner agent of RAG_EXPERIMENT_LOG 8.80-8.89) is rebuilt without a GPU by replaying the planner
 actions that the run logged (`agent.llm.ReplayModel`); the tools are deterministic, so the final context comes out as in the run,
 and the output says for how many lines it equals the logged chunk list (the token counts are checked as for every arm):
-    python -m eval.failure_split --base rag_results/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
+    python -m eval.failure_split --base experiments/agent/E5_full/arms --arms e5_agent_full:agent:1753 --agent append --out agent_split.jsonl
 """
 
 import argparse

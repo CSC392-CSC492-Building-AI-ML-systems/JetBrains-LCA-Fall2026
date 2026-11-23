@@ -44,7 +44,7 @@ A per-line retrieval approach (BM25 over repository chunks, each followed by the
 [`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the `path_distance` composer (the best of all nine
 registered composers on development data). Design,
 results and limitations: [`RAG_PROPOSAL.md`](RAG_PROPOSAL.md); every experiment step: [`RAG_EXPERIMENT_LOG.md`](RAG_EXPERIMENT_LOG.md);
-result files: [`rag_results/`](rag_results/). The tree-sitter grammar clone above must be in the working directory,
+result files: [`experiments/`](experiments/). The tree-sitter grammar clone above must be in the working directory,
 otherwise a warning is printed and Python files are cut into plain windows. Run one arm at a time:
 ```
 poetry run python -m eval.compare_arms arm=rag rag=F dataset=medium split=dev dev_size=28 dev_extra=28 arm_name=my_run
@@ -58,17 +58,17 @@ held-out part of the dataset.
 [`agent/`](agent/) holds an agent that searches the repository and edits the RAG context before the model writes the line
 (`arm=agent agent=append`; shard a long run with `shard_index`/`shard_count`, continue an interrupted one with `resume=true`).
 On `medium_context` with CodeLlama-7B at N = 1,753 it scores 1.2 points below RAG F and 9.8 above `path_distance`, at about 7x the
-tokens. Its results, the comparison arms, figures and how to reproduce them: [`rag_results/agent/`](rag_results/agent/README.md);
-report text: [`rag_results/report_drafts/E5_agent.md`](rag_results/report_drafts/E5_agent.md).
+tokens. Its results, the comparison arms, figures and how to reproduce them: [`experiments/agent/`](experiments/agent/README.md);
+report text: [`experiments/report_drafts/E5_agent.md`](experiments/report_drafts/E5_agent.md).
 A stronger variant (`agent=v3`: a 32B planner with hybrid search, usage and outline tools, and a do-no-harm gate) was tested on a
-24-datapoint development set only and gave no gain; see [`rag_results/reports/E5v3/`](rag_results/reports/E5v3/dev_analysis.md).
+24-datapoint development set only and gave no gain; see [`experiments/reports/E5v3/`](experiments/reports/E5v3/dev_analysis.md).
 
 ### Tests and reproducing the results
-* Unit tests (CPU only, 288 tests): `bash rag_results/scripts/run_tests.sh with-grammar`. They need the tree-sitter grammar clone
+* Unit tests (CPU only, 288 tests): `bash experiments/scripts/run_tests.sh with-grammar`. They need the tree-sitter grammar clone
   described above in `~/ts_test`; `no-grammar` runs them from an empty folder.
 * Every table and figure of the report can be rebuilt without a GPU from the stored per-line results; the commands are in
-  [`rag_results/scripts/README.md`](rag_results/scripts/README.md), which also lists every other script by purpose.
-* Final numbers and the failure taxonomy: [`rag_results/reports/final/`](rag_results/reports/final/final_experiment_table.md).
+  [`experiments/scripts/README.md`](experiments/scripts/README.md), which also lists every other script by purpose.
+* Final numbers and the failure taxonomy: [`experiments/reports/final/`](experiments/reports/final/final_experiment_table.md).
 
 ### Supported datasets:
 * All configurations of [`JetBrains-Research/lca-project-level-code-completion`](https://huggingface.co/datasets/JetBrains-Research/lca-project-level-code-completion):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from eval.line_generators import shard_indices
 
-SCRIPT = Path(__file__).resolve().parents[1] / "rag_results" / "scripts" / "merge_shards.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "experiments" / "scripts" / "merge_shards.py"
 spec = importlib.util.spec_from_file_location("merge_shards", SCRIPT)
 merge_shards = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(merge_shards)
