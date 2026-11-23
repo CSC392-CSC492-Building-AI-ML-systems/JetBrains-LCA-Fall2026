@@ -77,7 +77,7 @@ lack of gain. Table, numbers and caveats: `E5_agent.md`, section "Follow-up".
 
 ## Where everything is
 
-`experiments/agent/README.md` (map and commands), `report_drafts/E5_agent.md` (results), `experiments/figures/E5/` (3 figures and a table),
+`experiments/results/agent/README.md` (map and commands), `report_drafts/E5_agent.md` (results), `experiments/figures/E5/` (3 figures and a table),
 `experiments/reports/E5/` (full analysis), code in `agent/`. The whole analysis reruns from a clean clone.
 
 ## Questions for the mentor

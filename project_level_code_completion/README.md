@@ -13,6 +13,25 @@ The evaluation steps are the following:
     * Run one-line code completion with zero project context;
     * Run one-line code completion with a project context composed by the chosen context composer.
 
+# Start here: what is in this folder
+
+The JetBrains baseline above is extended by our CSC398 team project: retrieval-augmented context (RAG) and a planner agent that
+edits that context. Everything we added is marked below; the rest is the unchanged baseline.
+
+| folder or file | what it is | whose |
+|---|---|---|
+| [`rag/`](rag/) | BM25 retrieval over tree-sitter chunks (design "RAG F"), optional dense retrieval | ours |
+| [`agent/`](agent/) | the planner agent: tools, loop, LLM wrapper | ours |
+| [`eval/`](eval/) | the evaluation pipeline; `compare_arms.py` runs one arm, `analyze_arms.py` compares arms; `failure_split.py`, `proxy_metrics.py`, `run_metrics.py` are ours | baseline + ours |
+| [`composers/`](composers/), [`data_classes/`](data_classes/), [`model_hub/`](model_hub/), [`tree_sitter_parser/`](tree_sitter_parser/) | the baseline's context composers, datapoints, models and parser | baseline |
+| [`tests/`](tests/) | 288 unit tests for our code (CPU only) | ours |
+| [`docs/`](docs/) | the proposal and the experiment log (every experiment, setting, prediction and result, in order) | ours |
+| [`experiments/`](experiments/README.md) | results, reports, figures, scripts and report drafts of all experiments (E1 to E5) | ours |
+
+New to the project? Read [`docs/RAG_PROPOSAL.md`](docs/RAG_PROPOSAL.md) for the idea, then
+[`experiments/report_drafts/`](experiments/report_drafts/) for the findings (one file per experiment), then
+[`experiments/README.md`](experiments/README.md) to find a number, a figure or the script that made it.
+
 # How-to
 
 ## 💾 Install dependencies
@@ -43,7 +62,7 @@ We use [Hydra](https://hydra.cc/docs/intro/) for configuration. The main config 
 A per-line retrieval approach (BM25 over repository chunks, each followed by the next 20 lines of its file) is in
 [`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the `path_distance` composer (the best of all nine
 registered composers on development data). Design,
-results and limitations: [`RAG_PROPOSAL.md`](RAG_PROPOSAL.md); every experiment step: [`RAG_EXPERIMENT_LOG.md`](RAG_EXPERIMENT_LOG.md);
+results and limitations: [`docs/RAG_PROPOSAL.md`](docs/RAG_PROPOSAL.md); every experiment step: [`docs/RAG_EXPERIMENT_LOG.md`](docs/RAG_EXPERIMENT_LOG.md);
 result files: [`experiments/`](experiments/). The tree-sitter grammar clone above must be in the working directory,
 otherwise a warning is printed and Python files are cut into plain windows. Run one arm at a time:
 ```
@@ -58,7 +77,7 @@ held-out part of the dataset.
 [`agent/`](agent/) holds an agent that searches the repository and edits the RAG context before the model writes the line
 (`arm=agent agent=append`; shard a long run with `shard_index`/`shard_count`, continue an interrupted one with `resume=true`).
 On `medium_context` with CodeLlama-7B at N = 1,753 it scores 1.2 points below RAG F and 9.8 above `path_distance`, at about 7x the
-tokens. Its results, the comparison arms, figures and how to reproduce them: [`experiments/agent/`](experiments/agent/README.md);
+tokens. Its results, the comparison arms, figures and how to reproduce them: [`experiments/results/agent/`](experiments/results/agent/README.md);
 report text: [`experiments/report_drafts/E5_agent.md`](experiments/report_drafts/E5_agent.md).
 A stronger variant (`agent=v3`: a 32B planner with hybrid search, usage and outline tools, and a do-no-harm gate) was tested on a
 24-datapoint development set only and gave no gain; see [`experiments/reports/E5v3/`](experiments/reports/E5v3/dev_analysis.md).
