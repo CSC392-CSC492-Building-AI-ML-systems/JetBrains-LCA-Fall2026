@@ -12,6 +12,7 @@
                   python planner_probe.py check RAG_ARM_DIR AGENT_ARM_DIR
 Run from ~/ts_test with PYTHONPATH=$PROJECT (tree-sitter chunking needs the grammar in the working directory).
 """
+
 import argparse
 import json
 import os
@@ -33,20 +34,34 @@ def probe(args):
     from eval.preprocessors import load_datapoints
 
     with initialize_config_dir(config_dir=os.path.join(os.environ["PROJECT"], "eval", "config"), version_base=None):
-        cfg = compose(config_name="compare_arms", overrides=[
-            "arm=agent", "rag=F", "rag.prefix_cap=15900", f"context_cap={args.cap}", "params=codellama7b",
-            "dataset=medium"])
+        cfg = compose(
+            config_name="compare_arms",
+            overrides=[
+                "arm=agent",
+                "rag=F",
+                "rag.prefix_cap=15900",
+                f"context_cap={args.cap}",
+                "params=codellama7b",
+                "dataset=medium",
+            ],
+        )
     tokenizer = AutoTokenizer.from_pretrained(cfg.params.preprocess_params["tokenizer"])
     budget = cfg.params.inference_params["seq_max_len"] - 100
     rag_options = OmegaConf.to_container(cfg.rag)
     rag_options["max_context_tokens"] = args.cap
     planner = LocalChatModel(args.planner, max_new_tokens=cfg.agent.planner_max_new_tokens, dtype=args.dtype)
     factory = make_agent_provider_factory(
-        lambda text: len(tokenizer(text, add_special_tokens=False)["input_ids"]), budget, planner,
-        rag_options=rag_options, limits=Limits(**OmegaConf.to_container(cfg.agent.limits)),
-        planner_prefix_tokens=cfg.agent.planner_prefix_tokens, max_listed_files=cfg.agent.max_listed_files,
-        extension=cfg.composers_config.extension, lang_sep=cfg.composers_config.lang_sep_symbol,
-        meta_sep=cfg.composers_config.meta_info_sep_symbol)
+        lambda text: len(tokenizer(text, add_special_tokens=False)["input_ids"]),
+        budget,
+        planner,
+        rag_options=rag_options,
+        limits=Limits(**OmegaConf.to_container(cfg.agent.limits)),
+        planner_prefix_tokens=cfg.agent.planner_prefix_tokens,
+        max_listed_files=cfg.agent.max_listed_files,
+        extension=cfg.composers_config.extension,
+        lang_sep=cfg.composers_config.lang_sep_symbol,
+        meta_sep=cfg.composers_config.meta_info_sep_symbol,
+    )
 
     data = load_datapoints(cfg.dataset)
     os.makedirs(args.out, exist_ok=True)
@@ -57,11 +72,14 @@ def probe(args):
         provider = factory(datapoint)
         lines = sorted(n for nums in datapoint.completion_lines.values() for n in nums)
         step = max(1, len(lines) // args.lines)
-        for line_num in lines[::step][:args.lines]:
+        for line_num in lines[::step][: args.lines]:
             _, _, info = provider(datapoint, line_num)
             rows.append({"datapoint_idx": index, "line_num": line_num, **info})
-            print(f"dp {index} line {line_num}: {info['planner_status']} steps={info['steps']} tools={info['tool_calls']} "
-                  f"changed={info['changed']}", flush=True)
+            print(
+                f"dp {index} line {line_num}: {info['planner_status']} steps={info['steps']} tools={info['tool_calls']} "
+                f"changed={info['changed']}",
+                flush=True,
+            )
     with open(os.path.join(args.out, "probe_rows.jsonl"), "w") as f:
         for row in rows:
             f.write(json.dumps(row) + "\n")
@@ -74,14 +92,23 @@ def probe(args):
         return round(sum(r[key] for r in rows) / n, 2)
 
     summary = {
-        "planner": args.planner, "dtype": args.dtype, "lines": n, "datapoints": DEV_DATAPOINTS, "cap": args.cap,
+        "planner": args.planner,
+        "dtype": args.dtype,
+        "lines": n,
+        "datapoints": DEV_DATAPOINTS,
+        "cap": args.cap,
         "submitted_share": share(lambda r: r["planner_status"] == "submitted"),
         "invalid_replies_share": share(lambda r: r["planner_status"] == "invalid_replies"),
         "no_submit_share": share(lambda r: r["planner_status"] == "no_submit"),
-        "used_a_tool_share": share(lambda r: r["tool_calls"] > 0), "changed_share": share(lambda r: r["changed"]),
-        "fallback_share": share(lambda r: r["fallback"]), "mean_steps": mean("steps"), "mean_tool_calls": mean("tool_calls"),
-        "mean_planner_input_tokens": mean("planner_input_tokens"), "mean_planner_output_tokens": mean("planner_output_tokens"),
-        "mean_planner_ms": mean("planner_ms"), "wall_seconds": round(time.time() - started, 1),
+        "used_a_tool_share": share(lambda r: r["tool_calls"] > 0),
+        "changed_share": share(lambda r: r["changed"]),
+        "fallback_share": share(lambda r: r["fallback"]),
+        "mean_steps": mean("steps"),
+        "mean_tool_calls": mean("tool_calls"),
+        "mean_planner_input_tokens": mean("planner_input_tokens"),
+        "mean_planner_output_tokens": mean("planner_output_tokens"),
+        "mean_planner_ms": mean("planner_ms"),
+        "wall_seconds": round(time.time() - started, 1),
     }
     with open(os.path.join(args.out, "probe_summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
@@ -96,8 +123,10 @@ def choose(args):
         why = f"higher share of valid submit_context ({a['submitted_share']:.3f} vs {b['submitted_share']:.3f})"
     else:
         winner = a if a["mean_planner_ms"] <= b["mean_planner_ms"] else b
-        why = (f"valid-submit shares within 2 points ({a['submitted_share']:.3f} vs {b['submitted_share']:.3f}); "
-               f"lower mean planner time ({a['mean_planner_ms']} vs {b['mean_planner_ms']} ms)")
+        why = (
+            f"valid-submit shares within 2 points ({a['submitted_share']:.3f} vs {b['submitted_share']:.3f}); "
+            f"lower mean planner time ({a['mean_planner_ms']} vs {b['mean_planner_ms']} ms)"
+        )
     print(f"CHOSEN {winner['planner']} because {why}")
     return winner["planner"]
 
@@ -127,19 +156,26 @@ def check(args):
     only_agent = sum(1 for k in changed if right(agent[k]) and not right(rag[k]))
     only_rag = sum(1 for k in changed if right(rag[k]) and not right(agent[k]))
     summary = {
-        "lines": len(keys), "changed": len(changed), "fallback": sum(1 for k in keys if agent[k]["retrieval"]["fallback"]),
+        "lines": len(keys),
+        "changed": len(changed),
+        "fallback": sum(1 for k in keys if agent[k]["retrieval"]["fallback"]),
         "unchanged_lines_with_identical_prediction": f"{same} of {len(unchanged)}",
-        "rag_right": sum(right(rag[k]) for k in keys), "agent_right": sum(right(agent[k]) for k in keys),
-        "changed_lines_both_right": both, "changed_lines_only_agent_right": only_agent,
+        "rag_right": sum(right(rag[k]) for k in keys),
+        "agent_right": sum(right(agent[k]) for k in keys),
+        "changed_lines_both_right": both,
+        "changed_lines_only_agent_right": only_agent,
         "changed_lines_only_rag_right": only_rag,
         "agent_total_tokens_per_line": round(sum(agent[k]["metrics"]["total_tokens"] for k in keys) / len(keys), 1),
-        "rag_total_tokens_per_line": round(sum(rag[k]["metrics"]["input_tokens"] + rag[k]["metrics"]["output_tokens"]
-                                               for k in keys) / len(keys), 1),
+        "rag_total_tokens_per_line": round(
+            sum(rag[k]["metrics"]["input_tokens"] + rag[k]["metrics"]["output_tokens"] for k in keys) / len(keys), 1
+        ),
     }
     print(json.dumps(summary, indent=2))
     if same != len(unchanged):
-        print("FAIL: some lines the planner did not change got a different prediction than RAG F; "
-              "the prompts should be identical, so check the determinism of the two runs before trusting any comparison")
+        print(
+            "FAIL: some lines the planner did not change got a different prediction than RAG F; "
+            "the prompts should be identical, so check the determinism of the two runs before trusting any comparison"
+        )
         sys.exit(1)
     print("OK: every unchanged line has the same prediction as RAG F")
 

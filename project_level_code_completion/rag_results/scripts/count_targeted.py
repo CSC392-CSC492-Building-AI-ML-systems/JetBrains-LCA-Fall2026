@@ -1,4 +1,5 @@
 """Count targeted (T) lines on development datapoints only. usage: count_targeted.py <dataset> <dev_size> <dev_extra>"""
+
 import os
 import sys
 from collections import Counter
@@ -31,5 +32,7 @@ print(f"{'category':16s}{'lines':>8s}{'targeted':>10s}")
 for cls in sorted(total):
     print(f"{cls:16s}{total[cls]:8d}{targeted[cls]:10d}")
 print(f"{'ALL':16s}{sum(total.values()):8d}{sum(targeted.values()):10d}")
-print(f"datapoints with at least one targeted line: {dps} of {len(idx)}; per-datapoint max {max(per_dp)}, "
-      f"median {sorted(per_dp)[len(per_dp) // 2]}")
+print(
+    f"datapoints with at least one targeted line: {dps} of {len(idx)}; per-datapoint max {max(per_dp)}, "
+    f"median {sorted(per_dp)[len(per_dp) // 2]}"
+)

@@ -1,4 +1,5 @@
 """Real embedder on real repositories: speed, cache, and how much the dense selection overlaps with BM25's."""
+
 import os
 import sys
 import time
@@ -42,6 +43,8 @@ for dp in dev:
         t_query.append(time.time() - t1)
         b = {(c.path, c.start_line) for c in r.chunks}
         overlaps.append(len(a & b) / max(1, len(a | b)))
-    print(f"{dp.repo_name[:34]:34s} chunks={len(bm.chunks):5d} index: bm25 {t_bm:5.1f}s | dense first {t_dense:6.1f}s, "
-          f"cached {t_cached:5.1f}s | per-line {sum(t_query) / len(t_query) * 1000:4.0f}ms | "
-          f"selection overlap with BM25 (Jaccard) {sum(overlaps) / len(overlaps):.2f}")
+    print(
+        f"{dp.repo_name[:34]:34s} chunks={len(bm.chunks):5d} index: bm25 {t_bm:5.1f}s | dense first {t_dense:6.1f}s, "
+        f"cached {t_cached:5.1f}s | per-line {sum(t_query) / len(t_query) * 1000:4.0f}ms | "
+        f"selection overlap with BM25 (Jaccard) {sum(overlaps) / len(overlaps):.2f}"
+    )

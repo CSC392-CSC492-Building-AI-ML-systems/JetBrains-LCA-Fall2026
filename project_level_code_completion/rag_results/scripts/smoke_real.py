@@ -17,7 +17,9 @@ worst = 0
 for hf_dp in ds.select(range(0, 144, 24)):
     names, contents = hf_dp["repo_snapshot"]["filename"], hf_dp["repo_snapshot"]["content"]
     dp = DatapointCommitDataset(
-        repo_id=0, repo_name=hf_dp["repo"], completion_lines=hf_dp["completion_lines"],
+        repo_id=0,
+        repo_name=hf_dp["repo"],
+        completion_lines=hf_dp["completion_lines"],
         context_dict=dict(zip(names, contents)),
         completion_dict={hf_dp["completion_file"]["filename"]: hf_dp["completion_file"]["content"]},
     )
@@ -33,6 +35,8 @@ for hf_dp in ds.select(range(0, 144, 24)):
         n_sel.append(len(r.chunks))
         assert all(c.path != path for c in r.chunks)
     worst = max(worst, max(used))
-    print(f"{dp.repo_name[:40]:40s} chunks={len(builder.chunks):5d} lines={len(lines):2d} "
-          f"ctx_ms={statistics.mean(times)*1000:4.0f} tokens max={max(used)} chunks_sel={statistics.mean(n_sel):.1f}")
+    print(
+        f"{dp.repo_name[:40]:40s} chunks={len(builder.chunks):5d} lines={len(lines):2d} "
+        f"ctx_ms={statistics.mean(times)*1000:4.0f} tokens max={max(used)} chunks_sel={statistics.mean(n_sel):.1f}"
+    )
 print(f"worst-case tokens used: {worst} (B={B}) -> {'OK' if worst <= B else 'OVER BUDGET'}")

@@ -1,4 +1,5 @@
 """Can a code-embedding model load under the pinned transformers, and does it rank sensibly? (CPU only)"""
+
 import sys
 import time
 
@@ -12,8 +13,8 @@ model = AutoModel.from_pretrained(name, trust_remote_code=True).eval()
 print(f"loaded {name} in {time.time() - t0:.1f}s; parameters {sum(p.numel() for p in model.parameters()) / 1e6:.0f}M")
 
 texts = [
-    "def read_json(path):\n    with open(path) as f:\n        return json.load(f)",       # relevant to the query
-    "class HttpClient:\n    def get(self, url):\n        return requests.get(url)",     # unrelated
+    "def read_json(path):\n    with open(path) as f:\n        return json.load(f)",  # relevant to the query
+    "class HttpClient:\n    def get(self, url):\n        return requests.get(url)",  # unrelated
     "def write_csv(rows, path):\n    with open(path, 'w') as f:\n        csv.writer(f).writerows(rows)",
 ]
 query = "data = json.load(open(config_path))\nconfig = parse_config(data)"

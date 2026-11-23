@@ -1,4 +1,5 @@
 """Does the 'no room for chunks' edge case (prefix + header/tail above the budget) affect the held-out result? (CPU)"""
+
 import json
 import os
 
@@ -36,7 +37,8 @@ for dataset, dev_size, dev_extra, ds_dir in (("medium", 28, 28, "medium_context"
         for r in map(json.loads, open(f"{base}/{arm}/generation_results.jsonl")):
             if bool(r["zero_context"]) == (arm == "h_zero"):  # the zero arm only has zero-context rows
                 out[(r["datapoint_idx"], r["line_class"], r["line_num"])] = float(
-                    r["prediction_line"].strip() == r["ground_truth"].strip())
+                    r["prediction_line"].strip() == r["ground_truth"].strip()
+                )
         return out
 
     arms = {a: em(a) for a in ("h_zero", "h_path_distance", "h_F")}
@@ -52,7 +54,10 @@ for dataset, dev_size, dev_extra, ds_dir in (("medium", 28, 28, "medium_context"
     print(f"== {dataset} held-out: {len(noroom)} no-room lines of {len(keys)} ==")
     nr_keys = [k for k in keys if k in noroom]
     if nr_keys:
-        print("   EM on the no-room lines: " + ", ".join(f"{a} {np.mean([arms[a][k] for k in nr_keys]):.3f}" for a in arms))
+        print(
+            "   EM on the no-room lines: "
+            + ", ".join(f"{a} {np.mean([arms[a][k] for k in nr_keys]):.3f}" for a in arms)
+        )
         same = sum(arms["h_F"][k] == arms["h_path_distance"][k] for k in nr_keys)
         print(f"   F and path_distance agree in outcome on {same} of {len(nr_keys)} of these lines")
     for label, sel in (("all lines", keys), ("without the no-room lines", in_room)):

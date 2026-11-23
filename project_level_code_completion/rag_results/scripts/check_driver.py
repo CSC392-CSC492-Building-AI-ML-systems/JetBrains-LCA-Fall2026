@@ -8,11 +8,23 @@ from eval import compare_arms
 CONF = os.path.join(os.environ["PROJECT"], "eval", "config")
 with initialize_config_dir(config_dir=CONF, version_base=None):
     cfg = compose(config_name="compare_arms", overrides=["arm=rag", "limit_datapoints=20"])
-    print("arm:", cfg.arm, "| model:", cfg.params.inference_params.model, "| seq_max_len:",
-          cfg.params.inference_params.seq_max_len, "| dataset:", compare_arms.dataset_name(cfg))
+    print(
+        "arm:",
+        cfg.arm,
+        "| model:",
+        cfg.params.inference_params.model,
+        "| seq_max_len:",
+        cfg.params.inference_params.seq_max_len,
+        "| dataset:",
+        compare_arms.dataset_name(cfg),
+    )
     print("arm dir:", compare_arms.arm_directory(cfg))
-    print("separators:", repr(cfg.composers_config.extension), repr(cfg.composers_config.lang_sep_symbol),
-          repr(cfg.composers_config.meta_info_sep_symbol))
+    print(
+        "separators:",
+        repr(cfg.composers_config.extension),
+        repr(cfg.composers_config.lang_sep_symbol),
+        repr(cfg.composers_config.meta_info_sep_symbol),
+    )
     print("budget:", cfg.params.inference_params.seq_max_len - compare_arms.GENERATION_RESERVE)
 
     bad = compose(config_name="compare_arms", overrides=["arm=none"])

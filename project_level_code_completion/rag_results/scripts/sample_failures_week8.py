@@ -3,6 +3,7 @@ Groups (seed 0, 25 lines each): wrong lines of no context, path_distance, RAG F 
 agent wrong, context changed). Each item shows the ground truth and the four predictions, so labels can be compared across arms.
 Reads the arms in rag_results/agent/E5_full/arms. Writes rag_results/reports/final/failure_samples_week8.txt and .json (sample ids with line keys).
 Usage: python rag_results/scripts/sample_failures_week8.py"""
+
 import json
 import os
 import random
@@ -22,7 +23,11 @@ def main():
     data = {k: load(BASE, v) for k, v in ARMS.items()}
     keys = sorted(data["F"])
     groups = {f"wrong:{k}": [x for x in keys if not right(data[k][x])] for k in ARMS}
-    groups["broke:agent"] = [x for x in keys if right(data["F"][x]) and not right(data["agent"][x]) and data["agent"][x]["retrieval"].get("changed")]
+    groups["broke:agent"] = [
+        x
+        for x in keys
+        if right(data["F"][x]) and not right(data["agent"][x]) and data["agent"][x]["retrieval"].get("changed")
+    ]
     rng = random.Random(0)
     text, index = [], []
     for name, pool in groups.items():

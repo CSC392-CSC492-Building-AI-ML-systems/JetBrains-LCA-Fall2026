@@ -17,6 +17,8 @@ print("differing predictions:", len(diff))
 for i in diff[:5]:
     print("  ", repr(a[i]["prediction_line"][:70]), "|", repr(b[i]["prediction_line"][:70]))
 s = json.load(open(os.path.join(base, "v1_path_distance_provider", "summary.json")))
-print("summary:", s["static_mode"], s["code"], "wall", s["wall_seconds"], "s; EM all", round(s["scores"]["em"]["all"], 4))
+print(
+    "summary:", s["static_mode"], s["code"], "wall", s["wall_seconds"], "s; EM all", round(s["scores"]["em"]["all"], 4)
+)
 s0 = json.load(open(os.path.join(base, "r0_path_distance", "summary.json")))
 print("R0 path_distance EM all:", round(s0["scores"]["em"]["all"], 4), "wall", s0["wall_seconds"], "s")

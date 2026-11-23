@@ -25,5 +25,7 @@ for dp in sorted(a2):
     flag = "  <-- all empty without non-py files" if z2 == n and z1 < n else ""
     print(f"{dp:3d} {repo[:42]:42s}{n:6d}{z1:21d}{z2:23d}{flag}")
 all_empty = [dp for dp in a2 if a2[dp][1] == a2[dp][0]]
-print(f"\ndatapoints whose lines ALL retrieved nothing under A2: {len(all_empty)} of {len(a2)}; "
-      f"they account for {sum(a2[d][0] for d in all_empty)} of {sum(v[0] for v in a2.values())} lines")
+print(
+    f"\ndatapoints whose lines ALL retrieved nothing under A2: {len(all_empty)} of {len(a2)}; "
+    f"they account for {sum(a2[d][0] for d in all_empty)} of {sum(v[0] for v in a2.values())} lines"
+)

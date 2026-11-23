@@ -9,6 +9,7 @@ original index in every line, puts the per-datapoint score lists in original dat
 arms that were not sharded), sums the line counts, recomputes the scores and the cost block from the merged lines, and
 checks that nothing is missing or duplicated. It never edits a shard folder and refuses to write into a non-empty OUT_DIR.
 """
+
 import json
 import statistics
 import sys
@@ -30,9 +31,15 @@ def merge(out_dir: Path, shard_dirs: list[Path]) -> dict:
         summary = json.loads((directory / "summary.json").read_text())
         if summary.get("shard_count") is None:
             raise SystemExit(f"{directory} is not a shard (summary.json has no shard_count)")
-        shards.append({"dir": directory, "summary": summary, "rows": read_rows(directory / "generation_results.jsonl"),
-                       "scores": json.loads((directory / "per_datapoint_scores.json").read_text()),
-                       "config": json.loads((directory / "config.json").read_text())})
+        shards.append(
+            {
+                "dir": directory,
+                "summary": summary,
+                "rows": read_rows(directory / "generation_results.jsonl"),
+                "scores": json.loads((directory / "per_datapoint_scores.json").read_text()),
+                "config": json.loads((directory / "config.json").read_text()),
+            }
+        )
     shards.sort(key=lambda s: s["summary"]["shard_index"])
     count = shards[0]["summary"]["shard_count"]
     if [s["summary"]["shard_index"] for s in shards] != list(range(count)):
@@ -44,13 +51,17 @@ def merge(out_dir: Path, shard_dirs: list[Path]) -> dict:
             raise SystemExit(f"shards disagree on {key}: {sorted(values)}")
 
     # the number of datapoints of each shard must be what `range(i, n, k)` gives for one total n
-    sizes = [len(s["scores"]["em_list"]["all"]) if "em_list" in s["scores"] else len(s["scores"]["em_zero_list"]["all"])
-             for s in shards]
+    sizes = [
+        len(s["scores"]["em_list"]["all"]) if "em_list" in s["scores"] else len(s["scores"]["em_zero_list"]["all"])
+        for s in shards
+    ]
     n_items = sum(sizes)
     for i, size in enumerate(sizes):
         if size != len(range(i, n_items, count)):
-            raise SystemExit(f"shard {i} has {size} datapoints, but {n_items} datapoints split in {count} give "
-                             f"{len(range(i, n_items, count))}")
+            raise SystemExit(
+                f"shard {i} has {size} datapoints, but {n_items} datapoints split in {count} give "
+                f"{len(range(i, n_items, count))}"
+            )
 
     rows = []
     for s in shards:
@@ -79,11 +90,15 @@ def merge(out_dir: Path, shard_dirs: list[Path]) -> dict:
                 else:  # one entry per datapoint that has lines of this class, in datapoint order
                     positions = sorted({r["datapoint_idx"] for r in s["rows"] if r["line_class"] == category})
                 if len(values) != len(positions):
-                    raise SystemExit(f"shard {i}, {list_name}[{category}]: {len(values)} scores for {len(positions)} datapoints")
+                    raise SystemExit(
+                        f"shard {i}, {list_name}[{category}]: {len(values)} scores for {len(positions)} datapoints"
+                    )
                 pieces += [(i + p * count, v) for p, v in zip(positions, values)]
             merged_scores[list_name][category] = [v for _, v in sorted(pieces)]
-    scores = {name[:-len("_list")]: {category: statistics.fmean(values) for category, values in lists.items()}
-              for name, lists in merged_scores.items()}
+    scores = {
+        name[: -len("_list")]: {category: statistics.fmean(values) for category, values in lists.items()}
+        for name, lists in merged_scores.items()
+    }
 
     line_counts = {}
     for s in shards:
@@ -105,15 +120,33 @@ def merge(out_dir: Path, shard_dirs: list[Path]) -> dict:
         values = {c.get(field) for c in costs}
         cost[field] = values.pop() if len(values) == 1 else "mixed: " + ", ".join(sorted(map(str, values)))
     cost["peak_gpu_memory_gb"] = max((c.get("peak_gpu_memory_gb") or 0) for c in costs)
-    cost["arm_cost_usd"] = (round(sum(c["arm_cost_usd"] for c in costs), 3)
-                            if all(c.get("arm_cost_usd") is not None for c in costs) else None)
+    cost["arm_cost_usd"] = (
+        round(sum(c["arm_cost_usd"] for c in costs), 3)
+        if all(c.get("arm_cost_usd") is not None for c in costs)
+        else None
+    )
     base = shards[0]["summary"]
-    summary = {**base, "arm_name": out_dir.name, "shard_index": None, "shard_count": None, "wall_seconds": wall,
-               "wall_seconds_longest_shard": max(s["summary"]["wall_seconds"] for s in shards),
-               "cost": cost, "scores": scores, "line_counts": line_counts,
-               "merged_from": [{"dir": s["dir"].name, "shard_index": s["summary"]["shard_index"],
-                                "datapoints": sizes[s["summary"]["shard_index"]], "wall_seconds": s["summary"]["wall_seconds"],
-                                "code": s["summary"].get("code")} for s in shards]}
+    summary = {
+        **base,
+        "arm_name": out_dir.name,
+        "shard_index": None,
+        "shard_count": None,
+        "wall_seconds": wall,
+        "wall_seconds_longest_shard": max(s["summary"]["wall_seconds"] for s in shards),
+        "cost": cost,
+        "scores": scores,
+        "line_counts": line_counts,
+        "merged_from": [
+            {
+                "dir": s["dir"].name,
+                "shard_index": s["summary"]["shard_index"],
+                "datapoints": sizes[s["summary"]["shard_index"]],
+                "wall_seconds": s["summary"]["wall_seconds"],
+                "code": s["summary"].get("code"),
+            }
+            for s in shards
+        ],
+    }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=4))
     (out_dir / "per_datapoint_scores.json").write_text(json.dumps(merged_scores))
     config = {**shards[0]["config"], "shard_index": None, "shard_count": None, "merged_from_shards": count}
@@ -125,5 +158,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
     result = merge(Path(sys.argv[1]), [Path(p) for p in sys.argv[2:]])
-    print(f"merged {len(result['merged_from'])} shards: {result['cost']['lines_with_metrics']} lines, "
-          f"EM all {result['scores']['em']['all']:.4f}, wall {result['wall_seconds']} s summed")
+    print(
+        f"merged {len(result['merged_from'])} shards: {result['cost']['lines_with_metrics']} lines, "
+        f"EM all {result['scores']['em']['all']:.4f}, wall {result['wall_seconds']} s summed"
+    )

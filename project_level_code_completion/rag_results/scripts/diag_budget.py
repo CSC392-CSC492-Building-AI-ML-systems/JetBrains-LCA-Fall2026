@@ -1,4 +1,5 @@
 """Why do some F prompts exceed the budget? And how many held-out lines are affected? (CPU)"""
+
 import os
 import random
 
@@ -25,7 +26,9 @@ def heldout(dataset, dev_size, dev_extra):
 # 1) the violating prompts of the verification sample (same sampling as verify_cpu.py, check B)
 medium, small = heldout("medium", 28, 28), heldout("small", 20, 28)
 rng = random.Random(123)
-plan = [("medium", p) for p in rng.sample(range(len(medium)), 70)] + [("small", p) for p in rng.sample(range(len(small)), 30)]
+plan = [("medium", p) for p in rng.sample(range(len(medium)), 70)] + [
+    ("small", p) for p in rng.sample(range(len(small)), 30)
+]
 print("violating prompts:")
 for name, p in plan:
     dp = (medium if name == "medium" else small)[p]
@@ -37,8 +40,10 @@ for name, p in plan:
         r = builder.context_for(prefix, BUDGET, **F)
         total = count(r.context + "\n" + r.prefix)
         if total > BUDGET:
-            print(f"  {name} dp{p} line {ln}: total {total} = prefix {count(r.prefix)} + header/tail "
-                  f"{count(r.context)}; chunks selected: {len(r.chunks)}")
+            print(
+                f"  {name} dp{p} line {ln}: total {total} = prefix {count(r.prefix)} + header/tail "
+                f"{count(r.context)}; chunks selected: {len(r.chunks)}"
+            )
 
 # 2) how many held-out lines have a prefix so long that nothing can be added? (prefix + header/tail > budget)
 for name, data in (("medium", medium), ("small", small)):

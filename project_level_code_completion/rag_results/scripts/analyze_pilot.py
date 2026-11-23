@@ -5,8 +5,12 @@ import statistics
 
 base = os.path.expanduser("~/lca_artifacts/python/starcoderbase-1b/small_context/arms")
 log = open(os.path.expanduser("~/lca_pilot.log"), errors="replace").read()
-print("log mentions Traceback:", "Traceback" in log, "| 'Error' lines:",
-      [l[:100] for l in log.splitlines() if re.search(r"\bError\b", l)][:3])
+print(
+    "log mentions Traceback:",
+    "Traceback" in log,
+    "| 'Error' lines:",
+    [l[:100] for l in log.splitlines() if re.search(r"\bError\b", l)][:3],
+)
 
 arms = {}
 for arm in ("zero", "path_distance", "rag"):
@@ -35,29 +39,49 @@ rows = [r for r in rows if not r["zero_context"]]
 ret = [r["retrieval"] for r in rows if "retrieval" in r]
 print(f"\nRAG per-line records: {len(rows)} | with retrieval info: {len(ret)}")
 print("  fallback (empty prefix):", sum(r["fallback"] for r in ret))
-print("  chunks selected: mean %.1f, median %s, zero-chunk lines: %d" % (
-    statistics.mean(len(r["paths"]) for r in ret), statistics.median(len(r["paths"]) for r in ret),
-    sum(1 for r in ret if not r["paths"])))
+print(
+    "  chunks selected: mean %.1f, median %s, zero-chunk lines: %d"
+    % (
+        statistics.mean(len(r["paths"]) for r in ret),
+        statistics.median(len(r["paths"]) for r in ret),
+        sum(1 for r in ret if not r["paths"]),
+    )
+)
 ext = {}
 for r in ret:
     for p in r["paths"]:
         e = os.path.splitext(p)[1] or "(none)"
         ext[e] = ext.get(e, 0) + 1
 tot = sum(ext.values())
-print("  retrieved chunks by extension:", {k: f"{v/tot:.0%}" for k, v in sorted(ext.items(), key=lambda kv: -kv[1])[:6]})
+print(
+    "  retrieved chunks by extension:", {k: f"{v/tot:.0%}" for k, v in sorted(ext.items(), key=lambda kv: -kv[1])[:6]}
+)
+
 
 # Same lines compared across arms (pilot jsonl holds both passes for zero arm)
 def load(arm, zero):
     rows = [json.loads(l) for l in open(os.path.join(base, f"pilot_{arm}", "generation_results.jsonl"))]
     return [r for r in rows if bool(r["zero_context"]) == zero]
+
+
 z, p, g = load("zero", True), load("path_distance", False), load("rag", False)
 print(f"\nlines per arm: zero={len(z)} path_distance={len(p)} rag={len(g)}")
 if len(z) == len(p) == len(g):
     em = lambda rs: [r["prediction_line"].strip() == r["ground_truth"].strip() for r in rs]
     ez, ep, eg = em(z), em(p), em(g)
-    print("line-level EM: zero=%.3f path_distance=%.3f rag=%.3f" % (
-        sum(ez) / len(ez), sum(ep) / len(ep), sum(eg) / len(eg)))
-    print("rag right & path_distance wrong:", sum(a and not b for a, b in zip(eg, ep)),
-          "| path_distance right & rag wrong:", sum(b and not a for a, b in zip(eg, ep)))
-    print("rag right & zero wrong:", sum(a and not b for a, b in zip(eg, ez)),
-          "| zero right & rag wrong:", sum(b and not a for a, b in zip(eg, ez)))
+    print(
+        "line-level EM: zero=%.3f path_distance=%.3f rag=%.3f"
+        % (sum(ez) / len(ez), sum(ep) / len(ep), sum(eg) / len(eg))
+    )
+    print(
+        "rag right & path_distance wrong:",
+        sum(a and not b for a, b in zip(eg, ep)),
+        "| path_distance right & rag wrong:",
+        sum(b and not a for a, b in zip(eg, ep)),
+    )
+    print(
+        "rag right & zero wrong:",
+        sum(a and not b for a, b in zip(eg, ez)),
+        "| zero right & rag wrong:",
+        sum(b and not a for a, b in zip(eg, ez)),
+    )

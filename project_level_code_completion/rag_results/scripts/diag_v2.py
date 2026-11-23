@@ -20,4 +20,6 @@ for a, b in diff[:6]:
 # Is the all-lines zero run itself consistent with the earlier dev all-lines zero run (r0_zero)?
 r0 = [r for r in map(json.loads, open(f"{S}/r0_zero/generation_results.jsonl")) if r["zero_context"]]
 d0 = sum(a["prediction_line"] != b["prediction_line"] for a, b in zip(all_rows, r0))
-print(f"v2_zero_all vs r0_zero (same lines=all setting): {len(all_rows)} vs {len(r0)} lines, differing predictions {d0}")
+print(
+    f"v2_zero_all vs r0_zero (same lines=all setting): {len(all_rows)} vs {len(r0)} lines, differing predictions {d0}"
+)

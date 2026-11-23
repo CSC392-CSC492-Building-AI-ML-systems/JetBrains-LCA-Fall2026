@@ -14,5 +14,7 @@ for ds in ("small_context", "medium_context"):
     same_order = [r["ground_truth"] for r in a] == [r["ground_truth"] for r in b]
     diff = sum(x["prediction_line"] != y["prediction_line"] for x, y in zip(a, b))
     s = json.load(open(f"{base}/{b_name}/summary.json"))
-    print(f"{ds}: {a_name} vs {b_name}: lines {len(a)}/{len(b)}, same order {same_order}, differing predictions {diff}, "
-          f"code {s['code']}")
+    print(
+        f"{ds}: {a_name} vs {b_name}: lines {len(a)}/{len(b)}, same order {same_order}, differing predictions {diff}, "
+        f"code {s['code']}"
+    )

@@ -1,5 +1,6 @@
 """Pre-held-out audit, development datapoints only: (1) old copy of the completion file in the snapshot? (2) is the
 tree-sitter chunker active?"""
+
 import os
 from collections import Counter
 
@@ -29,9 +30,11 @@ for dataset, dev_size, dev_extra in (("small", 20, 28), ("medium", 28, 28)):
                     if gt:
                         n_lines += 1
                         n_in_old += gt in old
-    print(f"{dataset}: completion file present in the snapshot for {present} of {len(dev)} dev datapoints; "
-          f"of {n_lines} target lines in those, {n_in_old} ({n_in_old / max(1, n_lines):.0%}) also occur verbatim in "
-          f"the old copy")
+    print(
+        f"{dataset}: completion file present in the snapshot for {present} of {len(dev)} dev datapoints; "
+        f"of {n_lines} target lines in those, {n_in_old} ({n_in_old / max(1, n_lines):.0%}) also occur verbatim in "
+        f"the old copy"
+    )
 
 # (2) is tree-sitter active? Build one real index and look at the chunk kinds.
 dp = dev[0]

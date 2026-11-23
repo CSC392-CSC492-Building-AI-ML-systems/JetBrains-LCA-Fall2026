@@ -1,4 +1,5 @@
 """Does every registered composer run on a real (development) datapoint? CPU only."""
+
 import importlib
 import os
 import time

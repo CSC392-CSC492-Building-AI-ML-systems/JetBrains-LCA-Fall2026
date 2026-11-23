@@ -2,6 +2,7 @@
 1,372 lines) against E4's RAG F arm (e4_F_N1753, RTX 5090, all 224 datapoints) on the same lines. Same prompts, same greedy decoding; the
 differences are the GPU numerics of 8.96. Writes rag_results/reports/E5v3/d0_vs_e4.md.
 Usage: python rag_results/scripts/check_d0_vs_e4.py"""
+
 import os
 import sys
 
@@ -17,11 +18,13 @@ from eval.analyze_arms import paired_bootstrap  # noqa: E402
 def main():
     d0 = load(os.path.join(HERE, "..", "agent", "E5v3_dev", "arms"), "e5v3dev_d0")
     e4 = load(os.path.join(HERE, "..", "agent", "E5_full", "arms"), "e4_F_N1753")
+
     # The dev split renumbers datapoints, so each dev datapoint is matched to the E4 datapoint with the same repo and the same set of
     # (line number, ground truth) pairs; the match must be unique. E4 rows are then re-keyed by the dev arm's keys.
     def signature(rows, dp):
         r = [v for k, v in rows.items() if k[0] == dp]
         return (r[0]["repo"], tuple(sorted((v["line_num"], v["ground_truth"]) for v in r)))
+
     e4_sigs = {}
     for dp in sorted({k[0] for k in e4}):
         e4_sigs.setdefault(signature(e4, dp), []).append(dp)
@@ -43,7 +46,8 @@ def main():
     out = [
         "# D0 (Blackwell box) against E4 RAG F (RTX 5090) on the 24 dev datapoints\n",
         f"Lines: {len(keys)}, datapoints: {len(a)}. Writer input tokens identical on {100 * same_in:.1f} % of lines.\n",
-        "| arm | EM datapoint mean | EM pooled |", "|---|---:|---:|",
+        "| arm | EM datapoint mean | EM pooled |",
+        "|---|---:|---:|",
         f"| E4 RAG F (5090) | {np.mean(list(a.values())):.4f} | {np.mean([em(e4[k]) for k in keys]):.4f} |",
         f"| D0 RAG F (Blackwell) | {np.mean(list(b.values())):.4f} | {np.mean([em(d0[k]) for k in keys]):.4f} |\n",
         f"D0 minus E4: {100 * d:+.2f} points [{100 * lo:+.2f}, {100 * hi:+.2f}] (paired bootstrap over datapoints).",
