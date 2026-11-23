@@ -60,8 +60,17 @@ held-out part of the dataset.
 On `medium_context` with CodeLlama-7B at N = 1,753 it scores 1.2 points below RAG F and 9.8 above `path_distance`, at about 7x the
 tokens. Its results, the comparison arms, figures and how to reproduce them: [`rag_results/agent/`](rag_results/agent/README.md);
 report text: [`rag_results/report_drafts/E5_agent.md`](rag_results/report_drafts/E5_agent.md).
+A stronger variant (`agent=v3`: a 32B planner with hybrid search, usage and outline tools, and a do-no-harm gate) was tested on a
+24-datapoint development set only and gave no gain; see [`rag_results/reports/E5v3/`](rag_results/reports/E5v3/dev_analysis.md).
 
-### Suported datasets:
+### Tests and reproducing the results
+* Unit tests (CPU only, 288 tests): `bash rag_results/scripts/run_tests.sh with-grammar`. They need the tree-sitter grammar clone
+  described above in `~/ts_test`; `no-grammar` runs them from an empty folder.
+* Every table and figure of the report can be rebuilt without a GPU from the stored per-line results; the commands are in
+  [`rag_results/scripts/README.md`](rag_results/scripts/README.md), which also lists every other script by purpose.
+* Final numbers and the failure taxonomy: [`rag_results/reports/final/`](rag_results/reports/final/final_experiment_table.md).
+
+### Supported datasets:
 * All configurations of [`JetBrains-Research/lca-project-level-code-completion`](https://huggingface.co/datasets/JetBrains-Research/lca-project-level-code-completion):
    * `small_context`
    * `medium_context`
