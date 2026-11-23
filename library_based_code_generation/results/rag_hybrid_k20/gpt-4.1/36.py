@@ -1,0 +1,64 @@
+```python
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+from Basilisk.utilities.MonteCarlo import (
+    Controller,
+    RetentionPolicy,
+    UniformDispersion,
+    NormalDispersion,
+    LogUniformDispersion,
+    SeedDispersion
+)
+import scenario_AttFeedback
+
+
+def displayPlots(data, retentionPolicy):
+    time = np.array([entry['time'] for entry in data])
+    states = np.array([entry['state'] for entry in data])
+    plt.figure()
+    plt.plot(time, states)
+    plt.xlabel('Time [s]')
+    plt.ylabel('State')
+    plt.title('Monte Carlo Simulation States vs Time')
+    plt.grid(True)
+    plt.show()
+
+
+def run(show_plots: bool):
+    mc = Controller()
+    mc.setSimulationFunction(scenario_AttFeedback.run)
+    mc.setExecutionFunction(scenario_AttFeedback.execute)
+    mc.setExecutionCount(10)
+    mc.archiveDirectory = os.path.join(os.getcwd(), "mcArchive")
+    mc.addDispersion(SeedDispersion())
+    mc.setThreadCount(4)
+    mc.setVerbosity(1)
+    mc.setVariableCasting(True)
+    mc.setDispersionMagnitudeFile("dispersion_magnitude.json")
+
+    dispersions = [
+        UniformDispersion("scenario_AttFeedback", "initialAttitude", [-0.1, 0.1]),
+        NormalDispersion("scenario_AttFeedback", "initialRate", 0.0, 0.05),
+        LogUniformDispersion("scenario_AttFeedback", "sensorNoise", [1e-5, 1e-3])
+    ]
+    for disp in dispersions:
+        mc.addDispersion(disp)
+
+    retentionPolicy = RetentionPolicy()
+    retentionPolicy.addMessageLog("scenario_AttFeedback.log")
+    retentionPolicy.setDataCallback(displayPlots)
+    mc.addRetentionPolicy(retentionPolicy)
+
+    mc.executeSimulations()
+    if show_plots:
+        for policy in mc.retentionPolicies:
+            if hasattr(policy, 'dataCallback') and callable(policy.dataCallback):
+                policy.dataCallback(policy.data, policy)
+    return
+
+
+if __name__ == "__main__":
+    run(True)
+```

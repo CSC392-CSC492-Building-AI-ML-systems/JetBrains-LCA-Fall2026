@@ -52,3 +52,7 @@ If testing selective retrieval, declare its routing rule in advance and use
 different cases rather than selecting the winning cases from this run.
 The paper-style Mistral results are unchanged. No workflows or GitHub
 Actions were run.
+
+## Recorded model and seeds
+
+Model: `mlx-community/Qwen2.5-Coder-7B-Instruct-4bit` (7B, four-bit, MLX); revision `019cc73c45c770444708a6dd8690c66243cc5c80`. Seeds: **0, 1, 2**, effective seed = configured seed + dataset ID. Temperature: **0.2**. Total context: **8192** tokens; output cap: **2048** tokens. These pilot settings differ from the full 32,768/8,192-token experiments.
