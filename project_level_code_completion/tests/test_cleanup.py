@@ -74,8 +74,10 @@ class PresetTests(unittest.TestCase):
     def test_f_preset_is_the_final_design(self):
         rag = self.rag("rag=F")
         self.assertEqual((rag.prefix_cap, rag.continuation_lines), (7900, 20))
-        self.assertEqual((rag.retriever, rag.query_lines, rag.max_chunks, rag.order, rag.chunking),
-                         ("bm25", 10, 30, "best_last", "structure"))
+        self.assertEqual(
+            (rag.retriever, rag.query_lines, rag.max_chunks, rag.order, rag.chunking),
+            ("bm25", 10, 30, "best_last", "structure"),
+        )
 
     def test_explicit_overrides_beat_the_preset(self):
         rag = self.rag("rag=F", "rag.continuation_lines=0")
@@ -88,9 +90,11 @@ class PresetTests(unittest.TestCase):
 
 class DependencyDirectionTests(unittest.TestCase):
     def test_the_retrieval_package_does_not_import_eval(self):
-        code = ("import sys; import rag.builder, rag.provider, rag.chunker, rag.dense, rag.bm25; "
-                "bad = sorted(m for m in sys.modules if m == 'eval' or m.startswith('eval.')); "
-                "print('IMPORTED_EVAL:' + ','.join(bad))")
+        code = (
+            "import sys; import rag.builder, rag.provider, rag.chunker, rag.dense, rag.bm25; "
+            "bad = sorted(m for m in sys.modules if m == 'eval' or m.startswith('eval.')); "
+            "print('IMPORTED_EVAL:' + ','.join(bad))"
+        )
         env = dict(os.environ, PYTHONPATH=PROJECT, PYTHONDONTWRITEBYTECODE="1")
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT, env=env)
         self.assertEqual(out.returncode, 0, out.stderr)

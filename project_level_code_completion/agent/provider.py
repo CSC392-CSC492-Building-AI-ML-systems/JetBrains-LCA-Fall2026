@@ -6,12 +6,27 @@ from agent.tools import DenseSearch, Limits, RepoTools
 from data_classes.datapoint_base import DatapointBase
 from rag.builder import RagContextBuilder, crop_prefix
 
-BUILDER_OPTIONS = ("include_non_py", "retriever", "embedder", "pooling", "embedding_cache", "chunking", "fine_window",
-                   "fine_stride")
+BUILDER_OPTIONS = (
+    "include_non_py",
+    "retriever",
+    "embedder",
+    "pooling",
+    "embedding_cache",
+    "chunking",
+    "fine_window",
+    "fine_stride",
+)
 
 
-def assemble_context(builder: RagContextBuilder, chunks: list, prefix: str, budget: int, count_tokens: Callable,
-                     max_context_tokens: Optional[int] = None, continuation_lines: int = 0) -> tuple[str, list]:
+def assemble_context(
+    builder: RagContextBuilder,
+    chunks: list,
+    prefix: str,
+    budget: int,
+    count_tokens: Callable,
+    max_context_tokens: Optional[int] = None,
+    continuation_lines: int = 0,
+) -> tuple[str, list]:
     """Prompt context from an ordered chunk list, in the layout RAG uses (first chunk nearest the prefix).
 
     Chunks are taken in order; one that does not fit the remaining tokens is skipped, never cut. Chunks that come from
@@ -40,21 +55,37 @@ def assemble_context(builder: RagContextBuilder, chunks: list, prefix: str, budg
     return context, [chunk for chunk, _ in selected]
 
 
-def fit_additions(builder: RagContextBuilder, kept: list, added: list, prefix: str, budget: int, count_tokens: Callable,
-                  max_context_tokens: Optional[int], continuation_lines: int, max_evict: int) -> Optional[tuple[str, list]]:
+def fit_additions(
+    builder: RagContextBuilder,
+    kept: list,
+    added: list,
+    prefix: str,
+    budget: int,
+    count_tokens: Callable,
+    max_context_tokens: Optional[int],
+    continuation_lines: int,
+    max_evict: int,
+) -> Optional[tuple[str, list]]:
     """Append mode: `kept` (the default chunks, in rank order) followed by `added`. If an addition does not fit, evict
     the lowest-ranked kept chunks, at most `max_evict`, until every addition fits. None when they cannot all fit."""
     for evicted in range(min(max_evict, len(kept)) + 1):
-        candidate = kept[:len(kept) - evicted] + added
-        context, used = assemble_context(builder, candidate, prefix, budget, count_tokens, max_context_tokens,
-                                         continuation_lines)
+        candidate = kept[: len(kept) - evicted] + added
+        context, used = assemble_context(
+            builder, candidate, prefix, budget, count_tokens, max_context_tokens, continuation_lines
+        )
         if all(any(chunk is u for u in used) for chunk in added):
             return context, used
     return None
 
 
-def gate_passes(missing: list, added: list, default_chunks: list, prefix: str, builder: RagContextBuilder,
-                continuation_lines: int = 0) -> bool:
+def gate_passes(
+    missing: list,
+    added: list,
+    default_chunks: list,
+    prefix: str,
+    builder: RagContextBuilder,
+    continuation_lines: int = 0,
+) -> bool:
     """The do-no-harm gate: True if the planner named an identifier (3 or more characters) that some added chunk contains and
     that neither the file prefix nor any default chunk, as it appears in the prompt, contains."""
     visible = prefix + "\n" + "\n".join(builder._format(chunk, continuation_lines) for chunk in default_chunks)
@@ -67,10 +98,19 @@ def gate_passes(missing: list, added: list, default_chunks: list, prefix: str, b
     return False
 
 
-def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int, llm: Callable[[list], LLMReply],
-                                rag_options: Optional[dict] = None, limits: Limits = Limits(),
-                                planner_prefix_tokens: int = 1500, max_listed_files: int = 100, extension: str = "",
-                                lang_sep: str = "", meta_sep: str = "METASEP\n", search_embedder=None):
+def make_agent_provider_factory(
+    count_tokens: Callable[[str], int],
+    budget: int,
+    llm: Callable[[list], LLMReply],
+    rag_options: Optional[dict] = None,
+    limits: Limits = Limits(),
+    planner_prefix_tokens: int = 1500,
+    max_listed_files: int = 100,
+    extension: str = "",
+    lang_sep: str = "",
+    meta_sep: str = "METASEP\n",
+    search_embedder=None,
+):
     """Return `factory(datapoint) -> provider` for `evaluate_generation`, like `make_rag_provider_factory`.
 
     `rag_options` are the options RAG would run with (`rag=F` plus `context_cap` as `max_context_tokens`). For each
@@ -95,10 +135,18 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
         if not builder_options.get("include_non_py", True):
             files = {path: code for path, code in files.items() if path.endswith(".py")}
         completion_path = next(iter(datapoint.get_completion()))
-        builder = RagContextBuilder(files, completion_path, datapoint.repo_name, count_tokens, extension=extension,
-                                    lang_sep=lang_sep, meta_sep=meta_sep, chunking=builder_options.get("chunking", "structure"),
-                                    fine_window=builder_options.get("fine_window", 10),
-                                    fine_stride=builder_options.get("fine_stride", 5))
+        builder = RagContextBuilder(
+            files,
+            completion_path,
+            datapoint.repo_name,
+            count_tokens,
+            extension=extension,
+            lang_sep=lang_sep,
+            meta_sep=meta_sep,
+            chunking=builder_options.get("chunking", "structure"),
+            fine_window=builder_options.get("fine_window", 10),
+            fine_stride=builder_options.get("fine_stride", 5),
+        )
         listed = sorted(builder.file_lines, key=lambda p: (-builder._path_proximity(p), p))[:max_listed_files]
         dense_ranker = DenseSearch(builder, search_embedder) if search_embedder is not None else None
 
@@ -106,8 +154,13 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
             default = builder.context_for(dp.get_prefix(line_num), budget=budget, **options)
             tools = RepoTools(builder, limits, count_tokens, dense_ranker)
             imported = tools.imported_view(default.prefix) if limits.imports_view else None
-            task = task_message(completion_path, crop_prefix(default.prefix, planner_prefix_tokens, count_tokens),
-                                listed, tools.seed_view(default.chunks), imported)
+            task = task_message(
+                completion_path,
+                crop_prefix(default.prefix, planner_prefix_tokens, count_tokens),
+                listed,
+                tools.seed_view(default.chunks),
+                imported,
+            )
             planned = plan(task, tools, llm, limits)
             context, used, fallback, changed = default.context, default.chunks, planned.status != "submitted", False
             gate = "off" if not limits.gate else "none"  # none = the planner proposed no change
@@ -118,16 +171,29 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
                     if gate_passes(planned.missing, added, default.chunks, default.prefix, builder, continuation_lines):
                         gate = "passed"
                     else:
-                        gate, final = "rejected", default.chunks  # keep RAG's context: no named, really missing name was added
+                        gate, final = (
+                            "rejected",
+                            default.chunks,
+                        )  # keep RAG's context: no named, really missing name was added
                 if [id(c) for c in final] != [id(c) for c in default.chunks]:
                     if adds_only:
                         n_kept = sum(1 for c in final if any(c is d for d in default.chunks))
-                        fitted = fit_additions(builder, final[:n_kept], final[n_kept:], default.prefix, budget,
-                                               count_tokens, max_context_tokens, continuation_lines, limits.max_evict)
+                        fitted = fit_additions(
+                            builder,
+                            final[:n_kept],
+                            final[n_kept:],
+                            default.prefix,
+                            budget,
+                            count_tokens,
+                            max_context_tokens,
+                            continuation_lines,
+                            limits.max_evict,
+                        )
                         edited, edited_used = fitted if fitted else (default.context, default.chunks)
                     else:
-                        edited, edited_used = assemble_context(builder, final, default.prefix, budget, count_tokens,
-                                                               max_context_tokens, continuation_lines)
+                        edited, edited_used = assemble_context(
+                            builder, final, default.prefix, budget, count_tokens, max_context_tokens, continuation_lines
+                        )
                     # dropping every chunk is a valid choice: an empty context; in append mode nothing is ever dropped
                     if edited_used or not final or adds_only:
                         # an edit whose additions do not fit can leave exactly the RAG context: that is no change
@@ -138,12 +204,20 @@ def make_agent_provider_factory(count_tokens: Callable[[str], int], budget: int,
             info = {
                 "paths": [chunk.path for chunk in used],
                 "lines": [[chunk.start_line, chunk.end_line] for chunk in used],
-                "kinds": [chunk.kind for chunk in used],  # "range" = explicit lines (no continuation); else an index chunk
-                "fallback": fallback, "changed": changed, "planner_status": planned.status, "steps": planned.steps,
-                "tool_calls": planned.tool_calls, "planner_input_tokens": planned.input_tokens,
-                "planner_output_tokens": planned.output_tokens, "planner_ms": round(planned.planner_ms, 1),
+                "kinds": [
+                    chunk.kind for chunk in used
+                ],  # "range" = explicit lines (no continuation); else an index chunk
+                "fallback": fallback,
+                "changed": changed,
+                "planner_status": planned.status,
+                "steps": planned.steps,
+                "tool_calls": planned.tool_calls,
+                "planner_input_tokens": planned.input_tokens,
+                "planner_output_tokens": planned.output_tokens,
+                "planner_ms": round(planned.planner_ms, 1),
                 "actions": [turn["action"] for turn in planned.trace],  # what the planner did, to replay and analyse
-                "gate": gate, "missing": planned.missing,
+                "gate": gate,
+                "missing": planned.missing,
             }
             return context + "\n" + default.prefix, dp.get_line(line_num), info
 

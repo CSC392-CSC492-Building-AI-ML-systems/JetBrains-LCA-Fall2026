@@ -11,6 +11,7 @@ from rag.provider import make_rag_provider_factory
 
 try:
     from tree_sitter_parser.parser import parser  # noqa: F401  (needs the grammar clone in the working directory)
+
     HAS_PARSER = True
 except Exception:
     HAS_PARSER = False
@@ -39,8 +40,13 @@ def make_builder(files=None, completion="app/target.txt"):
 
 
 def make_datapoint():
-    return DatapointBase(repo_id=1, repo_name="repo", completion_lines={}, context_dict=dict(FILES),
-                         completion_dict={"app/target.txt": TARGET})
+    return DatapointBase(
+        repo_id=1,
+        repo_name="repo",
+        completion_lines={},
+        context_dict=dict(FILES),
+        completion_dict={"app/target.txt": TARGET},
+    )
 
 
 def submit(add=(), drop=()):
@@ -53,8 +59,9 @@ def search(query="alpha_func"):
 
 class ParseTests(unittest.TestCase):
     def test_finds_json_inside_noise(self):
-        self.assertEqual(parse_action('Sure! {"action":"search_code","query":"x"} done'),
-                         {"action": "search_code", "query": "x"})
+        self.assertEqual(
+            parse_action('Sure! {"action":"search_code","query":"x"} done'), {"action": "search_code", "query": "x"}
+        )
 
     def test_none_without_an_object(self):
         self.assertIsNone(parse_action("no json here"))
@@ -87,7 +94,10 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(len(self.tools.find_definition("alpha_func")["results"]), 1)
 
     def test_find_definition_by_text_for_functions_classes_and_constants(self):
-        files = {"app/target.txt": "x", "lib/m.py": "import os\n\nLIMIT = 3\n\n\nclass Foo:\n    pass\n\n\ndef bar(a):\n    return a\n"}
+        files = {
+            "app/target.txt": "x",
+            "lib/m.py": "import os\n\nLIMIT = 3\n\n\nclass Foo:\n    pass\n\n\ndef bar(a):\n    return a\n",
+        }
         tools = RepoTools(make_builder(files), Limits(), count)
         tools.builder.symbol_index.clear()  # force the text search
         for name, line in (("LIMIT", 3), ("Foo", 6), ("bar", 10)):
@@ -114,13 +124,22 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(got, [self.tools.builder.chunks[shown]])
 
     def test_ranges_are_validated_deduplicated_and_capped(self):
-        items = [{"path": "app/a.txt", "start_line": 1, "end_line": 1}, {"path": "app/a.txt", "start_line": 1, "end_line": 1},
-                 {"path": "app/target.txt", "start_line": 1, "end_line": 1}, {"path": "app/a.txt", "start_line": 5, "end_line": 6},
-                 "junk", {"chunk": "x"}]
+        items = [
+            {"path": "app/a.txt", "start_line": 1, "end_line": 1},
+            {"path": "app/a.txt", "start_line": 1, "end_line": 1},
+            {"path": "app/target.txt", "start_line": 1, "end_line": 1},
+            {"path": "app/a.txt", "start_line": 5, "end_line": 6},
+            "junk",
+            {"chunk": "x"},
+        ]
         got = self.tools.resolve_items(items)
         self.assertEqual([(c.path, c.start_line, c.end_line) for c in got], [("app/a.txt", 0, 0)])
         capped = RepoTools(make_builder(), Limits(max_items=1), count).resolve_items(
-            [{"path": "app/b.txt", "start_line": 1, "end_line": 1}, {"path": "app/a.txt", "start_line": 1, "end_line": 1}])
+            [
+                {"path": "app/b.txt", "start_line": 1, "end_line": 1},
+                {"path": "app/a.txt", "start_line": 1, "end_line": 1},
+            ]
+        )
         self.assertEqual(len(capped), 1)
 
 
@@ -161,8 +180,14 @@ class EditTests(unittest.TestCase):
         first = self.default[0]
         wide = {"path": first.path, "start_line": 1, "end_line": first.end_line + 1}
         final = self.tools.apply_edit(self.default, [wide], [])
-        self.assertEqual(sum(1 for c in final if c.path == first.path and c.start_line >= first.start_line
-                             and c.end_line <= first.end_line), 1)
+        self.assertEqual(
+            sum(
+                1
+                for c in final
+                if c.path == first.path and c.start_line >= first.start_line and c.end_line <= first.end_line
+            ),
+            1,
+        )
 
     def test_malformed_edits_change_nothing(self):
         final = self.tools.apply_edit(self.default, "junk", {"a": 1})
@@ -199,8 +224,9 @@ class LoopTests(unittest.TestCase):
         self.assertEqual((result.status, result.steps), ("invalid_replies", 3))
 
     def test_invalid_tool_arguments_cost_a_call_and_return_an_error(self):
-        result, _ = self.run_plan([json_text({"action": "read_file", "path": "app/target.txt", "start_line": 1, "end_line": 1}),
-                                   submit()])
+        result, _ = self.run_plan(
+            [json_text({"action": "read_file", "path": "app/target.txt", "start_line": 1, "end_line": 1}), submit()]
+        )
         self.assertIn("error", result.trace[0]["tool_result"])
         self.assertEqual(result.tool_calls, 1)
 
@@ -226,15 +252,17 @@ class AssembleTests(unittest.TestCase):
         self.assertNotIn("w7", context)
 
     def test_max_context_tokens_caps_the_chunks(self):
-        _, used = assemble_context(self.builder, self.chunks_for("app/a.txt", "app/b.txt"), "p", 1000, count,
-                                   max_context_tokens=5)
+        _, used = assemble_context(
+            self.builder, self.chunks_for("app/a.txt", "app/b.txt"), "p", 1000, count, max_context_tokens=5
+        )
         self.assertLessEqual(len(used), 1)
 
     def test_reassembling_the_default_reproduces_the_rag_context(self):
         for options in ({"max_chunks": 30}, {"max_chunks": 30, "max_context_tokens": 6}):
             result = self.builder.context_for("alpha_func beta_func", budget=1000, **options)
-            context, used = assemble_context(self.builder, result.chunks, result.prefix, 1000, count,
-                                             options.get("max_context_tokens"))
+            context, used = assemble_context(
+                self.builder, result.chunks, result.prefix, 1000, count, options.get("max_context_tokens")
+            )
             self.assertEqual(context, result.context)
             self.assertEqual(used, result.chunks)
 
@@ -242,8 +270,9 @@ class AssembleTests(unittest.TestCase):
 class ProviderTests(unittest.TestCase):
     def provider(self, replies, rag_options=None):
         llm = ScriptedLLM(replies)
-        factory = make_agent_provider_factory(count, 1000, llm, rag_options=rag_options or RAG_OPTIONS,
-                                              lang_sep=LANG, meta_sep=META)
+        factory = make_agent_provider_factory(
+            count, 1000, llm, rag_options=rag_options or RAG_OPTIONS, lang_sep=LANG, meta_sep=META
+        )
         return factory(make_datapoint()), llm
 
     def rag_prompt(self, line_num, rag_options=None):
@@ -330,13 +359,21 @@ class ProviderTests(unittest.TestCase):
 
 class AppendModeTests(unittest.TestCase):
     """Planner v2 (log section 8.85): the planner can only add; RAG's ranking is never reduced except to make room."""
+
     PREFIX = "\n".join(TARGET.split("\n")[:2])
     C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
 
     def provider(self, replies, rag_options=None, **limits):
         llm = ScriptedLLM(replies)
-        factory = make_agent_provider_factory(count, 1000, llm, rag_options=rag_options or RAG_OPTIONS,
-                                              limits=Limits(edit_mode="append", **limits), lang_sep=LANG, meta_sep=META)
+        factory = make_agent_provider_factory(
+            count,
+            1000,
+            llm,
+            rag_options=rag_options or RAG_OPTIONS,
+            limits=Limits(edit_mode="append", **limits),
+            lang_sep=LANG,
+            meta_sep=META,
+        )
         return factory(make_datapoint())
 
     def rag(self, rag_options=None):
@@ -379,7 +416,7 @@ class AppendModeTests(unittest.TestCase):
         self.assertTrue(info["changed"])
         kept = info["paths"][:-1]
         self.assertEqual(info["paths"][-1], "lib/c.txt")
-        self.assertEqual(kept, default_paths[:len(kept)])  # a prefix of the ranking: the top chunks survive
+        self.assertEqual(kept, default_paths[: len(kept)])  # a prefix of the ranking: the top chunks survive
         self.assertIn(len(default_paths) - len(kept), (1, 2))
         self.assertLessEqual(count(prompt), 1000)
 
@@ -397,8 +434,9 @@ class AppendModeTests(unittest.TestCase):
 
     def test_the_planner_prompt_has_no_drop_action(self):
         llm = ScriptedLLM([submit()])
-        factory = make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS,
-                                              limits=Limits(edit_mode="append"), lang_sep=LANG, meta_sep=META)
+        factory = make_agent_provider_factory(
+            count, 1000, llm, rag_options=RAG_OPTIONS, limits=Limits(edit_mode="append"), lang_sep=LANG, meta_sep=META
+        )
         factory(make_datapoint())(make_datapoint(), 2)
         system = llm.calls[0][0]["content"]
         self.assertNotIn('"drop"', system)
@@ -426,10 +464,12 @@ PY_FILES = {
 
 class FakeEmbedder:
     """Deterministic stand-in for rag.dense.DenseEmbedder: a text's vector is a one-hot of its first word's length."""
+
     calls = 0
 
     def _vector(self, text):
         import numpy as np
+
         vector = np.zeros(16, dtype=np.float32)
         vector[len(text.split()[0]) % 16 if text.split() else 0] = 1.0
         return vector
@@ -437,6 +477,7 @@ class FakeEmbedder:
     def embed_chunks(self, texts):
         FakeEmbedder.calls += 1
         import numpy as np
+
         return np.stack([self._vector(t.split("\n", 1)[-1]) for t in texts])
 
     def embed_query(self, text):
@@ -453,7 +494,9 @@ class NewToolTests(unittest.TestCase):
     def test_find_usages_skips_definitions_imports_and_other_languages(self):
         tools, _ = self.tools()
         result = tools.find_usages("helper")["results"]
-        self.assertEqual([r["path"] for r in result], ["app/a.py", "app/sub/b.py", "lib/c.py"])  # nearest first, one per file
+        self.assertEqual(
+            [r["path"] for r in result], ["app/a.py", "app/sub/b.py", "lib/c.py"]
+        )  # nearest first, one per file
         self.assertIn("return helper(1)", result[0]["text"])  # not the `def helper` line
         self.assertIn("value = helper(3)", result[1]["text"])  # not the import line
         self.assertNotIn("lib/notes.txt", [r["path"] for r in result])
@@ -499,13 +542,23 @@ class NewToolTests(unittest.TestCase):
         self.assertIn("results", plain.search_code("alpha_func"))
 
     def test_hybrid_search_adds_what_the_dense_ranking_finds(self):
-        files = {"app/target.txt": "x", "lib/words.txt": "unrelated words only", "lib/other.txt": "different content here"}
+        files = {
+            "app/target.txt": "x",
+            "lib/words.txt": "unrelated words only",
+            "lib/other.txt": "different content here",
+        }
         builder = make_builder(files)
         wanted = next(i for i, c in enumerate(builder.chunks) if c.path == "lib/other.txt")
-        bm25_only = RepoTools(builder, Limits(edit_mode="swap", search_results=2), count).search_code("zzz_no_such_word")
+        bm25_only = RepoTools(builder, Limits(edit_mode="swap", search_results=2), count).search_code(
+            "zzz_no_such_word"
+        )
         self.assertEqual(bm25_only["results"], [])  # BM25 finds nothing for a word that occurs nowhere
-        tools = RepoTools(builder, Limits(edit_mode="swap", search_mode="hybrid", search_results=2), count,
-                          dense_ranker=lambda query: [wanted] + [i for i in range(len(builder.chunks)) if i != wanted])
+        tools = RepoTools(
+            builder,
+            Limits(edit_mode="swap", search_mode="hybrid", search_results=2),
+            count,
+            dense_ranker=lambda query: [wanted] + [i for i in range(len(builder.chunks)) if i != wanted],
+        )
         results = tools.search_code("zzz_no_such_word")["results"]
         self.assertEqual(results[0]["path"], "lib/other.txt")
 
@@ -514,8 +567,15 @@ class NewToolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             RepoTools(builder, Limits(search_mode="hybrid"), count)
         with self.assertRaises(ValueError):
-            make_agent_provider_factory(count, 1000, ScriptedLLM([submit()]), rag_options=RAG_OPTIONS,
-                                        limits=Limits(edit_mode="swap", search_mode="hybrid"), lang_sep=LANG, meta_sep=META)
+            make_agent_provider_factory(
+                count,
+                1000,
+                ScriptedLLM([submit()]),
+                rag_options=RAG_OPTIONS,
+                limits=Limits(edit_mode="swap", search_mode="hybrid"),
+                lang_sep=LANG,
+                meta_sep=META,
+            )
         with self.assertRaises(ValueError):
             RepoTools(builder, Limits(search_mode="semantic"), count)
 
@@ -532,14 +592,22 @@ class NewToolTests(unittest.TestCase):
 
 class SwapModeTests(unittest.TestCase):
     """Planner v3 edit (RAG_EXPERIMENT_LOG 8.93): additions after RAG's ranking, the planner names what to give up."""
+
     PREFIX = "\n".join(TARGET.split("\n")[:2])
     C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
 
     def provider(self, replies, rag_options=None, embedder=None, **limits):
         llm = ScriptedLLM(replies)
-        factory = make_agent_provider_factory(count, 1000, llm, rag_options=rag_options or RAG_OPTIONS,
-                                              limits=Limits(edit_mode="swap", **limits), lang_sep=LANG, meta_sep=META,
-                                              search_embedder=embedder)
+        factory = make_agent_provider_factory(
+            count,
+            1000,
+            llm,
+            rag_options=rag_options or RAG_OPTIONS,
+            limits=Limits(edit_mode="swap", **limits),
+            lang_sep=LANG,
+            meta_sep=META,
+            search_embedder=embedder,
+        )
         return factory(make_datapoint()), llm
 
     def default(self):
@@ -568,7 +636,9 @@ class SwapModeTests(unittest.TestCase):
         default = self.rag_info()[2]
         self.assertTrue(info["changed"])
         self.assertEqual(info["paths"][-1], "lib/c.txt")
-        self.assertEqual(info["lines"][:-1], default["lines"][1:])  # the first default chunk is gone, the rest keep their order
+        self.assertEqual(
+            info["lines"][:-1], default["lines"][1:]
+        )  # the first default chunk is gone, the rest keep their order
 
     def test_a_drop_without_an_addition_changes_nothing(self):
         ids = self.default_ids()
@@ -586,7 +656,7 @@ class SwapModeTests(unittest.TestCase):
             self.assertEqual(len(info["paths"]), expected, max_evict)
 
     def test_ids_that_are_not_default_chunks_are_ignored(self):
-        provider, _ = self.provider([submit([self.C], drop=[10 ** 6, "x", -1])])
+        provider, _ = self.provider([submit([self.C], drop=[10**6, "x", -1])])
         _, _, info = provider(make_datapoint(), 2)
         self.assertEqual(info["paths"][:-1], self.rag_info()[2]["paths"])
 
@@ -602,8 +672,9 @@ class SwapModeTests(unittest.TestCase):
         self.assertLessEqual(count(prompt), 1000)
 
     def gated(self, missing, **extra):
-        provider, _ = self.provider([submit([self.C]).replace('"drop":[]', f'"drop":[],"missing":{json_text(missing)}')],
-                                    gate=True, **extra)
+        provider, _ = self.provider(
+            [submit([self.C]).replace('"drop":[]', f'"drop":[],"missing":{json_text(missing)}')], gate=True, **extra
+        )
         return provider(make_datapoint(), 2)
 
     def test_the_gate_keeps_the_rag_prompt_unless_a_really_missing_name_is_added(self):
@@ -627,7 +698,9 @@ class SwapModeTests(unittest.TestCase):
         self.assertEqual(info["missing"], ["unrelated"])
 
     def test_ask_missing_asks_only_once_and_the_gate_still_decides(self):
-        provider, llm = self.provider([submit([self.C]), submit([self.C]), self.with_missing(["unrelated"])], gate=True, ask_missing=True)
+        provider, llm = self.provider(
+            [submit([self.C]), submit([self.C]), self.with_missing(["unrelated"])], gate=True, ask_missing=True
+        )
         _, _, info = provider(make_datapoint(), 2)
         self.assertEqual(len(llm.calls), 2)  # the third scripted reply is never requested
         self.assertEqual((info["gate"], info["changed"]), ("rejected", False))
@@ -656,20 +729,39 @@ class SwapModeTests(unittest.TestCase):
         prefix = "alpha_func beta_func"
         self.assertTrue(gate_passes(["zeta_name"], added, shown, prefix, builder))
         self.assertFalse(gate_passes(["alpha_func"], added, shown, prefix, builder))  # already in the prefix
-        self.assertFalse(gate_passes(["gamma_func"], added, shown, prefix, builder))  # already in the current context, and not added
-        self.assertFalse(gate_passes(["zeta_name"], added, shown, "zeta_name appears here", builder))  # visible in the prefix
+        self.assertFalse(
+            gate_passes(["gamma_func"], added, shown, prefix, builder)
+        )  # already in the current context, and not added
+        self.assertFalse(
+            gate_passes(["zeta_name"], added, shown, "zeta_name appears here", builder)
+        )  # visible in the prefix
         self.assertFalse(gate_passes(["zeta_name"], [], shown, prefix, builder))  # nothing added
         self.assertTrue(gate_passes(["x1", "zeta_name"], added, shown, prefix, builder))  # one good name is enough
         self.assertFalse(gate_passes(["zeta"], added, shown, prefix, builder))  # whole words only
 
     def test_the_planner_is_shown_the_files_the_code_imports(self):
-        files = {"app/target.py": "from app.a import helper\nx = helper(1)\ny = 2", **{k: v for k, v in PY_FILES.items() if k != "app/target.py"}}
-        datapoint = DatapointBase(repo_id=1, repo_name="repo", completion_lines={}, context_dict=files,
-                                  completion_dict={"app/target.py": files["app/target.py"]})
+        files = {
+            "app/target.py": "from app.a import helper\nx = helper(1)\ny = 2",
+            **{k: v for k, v in PY_FILES.items() if k != "app/target.py"},
+        }
+        datapoint = DatapointBase(
+            repo_id=1,
+            repo_name="repo",
+            completion_lines={},
+            context_dict=files,
+            completion_dict={"app/target.py": files["app/target.py"]},
+        )
         for on in (True, False):
             llm = ScriptedLLM([submit()])
-            make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS, lang_sep=LANG, meta_sep=META,
-                                        limits=Limits(edit_mode="swap", imports_view=on))(datapoint)(datapoint, 2)
+            make_agent_provider_factory(
+                count,
+                1000,
+                llm,
+                rag_options=RAG_OPTIONS,
+                lang_sep=LANG,
+                meta_sep=META,
+                limits=Limits(edit_mode="swap", imports_view=on),
+            )(datapoint)(datapoint, 2)
             user = llm.calls[0][1]["content"]
             self.assertEqual("FILES IMPORTED BY THE CODE BELOW" in user, on)
             if on:
@@ -677,17 +769,31 @@ class SwapModeTests(unittest.TestCase):
 
     def test_imported_view_lists_top_level_definitions_nearest_first(self):
         builder = make_builder(PY_FILES, "app/target.py")
-        view = RepoTools(builder, Limits(edit_mode="swap"), count).imported_view("from app.a import helper\nimport lib.c\n")
-        self.assertEqual(view, [{"path": "app/a.py", "defines": ["helper", "Thing"]}, {"path": "lib/c.py", "defines": ["unrelated"]}])
+        view = RepoTools(builder, Limits(edit_mode="swap"), count).imported_view(
+            "from app.a import helper\nimport lib.c\n"
+        )
+        self.assertEqual(
+            view, [{"path": "app/a.py", "defines": ["helper", "Thing"]}, {"path": "lib/c.py", "defines": ["unrelated"]}]
+        )
         self.assertEqual(RepoTools(builder, Limits(edit_mode="swap"), count).imported_view("x = 1\n"), [])
 
     def test_the_hybrid_search_runs_through_the_provider_and_is_replayable(self):
-        provider, _ = self.provider([search("alpha_func"), submit([self.C])], embedder=FakeEmbedder(), search_mode="hybrid")
+        provider, _ = self.provider(
+            [search("alpha_func"), submit([self.C])], embedder=FakeEmbedder(), search_mode="hybrid"
+        )
         _, _, info = provider(make_datapoint(), 2)
         replay = ReplayModel()
         replay.load(info["actions"])
-        factory = make_agent_provider_factory(count, 1000, replay, rag_options=RAG_OPTIONS, lang_sep=LANG, meta_sep=META,
-                                              limits=Limits(edit_mode="swap", search_mode="hybrid"), search_embedder=FakeEmbedder())
+        factory = make_agent_provider_factory(
+            count,
+            1000,
+            replay,
+            rag_options=RAG_OPTIONS,
+            lang_sep=LANG,
+            meta_sep=META,
+            limits=Limits(edit_mode="swap", search_mode="hybrid"),
+            search_embedder=FakeEmbedder(),
+        )
         replayed = factory(make_datapoint())(make_datapoint(), 2)[2]
         self.assertTrue(replay.finished)
         for key in ("paths", "lines", "kinds", "changed"):
@@ -696,13 +802,20 @@ class SwapModeTests(unittest.TestCase):
 
 class ReplayTests(unittest.TestCase):
     """The logged `actions` of a run are enough to rebuild its prompt offline (used by eval/failure_split.py)."""
+
     C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}
 
     def run_and_replay(self, replies, **limits):
         def factory(llm):
-            return make_agent_provider_factory(count, 1000, llm, rag_options=RAG_OPTIONS,
-                                               limits=Limits(edit_mode="append", **limits), lang_sep=LANG, meta_sep=META)(
-                make_datapoint())
+            return make_agent_provider_factory(
+                count,
+                1000,
+                llm,
+                rag_options=RAG_OPTIONS,
+                limits=Limits(edit_mode="append", **limits),
+                lang_sep=LANG,
+                meta_sep=META,
+            )(make_datapoint())
 
         original = factory(ScriptedLLM(replies))(make_datapoint(), 2)
         replay = ReplayModel()
@@ -763,8 +876,13 @@ class RealPythonTests(unittest.TestCase):
         self.assertTrue(hits and all(r["path"] != "pkg/target.py" for r in hits))
 
     def test_adding_a_found_definition_reaches_the_prompt_and_the_prompt_stays_in_budget(self):
-        datapoint = DatapointBase(repo_id=1, repo_name="repo", completion_lines={}, context_dict=dict(self.REPO),
-                                  completion_dict={"pkg/target.py": self.REPO["pkg/target.py"]})
+        datapoint = DatapointBase(
+            repo_id=1,
+            repo_name="repo",
+            completion_lines={},
+            context_dict=dict(self.REPO),
+            completion_dict={"pkg/target.py": self.REPO["pkg/target.py"]},
+        )
 
         def script(messages):
             if len(messages) >= 4:  # system, task, first reply, tool result: add the first result by its chunk id
@@ -772,8 +890,9 @@ class RealPythonTests(unittest.TestCase):
                 return json_text({"action": "submit_context", "add": [{"chunk": chunk_id}]})
             return json_text({"action": "find_definition", "name": "Store"})
 
-        factory = make_agent_provider_factory(count, 400, ScriptedLLM(script), rag_options=RAG_OPTIONS,
-                                              lang_sep=LANG, meta_sep=META)
+        factory = make_agent_provider_factory(
+            count, 400, ScriptedLLM(script), rag_options=RAG_OPTIONS, lang_sep=LANG, meta_sep=META
+        )
         prompt, _, info = factory(datapoint)(datapoint, 5)
         self.assertTrue(info["changed"])
         self.assertIn("class Store", prompt)

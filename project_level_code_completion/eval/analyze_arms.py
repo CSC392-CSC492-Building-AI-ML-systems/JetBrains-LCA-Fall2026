@@ -9,6 +9,7 @@ Example:
     python -m eval.analyze_arms --base ~/lca_artifacts/python/starcoderbase-1b/small_context/arms \
         --ref dev_path_distance --arms dev_zero dev_rag --out report.md
 """
+
 import argparse
 import json
 import os
@@ -18,7 +19,7 @@ from typing import Optional
 import numpy as np
 from thefuzz import fuzz
 
-METRICS = ('em', 'es')
+METRICS = ("em", "es")
 
 
 def load_lines(path: str, zero_context: bool, targets: Optional[dict] = None) -> dict[tuple, dict]:
@@ -32,17 +33,18 @@ def load_lines(path: str, zero_context: bool, targets: Optional[dict] = None) ->
     with open(path) as f:
         for raw in f:
             row = json.loads(raw)
-            if bool(row['zero_context']) != zero_context:
+            if bool(row["zero_context"]) != zero_context:
                 continue
-            base = (row['datapoint_idx'], row['line_class'])
+            base = (row["datapoint_idx"], row["line_class"])
             key = base + (seen[base],)
             seen[base] += 1
-            if targets is not None and row['line_num'] not in targets.get(str(row['datapoint_idx']), {}).get(
-                    row['line_class'], []):
+            if targets is not None and row["line_num"] not in targets.get(str(row["datapoint_idx"]), {}).get(
+                row["line_class"], []
+            ):
                 continue
             rows[key] = {
-                'em': float(row['prediction_line'].strip() == row['ground_truth'].strip()),
-                'es': float(fuzz.ratio(row['prediction_line'], row['ground_truth'])),
+                "em": float(row["prediction_line"].strip() == row["ground_truth"].strip()),
+                "es": float(fuzz.ratio(row["prediction_line"], row["ground_truth"])),
             }
     return rows
 
@@ -60,7 +62,7 @@ def arm_lines(base, arm: str, targets: Optional[list] = None) -> dict[tuple, dic
     bases = [base] if isinstance(base, str) else list(base)
     merged = {}
     for i, directory in enumerate(bases):
-        path = os.path.join(directory, arm, 'generation_results.jsonl')
+        path = os.path.join(directory, arm, "generation_results.jsonl")
         target = targets[i] if targets else None
         lines = load_lines(path, False, target) or load_lines(path, True, target)
         for (dp, line_class, k), values in lines.items():
@@ -117,24 +119,28 @@ def report(base, ref: str, arms: list[str], n_boot: int = 10_000, targets: Optio
     return "\n".join(out)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--base', required=True, nargs='+',
-                        help='directory (or several, merged) containing the arm directories')
-    parser.add_argument('--ref', required=True, help='reference arm directory name')
-    parser.add_argument('--arms', nargs='+', required=True, help='arm directory names to compare with the reference')
-    parser.add_argument('--boot', type=int, default=10_000)
-    parser.add_argument('--targets', nargs='+',
-                        help='one targets JSON per --base (or "-" for none): analyse only those lines '
-                             '(written by eval.make_targets)')
-    parser.add_argument('--out', help='also write the report to this file')
+    parser.add_argument(
+        "--base", required=True, nargs="+", help="directory (or several, merged) containing the arm directories"
+    )
+    parser.add_argument("--ref", required=True, help="reference arm directory name")
+    parser.add_argument("--arms", nargs="+", required=True, help="arm directory names to compare with the reference")
+    parser.add_argument("--boot", type=int, default=10_000)
+    parser.add_argument(
+        "--targets",
+        nargs="+",
+        help='one targets JSON per --base (or "-" for none): analyse only those lines '
+        "(written by eval.make_targets)",
+    )
+    parser.add_argument("--out", help="also write the report to this file")
     args = parser.parse_args()
     target_dicts = None
     if args.targets:
-        assert len(args.targets) == len(args.base), '--targets needs one entry per --base'
-        target_dicts = [None if t == '-' else json.load(open(os.path.expanduser(t))) for t in args.targets]
+        assert len(args.targets) == len(args.base), "--targets needs one entry per --base"
+        target_dicts = [None if t == "-" else json.load(open(os.path.expanduser(t))) for t in args.targets]
     text = report([os.path.expanduser(b) for b in args.base], args.ref, args.arms, args.boot, target_dicts)
     print(text)
     if args.out:
-        with open(args.out, 'w') as f:
+        with open(args.out, "w") as f:
             f.write(text + "\n")

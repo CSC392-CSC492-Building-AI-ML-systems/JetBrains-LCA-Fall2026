@@ -51,7 +51,9 @@ def _warn_parser_unavailable(reason: str) -> None:
     warnings.warn(
         f"tree-sitter grammar not available ({reason}); Python files are cut into plain line windows instead of "
         f"function/class chunks. Clone tree-sitter-python (tag v0.21.0) into the working directory, see the README.",
-        RuntimeWarning, stacklevel=3)
+        RuntimeWarning,
+        stacklevel=3,
+    )
 
 
 def _end_row(node) -> int:
@@ -59,8 +61,14 @@ def _end_row(node) -> int:
     return row - 1 if col == 0 and row > node.start_point[0] else row
 
 
-def window_chunks(lines: list[str], path: str, first_line: int, count_tokens: Callable[[str], int],
-                  window: int = WINDOW_LINES, stride: int = WINDOW_STRIDE) -> list[Chunk]:
+def window_chunks(
+    lines: list[str],
+    path: str,
+    first_line: int,
+    count_tokens: Callable[[str], int],
+    window: int = WINDOW_LINES,
+    stride: int = WINDOW_STRIDE,
+) -> list[Chunk]:
     """Overlapping line windows over `lines`, which start at file line `first_line`."""
     chunks = []
     start = 0
@@ -75,14 +83,15 @@ def window_chunks(lines: list[str], path: str, first_line: int, count_tokens: Ca
     return chunks
 
 
-def _make_chunk(path, lines, start, end, kind, count_tokens, header: Optional[str] = None,
-                symbol: Optional[str] = None) -> list[Chunk]:
-    text = "\n".join(lines[start:end + 1])
+def _make_chunk(
+    path, lines, start, end, kind, count_tokens, header: Optional[str] = None, symbol: Optional[str] = None
+) -> list[Chunk]:
+    text = "\n".join(lines[start : end + 1])
     if header is not None:
         text = header + "\n" + text
     n_tokens = count_tokens(text)
     if n_tokens > MAX_CHUNK_TOKENS:
-        windows = window_chunks(lines[start:end + 1], path, start, count_tokens)
+        windows = window_chunks(lines[start : end + 1], path, start, count_tokens)
         if windows:
             windows[0].symbol = symbol  # the first window holds the signature
         return windows
@@ -101,8 +110,9 @@ def _definition_of(node):
     return node
 
 
-def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _default_count_tokens,
-               parse: Optional[Callable] = None) -> list[Chunk]:
+def chunk_file(
+    path: str, code: str, count_tokens: Callable[[str], int] = _default_count_tokens, parse: Optional[Callable] = None
+) -> list[Chunk]:
     """Split one file into function/method chunks plus header chunks; fall back to line windows.
 
     Non-Python files, files that fail to parse, and oversized chunks use overlapping line windows.
@@ -135,15 +145,27 @@ def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _defau
             covered.update(range(start, end + 1))
         elif definition.type == "class_definition":
             class_line = lines[definition.start_point[0]]
-            methods = [m for m in definition.child_by_field_name("body").children
-                       if (_definition_of(m) is not None and _definition_of(m).type == "function_definition")]
+            methods = [
+                m
+                for m in definition.child_by_field_name("body").children
+                if (_definition_of(m) is not None and _definition_of(m).type == "function_definition")
+            ]
             header_end = (methods[0].start_point[0] - 1) if methods else end
-            chunks += _make_chunk(path, lines, start, header_end, "class_header", count_tokens,
-                                  symbol=_name_of(definition))
+            chunks += _make_chunk(
+                path, lines, start, header_end, "class_header", count_tokens, symbol=_name_of(definition)
+            )
             for method in methods:
                 m_start, m_end = method.start_point[0], _end_row(method)
-                chunks += _make_chunk(path, lines, m_start, m_end, "function", count_tokens, header=class_line,
-                                      symbol=_name_of(_definition_of(method)))
+                chunks += _make_chunk(
+                    path,
+                    lines,
+                    m_start,
+                    m_end,
+                    "function",
+                    count_tokens,
+                    header=class_line,
+                    symbol=_name_of(_definition_of(method)),
+                )
             covered.update(range(start, end + 1))
 
     # Everything outside functions/classes (imports, constants, top-level statements) is one chunk.
@@ -157,9 +179,15 @@ def chunk_file(path: str, code: str, count_tokens: Callable[[str], int] = _defau
     return chunks
 
 
-def chunk_repo(files: dict[str, str], count_tokens: Callable[[str], int] = _default_count_tokens,
-               parse: Optional[Callable] = None, exclude_paths: Iterable[str] = (),
-               chunking: str = "structure", fine_window: int = 10, fine_stride: int = 5) -> list[Chunk]:
+def chunk_repo(
+    files: dict[str, str],
+    count_tokens: Callable[[str], int] = _default_count_tokens,
+    parse: Optional[Callable] = None,
+    exclude_paths: Iterable[str] = (),
+    chunking: str = "structure",
+    fine_window: int = 10,
+    fine_stride: int = 5,
+) -> list[Chunk]:
     """Chunk every file of a snapshot, skipping `exclude_paths` and dropping exact duplicate chunk texts.
 
     `chunking="structure"` (default) uses function/class/header chunks; `"fine"` cuts every file into overlapping

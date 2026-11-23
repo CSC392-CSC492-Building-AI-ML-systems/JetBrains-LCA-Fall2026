@@ -1,4 +1,5 @@
 """Planner backends: a local Hugging Face chat model, and a scripted stand-in for tests and dry runs."""
+
 import json
 
 from agent.loop import LLMReply
@@ -12,7 +13,11 @@ class ScriptedLLM:
 
     def __call__(self, messages):
         self.calls.append(list(messages))
-        text = self.replies(messages) if callable(self.replies) else self.replies[min(len(self.calls), len(self.replies)) - 1]
+        text = (
+            self.replies(messages)
+            if callable(self.replies)
+            else self.replies[min(len(self.calls), len(self.replies)) - 1]
+        )
         return LLMReply(text, input_tokens=sum(len(m["content"]) // 4 for m in messages), output_tokens=len(text) // 4)
 
 
@@ -63,10 +68,15 @@ class LocalChatModel:
         if self.dtype == "bfloat16":
             self.model = AutoModelForCausalLM.from_pretrained(self.name, dtype=torch.bfloat16).to(self.device).eval()
             return
-        quantization = BitsAndBytesConfig(load_in_8bit=self.dtype == "8bit", load_in_4bit=self.dtype == "4bit",
-                                          bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_quant_type="nf4")
+        quantization = BitsAndBytesConfig(
+            load_in_8bit=self.dtype == "8bit",
+            load_in_4bit=self.dtype == "4bit",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.name, quantization_config=quantization, device_map={"": self.device}).eval()
+            self.name, quantization_config=quantization, device_map={"": self.device}
+        ).eval()
 
     def __call__(self, messages):
         import torch
@@ -77,7 +87,8 @@ class LocalChatModel:
         text = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         ids = self.tokenizer(text, return_tensors="pt", add_special_tokens=False)["input_ids"].to(self.device)
         with torch.no_grad():
-            out = self.model.generate(ids, max_new_tokens=self.max_new_tokens, do_sample=False,
-                                      pad_token_id=self.tokenizer.eos_token_id)
-        new = out[0, ids.shape[1]:]
+            out = self.model.generate(
+                ids, max_new_tokens=self.max_new_tokens, do_sample=False, pad_token_id=self.tokenizer.eos_token_id
+            )
+        new = out[0, ids.shape[1] :]
         return LLMReply(self.tokenizer.decode(new, skip_special_tokens=True), int(ids.shape[1]), int(new.shape[0]))

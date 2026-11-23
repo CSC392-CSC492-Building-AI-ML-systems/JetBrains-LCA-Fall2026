@@ -4,6 +4,7 @@ from rag.chunker import MAX_CHUNK_TOKENS, chunk_file, chunk_repo, window_chunks
 
 try:
     from tree_sitter_parser.parser import parser  # noqa: F401  (needs the grammar clone in the working directory)
+
     HAS_PARSER = True
 except Exception:
     HAS_PARSER = False

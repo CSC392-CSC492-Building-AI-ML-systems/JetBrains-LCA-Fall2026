@@ -1,9 +1,18 @@
 import unittest
 
-from eval.proxy_metrics import (definitions, hit_miss_difference, identifiers, needed_names, recalls,
-                                repo_definitions, summarize, targeted_lines, visible_prompt)
+from eval.proxy_metrics import (
+    definitions,
+    hit_miss_difference,
+    identifiers,
+    needed_names,
+    recalls,
+    repo_definitions,
+    summarize,
+    targeted_lines,
+    visible_prompt,
+)
 
-LIB = '''import os
+LIB = """import os
 
 LIMIT = 3
 MODE: str = "x"
@@ -18,7 +27,7 @@ class Client(Base):
     timeout = 5
     def connect(self):
         pass
-'''
+"""
 
 
 class IdentifierTests(unittest.TestCase):
@@ -68,7 +77,9 @@ class TargetedLinesTests(unittest.TestCase):
         from data_classes.datapoint_commit_dataset import DatapointCommitDataset
 
         return DatapointCommitDataset(
-            repo_id=0, repo_name="r", completion_lines={"inproject": [1, 3], "infile": [2]},
+            repo_id=0,
+            repo_name="r",
+            completion_lines={"inproject": [1, 3], "infile": [2]},
             context_dict={"lib.py": "def helper(a):\n    return a\n", "notes.md": "def ignored(): pass"},
             completion_dict={"main.py": "import lib\nresult = helper(1)\nprint(result)\nvalue = lib.helper(2)\n"},
         )
@@ -117,7 +128,10 @@ class HitMissTests(unittest.TestCase):
     def rows(self, hit_em, miss_em, arm="a", n_dp=6):
         out = []
         for dp in range(n_dp):
-            out += [{"arm": arm, "dp": dp, "hit": True, "em": hit_em}, {"arm": arm, "dp": dp, "hit": False, "em": miss_em}]
+            out += [
+                {"arm": arm, "dp": dp, "hit": True, "em": hit_em},
+                {"arm": arm, "dp": dp, "hit": False, "em": miss_em},
+            ]
         return out
 
     def test_consistent_gap_has_interval_above_zero(self):

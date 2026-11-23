@@ -20,8 +20,12 @@ class ClassifyTests(unittest.TestCase):
 
 class SummarizeTests(unittest.TestCase):
     def test_counts_per_arm(self):
-        rows = [{"arm": "a", "cls": "right"}, {"arm": "a", "cls": "retrieval"},
-                {"arm": "a", "cls": "reasoning"}, {"arm": "a", "cls": "wrong_self_contained"}]
+        rows = [
+            {"arm": "a", "cls": "right"},
+            {"arm": "a", "cls": "retrieval"},
+            {"arm": "a", "cls": "reasoning"},
+            {"arm": "a", "cls": "wrong_self_contained"},
+        ]
         table = summarize(rows).splitlines()
         self.assertEqual(len(table), 3)
         self.assertIn("| a | 4 | 1 (25.0%) | 1 (25.0%) | 1 (25.0%) | 1 (25.0%) |", table[2])

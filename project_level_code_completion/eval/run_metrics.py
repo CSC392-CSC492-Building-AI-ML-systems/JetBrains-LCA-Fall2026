@@ -4,6 +4,7 @@ Per line, `LineGeneratorHF.generate_line` adds a `metrics` dict to each row of `
 (`LINE_METRIC_FIELDS`). Per arm, `summarize` condenses those rows into the `cost` block of `summary.json`.
 Nothing here changes what is generated; it only records what happened.
 """
+
 import json
 import os
 from pathlib import Path
@@ -88,9 +89,9 @@ def crop_to_last_tokens(text: str, max_tokens: int, tokenizer) -> str:
     """
     if max_tokens <= 0:
         return ""
-    window = text[-max_tokens * 8:]  # a token is rarely shorter than one character in eight: bounds the work
+    window = text[-max_tokens * 8 :]  # a token is rarely shorter than one character in eight: bounds the work
     encoded = tokenizer(window, add_special_tokens=False, return_offsets_mapping=True)
     offsets = encoded["offset_mapping"]
     if len(offsets) <= max_tokens:
         return window
-    return window[offsets[-max_tokens][0]:]
+    return window[offsets[-max_tokens][0] :]

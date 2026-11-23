@@ -18,8 +18,14 @@ def write_arm(base: Path, name: str, rows: list[dict]):
 
 
 def row(dp, cls, pred, gt, zero=False):
-    return {"datapoint_idx": dp, "repo": f"r{dp}", "line_class": cls, "prediction_line": pred, "ground_truth": gt,
-            "zero_context": zero}
+    return {
+        "datapoint_idx": dp,
+        "repo": f"r{dp}",
+        "line_class": cls,
+        "prediction_line": pred,
+        "ground_truth": gt,
+        "zero_context": zero,
+    }
 
 
 class SplitTests(unittest.TestCase):
@@ -69,8 +75,15 @@ class ExtendedSplitTests(unittest.TestCase):
 
 class DriverSplitTests(unittest.TestCase):
     def cfg(self, **overrides):
-        base = {"arm": "rag", "split": "all", "dev_size": 20, "dev_extra": 28, "limit_datapoints": None,
-                "lines": "all", "static_mode": "provider"}
+        base = {
+            "arm": "rag",
+            "split": "all",
+            "dev_size": 20,
+            "dev_extra": 28,
+            "limit_datapoints": None,
+            "lines": "all",
+            "static_mode": "provider",
+        }
         return OmegaConf.create(base | overrides)
 
     def test_selection_per_split(self):
@@ -101,16 +114,21 @@ class DriverSplitTests(unittest.TestCase):
         from data_classes.datapoint_commit_dataset import DatapointCommitDataset
 
         dp = DatapointCommitDataset(
-            repo_id=0, repo_name="repo", completion_lines={"infile": [1]},
+            repo_id=0,
+            repo_name="repo",
+            completion_lines={"infile": [1]},
             context_dict={"lib.py": "def helper(): pass\n", "other.py": "x = 1\n"},
-            completion_dict={"target.py": "line0\nline1\n"})
+            completion_dict={"target.py": "line0\nline1\n"},
+        )
         args = {"lang_sep_symbol": "", "meta_info_sep_symbol": "METASEP\n", "extension": ""}
         provider = compare_arms.static_provider_factory("path_distance", args)(dp)
         prompt, gt, info = provider(dp, 1)
         from composers.path_distance_composer import PathDistanceComposer
 
         expected_context = PathDistanceComposer(**args).context_composer(dp)
-        self.assertEqual(prompt, expected_context + "\n" + "line0")  # what the generator builds: context, newline, prefix
+        self.assertEqual(
+            prompt, expected_context + "\n" + "line0"
+        )  # what the generator builds: context, newline, prefix
         self.assertEqual((gt, info), ("line1", None))
         self.assertTrue(prompt.endswith("target.pyMETASEP\n\nline0"))
 
@@ -123,8 +141,16 @@ class AnalysisTests(unittest.TestCase):
 
     def test_benchmark_style_mean_of_datapoint_means(self):
         # dp0: 1 of 3 lines right; dp1: 1 of 1 right -> mean of means = (1/3 + 1) / 2, not 2/4
-        write_arm(self.base, "a", [row(0, "infile", "x", "x"), row(0, "infile", "x", "y"), row(0, "infile", "x", "z"),
-                                   row(1, "infile", "q", "q")])
+        write_arm(
+            self.base,
+            "a",
+            [
+                row(0, "infile", "x", "x"),
+                row(0, "infile", "x", "y"),
+                row(0, "infile", "x", "z"),
+                row(1, "infile", "q", "q"),
+            ],
+        )
         means = datapoint_means(arm_lines(str(self.base), "a"), "em", None)
         self.assertAlmostEqual(sum(means.values()) / len(means), (1 / 3 + 1) / 2)
 
@@ -145,8 +171,11 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(sorted(arm_lines(str(self.base), "a")), [(0, "infile", 0)])  # a single base still works
 
     def test_targets_keep_only_listed_lines_and_keep_keys_aligned(self):
-        rows = [dict(row(0, "infile", "x", "x"), line_num=3), dict(row(0, "infile", "x", "y"), line_num=7),
-                dict(row(1, "common", "x", "x"), line_num=2)]
+        rows = [
+            dict(row(0, "infile", "x", "x"), line_num=3),
+            dict(row(0, "infile", "x", "y"), line_num=7),
+            dict(row(1, "common", "x", "x"), line_num=2),
+        ]
         write_arm(self.base, "a", rows)
         write_arm(self.base, "b", [dict(r, prediction_line="y") for r in rows])
         targets = {"0": {"infile": [7]}, "1": {"common": [2]}}
@@ -160,7 +189,9 @@ class AnalysisTests(unittest.TestCase):
         other = self.base / "second"
         other.mkdir()
         write_arm(self.base, "a", [dict(row(0, "infile", "x", "x"), line_num=1)])
-        write_arm(other, "a", [dict(row(0, "infile", "x", "y"), line_num=1), dict(row(0, "infile", "x", "x"), line_num=2)])
+        write_arm(
+            other, "a", [dict(row(0, "infile", "x", "y"), line_num=1), dict(row(0, "infile", "x", "x"), line_num=2)]
+        )
         merged = arm_lines([str(self.base), str(other)], "a", [None, {"0": {"infile": [2]}}])
         self.assertEqual(sorted(merged), [(0, "infile", 0), (10_000, "infile", 1)])
 
@@ -170,9 +201,12 @@ class AnalysisTests(unittest.TestCase):
 
         def datapoint(i):
             return DatapointCommitDataset(
-                repo_id=i, repo_name=f"r{i}", completion_lines={"inproject": [1]},
+                repo_id=i,
+                repo_name=f"r{i}",
+                completion_lines={"inproject": [1]},
                 context_dict={"lib.py": "def helper(a):\n    return a\n"},
-                completion_dict={"main.py": "import lib\nvalue = helper(1)\n"})
+                completion_dict={"main.py": "import lib\nvalue = helper(1)\n"},
+            )
 
         data = [datapoint(i) for i in range(10)]
         held = targets_for(data, "heldout", dev_size=2, dev_extra=2)

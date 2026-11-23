@@ -12,6 +12,7 @@ It is lexical and says nothing about whether the model uses the context; it is a
 Example (arms are name:kind, kind in zero | rag | a composer name; add `--results` to join EM):
     python -m eval.proxy_metrics --arms r0_zero:zero r0_path_distance:path_distance r0_v1:rag --results
 """
+
 import argparse
 import importlib
 import json
@@ -52,22 +53,26 @@ def targeted_lines(datapoint) -> dict[str, list[int]]:
     """
     path = next(iter(datapoint.get_completion()))
     defined = repo_definitions(datapoint.get_context(), exclude_path=path)
-    return {line_class: [n for n in line_nums
-                         if needed_names(datapoint.get_line(n), datapoint.get_prefix(n), defined)]
-            for line_class, line_nums in datapoint.completion_lines.items()}
+    return {
+        line_class: [n for n in line_nums if needed_names(datapoint.get_line(n), datapoint.get_prefix(n), defined)]
+        for line_class, line_nums in datapoint.completion_lines.items()
+    }
 
 
 def recalls(needed: set[str], visible_prompt: str) -> tuple[float, float]:
     """(appearance recall, definition recall) of `needed` in `visible_prompt`; requires a non-empty `needed`."""
-    return (len(needed & identifiers(visible_prompt)) / len(needed),
-            len(needed & definitions(visible_prompt)) / len(needed))
+    return (
+        len(needed & identifiers(visible_prompt)) / len(needed),
+        len(needed & definitions(visible_prompt)) / len(needed),
+    )
 
 
-def visible_prompt(prompt: str, encode: Callable[[str], list[int]], decode: Callable[[list[int]], str],
-                   max_seq_len: int) -> str:
+def visible_prompt(
+    prompt: str, encode: Callable[[str], list[int]], decode: Callable[[list[int]], str], max_seq_len: int
+) -> str:
     """The part of `prompt` the generator keeps: same character crop, then the last `max_seq_len` tokens."""
     if len(prompt) > max_seq_len * 6:
-        prompt = prompt[-max_seq_len * 6:]
+        prompt = prompt[-max_seq_len * 6 :]
     ids = encode(prompt)
     return decode(ids[-max_seq_len:]) if len(ids) > max_seq_len else prompt
 
@@ -109,8 +114,10 @@ def hit_miss_difference(rows: list[dict], n_boot: int = 10_000, seed: int = 0):
 # ---------------------------------------------------------------------------------------------------------------
 # Reconstructing what each arm shows the model (same code paths as the evaluation), development datapoints only.
 
-def prompts_for_arm(kind: str, datapoint, composer_args: dict, rag_factory: Optional[Callable] = None,
-                    wanted: Optional[set[int]] = None):
+
+def prompts_for_arm(
+    kind: str, datapoint, composer_args: dict, rag_factory: Optional[Callable] = None, wanted: Optional[set[int]] = None
+):
     """Yield (line_class, k, line_num, prompt) in the order the generator visits the lines.
 
     `k` counts every line of the category, so it stays aligned with the generator's order; `wanted`, if given,
@@ -137,31 +144,57 @@ def prompts_for_arm(kind: str, datapoint, composer_args: dict, rag_factory: Opti
             yield line_class, k, line_num, prompt
 
 
-def proxy_rows(kind: str, arm: str, datapoints: list, composer_args: dict, encode, decode, max_seq_len: int,
-               rag_factory: Optional[Callable] = None, strict: bool = False) -> list[dict]:
+def proxy_rows(
+    kind: str,
+    arm: str,
+    datapoints: list,
+    composer_args: dict,
+    encode,
+    decode,
+    max_seq_len: int,
+    rag_factory: Optional[Callable] = None,
+    strict: bool = False,
+) -> list[dict]:
     rows = []
     for dp_idx, dp in enumerate(datapoints):
         path = next(iter(dp.get_completion()))
         defined = repo_definitions(dp.get_context(), exclude_path=path)
-        needed_by_line = {n: needed_names(dp.get_line(n), dp.get_prefix(n), defined, strict)
-                          for nums in dp.completion_lines.values() for n in nums}
+        needed_by_line = {
+            n: needed_names(dp.get_line(n), dp.get_prefix(n), defined, strict)
+            for nums in dp.completion_lines.values()
+            for n in nums
+        }
         wanted = {n for n, names in needed_by_line.items() if names}
         for line_class, k, line_num, prompt in prompts_for_arm(kind, dp, composer_args, rag_factory, wanted):
             needed = needed_by_line[line_num]
             seen = visible_prompt(prompt, encode, decode, max_seq_len)
             app, dfn = recalls(needed, seen)
-            rows.append({"arm": arm, "dp": dp_idx, "line_class": line_class, "k": k, "n_needed": len(needed),
-                         "app": app, "def": dfn, "hit": app == 1.0})
+            rows.append(
+                {
+                    "arm": arm,
+                    "dp": dp_idx,
+                    "line_class": line_class,
+                    "k": k,
+                    "n_needed": len(needed),
+                    "app": app,
+                    "def": dfn,
+                    "hit": app == 1.0,
+                }
+            )
     return rows
 
 
 def summarize(rows: list[dict]) -> str:
-    out = ["| arm | lines with X(L) | mean appearance recall | mean definition recall | lines with all names visible |",
-           "|---|---:|---:|---:|---:|"]
+    out = [
+        "| arm | lines with X(L) | mean appearance recall | mean definition recall | lines with all names visible |",
+        "|---|---:|---:|---:|---:|",
+    ]
     for arm in sorted({r["arm"] for r in rows}):
         sub = [r for r in rows if r["arm"] == arm]
-        out.append(f"| {arm} | {len(sub)} | {np.mean([r['app'] for r in sub]):.3f} | "
-                   f"{np.mean([r['def'] for r in sub]):.3f} | {np.mean([r['hit'] for r in sub]):.3f} |")
+        out.append(
+            f"| {arm} | {len(sub)} | {np.mean([r['app'] for r in sub]):.3f} | "
+            f"{np.mean([r['def'] for r in sub]):.3f} | {np.mean([r['hit'] for r in sub]):.3f} |"
+        )
     return "\n".join(out)
 
 
@@ -171,7 +204,9 @@ def main():
     parser.add_argument("--rag", nargs="*", default=[], help="overrides for the rag settings, e.g. prefix_cap=2000")
     parser.add_argument("--results", action="store_true", help="join EM from the arms' generation_results.jsonl")
     parser.add_argument("--base", default="~/lca_artifacts/python/starcoderbase-1b/small_context/arms")
-    parser.add_argument("--dataset", default="small", help="small | medium | large | huge (development datapoints only)")
+    parser.add_argument(
+        "--dataset", default="small", help="small | medium | large | huge (development datapoints only)"
+    )
     parser.add_argument("--dev-size", type=int, default=20)
     parser.add_argument("--dev-extra", type=int, default=28)
     parser.add_argument("--out", help="write per-line rows as JSON lines to this file")
@@ -196,9 +231,13 @@ def main():
         key, value = item.split("=", 1)
         rag_settings[key] = json.loads(value.lower() if value.lower() in ("true", "false") else value)
     rag_factory = make_rag_provider_factory(
-        lambda text: len(encode(text)), budget, extension=cfg.composers_config.extension,
-        lang_sep=cfg.composers_config.lang_sep_symbol, meta_sep=cfg.composers_config.meta_info_sep_symbol,
-        **rag_settings)
+        lambda text: len(encode(text)),
+        budget,
+        extension=cfg.composers_config.extension,
+        lang_sep=cfg.composers_config.lang_sep_symbol,
+        meta_sep=cfg.composers_config.meta_info_sep_symbol,
+        **rag_settings,
+    )
 
     data = load_datapoints(cfg.dataset)
     dev = [data[i] for i in dev_indices(len(data), args.dev_size, args.dev_extra)]  # development datapoints only

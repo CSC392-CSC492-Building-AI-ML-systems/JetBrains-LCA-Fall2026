@@ -4,6 +4,7 @@ from rag.builder import RagContextBuilder, parse_imports
 
 try:
     from tree_sitter_parser.parser import parser  # noqa: F401  (needs the grammar clone in the working directory)
+
     HAS_PARSER = True
 except Exception:
     HAS_PARSER = False
@@ -98,8 +99,9 @@ class DefinitionRetrievalTests(unittest.TestCase):
         prefix = "from lib.tools import make_widget\n" + "\n".join(f"x{i} = {i}" for i in range(30))
         result = builder(self.FILES).context_for(prefix, budget=2000, definitions_first=True, query_lines=5)
         self.assertEqual(result.n_definitions, 1)
-        without = builder(self.FILES).context_for(prefix, budget=2000, definitions_first=True, query_lines=5,
-                                                  definition_imports=False)
+        without = builder(self.FILES).context_for(
+            prefix, budget=2000, definitions_first=True, query_lines=5, definition_imports=False
+        )
         self.assertEqual(without.n_definitions, 0)
 
     def test_names_the_prefix_defines_itself_are_not_looked_up(self):

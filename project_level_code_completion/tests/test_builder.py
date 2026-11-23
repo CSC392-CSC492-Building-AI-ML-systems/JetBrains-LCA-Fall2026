@@ -87,8 +87,10 @@ class SelectionTests(unittest.TestCase):
 
     def test_no_cap_by_default(self):
         builder = make_builder(FILES)
-        self.assertEqual(builder.context_for(PREFIX, budget=1000).context,
-                         builder.context_for(PREFIX, budget=1000, max_context_tokens=None).context)
+        self.assertEqual(
+            builder.context_for(PREFIX, budget=1000).context,
+            builder.context_for(PREFIX, budget=1000, max_context_tokens=None).context,
+        )
 
     def test_too_big_chunk_skipped_smaller_one_used(self):
         files = {

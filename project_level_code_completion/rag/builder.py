@@ -96,11 +96,22 @@ class RagContextBuilder:
     of `fine_window` lines with stride `fine_stride`).
     """
 
-    def __init__(self, files: dict[str, str], completion_path: str, repo_name: str,
-                 count_tokens: Callable[[str], int], parse: Optional[Callable] = None,
-                 extension: str = "", lang_sep: str = "", meta_sep: str = "METASEP\n",
-                 retriever: str = "bm25", embedder=None, chunking: str = "structure",
-                 fine_window: int = 10, fine_stride: int = 5):
+    def __init__(
+        self,
+        files: dict[str, str],
+        completion_path: str,
+        repo_name: str,
+        count_tokens: Callable[[str], int],
+        parse: Optional[Callable] = None,
+        extension: str = "",
+        lang_sep: str = "",
+        meta_sep: str = "METASEP\n",
+        retriever: str = "bm25",
+        embedder=None,
+        chunking: str = "structure",
+        fine_window: int = 10,
+        fine_stride: int = 5,
+    ):
         if retriever not in ("bm25", "dense", "hybrid", "random", "proximity"):
             raise ValueError(f"retriever must be bm25, dense, hybrid, random or proximity, got {retriever!r}")
         if retriever in ("dense", "hybrid") and embedder is None:
@@ -111,14 +122,22 @@ class RagContextBuilder:
         self.extension, self.lang_sep, self.meta_sep = extension, lang_sep, meta_sep
         self.retriever, self.embedder = retriever, embedder
         # The completion file is excluded: its own prefix is already in the prompt.
-        self.chunks = chunk_repo(files, count_tokens, parse, exclude_paths=[completion_path], chunking=chunking,
-                                 fine_window=fine_window, fine_stride=fine_stride)
+        self.chunks = chunk_repo(
+            files,
+            count_tokens,
+            parse,
+            exclude_paths=[completion_path],
+            chunking=chunking,
+            fine_window=fine_window,
+            fine_stride=fine_stride,
+        )
         self.file_lines = {path: code.split("\n") for path, code in files.items() if path != completion_path}
         self.index = BM25Index([tokenize_code(chunk.text) for chunk in self.chunks])
         self.chunk_vectors = None
         if retriever in ("dense", "hybrid"):
             self.chunk_vectors = np.asarray(
-                embedder.embed_chunks([f"{chunk.path}\n{chunk.text}" for chunk in self.chunks]), dtype=np.float32)
+                embedder.embed_chunks([f"{chunk.path}\n{chunk.text}" for chunk in self.chunks]), dtype=np.float32
+            )
         self._costs: dict[tuple[int, int], int] = {}
         self._proximity: dict[str, float] = {}
         self.symbol_index: dict[str, list[int]] = {}  # symbol name -> chunks that define it
@@ -129,7 +148,9 @@ class RagContextBuilder:
     def _format(self, chunk: Chunk, continuation_lines: int = 0) -> str:
         text = chunk.text
         if continuation_lines and chunk.kind != "module_header":
-            following = self.file_lines.get(chunk.path, [])[chunk.end_line + 1:chunk.end_line + 1 + continuation_lines]
+            following = self.file_lines.get(chunk.path, [])[
+                chunk.end_line + 1 : chunk.end_line + 1 + continuation_lines
+            ]
             if any(line.strip() for line in following):
                 text = text + "\n" + "\n".join(following)
         return chunk.path + self.meta_sep + text
@@ -138,8 +159,9 @@ class RagContextBuilder:
         """Token cost of a chunk as it appears in the prompt; cached because chunks recur across target lines."""
         key = (chunk_id, continuation_lines)
         if key not in self._costs:
-            self._costs[key] = self.count_tokens(self._format(self.chunks[chunk_id], continuation_lines)
-                                                 + self.lang_sep)
+            self._costs[key] = self.count_tokens(
+                self._format(self.chunks[chunk_id], continuation_lines) + self.lang_sep
+            )
         return self._costs[key]
 
     def _header(self) -> str:
@@ -154,8 +176,9 @@ class RagContextBuilder:
     def _imported_chunk_ids(self, prefix: str) -> set[int]:
         """Chunks of files the completion file imports (module `a.b` matches `.../a/b.py` or `.../a/b/__init__.py`)."""
         modules, _ = parse_imports(prefix)
-        suffixes = tuple(s for m in modules for s in ("/" + m.replace(".", "/") + ".py",
-                                                      "/" + m.replace(".", "/") + "/__init__.py"))
+        suffixes = tuple(
+            s for m in modules for s in ("/" + m.replace(".", "/") + ".py", "/" + m.replace(".", "/") + "/__init__.py")
+        )
         if not suffixes:
             return set()
         return {i for i, chunk in enumerate(self.chunks) if ("/" + chunk.path).endswith(suffixes)}
@@ -166,16 +189,16 @@ class RagContextBuilder:
         order = np.argsort(-similarity, kind="stable")
         return [(int(i), float(similarity[i])) for i in order]
 
-    def _rank(self, query: str, prefix: str, proximity_weight: float, import_weight: float
-              ) -> tuple[list[tuple[int, float]], bool]:
+    def _rank(
+        self, query: str, prefix: str, proximity_weight: float, import_weight: float
+    ) -> tuple[list[tuple[int, float]], bool]:
         # Controls for the verification experiments: rankings that ignore what the code says.
         if self.retriever == "random":  # a reproducible shuffle that depends only on the prefix
             order = list(range(len(self.chunks)))
             random.Random(zlib.crc32(prefix.encode("utf8"))).shuffle(order)
             return [(i, 0.0) for i in order], False
         if self.retriever == "proximity":  # nearest files first, no lexical relevance
-            order = sorted(range(len(self.chunks)),
-                           key=lambda i: (-self._path_proximity(self.chunks[i].path), i))
+            order = sorted(range(len(self.chunks)), key=lambda i: (-self._path_proximity(self.chunks[i].path), i))
             return [(i, 0.0) for i in order], False
         if query.strip():
             if self.retriever == "dense":
@@ -188,9 +211,15 @@ class RagContextBuilder:
             if ranked and (proximity_weight or import_weight):
                 top = ranked[0][1]
                 imported = self._imported_chunk_ids(prefix) if import_weight else set()
-                fused = [(chunk_id, score / top
-                          + proximity_weight * self._path_proximity(self.chunks[chunk_id].path)
-                          + (import_weight if chunk_id in imported else 0.0)) for chunk_id, score in ranked]
+                fused = [
+                    (
+                        chunk_id,
+                        score / top
+                        + proximity_weight * self._path_proximity(self.chunks[chunk_id].path)
+                        + (import_weight if chunk_id in imported else 0.0),
+                    )
+                    for chunk_id, score in ranked
+                ]
                 ranked = sorted(fused, key=lambda item: (-item[1], item[0]))
             return ranked, False
         by_distance = sorted(
@@ -217,12 +246,24 @@ class RagContextBuilder:
                 scored.append((chunk_id, used[name] + (0.5 if name in imported else 0.0)))
         return sorted(scored, key=lambda item: (-item[1], item[0]))
 
-    def context_for(self, prefix: str, budget: int, prefix_cap: int = PREFIX_CAP_TOKENS,
-                    query_lines: int = QUERY_LINES, max_chunks: int = MAX_CHUNKS,
-                    max_context_tokens: Optional[int] = None, proximity_weight: float = 0.0,
-                    import_weight: float = 0.0, definitions_first: bool = False, definition_chunks: int = 8,
-                    definition_tokens: Optional[int] = 2000, definition_imports: bool = True,
-                    order: str = "best_last", continuation_lines: int = 0, query_mode: str = "last") -> RagResult:
+    def context_for(
+        self,
+        prefix: str,
+        budget: int,
+        prefix_cap: int = PREFIX_CAP_TOKENS,
+        query_lines: int = QUERY_LINES,
+        max_chunks: int = MAX_CHUNKS,
+        max_context_tokens: Optional[int] = None,
+        proximity_weight: float = 0.0,
+        import_weight: float = 0.0,
+        definitions_first: bool = False,
+        definition_chunks: int = 8,
+        definition_tokens: Optional[int] = 2000,
+        definition_imports: bool = True,
+        order: str = "best_last",
+        continuation_lines: int = 0,
+        query_mode: str = "last",
+    ) -> RagResult:
         """Context for one target line whose preceding lines are `prefix`.
 
         `budget` is the total input cap in tokens (context + newline + prefix). Chunks are never truncated:
@@ -286,5 +327,11 @@ class RagContextBuilder:
             selected.pop()
             n_definitions = min(n_definitions, len(selected))
             context = assemble()
-        return RagResult(context=context, prefix=prefix, chunks=[c for c, _ in selected],
-                         scores=[s for _, s in selected], fallback=fallback, n_definitions=n_definitions)
+        return RagResult(
+            context=context,
+            prefix=prefix,
+            chunks=[c for c, _ in selected],
+            scores=[s for _, s in selected],
+            fallback=fallback,
+            n_definitions=n_definitions,
+        )

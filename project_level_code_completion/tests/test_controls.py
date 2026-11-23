@@ -26,7 +26,9 @@ class RandomControlTests(unittest.TestCase):
         first = [c.path for c in b.context_for(PREFIX, budget=1000).chunks]
         again = [c.path for c in b.context_for(PREFIX, budget=1000).chunks]
         self.assertEqual(first, again)
-        self.assertEqual(sorted(first), sorted(["app/near.txt", "far/deep/er/x.txt", "lib/mid.txt"]))  # every chunk is eligible
+        self.assertEqual(
+            sorted(first), sorted(["app/near.txt", "far/deep/er/x.txt", "lib/mid.txt"])
+        )  # every chunk is eligible
 
     def test_order_changes_with_the_prefix(self):
         b = make(retriever="random")
@@ -85,8 +87,9 @@ class StaleQueryTests(unittest.TestCase):
 
     def test_defaults_are_untouched(self):
         b = make()
-        self.assertEqual(b.context_for(PREFIX, budget=1000).context,
-                         b.context_for(PREFIX, budget=1000, query_mode="last").context)
+        self.assertEqual(
+            b.context_for(PREFIX, budget=1000).context, b.context_for(PREFIX, budget=1000, query_mode="last").context
+        )
 
 
 if __name__ == "__main__":

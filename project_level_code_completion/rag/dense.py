@@ -12,8 +12,15 @@ class DenseEmbedder:
     datapoint reuses the same chunks and every run of an arm re-indexes the same repositories.
     """
 
-    def __init__(self, model_name: str, pooling: str = "cls", device: Optional[str] = None, max_length: int = 512,
-                 batch_size: int = 32, cache_dir: Optional[str] = None):
+    def __init__(
+        self,
+        model_name: str,
+        pooling: str = "cls",
+        device: Optional[str] = None,
+        max_length: int = 512,
+        batch_size: int = 32,
+        cache_dir: Optional[str] = None,
+    ):
         if pooling not in ("cls", "mean"):
             raise ValueError(f"pooling must be cls or mean, got {pooling!r}")
         self.model_name, self.pooling = model_name, pooling
@@ -42,11 +49,17 @@ class DenseEmbedder:
         out = np.zeros((len(texts), self._model.config.hidden_size), dtype=np.float32)
         with torch.inference_mode():
             for start in range(0, len(order), self.batch_size):
-                ids = order[start:start + self.batch_size]
-                batch = self._tokenizer([texts[i] for i in ids], padding=True, truncation=True,
-                                        max_length=self.max_length, return_tensors="pt").to(self.device)
-                hidden = self._model(input_ids=batch["input_ids"],
-                                     attention_mask=batch["attention_mask"]).last_hidden_state
+                ids = order[start : start + self.batch_size]
+                batch = self._tokenizer(
+                    [texts[i] for i in ids],
+                    padding=True,
+                    truncation=True,
+                    max_length=self.max_length,
+                    return_tensors="pt",
+                ).to(self.device)
+                hidden = self._model(
+                    input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]
+                ).last_hidden_state
                 if self.pooling == "mean":
                     mask = batch["attention_mask"].unsqueeze(-1).to(hidden.dtype)
                     vectors = (hidden * mask).sum(1) / mask.sum(1)

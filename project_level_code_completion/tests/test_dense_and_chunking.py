@@ -19,6 +19,7 @@ def count(text: str) -> int:
 
 class FakeEmbedder:
     """Bag-of-words vectors over a fixed vocabulary, unit length: cosine = word overlap."""
+
     VOCAB = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
 
     def __init__(self):
@@ -58,7 +59,12 @@ class RankFusionTests(unittest.TestCase):
 
 
 class DenseRetrievalTests(unittest.TestCase):
-    FILES = {"app/main.txt": "t", "a/one.txt": "alpha beta gamma", "b/two.txt": "alpha delta", "c/three.txt": "zeta eta"}
+    FILES = {
+        "app/main.txt": "t",
+        "a/one.txt": "alpha beta gamma",
+        "b/two.txt": "alpha delta",
+        "c/three.txt": "zeta eta",
+    }
 
     def test_dense_ranks_by_cosine_and_returns_every_chunk(self):
         b = make(self.FILES, retriever="dense", embedder=FakeEmbedder())
@@ -101,11 +107,16 @@ class DenseRetrievalTests(unittest.TestCase):
     def test_provider_factory_accepts_an_embedder_object(self):
         from data_classes.datapoint_commit_dataset import DatapointCommitDataset
 
-        dp = DatapointCommitDataset(repo_id=0, repo_name="r", completion_lines={"infile": [1]},
-                                    context_dict={"a.txt": "alpha beta"},
-                                    completion_dict={"main.txt": "start\nalpha line\n"})
-        factory = make_rag_provider_factory(count, 1000, lang_sep=LANG, meta_sep=META, retriever="dense",
-                                            embedder=FakeEmbedder())
+        dp = DatapointCommitDataset(
+            repo_id=0,
+            repo_name="r",
+            completion_lines={"infile": [1]},
+            context_dict={"a.txt": "alpha beta"},
+            completion_dict={"main.txt": "start\nalpha line\n"},
+        )
+        factory = make_rag_provider_factory(
+            count, 1000, lang_sep=LANG, meta_sep=META, retriever="dense", embedder=FakeEmbedder()
+        )
         prompt, _, info = factory(dp)(dp, 1)
         self.assertEqual(info["paths"], ["a.txt"])
         self.assertIn("alpha beta", prompt)
@@ -125,8 +136,10 @@ class ContinuationTests(unittest.TestCase):
 
     def test_zero_continuation_changes_nothing(self):
         b = make({"app/main.txt": "t", "a/file.txt": self.CODE})
-        self.assertEqual(b.context_for("alpha", budget=1000).context,
-                         b.context_for("alpha", budget=1000, continuation_lines=0).context)
+        self.assertEqual(
+            b.context_for("alpha", budget=1000).context,
+            b.context_for("alpha", budget=1000, continuation_lines=0).context,
+        )
 
     def test_continuation_counts_towards_the_budget(self):
         b = make({"app/main.txt": "t", "a/file.txt": self.CODE}, chunking="fine", fine_window=2, fine_stride=2)
@@ -135,8 +148,9 @@ class ContinuationTests(unittest.TestCase):
             self.assertLessEqual(count(r.context + "\n" + r.prefix), budget, f"budget={budget}")
 
     def test_no_continuation_past_the_end_of_the_file(self):
-        b = make({"app/main.txt": "t", "a/file.txt": "alpha one\nalpha two"}, chunking="fine", fine_window=2,
-                 fine_stride=2)
+        b = make(
+            {"app/main.txt": "t", "a/file.txt": "alpha one\nalpha two"}, chunking="fine", fine_window=2, fine_stride=2
+        )
         self.assertEqual(b.context_for("alpha", budget=1000, continuation_lines=10).context.count("alpha two"), 1)
 
 

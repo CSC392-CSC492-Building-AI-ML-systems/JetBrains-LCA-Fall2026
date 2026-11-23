@@ -4,7 +4,7 @@ import unittest
 from dataclasses import dataclass
 from pathlib import Path
 
-from eval.line_generators import (GenerationResults, LineGeneratorHF, prepare_resume, split_finished_datapoints)
+from eval.line_generators import GenerationResults, LineGeneratorHF, prepare_resume, split_finished_datapoints
 
 
 @dataclass
@@ -16,8 +16,14 @@ class FakeDatapoint:
 
 
 def row(datapoint_idx, line_class, line_num, prediction="p"):
-    return {"datapoint_idx": datapoint_idx, "line_class": line_class, "line_num": line_num,
-            "ground_truth": f"gt{line_num}", "prediction_line": prediction, "metrics": {"input_tokens": 1}}
+    return {
+        "datapoint_idx": datapoint_idx,
+        "line_class": line_class,
+        "line_num": line_num,
+        "ground_truth": f"gt{line_num}",
+        "prediction_line": prediction,
+        "metrics": {"input_tokens": 1},
+    }
 
 
 def rows_of(datapoint_idx, datapoint):
@@ -54,8 +60,11 @@ class PrepareResumeTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = str(Path(self.tmp.name) / "generation_results.jsonl")
-        self.data = [FakeDatapoint({"infile": [1, 2], "inproject": [3]}), FakeDatapoint({"infile": [4]}),
-                     FakeDatapoint({"infile": [5, 6]})]
+        self.data = [
+            FakeDatapoint({"infile": [1, 2], "inproject": [3]}),
+            FakeDatapoint({"infile": [4]}),
+            FakeDatapoint({"infile": [5, 6]}),
+        ]
 
     def write(self, rows):
         Path(self.path).write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf8")
@@ -102,10 +111,12 @@ class RestoreLineResultsTests(unittest.TestCase):
 
     def test_rows_of_another_datapoint_are_refused(self):
         datapoint = FakeDatapoint({"infile": [1, 2]})
-        for wrong in ([row(0, "infile", 1), row(0, "infile", 7)],          # other line number
-                      [row(0, "infile", 1), row(0, "inproject", 2)],        # other class
-                      [row(0, "infile", 1)],                                # a row is missing
-                      [dict(row(0, "infile", 1), ground_truth="other"), row(0, "infile", 2)]):
+        for wrong in (
+            [row(0, "infile", 1), row(0, "infile", 7)],  # other line number
+            [row(0, "infile", 1), row(0, "inproject", 2)],  # other class
+            [row(0, "infile", 1)],  # a row is missing
+            [dict(row(0, "infile", 1), ground_truth="other"), row(0, "infile", 2)],
+        ):
             with self.assertRaises(ValueError):
                 generator(0).restore_line_results(datapoint, wrong)
 

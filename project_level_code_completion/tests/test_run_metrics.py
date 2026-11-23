@@ -44,8 +44,14 @@ def write_rows(path, rows):
 
 
 def metric(input_tokens, output_tokens, context_ms, gen_ms, truncated=False, hit=False):
-    return {"input_tokens": input_tokens, "output_tokens": output_tokens, "context_ms": context_ms,
-            "gen_ms": gen_ms, "truncated": truncated, "hit_max_new_tokens": hit}
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "context_ms": context_ms,
+        "gen_ms": gen_ms,
+        "truncated": truncated,
+        "hit_max_new_tokens": hit,
+    }
 
 
 class SummarizeTests(unittest.TestCase):
@@ -55,11 +61,14 @@ class SummarizeTests(unittest.TestCase):
         self.path = str(Path(self.tmp.name) / "results.jsonl")
 
     def test_totals_means_and_percentiles(self):
-        write_rows(self.path, [
-            {"metrics": metric(100, 10, 1.0, 100.0)},
-            {"metrics": metric(300, 30, 3.0, 300.0, truncated=True)},
-            {"metrics": metric(200, 20, 2.0, 200.0, hit=True)},
-        ])
+        write_rows(
+            self.path,
+            [
+                {"metrics": metric(100, 10, 1.0, 100.0)},
+                {"metrics": metric(300, 30, 3.0, 300.0, truncated=True)},
+                {"metrics": metric(200, 20, 2.0, 200.0, hit=True)},
+            ],
+        )
         s = summarize(self.path, wall_seconds=6)
         self.assertEqual(s["lines_with_metrics"], 3)
         self.assertEqual(s["input_tokens_total"], 600)
@@ -103,8 +112,10 @@ class StaticProviderCapTests(unittest.TestCase):
         fake_module = SimpleNamespace(FakeComposer=FakeComposer)
         specs = {"fake": {"module": "unused", "name": "FakeComposer"}}
         datapoint = SimpleNamespace(get_prefix=lambda n: "PREFIX", get_line=lambda n: "LINE")
-        with mock.patch.object(compare_arms, "COMPOSERS", specs), \
-                mock.patch.object(compare_arms.importlib, "import_module", lambda name: fake_module):
+        with (
+            mock.patch.object(compare_arms, "COMPOSERS", specs),
+            mock.patch.object(compare_arms.importlib, "import_module", lambda name: fake_module),
+        ):
             factory = compare_arms.static_provider_factory("fake", {}, cap_tokens=cap, tokenizer=WordTokenizer())
             return factory(datapoint)(datapoint, 1)
 
