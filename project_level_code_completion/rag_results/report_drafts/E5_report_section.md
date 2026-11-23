@@ -23,6 +23,9 @@ We ran it on all 224 datapoints (8,676 lines). Everything was written down befor
 | RAG F | 0.525 [0.492, 0.558] | 4,723 | 0.72 |
 | 7B planner agent | 0.513 [0.482, 0.544] | 32,201 | 11.3 |
 
+(Tokens in this table include the writer's output, about 18 tokens per line; the week 8 table lists the writer's prompt only for the static
+arms, so its numbers for them are that much lower, for example 4,705 against 4,723 for RAG F.)
+
 The agent is **1.24 points worse than RAG F** (95% interval -1.81 to -0.72, paired bootstrap over datapoints) while using 6.8 times the tokens
 and about 16 times the time. It is 9.8 points better than the best static composer, but all of that gain is already in RAG F. When the planner
 changed the context (31% of lines) it broke 136 lines that RAG F got right and fixed 34. No line class improved; the largest loss (-2.2 points)
@@ -53,7 +56,7 @@ Development set: 24 datapoints (1,372 lines), the same machine for every arm.
 | 32B planner, new tools, one tool call | 0.5037 | +0.00 | 3 (0.2%) | none | 10,656 | 2.1x |
 | 32B planner, new tools, no gate | 0.5037 | +0.00 | 44 (3.2%) | 0 : 0 | 13,610 | 2.7x |
 
-Tokens are the mean per line of planner input plus output plus the writer's input prompt (the writer's output, about 20 tokens, is left out);
+Tokens are the mean per line of planner input plus output plus the writer's input prompt (the writer's output, about 16 tokens, is left out);
 planner tokens are 29,493, 16,507, 8,923, 5,610 and 8,573 per line in the five agent rows. The new tools cost fewer tokens than the old ones
 because the planner submits at once on about two lines in three, but they spend them on almost no edits.
 
@@ -61,8 +64,8 @@ The 7B agent reproduces its loss (-1.72 here, -1.24 on all 224). A larger planne
 With the new tools and prompt, the 32B planner submits the unchanged context on about two lines in three and almost never edits; without the
 gate it edits 44 lines and none of those edits changes what the writer produces. The decision rule says no, so we did **not** run the stronger
 agent on all 224 datapoints. In tokens the stronger agents cost 2.1 to 4.3 times RAG F per line and the 7B agent 6.8 times (the same ratio as on
-all 224 datapoints); in time they took 4 to 22 seconds per line against 1.2 for RAG F, with two arms sharing the GPU, so read the seconds as an
-order of magnitude.
+all 224 datapoints); in time the 32B arms took 4 to 11 seconds per line and the 7B arm 22, against 1.2 for RAG F, with two arms sharing the GPU,
+so read the seconds as an order of magnitude.
 
 ## Conclusion and limits
 

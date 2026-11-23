@@ -3,7 +3,7 @@
 ## Final experiment table
 
 All rows: CodeLlama-7B writer, greedy decoding, at most 100 new tokens, exact match (EM) as the main metric, all 224 medium datapoints
-(8,676 lines). "Tokens per line" is everything the models read and write for one line; seconds include building the context (the planner for the
+(8,676 lines). "Tokens per line" is what the writer reads for the static arms and everything the planner and writer read and write for the agent (that row also counts the writer's output, about 18 tokens, so RAG F would be 4,723 on the same basis); seconds include building the context (the planner for the
 agent); compute is GPU hours times $0.69 per hour, the rental price we used throughout. Intervals are per arm; the paired tests are in the E4 and E5 sections.
 
 | approach | context budget N | EM (95% CI) | tokens/line | median s/line | p95 s/line | GPU hours | USD |
@@ -11,7 +11,7 @@ agent); compute is GPU hours times $0.69 per hour, the rental price we used thro
 | no context | - | 0.387 [0.365, 0.409] | 2,951 | 0.56 | 1.26 | 2.0 | 1.36 |
 | path_distance (best static composer) | 256 | 0.395 [0.372, 0.418] | 3,207 | 0.57 | 1.28 | 2.0 | 1.36 |
 | RAG F | 256 | 0.408 [0.385, 0.431] | 3,221 | 0.59 | 1.39 | 2.1 | 1.48 |
-| path_distance | 1,753 | 0.415 [0.391, 0.439] | 4,695 | 0.69 | 1.41 | 2.3 | 1.59 |
+| path_distance | 1,753 | 0.415 [0.391, 0.439] | 4,695 | 0.69 | 1.41 | 2.3 | 1.60 |
 | **RAG F** | **1,753** | **0.525 [0.492, 0.558]** | 4,705 | 0.72 | 1.53 | 2.5 | 1.70 |
 | path_distance | 12,000 | 0.488 [0.458, 0.519] | 14,247 | 1.73 | 2.30 | 4.9 | 3.36 |
 | RAG F | 12,000 | 0.537 [0.503, 0.570] | 13,996 | 1.76 | 2.37 | 4.9 | 3.39 |
@@ -35,7 +35,7 @@ Seconds in the second table were measured with another run sharing the GPU, so t
 **Reading the table.**
 - **Best accuracy per cost: RAG F at 1,753 tokens.** It beats the best static composer at every budget and beats `path_distance` with 12,000 or the full 16K tokens of context
   (0.525 against 0.488 and 0.492) at about half the cost ($1.70 against $3.36 and $3.67).
-- **More context stops helping:** RAG F gains 0.012 from 1,753 to 12,000 tokens and nothing from 12,000 to 16K, while tokens triple and time per line rises from 0.72 to 1.9 s.
+- **More context stops helping:** RAG F gains 0.011 (paired, [0.007, 0.016]) from 1,753 to 12,000 tokens and nothing from 12,000 to 16K, while tokens triple and time per line rises from 0.72 to 1.9 s.
 - **The agent costs far more and does not help:** 6.8 times the tokens and 16 times the time per line of RAG F for 1.2 points less accuracy; the stronger planner removes that loss but
   adds no gain (development set).
 
