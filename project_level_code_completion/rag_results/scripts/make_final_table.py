@@ -2,7 +2,7 @@
 Part A (all 224 medium datapoints, 8,676 lines, CodeLlama-7B writer): E4 arms from figures/E4/e4_results_table.csv, the 7B agent arm (E5) from
 figures/E5/e5_results_table.csv. Part B (24 development datapoints, 1,372 lines, one RTX PRO 6000 box): the stronger-agent arms recomputed from
 rag_results/agent/E5v3_dev/arms. Writes rag_results/reports/final/final_experiment_table.{md,csv}.
-Compute: GPU hours x $0.69 per hour (the price used in E4). E4 arms: wall hours of the run. Agent arm: summed per-line work hours (the shards ran
+Compute: GPU hours x $0.69 per hour (the price used in E4). E4 arms: wall hours of the run, cost as stored in the E4 table. Agent arm: summed per-line work hours (the shards ran
 on several machines, so no single wall time exists); part B has no compute column because two arms shared one GPU.
 Usage: python rag_results/scripts/make_final_table.py"""
 
@@ -42,7 +42,7 @@ def main():
                 r["line_p50_s"],
                 r["line_p95_s"],
                 f"{hours:.1f}",
-                f"{hours * PRICE:.2f}",
+                f"{float(r['arm_cost_usd']):.2f}",
             ]
         )
     agent = next(r for r in e5 if r["approach"].startswith("agent"))
@@ -112,7 +112,7 @@ def main():
     ]
     out += ["| " + " | ".join(r) + " |" for r in rows_a]
     out += [
-        "\nTokens: the writer's prompt for the static arms (their only model); planner + writer for the agent arm. Seconds: context building (planner "
+        "\nTokens: the writer's prompt for the static arms (their only model); planner + writer for the agent arm, which also counts the writer's output (about 18 tokens per line; on that basis RAG F at N = 1,753 is 4,723, the figure used in E5_report_section.md). Seconds: context building (planner "
         "included) plus generation. GPU hours: wall time of the run for the E4 arms (includes model loading); summed per-line work for the agent arm "
         "(the real bill was about $22 because shards ran on several machines and two were resumed). EM 95% intervals are per arm and ignore pairing; "
         "the paired tests are in the E4 and E5 reports.\n",

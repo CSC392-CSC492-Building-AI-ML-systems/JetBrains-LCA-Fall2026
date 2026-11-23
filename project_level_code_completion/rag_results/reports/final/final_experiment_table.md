@@ -7,7 +7,7 @@
 | no context | - | 0.387 [0.365, 0.409] | 2,951 | 0.56 | 1.26 | 2.0 | 1.36 |
 | path_distance | 256 | 0.395 [0.372, 0.418] | 3,207 | 0.57 | 1.28 | 2.0 | 1.36 |
 | RAG F | 256 | 0.408 [0.385, 0.431] | 3,221 | 0.59 | 1.39 | 2.1 | 1.48 |
-| path_distance | 1,753 | 0.415 [0.391, 0.439] | 4,695 | 0.69 | 1.41 | 2.3 | 1.59 |
+| path_distance | 1,753 | 0.415 [0.391, 0.439] | 4,695 | 0.69 | 1.41 | 2.3 | 1.60 |
 | RAG F | 1,753 | 0.525 [0.492, 0.558] | 4,705 | 0.72 | 1.53 | 2.5 | 1.70 |
 | path_distance | 12,000 | 0.488 [0.458, 0.519] | 14,247 | 1.73 | 2.3 | 4.9 | 3.36 |
 | RAG F | 12,000 | 0.537 [0.503, 0.570] | 13,996 | 1.76 | 2.37 | 4.9 | 3.39 |
@@ -15,7 +15,7 @@
 | RAG F | 16K window | 0.537 [0.503, 0.571] | 15,088 | 1.92 | 2.46 | 5.3 | 3.63 |
 | 7B planner agent (E5, add-only) | 1,753 | 0.513 [0.482, 0.544] | 32,201 | 11.34 | 22.16 | 30.2 | 20.85 |
 
-Tokens: the writer's prompt for the static arms (their only model); planner + writer for the agent arm. Seconds: context building (planner included) plus generation. GPU hours: wall time of the run for the E4 arms (includes model loading); summed per-line work for the agent arm (the real bill was about $22 because shards ran on several machines and two were resumed). EM 95% intervals are per arm and ignore pairing; the paired tests are in the E4 and E5 reports.
+Tokens: the writer's prompt for the static arms (their only model); planner + writer for the agent arm, which also counts the writer's output (about 18 tokens per line; on that basis RAG F at N = 1,753 is 4,723, the figure used in E5_report_section.md). Seconds: context building (planner included) plus generation. GPU hours: wall time of the run for the E4 arms (includes model loading); summed per-line work for the agent arm (the real bill was about $22 because shards ran on several machines and two were resumed). EM 95% intervals are per arm and ignore pairing; the paired tests are in the E4 and E5 reports.
 
 ## B. Stronger agent, 24 development datapoints (1372 lines), one RTX PRO 6000, N = 1,753
 
