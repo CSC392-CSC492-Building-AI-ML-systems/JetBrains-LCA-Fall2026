@@ -4,7 +4,7 @@
 This directory contains the code for running baselines for Library-based code generation task in Long Code Arena benchmark.
 
 We provide the implementation of baselines running inference via [OpenAI](https://platform.openai.com/docs/overview) and [Together.AI](https://www.together.ai/).
-We evaluate multiple models in two settings: 
+We evaluate multiple models in two settings:
 * Generating a program based on a plain instruction, without any repository-level information;
 * Generating a program based on the instruction and top-20 method and class names from the library according to BM-25 with instruction as a reference.
 
@@ -24,15 +24,20 @@ In order to evaluate models, run the [evaluation script](src/evaluation/evaluate
 * If you use Poetry, run: `poetry run python -m src.evaluation.evaluate`
 * Otherwise, run: `python -m src.evaluation.evaluate`
 
-The script will generate code with the available models and compute the metrics (`ChrF` and `API Recall`). 
+The script will generate code with the available models and compute the metrics (`ChrF` and `API Recall`).
 If the code for the specific model is already available in the `results` directory, the evaluation script will just compute the metrics.
 
 ## Long-context comparison
 
-The [long-context runner](long_context/README.md) compares instruction-only,
-direct API-name context and BM25-retrieved API-name context at matched 8K/64K
-budgets. It supports offline prompt preparation, resumable generation, saved
-per-example scores and paired confidence intervals.
+The [completed long-context evaluation](long_context/RESULTS.md) covers all 150
+tasks across 62 repositories, using 972 real API responses for seven configurations.
+BM25-8K achieved API Recall 0.470067, versus 0.439834 for direct-8K and 0.446413
+for the full API list. The report includes paired intervals, strata based on context size,
+extra-call diagnostics, token usage, accounting and reproducible artifacts.
+
+See the [runner instructions](long_context/README.md) for preparation, generation
+and evaluate-only commands. This is API-name context. It does not include repository source,
+signatures and documentation.
 
 ## RAG comparison
 
