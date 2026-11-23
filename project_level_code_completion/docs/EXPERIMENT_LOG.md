@@ -8,7 +8,8 @@ Old name → current name: `rag_results/` → `experiments/`; `rag_results/scrip
 (groups: `development`, `paper_protocol`, `agent`, `report_analysis`, `tools`, `rental`; the scripts index lists each);
 `arms/` → `results/starcoder_dev_and_heldout/`, `local/` → `results/codellama_local_gpu/`, `rented/` → `results/rented_gpu/`,
 `agent/` → `results/agent/` (all under `experiments/`); the early loose reports and `heldout/` → `reports/development/`;
-this log and the proposal are in `docs/`. A few entries quote locations that had already been moved earlier (§8.90) and no
+this log and the proposal are in `docs/` as `EXPERIMENT_LOG.md` and `PROPOSAL.md` (they were `RAG_EXPERIMENT_LOG.md` and
+`RAG_PROPOSAL.md`, named when the project was only retrieval; text elsewhere that says "RAG_EXPERIMENT_LOG" means this file). A few entries quote locations that had already been moved earlier (§8.90) and no
 longer exist under that name.
 
 Conventions:
