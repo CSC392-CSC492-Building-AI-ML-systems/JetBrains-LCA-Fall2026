@@ -1,4 +1,4 @@
-"""Reproduction check for the dev arms (RAG_EXPERIMENT_LOG 8.99 prediction): D0 (RAG F on the RTX PRO 6000 Blackwell box, 24 dev datapoints,
+"""Reproduction check for the dev arms (EXPERIMENT_LOG 8.99 prediction): D0 (RAG F on the RTX PRO 6000 Blackwell box, 24 dev datapoints,
 1,372 lines) against E4's RAG F arm (e4_F_N1753, RTX 5090, all 224 datapoints) on the same lines. Same prompts, same greedy decoding; the
 differences are the GPU numerics of 8.96. Writes experiments/reports/E5v3/d0_vs_e4.md.
 Usage: python experiments/scripts/report_analysis/check_d0_vs_e4.py"""

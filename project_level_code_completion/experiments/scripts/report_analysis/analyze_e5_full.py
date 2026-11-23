@@ -1,4 +1,4 @@
-"""Analysis of the full E5 agent arm against E4's arms (RAG_EXPERIMENT_LOG sections 8.87 and 8.89).
+"""Analysis of the full E5 agent arm against E4's arms (EXPERIMENT_LOG sections 8.87 and 8.89).
 
 The analyses were fixed in 8.87 before any shard ran: headline paired bootstrap over datapoints (the E4 procedure, same
 resamples for both arms), changed / fallback shares, changed-lines-only paired counts, the headline without fallback lines,

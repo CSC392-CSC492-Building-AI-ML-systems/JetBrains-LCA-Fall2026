@@ -1,4 +1,4 @@
-"""What the planner's edits look like in numbers: what it adds, what it displaces (RAG_EXPERIMENT_LOG section 8.92).
+"""What the planner's edits look like in numbers: what it adds, what it displaces (EXPERIMENT_LOG section 8.92).
 
 Compares, for every line whose context the agent changed, the chunk list of the agent arm with the one of the RAG F arm
 (both at N=1,753, from the retrieval info saved with each line) and prints the counts. Plain Python, no GPU.

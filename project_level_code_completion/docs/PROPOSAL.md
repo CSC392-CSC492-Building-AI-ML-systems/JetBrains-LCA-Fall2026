@@ -4,7 +4,7 @@ Long Code Arena (LCA) – project-level code completion baseline
 Status: **v3, implemented and evaluated** (v2 was the pre-implementation proposal)
 
 This document describes the design, how it was evaluated, and what was found. The complete lab notebook, with every
-setting, prediction and result in the order it happened, is [RAG_EXPERIMENT_LOG.md](RAG_EXPERIMENT_LOG.md); result
+setting, prediction and result in the order it happened, is [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md); result
 files are in [experiments/](../experiments/). Section 7 lists what changed relative to the v2 proposal.
 
 ## 1. Summary

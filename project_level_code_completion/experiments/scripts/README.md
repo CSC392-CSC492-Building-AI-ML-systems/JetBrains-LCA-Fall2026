@@ -1,7 +1,7 @@
 # Scripts: what each one is for
 
 Everything we ran or computed lives here, in five purpose folders plus `rental/`. The experiment log
-([`docs/RAG_EXPERIMENT_LOG.md`](../../docs/RAG_EXPERIMENT_LOG.md)) cites scripts by file name, so every script keeps its name; section
+([`docs/EXPERIMENT_LOG.md`](../../docs/EXPERIMENT_LOG.md)) cites scripts by file name, so every script keeps its name; section
 numbers (§) below are log sections. The shell scripts that run experiments expect our WSL set-up (log §10: poetry environment,
 `~/ts_test` holding the tree-sitter grammar clone, artifacts under `~/lca_artifacts`); the Python analysis scripts need only the
 repository.

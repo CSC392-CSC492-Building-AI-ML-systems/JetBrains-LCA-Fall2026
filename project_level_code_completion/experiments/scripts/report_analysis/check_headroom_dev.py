@@ -1,4 +1,4 @@
-"""How much room is there for a context editor on the 24 development datapoints (RAG_EXPERIMENT_LOG 8.106)? Uses the E4 lexical failure split of RAG F
+"""How much room is there for a context editor on the 24 development datapoints (EXPERIMENT_LOG 8.106)? Uses the E4 lexical failure split of RAG F
 (figures: a wrong line is a 'retrieval miss' if a name it needs from another file is not in RAG F's prompt) for the 1,372 dev lines, and splits
 it for the lines whose context each stronger-agent arm changed. Dev datapoints are matched to E4 datapoints by repo and by their set of
 (line number, ground truth) pairs, as in check_d0_vs_e4.py. Writes experiments/reports/E5v3/dev_headroom.md.

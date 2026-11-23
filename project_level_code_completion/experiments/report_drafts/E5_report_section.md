@@ -82,5 +82,5 @@ Limits to state with the result:
 - Timings are an order of magnitude: experiment 1 ran on several rented GPUs of different speed.
 
 Where to look: `experiments/report_drafts/E5_agent.md` and `E5_design_choices.md` (details), `experiments/reports/E5/` and
-`experiments/reports/E5v3/` (full analyses), `RAG_EXPERIMENT_LOG.md` sections 8.87 to 8.105 (plans, predictions, every run). All analyses
+`experiments/reports/E5v3/` (full analyses), `EXPERIMENT_LOG.md` sections 8.87 to 8.105 (plans, predictions, every run). All analyses
 rerun from a clean clone with `analyze_e5_full.py`, `analyze_e5v3_dev.py` and `check_d0_vs_e4.py`.

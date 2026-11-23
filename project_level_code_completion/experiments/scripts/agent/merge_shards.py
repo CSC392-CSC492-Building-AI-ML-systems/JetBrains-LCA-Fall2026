@@ -1,4 +1,4 @@
-"""Merge the shards of one arm (RAG_EXPERIMENT_LOG section 8.87) into the folder an unsharded run would have produced.
+"""Merge the shards of one arm (EXPERIMENT_LOG section 8.87) into the folder an unsharded run would have produced.
 
     python experiments/scripts/agent/merge_shards.py OUT_DIR SHARD_DIR [SHARD_DIR ...]
 

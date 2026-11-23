@@ -28,7 +28,7 @@ edits that context. Everything we added is marked below; the rest is the unchang
 | [`docs/`](docs/) | the proposal and the experiment log (every experiment, setting, prediction and result, in order) | ours |
 | [`experiments/`](experiments/README.md) | results, reports, figures, scripts and report drafts of all experiments (E1 to E5) | ours |
 
-New to the project? Read [`docs/RAG_PROPOSAL.md`](docs/RAG_PROPOSAL.md) for the idea, then
+New to the project? Read [`docs/PROPOSAL.md`](docs/PROPOSAL.md) for the idea, then
 [`experiments/report_drafts/`](experiments/report_drafts/) for the findings (one file per experiment), then
 [`experiments/README.md`](experiments/README.md) to find a number, a figure or the script that made it.
 
@@ -62,7 +62,7 @@ We use [Hydra](https://hydra.cc/docs/intro/) for configuration. The main config 
 A per-line retrieval approach (BM25 over repository chunks, each followed by the next 20 lines of its file) is in
 [`rag/`](rag/); it improves exact match on `medium_context` by about 6 points over the `path_distance` composer (the best of all nine
 registered composers on development data). Design,
-results and limitations: [`docs/RAG_PROPOSAL.md`](docs/RAG_PROPOSAL.md); every experiment step: [`docs/RAG_EXPERIMENT_LOG.md`](docs/RAG_EXPERIMENT_LOG.md);
+results and limitations: [`docs/PROPOSAL.md`](docs/PROPOSAL.md); every experiment step: [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md);
 result files: [`experiments/`](experiments/). The tree-sitter grammar clone above must be in the working directory,
 otherwise a warning is printed and Python files are cut into plain windows. Run one arm at a time:
 ```

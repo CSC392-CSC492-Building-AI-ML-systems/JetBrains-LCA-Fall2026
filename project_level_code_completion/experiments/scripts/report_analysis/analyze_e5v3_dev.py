@@ -1,4 +1,4 @@
-"""Analysis of the stronger agent's development arms (RAG_EXPERIMENT_LOG 8.93, 8.99): D0 RAG F, D1 7B+old tools, D2 32B+old tools,
+"""Analysis of the stronger agent's development arms (EXPERIMENT_LOG 8.93, 8.99): D0 RAG F, D1 7B+old tools, D2 32B+old tools,
 D3 32B+v3, D4 7B+v3 tools, D5 32B+v3 with one tool call, all on the 24 development datapoints of medium (1,372 lines), same machine
 for every arm. Applies the pre-registered decision rule of 8.93 to the arm named by --candidate (default d3):
   full run only if the datapoint-mean EM difference to D0 is >= +0.5 points, its 95 % interval lower bound is >= -1.0, and among the lines

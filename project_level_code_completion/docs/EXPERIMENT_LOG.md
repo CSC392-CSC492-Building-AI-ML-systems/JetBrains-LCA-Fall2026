@@ -1,6 +1,6 @@
-# RAG experiment log (lab notebook)
+# Experiment log (lab notebook): retrieval and agent
 
-Companion to [RAG_PROPOSAL.md](RAG_PROPOSAL.md).
+Companion to [PROPOSAL.md](PROPOSAL.md).
 
 **Paths (amended 2026-11-22, §8.109).** The folder layout was reorganized after the experiments. Paths written in this log were
 updated mechanically to the current ones (nothing else in any entry was changed; the git history has the original wording).
@@ -1117,7 +1117,7 @@ configuration changed after the first held-out run).
 - Warn loudly when the tree-sitter grammar is missing instead of silently falling back to windows (§8.26 audit).
 - Add a named preset for F (`arm=rag` currently defaults to a 4,000-token prefix cap and no continuation lines).
 - Move the shared identifier helpers out of `eval/proxy_metrics.py` (the `rag` package imports from `eval`).
-- Update `RAG_PROPOSAL.md` to v3: what was built, what changed relative to v2, and the results.
+- Update `PROPOSAL.md` to v3: what was built, what changed relative to v2, and the results.
 - Optional extensions not done: `large_context` and `huge_context`, 7B on all lines, other models.
 
 ### 8.28 Cleanup after the held-out run (2026-10-14, code state: commit `6ded0fb` plus uncommitted changes below)
@@ -1675,7 +1675,7 @@ Untried: filling leftover budget with path_distance files after retrieval (may m
 **Decision (user: "adding them would take ages"):** do not add arms. Queue unchanged (§9). Candidates held back, in order of
 cost, to revisit around Oct 21 if the queue finishes early: (a) RAG + path_distance filler and RAG + proximity prior on
 CodeLlama-7B, medium, all 224 datapoints (2 arms, ~8 h); (b) the 7 other static composers on CodeLlama-7B, medium, all 224
-(7 arms, ~15-25 h). Recorded as a limitation in `RAG_PROPOSAL.md` §8.
+(7 arms, ~15-25 h). Recorded as a limitation in `PROPOSAL.md` §8.
 ### 8.44 Plan: three rented machines for the remaining runs (2026-10-15 ~00:50; user decision pending; nothing run yet)
 
 **Why.** The local PC overheats (user), the queue was cleared (§9), and time is short. Three machines cut ~100 GPU hours to about

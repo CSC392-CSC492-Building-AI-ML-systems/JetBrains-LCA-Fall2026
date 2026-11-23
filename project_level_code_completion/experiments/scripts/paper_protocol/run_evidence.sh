@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Evidence chain (RAG_EXPERIMENT_LOG.md section 8.36): S3a -> S4 -> S3b -> H-all. One marker per step.
+# Evidence chain (EXPERIMENT_LOG.md section 8.36): S3a -> S4 -> S3b -> H-all. One marker per step.
 source $(dirname "$0")/../common.sh
 LOG=$HOME/lca_evidence.log; : > $LOG
 F16="arm=rag rag=F rag.prefix_cap=15900"

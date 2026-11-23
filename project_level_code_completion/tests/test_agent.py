@@ -485,7 +485,7 @@ class FakeEmbedder:
 
 
 class NewToolTests(unittest.TestCase):
-    """The v3 tools (RAG_EXPERIMENT_LOG 8.93): find_usages, file_outline, duplicate searches, hybrid search."""
+    """The v3 tools (EXPERIMENT_LOG 8.93): find_usages, file_outline, duplicate searches, hybrid search."""
 
     def tools(self, files=None, completion="app/target.py", dense=None, **limits):
         builder = make_builder(files or PY_FILES, completion)
@@ -591,7 +591,7 @@ class NewToolTests(unittest.TestCase):
 
 
 class SwapModeTests(unittest.TestCase):
-    """Planner v3 edit (RAG_EXPERIMENT_LOG 8.93): additions after RAG's ranking, the planner names what to give up."""
+    """Planner v3 edit (EXPERIMENT_LOG 8.93): additions after RAG's ranking, the planner names what to give up."""
 
     PREFIX = "\n".join(TARGET.split("\n")[:2])
     C = {"path": "lib/c.txt", "start_line": 1, "end_line": 1}

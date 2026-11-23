@@ -1,4 +1,4 @@
-"""Failure split of the planner agent next to RAG F (RAG_EXPERIMENT_LOG section 8.91).
+"""Failure split of the planner agent next to RAG F (EXPERIMENT_LOG section 8.91).
 
 `eval/failure_split.py` puts every line into right / wrong-but-self-contained / retrieval miss (a name the line needs from another
 file is not visible in the prompt) / reasoning (all needed names visible). This script lines the agent up against RAG F at

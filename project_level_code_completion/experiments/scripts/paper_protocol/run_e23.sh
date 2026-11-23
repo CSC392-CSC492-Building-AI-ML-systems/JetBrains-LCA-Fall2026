@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2/E3 controlled ablation (RAG_EXPERIMENT_LOG.md sections 8.40/8.41): CodeLlama-7B (16K window, the paper's model), medium_context, ALL 224 datapoints, ALL lines.
+# E2/E3 controlled ablation (EXPERIMENT_LOG.md sections 8.40/8.41): CodeLlama-7B (16K window, the paper's model), medium_context, ALL 224 datapoints, ALL lines.
 # Base = v1 (plain BM25, structure chunks, 30 chunks, 16K budget). Each arm changes ONE variable. Skips finished arms.
 # Afterwards: finishes the S4 step that this script pre-empted, then starts the v2 (paper protocol) chain.
 source $(dirname "$0")/../common.sh

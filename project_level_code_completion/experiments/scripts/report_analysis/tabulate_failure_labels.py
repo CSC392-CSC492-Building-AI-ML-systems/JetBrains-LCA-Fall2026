@@ -1,4 +1,4 @@
-"""Failure taxonomy of week 8 (RAG_EXPERIMENT_LOG 8.106): labels for the 125 sampled lines of `sample_failures_week8.py`, one letter per sampled item,
+"""Failure taxonomy of week 8 (EXPERIMENT_LOG 8.106): labels for the 125 sampled lines of `sample_failures_week8.py`, one letter per sampled item,
 in the order of failure_samples_week8.txt (items 1 to 25 of each group). One reader (the assistant), subjective labels, 25 lines per group, so
 every share carries roughly +-10 points of sampling noise (a 95 % interval for a share of 40 % on 25 lines is about 21 % to 61 %).
 Categories as in 8.77, applied to the prediction of the arm named in the group:

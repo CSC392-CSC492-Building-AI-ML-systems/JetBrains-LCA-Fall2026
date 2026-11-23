@@ -1,4 +1,4 @@
-"""E4 figures and results table from the synced arms (RAG_EXPERIMENT_LOG section 8.78).
+"""E4 figures and results table from the synced arms (EXPERIMENT_LOG section 8.78).
 
 Reads ~/lca_remote/E4 (summary.json, per_datapoint_scores.json, generation_results.jsonl of the nine arms and failure_split.jsonl)
 and writes PNG + PDF figures, a results table (csv, markdown, latex) to experiments/figures/E4/. Colors follow the dataviz palette

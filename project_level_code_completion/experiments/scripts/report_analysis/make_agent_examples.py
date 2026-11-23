@@ -1,4 +1,4 @@
-"""Concrete examples of what the agent did to RAG F's lines (RAG_EXPERIMENT_LOG section 8.92).
+"""Concrete examples of what the agent did to RAG F's lines (EXPERIMENT_LOG section 8.92).
 
 Random examples (fixed seed, not picked by hand) from each kind of change between the RAG F arm and the agent arm at N=1,753,
 shown with the code before the line, the truth, both predictions, the names the line needs from other files that each prompt did

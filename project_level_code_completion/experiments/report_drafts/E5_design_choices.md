@@ -1,6 +1,6 @@
 # E5 agent: design choices, why we made them, and what to keep in mind
 
-Short companion to `E5_agent.md` (results). Everything here is documented step by step in `RAG_EXPERIMENT_LOG.md`, sections 8.80 to 8.91.
+Short companion to `E5_agent.md` (results). Everything here is documented step by step in `EXPERIMENT_LOG.md`, sections 8.80 to 8.91.
 
 ## The question
 

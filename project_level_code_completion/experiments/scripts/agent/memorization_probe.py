@@ -1,4 +1,4 @@
-"""Memorization probe for the planner (RAG_EXPERIMENT_LOG section 8.93, run before any full agent arm).
+"""Memorization probe for the planner (EXPERIMENT_LOG section 8.93, run before any full agent arm).
 
 The benchmark's datapoints are public GitHub repositories, so a planner may have seen them in training and could "recall" the next
 line without any repository context. This asks the planner, with NO repository at all, to write the next line from the file

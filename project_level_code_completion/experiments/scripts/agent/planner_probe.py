@@ -1,4 +1,4 @@
-"""Dev-set checks for the E5 planner agent (RAG_EXPERIMENT_LOG sections 8.80-8.82). Development datapoints only.
+"""Dev-set checks for the E5 planner agent (EXPERIMENT_LOG sections 8.80-8.82). Development datapoints only.
 
     probe     run one planner candidate over some development lines (no CodeLlama, no accuracy) and report how reliably
               it ends in a valid submit_context:

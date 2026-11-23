@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stronger agent (v3), development arms on the 24 development datapoints of RAG_EXPERIMENT_LOG section 8.93 (split=dev
+# Stronger agent (v3), development arms on the 24 development datapoints of EXPERIMENT_LOG section 8.93 (split=dev
 # dev_size=8 dev_extra=16, medium, 1,372 lines), CodeLlama-7B writer, N=1753. Arms (letters as in 8.93):
 #   d0  RAG F                                 reference
 #   d1  7B planner + old tools   (agent=append, Qwen2.5-Coder-7B-Instruct 8-bit)        E5's agent on the 24 datapoints

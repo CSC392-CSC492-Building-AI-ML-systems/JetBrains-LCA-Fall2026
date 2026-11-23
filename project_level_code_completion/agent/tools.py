@@ -1,4 +1,4 @@
-"""Read-only repository tools for the planner (RAG_EXPERIMENT_LOG sections 8.80-8.82).
+"""Read-only repository tools for the planner (EXPERIMENT_LOG sections 8.80-8.82).
 
 The tools see exactly what RAG sees: the chunks of `RagContextBuilder`, which never include the completion file.
 Lines are numbered from 1 in everything the planner reads or writes. The planner starts from RAG's own context (the

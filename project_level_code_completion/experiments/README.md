@@ -2,7 +2,7 @@
 
 Everything that was measured, and everything that turns measurements into the numbers of the report, is here. The code that
 runs a retrieval or agent arm is in [`rag/`](../rag/), [`agent/`](../agent/) and [`eval/`](../eval/); the story of every
-step, with settings and predictions written before each run, is [`docs/RAG_EXPERIMENT_LOG.md`](../docs/RAG_EXPERIMENT_LOG.md).
+step, with settings and predictions written before each run, is [`docs/EXPERIMENT_LOG.md`](../docs/EXPERIMENT_LOG.md).
 
 ## Folders
 

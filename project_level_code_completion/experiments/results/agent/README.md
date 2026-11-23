@@ -1,7 +1,7 @@
 # Agent results (E5)
 
 Everything produced by the E5 experiment: a planner agent that edits the retrieved context of our RAG design F before
-CodeLlama-7B writes the line. Design, decisions and every step are in `../../RAG_EXPERIMENT_LOG.md` (sections 8.80 to 8.89).
+CodeLlama-7B writes the line. Design, decisions and every step are in `../../EXPERIMENT_LOG.md` (sections 8.80 to 8.89).
 The code is in `../../agent/`; the report text is `../report_drafts/E5_agent.md`.
 
 **Result in one line.** At N = 1,753 tokens (CodeLlama-7B, all 224 medium datapoints, 8,676 lines) the agent scores EM 0.513

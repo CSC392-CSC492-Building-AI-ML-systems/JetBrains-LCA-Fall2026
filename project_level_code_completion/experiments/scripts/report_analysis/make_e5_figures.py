@@ -1,4 +1,4 @@
-"""E5 figures and results table: the agent against the three E4 arms at N=1,753 (RAG_EXPERIMENT_LOG sections 8.87-8.89).
+"""E5 figures and results table: the agent against the three E4 arms at N=1,753 (EXPERIMENT_LOG sections 8.87-8.89).
 
 Reads the arm folders in experiments/results/agent/E5_full/arms (summary.json, per_datapoint_scores.json, generation_results.jsonl[.gz]
 of e4_zero, e4_pd_N1753, e4_F_N1753 and e5_agent_full) and writes PNG + PDF figures and a table (csv, markdown) to

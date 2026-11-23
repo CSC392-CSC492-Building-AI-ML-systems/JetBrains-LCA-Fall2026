@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 1 of RAG_EXPERIMENT_LOG section 8.93: does the 32B planner fit next to CodeLlama-7B, and how fast is it? Runs arm d3
+# Phase 1 of EXPERIMENT_LOG section 8.93: does the 32B planner fit next to CodeLlama-7B, and how fast is it? Runs arm d3
 # (agent=v3) on the development split for MINUTES minutes (default 30), samples GPU memory every 20 s, then prints the lines
 # done, seconds per line (context + generation), planner tokens and the peak GPU memory. The arm folder is e5v3_speed (partial,
 # not a result). Needs a GPU with >= 48 GB.

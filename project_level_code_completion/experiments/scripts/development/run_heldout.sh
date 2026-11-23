@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Final held-out evaluation (RAG_EXPERIMENT_LOG.md section 8.25). usage: run_heldout.sh <expected commit hash>
+# Final held-out evaluation (EXPERIMENT_LOG.md section 8.25). usage: run_heldout.sh <expected commit hash>
 # Refuses to start unless the code is committed (clean tree) at the expected hash.
 source $(dirname "$0")/../common.sh
 EXPECTED=$1
