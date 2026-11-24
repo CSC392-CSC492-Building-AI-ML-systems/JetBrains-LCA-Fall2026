@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 22,
+    "task_sha256": "a1600a9923cb9edc7a536b5a10f04f88cd2c56c31dfffb66036a6902331724f1",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a StarCraft II bot using the python-sc2 library. The bot should be a Zerg race bot that performs a rush strategy. The bot should have methods to handle the start of the game, each step of the game, and the end of the game. \n\nOn start, the bot should set the game step to 2. On each step, the bot should perform a series of actions such as sending a chat message, attacking enemy structures, injecting hatcheries with larva, managing vespene gas and mineral resources, researching upgrades, training units, and building structures. \n\nThe bot should also have a method to draw a creep pixelmap for debugging purposes. At the end of the game, the bot should log that the game has ended. \n\nFinally, the bot should be run on a specific map against a computer opponent of the Terran race with medium difficulty. The game should not be run in real time and a replay of the game should be saved.\n\nYou can find the following APIs from the library helpful:\na_run_multiple_games, Bot, a_run_multiple_games_nokill, run_bot_iteration, of_type, ExporterBot, BotProcess, TestBot, BotAI, EmptyBot, run_game, RealTimeTestBot, get_map_specific_bot, random_group_of, in_game, test_bot_ai, BotAIInternal, BatteryOverchargeBot, in_distance_of_group, in_attack_range_of"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4s3Yu2kKFsKrMddPUevJs1k6JD6",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport asyncio\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.bot_ai import BotAI\nfrom sc2.ids.unit_typeid import UnitTypeId\nfrom sc2.ids.ability_id import AbilityId\nfrom sc2.ids.upgrade_id import UpgradeId\nfrom sc2.position import Point2\nfrom sc2.data import Result\n\nclass ZergRushBot(BotAI):\n    async def on_start(self):\n        await self.client.chat_send(\"GL HF! Prepare for the Zerg rush!\", team_only=False)\n        await self.client.game_step(2)\n        self.rush_started = False\n\n    async def on_step(self, iteration):\n        # Send a chat message at the start of the rush\n        if not self.rush_started and self.supply_used >= 14:\n            await self.client.chat_send(\"Zerg rush incoming!\", team_only=False)\n            self.rush_started = True\n\n        await self.inject_hatcheries()\n        await self.manage_resources()\n        await self.research_upgrades()\n        await self.train_units()\n        await self.build_structures()\n        await self.attack_enemy()\n        await self.draw_creep_pixelmap()\n\n    async def on_end(self, result: Result):\n        print(f\"Game ended with result: {result}\")\n\n    async def inject_hatcheries(self):\n        for queen in self.units(UnitTypeId.QUEEN).idle:\n            abilities = await self.get_available_abilities(queen)\n            for hatch in self.townhalls.ready:\n                if AbilityId.EFFECT_INJECTLARVA in abilities and queen.energy >= 25:\n                    if queen.distance_to(hatch) < 8:\n                        queen(AbilityId.EFFECT_INJECTLARVA, hatch)\n                        break\n\n    async def manage_resources(self):\n        # Extractor trick for early gas\n        if self.supply_used >= 13 and self.already_pending(UnitTypeId.EXTRACTOR) == 0 and self.structures(UnitTypeId.EXTRACTOR).amount < 1:\n            for drone in self.workers.idle:\n                vgs = self.vespene_geyser.closer_than(10, self.townhalls.first)\n                for vg in vgs:\n                    if self.can_afford(UnitTypeId.EXTRACTOR):\n                        drone.build(UnitTypeId.EXTRACTOR, vg)\n                        return\n\n        # Assign drones to gas\n        for extractor in self.gas_buildings.ready:\n            if extractor.assigned_harvesters < extractor.ideal_harvesters:\n                available = self.workers.closer_than(10, extractor)\n                if available:\n                    self.workers.random.gather(extractor)\n\n        # Keep making drones until 16 on minerals\n        if self.supply_workers < 16 and self.can_afford(UnitTypeId.DRONE):\n            for hatch in self.townhalls.ready.idle:\n                hatch.train(UnitTypeId.DRONE)\n\n    async def research_upgrades(self):\n        # Research Zergling speed\n        if self.structures(UnitTypeId.SPAWNINGPOOL).ready and self.can_afford(UpgradeId.ZERGLINGMOVEMENTSPEED):\n            pool = self.structures(UnitTypeId.SPAWNINGPOOL).ready.first\n            abilities = await self.get_available_abilities(pool)\n            if AbilityId.RESEARCH_ZERGLINGMETABOLICBOOST in abilities:\n                pool(AbilityId.RESEARCH_ZERGLINGMETABOLICBOOST)\n\n    async def train_units(self):\n        # Train Zerglings\n        for hatch in self.townhalls.ready:\n            if self.can_afford(UnitTypeId.ZERGLING) and self.supply_left > 0:\n                hatch.train(UnitTypeId.ZERGLING)\n        # Train Overlords if supply is low\n        if self.supply_left < 2 and self.can_afford(UnitTypeId.OVERLORD):\n            for hatch in self.townhalls.ready.idle:\n                hatch.train(UnitTypeId.OVERLORD)\n        # Train Queens for injects\n        if self.structures(UnitTypeId.SPAWNINGPOOL).ready and self.units(UnitTypeId.QUEEN).amount < self.townhalls.ready.amount:\n            for hatch in self.townhalls.ready.idle:\n                if self.can_afford(UnitTypeId.QUEEN):\n                    hatch.train(UnitTypeId.QUEEN)\n\n    async def build_structures(self):\n        # Build Spawning Pool at 12 supply\n        if self.supply_used >= 12 and not self.structures(UnitTypeId.SPAWNINGPOOL):\n            if self.can_afford(UnitTypeId.SPAWNINGPOOL):\n                pos = await self.find_placement(UnitTypeId.SPAWNINGPOOL, near=self.townhalls.first.position.towards(self.game_info.map_center, 5))\n                if pos:\n                    drone = self.workers.random\n                    drone.build(UnitTypeId.SPAWNINGPOOL, pos)\n        # Build Extractor if not already built (handled in manage_resources)\n        # Build additional Hatchery if minerals are floating\n        if self.minerals > 400 and self.townhalls.amount < 2:\n            pos = await self.get_next_expansion()\n            if pos:\n                drone = self.workers.closest_to(pos)\n                drone.build(UnitTypeId.HATCHERY, pos)\n\n    async def attack_enemy(self):\n        # Attack enemy structures with all Zerglings\n        if self.units(UnitTypeId.ZERGLING).amount > 10:\n            targets = self.enemy_structures\n            if not targets:\n                targets = self.enemy_start_locations\n            for zergling in self.units(UnitTypeId.ZERGLING).idle:\n                if targets:\n                    target = targets.closest_to(zergling)\n                    zergling.attack(target.position if hasattr(target, \"position\") else target)\n\n    async def draw_creep_pixelmap(self):\n        # Draw creep as purple pixels for debugging\n        for (x, y), value in np.ndenumerate(self.state.creep.data_numpy):\n            if value:\n                pos = Point2((x, y))\n                await self._client.debug_text_world(\"•\", pos, color=(128, 0, 128), size=8)\n\nimport numpy as np\n\ndef main():\n    run_game(\n        maps.get(\"AcropolisLE\"),\n        [\n            Bot(Race.Zerg, ZergRushBot()),\n            Computer(Race.Terran, Difficulty.Medium)\n        ],\n        realtime=False,\n        save_replay_as=\"zerg_rush_bot.SC2Replay\"\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127175,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_585f7b5d19",
+    "usage": {
+      "completion_tokens": 1390,
+      "prompt_tokens": 322,
+      "total_tokens": 1712,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport asyncio\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.bot_ai import BotAI\nfrom sc2.ids.unit_typeid import UnitTypeId\nfrom sc2.ids.ability_id import AbilityId\nfrom sc2.ids.upgrade_id import UpgradeId\nfrom sc2.position import Point2\nfrom sc2.data import Result\n\nclass ZergRushBot(BotAI):\n    async def on_start(self):\n        await self.client.chat_send(\"GL HF! Prepare for the Zerg rush!\", team_only=False)\n        await self.client.game_step(2)\n        self.rush_started = False\n\n    async def on_step(self, iteration):\n        # Send a chat message at the start of the rush\n        if not self.rush_started and self.supply_used >= 14:\n            await self.client.chat_send(\"Zerg rush incoming!\", team_only=False)\n            self.rush_started = True\n\n        await self.inject_hatcheries()\n        await self.manage_resources()\n        await self.research_upgrades()\n        await self.train_units()\n        await self.build_structures()\n        await self.attack_enemy()\n        await self.draw_creep_pixelmap()\n\n    async def on_end(self, result: Result):\n        print(f\"Game ended with result: {result}\")\n\n    async def inject_hatcheries(self):\n        for queen in self.units(UnitTypeId.QUEEN).idle:\n            abilities = await self.get_available_abilities(queen)\n            for hatch in self.townhalls.ready:\n                if AbilityId.EFFECT_INJECTLARVA in abilities and queen.energy >= 25:\n                    if queen.distance_to(hatch) < 8:\n                        queen(AbilityId.EFFECT_INJECTLARVA, hatch)\n                        break\n\n    async def manage_resources(self):\n        # Extractor trick for early gas\n        if self.supply_used >= 13 and self.already_pending(UnitTypeId.EXTRACTOR) == 0 and self.structures(UnitTypeId.EXTRACTOR).amount < 1:\n            for drone in self.workers.idle:\n                vgs = self.vespene_geyser.closer_than(10, self.townhalls.first)\n                for vg in vgs:\n                    if self.can_afford(UnitTypeId.EXTRACTOR):\n                        drone.build(UnitTypeId.EXTRACTOR, vg)\n                        return\n\n        # Assign drones to gas\n        for extractor in self.gas_buildings.ready:\n            if extractor.assigned_harvesters < extractor.ideal_harvesters:\n                available = self.workers.closer_than(10, extractor)\n                if available:\n                    self.workers.random.gather(extractor)\n\n        # Keep making drones until 16 on minerals\n        if self.supply_workers < 16 and self.can_afford(UnitTypeId.DRONE):\n            for hatch in self.townhalls.ready.idle:\n                hatch.train(UnitTypeId.DRONE)\n\n    async def research_upgrades(self):\n        # Research Zergling speed\n        if self.structures(UnitTypeId.SPAWNINGPOOL).ready and self.can_afford(UpgradeId.ZERGLINGMOVEMENTSPEED):\n            pool = self.structures(UnitTypeId.SPAWNINGPOOL).ready.first\n            abilities = await self.get_available_abilities(pool)\n            if AbilityId.RESEARCH_ZERGLINGMETABOLICBOOST in abilities:\n                pool(AbilityId.RESEARCH_ZERGLINGMETABOLICBOOST)\n\n    async def train_units(self):\n        # Train Zerglings\n        for hatch in self.townhalls.ready:\n            if self.can_afford(UnitTypeId.ZERGLING) and self.supply_left > 0:\n                hatch.train(UnitTypeId.ZERGLING)\n        # Train Overlords if supply is low\n        if self.supply_left < 2 and self.can_afford(UnitTypeId.OVERLORD):\n            for hatch in self.townhalls.ready.idle:\n                hatch.train(UnitTypeId.OVERLORD)\n        # Train Queens for injects\n        if self.structures(UnitTypeId.SPAWNINGPOOL).ready and self.units(UnitTypeId.QUEEN).amount < self.townhalls.ready.amount:\n            for hatch in self.townhalls.ready.idle:\n                if self.can_afford(UnitTypeId.QUEEN):\n                    hatch.train(UnitTypeId.QUEEN)\n\n    async def build_structures(self):\n        # Build Spawning Pool at 12 supply\n        if self.supply_used >= 12 and not self.structures(UnitTypeId.SPAWNINGPOOL):\n            if self.can_afford(UnitTypeId.SPAWNINGPOOL):\n                pos = await self.find_placement(UnitTypeId.SPAWNINGPOOL, near=self.townhalls.first.position.towards(self.game_info.map_center, 5))\n                if pos:\n                    drone = self.workers.random\n                    drone.build(UnitTypeId.SPAWNINGPOOL, pos)\n        # Build Extractor if not already built (handled in manage_resources)\n        # Build additional Hatchery if minerals are floating\n        if self.minerals > 400 and self.townhalls.amount < 2:\n            pos = await self.get_next_expansion()\n            if pos:\n                drone = self.workers.closest_to(pos)\n                drone.build(UnitTypeId.HATCHERY, pos)\n\n    async def attack_enemy(self):\n        # Attack enemy structures with all Zerglings\n        if self.units(UnitTypeId.ZERGLING).amount > 10:\n            targets = self.enemy_structures\n            if not targets:\n                targets = self.enemy_start_locations\n            for zergling in self.units(UnitTypeId.ZERGLING).idle:\n                if targets:\n                    target = targets.closest_to(zergling)\n                    zergling.attack(target.position if hasattr(target, \"position\") else target)\n\n    async def draw_creep_pixelmap(self):\n        # Draw creep as purple pixels for debugging\n        for (x, y), value in np.ndenumerate(self.state.creep.data_numpy):\n            if value:\n                pos = Point2((x, y))\n                await self._client.debug_text_world(\"•\", pos, color=(128, 0, 128), size=8)\n\nimport numpy as np\n\ndef main():\n    run_game(\n        maps.get(\"AcropolisLE\"),\n        [\n            Bot(Race.Zerg, ZergRushBot()),\n            Computer(Race.Terran, Difficulty.Medium)\n        ],\n        realtime=False,\n        save_replay_as=\"zerg_rush_bot.SC2Replay\"\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 13.669562454999323,
+  "usage": {
+    "completion_tokens": 1390,
+    "prompt_tokens": 322,
+    "total_tokens": 1712,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11764,
+  "response_sha256": "bbc1cdf86af131f7eda1e06e957474077c09134fa736394c9c0a575628c2dd4a",
+  "artifact_sha256": "ea63642209fe3ed589cd71a846b9df7db3db30eb022552dc21f1e183f355095b"
+}

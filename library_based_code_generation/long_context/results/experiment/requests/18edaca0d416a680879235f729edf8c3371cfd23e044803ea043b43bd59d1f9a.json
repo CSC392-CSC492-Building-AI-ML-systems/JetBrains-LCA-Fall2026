@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 51,
+    "task_sha256": "8de02de08f800d9008f06644f773d882ec27a82ca9888a9f4b641806c986f5fb",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a CCSD (Coupled Cluster with Single and Double excitations) calculation with k-point sampling for a system of two carbon atoms in a cell using the pyscf library. The code should first build the cell with the given atomic coordinates, basis, pseudopotential, lattice vectors, and unit. Then, it should perform KHF and KCCSD calculations with 2x2x2 k-points and print the total energy per unit cell. Next, it should perform KHF and KCCSD calculations for a single k-point and print the total energy per unit cell. \n\nAfterwards, the code should perform a single k-point calculation using the RHF method, run RCCSD, and print the total energy per unit cell at the k-point. It should also calculate and print the RCCSD energy based on CCSD density matrices. \n\nNext, the code should convert the RHF object to a UHF object, run UCCSD, and print the total energy per unit cell at the k-point. It should also calculate and print the UCCSD energy based on CCSD density matrices. \n\nFinally, the code should convert the UHF object to a GHF object, run GCCSD, and print the total energy per unit cell at the k-point. It should also calculate and print the GCCSD energy based on CCSD density matrices.\n\nYou can find the following APIs from the library helpful:\n__and__, print_mo_energy_occ, _load_and_unpack, add_and_permute, sign_and_symbs, print_mo_energy_occ_kpts, calculate_energy, rsh_and_hybrid_coeff, _get_intor_and_comp, test_des_and_cre, A, _print_basis_information, run_cell, test_spin_and_pointgroup_sa4, energy, test_spin_and_pointgroup_sa4_newton, cre_a, des_a, make_A, cell"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5DUcW7C6iWs6VVGzHiFHHrNAIDC",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, cc, lib\nfrom pyscf.pbc import gto as pbcgto, scf as pbcscf, cc as pbccc, tools\n\n# Build the cell\ncell = pbcgto.Cell()\ncell.atom = '''\nC 0.000000 0.000000 0.000000\nC 1.685068 1.685068 1.685068\n'''\ncell.a = '''\n3.370136 0.000000 0.000000\n0.000000 3.370136 0.000000\n0.000000 0.000000 3.370136\n'''\ncell.unit = 'Angstrom'\ncell.basis = 'gth-szv'\ncell.pseudo = 'gth-pade'\ncell.verbose = 4\ncell.build()\n\n# 2x2x2 k-points\nkmesh = [2, 2, 2]\nkpts = cell.make_kpts(kmesh)\n\n# KHF calculation\nkmf = pbcscf.KRHF(cell, kpts)\nehf_k = kmf.kernel()\nprint(\"KHF (2x2x2 k-points) total energy per unit cell: %.12f\" % ehf_k)\n\n# KCCSD calculation\nkcc = pbccc.KCCSD(kmf)\necc_k, t1_k, t2_k = kcc.kernel()\nprint(\"KCCSD (2x2x2 k-points) total energy per unit cell: %.12f\" % (ehf_k + ecc_k))\n\n# Single k-point calculation\nkmesh1 = [1, 1, 1]\nkpts1 = cell.make_kpts(kmesh1)\n\n# KHF single k-point\nkmf1 = pbcscf.KRHF(cell, kpts1)\nehf_k1 = kmf1.kernel()\nprint(\"KHF (1x1x1 k-point) total energy per unit cell: %.12f\" % ehf_k1)\n\n# KCCSD single k-point\nkcc1 = pbccc.KCCSD(kmf1)\necc_k1, t1_k1, t2_k1 = kcc1.kernel()\nprint(\"KCCSD (1x1x1 k-point) total energy per unit cell: %.12f\" % (ehf_k1 + ecc_k1))\n\n# RHF at single k-point\nmf_rhf = scf.RHF(cell)\nehf_rhf = mf_rhf.kernel()\nprint(\"RHF (single k-point) total energy per unit cell: %.12f\" % ehf_rhf)\n\n# RCCSD\ncc_rhf = cc.RCCSD(mf_rhf)\necc_rhf, t1_rhf, t2_rhf = cc_rhf.kernel()\nprint(\"RCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_rhf + ecc_rhf))\n\n# RCCSD energy from density matrices\ndm1_rhf = cc_rhf.make_rdm1()\ndm2_rhf = cc_rhf.make_rdm2()\nenergy_rccsd_dm = cc_rhf.energy(dm1=dm1_rhf, dm2=dm2_rhf)\nprint(\"RCCSD (from density matrices) energy per unit cell: %.12f\" % energy_rccsd_dm)\n\n# Convert RHF to UHF\nmf_uhf = scf.convert_to_uhf(mf_rhf)\nehf_uhf = mf_uhf.kernel()\nprint(\"UHF (single k-point) total energy per unit cell: %.12f\" % ehf_uhf)\n\n# UCCSD\ncc_uhf = cc.UCCSD(mf_uhf)\necc_uhf, t1_uhf, t2_uhf = cc_uhf.kernel()\nprint(\"UCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_uhf + ecc_uhf))\n\n# UCCSD energy from density matrices\ndm1_uhf = cc_uhf.make_rdm1()\ndm2_uhf = cc_uhf.make_rdm2()\nenergy_uccsd_dm = cc_uhf.energy(dm1=dm1_uhf, dm2=dm2_uhf)\nprint(\"UCCSD (from density matrices) energy per unit cell: %.12f\" % energy_uccsd_dm)\n\n# Convert UHF to GHF\nmf_ghf = scf.convert_to_ghf(mf_uhf)\nehf_ghf = mf_ghf.kernel()\nprint(\"GHF (single k-point) total energy per unit cell: %.12f\" % ehf_ghf)\n\n# GCCSD\ncc_ghf = cc.GCCSD(mf_ghf)\necc_ghf, t1_ghf, t2_ghf = cc_ghf.kernel()\nprint(\"GCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_ghf + ecc_ghf))\n\n# GCCSD energy from density matrices\ndm1_ghf = cc_ghf.make_rdm1()\ndm2_ghf = cc_ghf.make_rdm2()\nenergy_gccsd_dm = cc_ghf.energy(dm1=dm1_ghf, dm2=dm2_ghf)\nprint(\"GCCSD (from density matrices) energy per unit cell: %.12f\" % energy_gccsd_dm)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128504,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1187,
+      "prompt_tokens": 414,
+      "total_tokens": 1601,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, cc, lib\nfrom pyscf.pbc import gto as pbcgto, scf as pbcscf, cc as pbccc, tools\n\n# Build the cell\ncell = pbcgto.Cell()\ncell.atom = '''\nC 0.000000 0.000000 0.000000\nC 1.685068 1.685068 1.685068\n'''\ncell.a = '''\n3.370136 0.000000 0.000000\n0.000000 3.370136 0.000000\n0.000000 0.000000 3.370136\n'''\ncell.unit = 'Angstrom'\ncell.basis = 'gth-szv'\ncell.pseudo = 'gth-pade'\ncell.verbose = 4\ncell.build()\n\n# 2x2x2 k-points\nkmesh = [2, 2, 2]\nkpts = cell.make_kpts(kmesh)\n\n# KHF calculation\nkmf = pbcscf.KRHF(cell, kpts)\nehf_k = kmf.kernel()\nprint(\"KHF (2x2x2 k-points) total energy per unit cell: %.12f\" % ehf_k)\n\n# KCCSD calculation\nkcc = pbccc.KCCSD(kmf)\necc_k, t1_k, t2_k = kcc.kernel()\nprint(\"KCCSD (2x2x2 k-points) total energy per unit cell: %.12f\" % (ehf_k + ecc_k))\n\n# Single k-point calculation\nkmesh1 = [1, 1, 1]\nkpts1 = cell.make_kpts(kmesh1)\n\n# KHF single k-point\nkmf1 = pbcscf.KRHF(cell, kpts1)\nehf_k1 = kmf1.kernel()\nprint(\"KHF (1x1x1 k-point) total energy per unit cell: %.12f\" % ehf_k1)\n\n# KCCSD single k-point\nkcc1 = pbccc.KCCSD(kmf1)\necc_k1, t1_k1, t2_k1 = kcc1.kernel()\nprint(\"KCCSD (1x1x1 k-point) total energy per unit cell: %.12f\" % (ehf_k1 + ecc_k1))\n\n# RHF at single k-point\nmf_rhf = scf.RHF(cell)\nehf_rhf = mf_rhf.kernel()\nprint(\"RHF (single k-point) total energy per unit cell: %.12f\" % ehf_rhf)\n\n# RCCSD\ncc_rhf = cc.RCCSD(mf_rhf)\necc_rhf, t1_rhf, t2_rhf = cc_rhf.kernel()\nprint(\"RCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_rhf + ecc_rhf))\n\n# RCCSD energy from density matrices\ndm1_rhf = cc_rhf.make_rdm1()\ndm2_rhf = cc_rhf.make_rdm2()\nenergy_rccsd_dm = cc_rhf.energy(dm1=dm1_rhf, dm2=dm2_rhf)\nprint(\"RCCSD (from density matrices) energy per unit cell: %.12f\" % energy_rccsd_dm)\n\n# Convert RHF to UHF\nmf_uhf = scf.convert_to_uhf(mf_rhf)\nehf_uhf = mf_uhf.kernel()\nprint(\"UHF (single k-point) total energy per unit cell: %.12f\" % ehf_uhf)\n\n# UCCSD\ncc_uhf = cc.UCCSD(mf_uhf)\necc_uhf, t1_uhf, t2_uhf = cc_uhf.kernel()\nprint(\"UCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_uhf + ecc_uhf))\n\n# UCCSD energy from density matrices\ndm1_uhf = cc_uhf.make_rdm1()\ndm2_uhf = cc_uhf.make_rdm2()\nenergy_uccsd_dm = cc_uhf.energy(dm1=dm1_uhf, dm2=dm2_uhf)\nprint(\"UCCSD (from density matrices) energy per unit cell: %.12f\" % energy_uccsd_dm)\n\n# Convert UHF to GHF\nmf_ghf = scf.convert_to_ghf(mf_uhf)\nehf_ghf = mf_ghf.kernel()\nprint(\"GHF (single k-point) total energy per unit cell: %.12f\" % ehf_ghf)\n\n# GCCSD\ncc_ghf = cc.GCCSD(mf_ghf)\necc_ghf, t1_ghf, t2_ghf = cc_ghf.kernel()\nprint(\"GCCSD (single k-point) total energy per unit cell: %.12f\" % (ehf_ghf + ecc_ghf))\n\n# GCCSD energy from density matrices\ndm1_ghf = cc_ghf.make_rdm1()\ndm2_ghf = cc_ghf.make_rdm2()\nenergy_gccsd_dm = cc_ghf.energy(dm1=dm1_ghf, dm2=dm2_ghf)\nprint(\"GCCSD (from density matrices) energy per unit cell: %.12f\" % energy_gccsd_dm)\n```",
+  "latency_seconds": 9.900593829999707,
+  "usage": {
+    "completion_tokens": 1187,
+    "prompt_tokens": 414,
+    "total_tokens": 1601,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10324,
+  "response_sha256": "e5a9fc09363ac0620d07e77d4b3845df390c99bbeb1205d096b5436e9232d84d",
+  "artifact_sha256": "e8542e6520db86b2478407c8e08b9b3b1ed6cce7755e3262348c28b8be7cb26b"
+}

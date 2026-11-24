@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 24,
+    "task_sha256": "8b5bdefb6763b297a500c89bab2ef341dff8acb922a45eb8f628fe4a568abe84",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary libraries and modules such as argparse, sys, numpy, matplotlib, scipy, mumps, and fealpy. The code should define a Poisuille PDE from the navier_stokes_mold_2d module and set up a command-line argument parser to accept parameters like the degree of motion finite element space, degree of pressure finite element space, number of time divisions, evolution end time, output directory, steps, and non-linearization method. \n\nThe code should then parse these arguments and use them to define variables. It should also create a TriangleMesh from a unit square and a UniformTimeLine for time evolution. The code should define LagrangeFiniteElementSpace for motion and pressure, and calculate the number of global degrees of freedom for both. \n\nThe code should then set up a BilinearForm and MixedBilinearForm, and add domain integrators to them. It should assemble these forms and get their matrices. The code should also calculate the mass matrix of the motion space and initialize an error matrix. \n\nIn a loop, the code should advance to the next time level, add a ScalarConvectionIntegrator to a new BilinearForm, assemble it, and get its matrix. It should calculate a divergence matrix and a new matrix M. It should also calculate a source vector and set up boundary conditions. \n\nThe code should then solve the system of equations, update the motion and pressure functions, calculate the L2 error and maximum error, and advance to the next time level. Finally, the code should print the sum of absolute values of the motion function."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4t9AIW2z2ofcVXeRdKTCKibV4dB",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport sys\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom scipy import sparse\nfrom scipy.sparse.linalg import spsolve\nfrom mumps import DMumpsContext\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegrator import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.form import BilinearForm, MixedBilinearForm, ScalarConvectionIntegrator, DomainIntegrator\nfrom fealpy.boundarycondition import DirichletBC\nfrom navier_stokes_mold_2d import PoisuillePDE\n\ndef main():\n    parser = argparse.ArgumentParser(description='Solve 2D Poisuille flow with FEALPy.')\n    parser.add_argument('--motion_degree', type=int, default=2, help='Degree of motion finite element space')\n    parser.add_argument('--pressure_degree', type=int, default=1, help='Degree of pressure finite element space')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--T', type=float, default=1.0, help='Evolution end time')\n    parser.add_argument('--output_dir', type=str, default='./output', help='Output directory')\n    parser.add_argument('--steps', type=int, default=10, help='Number of steps')\n    parser.add_argument('--nonlinear_method', type=str, default='Picard', help='Non-linearization method')\n    args = parser.parse_args()\n\n    motion_degree = args.motion_degree\n    pressure_degree = args.pressure_degree\n    nt = args.nt\n    T = args.T\n    output_dir = args.output_dir\n    steps = args.steps\n    nonlinear_method = args.nonlinear_method\n\n    pde = PoisuillePDE()\n    mesh = TriangleMesh.unit_square_mesh(nx=10, ny=10)\n    timeline = UniformTimeLine(0, T, nt)\n\n    motion_space = LagrangeFiniteElementSpace(mesh, motion_degree, dim=2)\n    pressure_space = LagrangeFiniteElementSpace(mesh, pressure_degree, dim=1)\n\n    Ndof_motion = motion_space.number_of_global_dofs()\n    Ndof_pressure = pressure_space.number_of_global_dofs()\n\n    bf_motion = BilinearForm(motion_space)\n    bf_pressure = BilinearForm(pressure_space)\n    mbf = MixedBilinearForm([motion_space, pressure_space])\n\n    bf_motion.add_domain_integrator(DomainIntegrator(pde.diffusion_matrix, q=motion_degree+pressure_degree))\n    bf_pressure.add_domain_integrator(DomainIntegrator(pde.pressure_matrix, q=pressure_degree+motion_degree))\n    mbf.add_domain_integrator(DomainIntegrator(pde.mixed_matrix, q=max(motion_degree, pressure_degree)))\n\n    A_motion = bf_motion.assemble()\n    A_pressure = bf_pressure.assemble()\n    A_mixed = mbf.assemble()\n\n    mass_matrix = motion_space.mass_matrix()\n    error_matrix = np.zeros((steps, 2))\n\n    u = motion_space.function()\n    p = pressure_space.function()\n\n    for k in range(1, nt+1):\n        t1 = timeline.next_time_level()\n        bf_conv = BilinearForm(motion_space)\n        bf_conv.add_domain_integrator(ScalarConvectionIntegrator(pde.convection_matrix, q=motion_degree+1))\n        A_conv = bf_conv.assemble()\n\n        div_matrix = motion_space.divergence_matrix(pressure_space)\n        M = A_motion + A_conv + mass_matrix\n\n        f = motion_space.source_vector(lambda x: pde.source(x, t1), q=motion_degree+1)\n        bc = DirichletBC(motion_space, pde.dirichlet, threshold=1e-14)\n        bc.apply(M, f, u)\n\n        ctx = DMumpsContext()\n        ctx.set_silent()\n        ctx.set_matrix(M)\n        ctx.set_rhs(f)\n        ctx.run(job=6)\n        u[:] = ctx.get_solution()\n        ctx.destroy()\n\n        p[:] = spsolve(A_pressure, div_matrix @ u)\n\n        l2_error = motion_space.integral(lambda x: np.sum((u(x) - pde.solution(x, t1))**2, axis=0), q=motion_degree+2)\n        max_error = np.max(np.abs(u.dof - pde.solution(motion_space.dof, t1)))\n        error_matrix[k-1, 0] = l2_error\n        error_matrix[k-1, 1] = max_error\n\n        timeline.advance()\n\n    print(np.sum(np.abs(u.dof)))\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127243,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 974,
+      "prompt_tokens": 354,
+      "total_tokens": 1328,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport sys\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom scipy import sparse\nfrom scipy.sparse.linalg import spsolve\nfrom mumps import DMumpsContext\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegrator import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.form import BilinearForm, MixedBilinearForm, ScalarConvectionIntegrator, DomainIntegrator\nfrom fealpy.boundarycondition import DirichletBC\nfrom navier_stokes_mold_2d import PoisuillePDE\n\ndef main():\n    parser = argparse.ArgumentParser(description='Solve 2D Poisuille flow with FEALPy.')\n    parser.add_argument('--motion_degree', type=int, default=2, help='Degree of motion finite element space')\n    parser.add_argument('--pressure_degree', type=int, default=1, help='Degree of pressure finite element space')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--T', type=float, default=1.0, help='Evolution end time')\n    parser.add_argument('--output_dir', type=str, default='./output', help='Output directory')\n    parser.add_argument('--steps', type=int, default=10, help='Number of steps')\n    parser.add_argument('--nonlinear_method', type=str, default='Picard', help='Non-linearization method')\n    args = parser.parse_args()\n\n    motion_degree = args.motion_degree\n    pressure_degree = args.pressure_degree\n    nt = args.nt\n    T = args.T\n    output_dir = args.output_dir\n    steps = args.steps\n    nonlinear_method = args.nonlinear_method\n\n    pde = PoisuillePDE()\n    mesh = TriangleMesh.unit_square_mesh(nx=10, ny=10)\n    timeline = UniformTimeLine(0, T, nt)\n\n    motion_space = LagrangeFiniteElementSpace(mesh, motion_degree, dim=2)\n    pressure_space = LagrangeFiniteElementSpace(mesh, pressure_degree, dim=1)\n\n    Ndof_motion = motion_space.number_of_global_dofs()\n    Ndof_pressure = pressure_space.number_of_global_dofs()\n\n    bf_motion = BilinearForm(motion_space)\n    bf_pressure = BilinearForm(pressure_space)\n    mbf = MixedBilinearForm([motion_space, pressure_space])\n\n    bf_motion.add_domain_integrator(DomainIntegrator(pde.diffusion_matrix, q=motion_degree+pressure_degree))\n    bf_pressure.add_domain_integrator(DomainIntegrator(pde.pressure_matrix, q=pressure_degree+motion_degree))\n    mbf.add_domain_integrator(DomainIntegrator(pde.mixed_matrix, q=max(motion_degree, pressure_degree)))\n\n    A_motion = bf_motion.assemble()\n    A_pressure = bf_pressure.assemble()\n    A_mixed = mbf.assemble()\n\n    mass_matrix = motion_space.mass_matrix()\n    error_matrix = np.zeros((steps, 2))\n\n    u = motion_space.function()\n    p = pressure_space.function()\n\n    for k in range(1, nt+1):\n        t1 = timeline.next_time_level()\n        bf_conv = BilinearForm(motion_space)\n        bf_conv.add_domain_integrator(ScalarConvectionIntegrator(pde.convection_matrix, q=motion_degree+1))\n        A_conv = bf_conv.assemble()\n\n        div_matrix = motion_space.divergence_matrix(pressure_space)\n        M = A_motion + A_conv + mass_matrix\n\n        f = motion_space.source_vector(lambda x: pde.source(x, t1), q=motion_degree+1)\n        bc = DirichletBC(motion_space, pde.dirichlet, threshold=1e-14)\n        bc.apply(M, f, u)\n\n        ctx = DMumpsContext()\n        ctx.set_silent()\n        ctx.set_matrix(M)\n        ctx.set_rhs(f)\n        ctx.run(job=6)\n        u[:] = ctx.get_solution()\n        ctx.destroy()\n\n        p[:] = spsolve(A_pressure, div_matrix @ u)\n\n        l2_error = motion_space.integral(lambda x: np.sum((u(x) - pde.solution(x, t1))**2, axis=0), q=motion_degree+2)\n        max_error = np.max(np.abs(u.dof - pde.solution(motion_space.dof, t1)))\n        error_matrix[k-1, 0] = l2_error\n        error_matrix[k-1, 1] = max_error\n\n        timeline.advance()\n\n    print(np.sum(np.abs(u.dof)))\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 6.391322583998772,
+  "usage": {
+    "completion_tokens": 974,
+    "prompt_tokens": 354,
+    "total_tokens": 1328,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8500,
+  "response_sha256": "917ee0499561d76abac583f3d3d64f43c6f48ba79e98cfeddb9ad53be680da1d",
+  "artifact_sha256": "e05a23a0f8840ca943643e0eb9dd205c9caa952394035583dadba93b294c1dfc"
+}

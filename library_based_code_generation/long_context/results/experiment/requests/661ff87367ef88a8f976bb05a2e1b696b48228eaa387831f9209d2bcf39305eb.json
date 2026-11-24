@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 91,
+    "task_sha256": "092f6b92600ab696d445ae3aa33a9b48808fa68c4505b2718162ae1841aa016e",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a CPU usage monitoring application using the py-shiny library. The application should be able to run both in a standard Python environment and in a Pyodide environment. It should use the psutil library to get CPU usage data, but if running in Pyodide, it should use a fake version of psutil. The application should display the CPU usage data in a graphical format using matplotlib and in a tabular format using pandas. The user interface should allow the user to select the colormap for the graphs, clear the history of CPU usage data, freeze the output, and specify the number of samples per graph and the number of rows to display in the table. The application should also include a function to hide ticks on a graph's axis."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5bGq2NC3dZ289vtPETTz74J2RQm",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport asyncio\nimport time\n\nfrom shiny import App, ui, render, reactive, Inputs, Outputs, Session\n\n# Detect Pyodide environment\nIN_PYODIDE = sys.platform == \"emscripten\"\n\n# psutil or fake psutil\nif IN_PYODIDE:\n    import random\n\n    class FakePsutil:\n        @staticmethod\n        def cpu_percent(interval=None):\n            return random.uniform(0, 100)\n\n    psutil = FakePsutil()\nelse:\n    import psutil\n\nimport matplotlib\nmatplotlib.use(\"Agg\")\nimport matplotlib.pyplot as plt\nimport pandas as pd\nfrom io import BytesIO\nimport base64\n\n# Helper to hide axis ticks\ndef hide_axis_ticks(ax):\n    ax.set_xticks([])\n    ax.set_yticks([])\n\n# UI\napp_ui = ui.page_fluid(\n    ui.h2(\"CPU Usage Monitor\"),\n    ui.layout_sidebar(\n        ui.panel_sidebar(\n            ui.input_select(\n                \"colormap\",\n                \"Colormap\",\n                {\n                    \"viridis\": \"Viridis\",\n                    \"plasma\": \"Plasma\",\n                    \"inferno\": \"Inferno\",\n                    \"magma\": \"Magma\",\n                    \"cividis\": \"Cividis\",\n                    \"jet\": \"Jet\",\n                    \"gray\": \"Gray\",\n                },\n                selected=\"viridis\"\n            ),\n            ui.input_numeric(\"samples\", \"Samples per graph\", 30, min=5, max=200),\n            ui.input_numeric(\"rows\", \"Rows in table\", 10, min=1, max=200),\n            ui.input_action_button(\"clear\", \"Clear History\"),\n            ui.input_checkbox(\"freeze\", \"Freeze Output\", False),\n        ),\n        ui.panel_main(\n            ui.output_plot(\"cpu_plot\"),\n            ui.output_table(\"cpu_table\"),\n        ),\n    ),\n)\n\n# Server\ndef server(input: Inputs, output: Outputs, session: Session):\n    # Reactive values for CPU usage history\n    cpu_history = reactive.Value([])\n\n    # Periodic update\n    @reactive.effect\n    @reactive.event(lambda: not input.freeze())\n    async def _():\n        while not input.freeze():\n            await asyncio.sleep(1)\n            history = cpu_history.get()\n            cpu = psutil.cpu_percent(interval=None)\n            timestamp = time.strftime(\"%H:%M:%S\")\n            history.append({\"Time\": timestamp, \"CPU (%)\": cpu})\n            # Limit history to max(samples, rows)\n            maxlen = max(input.samples(), input.rows())\n            if len(history) > maxlen:\n                history = history[-maxlen:]\n            cpu_history.set(history)\n\n    # Clear history\n    @reactive.effect\n    @reactive.event(input.clear)\n    def _():\n        cpu_history.set([])\n\n    # CPU usage DataFrame\n    @reactive.calc\n    def cpu_df():\n        history = cpu_history.get()\n        df = pd.DataFrame(history)\n        if not df.empty:\n            df = df.tail(input.rows())\n        return df\n\n    # Plot\n    @output\n    @render.plot\n    def cpu_plot():\n        df = pd.DataFrame(cpu_history.get())\n        if df.empty:\n            fig, ax = plt.subplots()\n            ax.text(0.5, 0.5, \"No data\", ha=\"center\", va=\"center\")\n            hide_axis_ticks(ax)\n            return fig\n        df = df.tail(input.samples())\n        fig, ax = plt.subplots(figsize=(8, 3))\n        cmap = plt.get_cmap(input.colormap())\n        normed = [v/100 for v in df[\"CPU (%)\"]]\n        colors = cmap(normed)\n        bars = ax.bar(df[\"Time\"], df[\"CPU (%)\"], color=colors)\n        ax.set_ylim(0, 100)\n        ax.set_ylabel(\"CPU (%)\")\n        ax.set_xlabel(\"Time\")\n        ax.set_title(\"CPU Usage Over Time\")\n        ax.tick_params(axis='x', rotation=45)\n        # Optionally hide ticks if too many samples\n        if len(df) > 20:\n            hide_axis_ticks(ax)\n        fig.tight_layout()\n        return fig\n\n    # Table\n    @output\n    @render.table\n    def cpu_table():\n        df = cpu_df()\n        if df.empty:\n            return pd.DataFrame({\"Info\": [\"No data\"]})\n        return df\n\napp = App(app_ui, server)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129978,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_3c6b77ab8c",
+    "usage": {
+      "completion_tokens": 915,
+      "prompt_tokens": 185,
+      "total_tokens": 1100,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport asyncio\nimport time\n\nfrom shiny import App, ui, render, reactive, Inputs, Outputs, Session\n\n# Detect Pyodide environment\nIN_PYODIDE = sys.platform == \"emscripten\"\n\n# psutil or fake psutil\nif IN_PYODIDE:\n    import random\n\n    class FakePsutil:\n        @staticmethod\n        def cpu_percent(interval=None):\n            return random.uniform(0, 100)\n\n    psutil = FakePsutil()\nelse:\n    import psutil\n\nimport matplotlib\nmatplotlib.use(\"Agg\")\nimport matplotlib.pyplot as plt\nimport pandas as pd\nfrom io import BytesIO\nimport base64\n\n# Helper to hide axis ticks\ndef hide_axis_ticks(ax):\n    ax.set_xticks([])\n    ax.set_yticks([])\n\n# UI\napp_ui = ui.page_fluid(\n    ui.h2(\"CPU Usage Monitor\"),\n    ui.layout_sidebar(\n        ui.panel_sidebar(\n            ui.input_select(\n                \"colormap\",\n                \"Colormap\",\n                {\n                    \"viridis\": \"Viridis\",\n                    \"plasma\": \"Plasma\",\n                    \"inferno\": \"Inferno\",\n                    \"magma\": \"Magma\",\n                    \"cividis\": \"Cividis\",\n                    \"jet\": \"Jet\",\n                    \"gray\": \"Gray\",\n                },\n                selected=\"viridis\"\n            ),\n            ui.input_numeric(\"samples\", \"Samples per graph\", 30, min=5, max=200),\n            ui.input_numeric(\"rows\", \"Rows in table\", 10, min=1, max=200),\n            ui.input_action_button(\"clear\", \"Clear History\"),\n            ui.input_checkbox(\"freeze\", \"Freeze Output\", False),\n        ),\n        ui.panel_main(\n            ui.output_plot(\"cpu_plot\"),\n            ui.output_table(\"cpu_table\"),\n        ),\n    ),\n)\n\n# Server\ndef server(input: Inputs, output: Outputs, session: Session):\n    # Reactive values for CPU usage history\n    cpu_history = reactive.Value([])\n\n    # Periodic update\n    @reactive.effect\n    @reactive.event(lambda: not input.freeze())\n    async def _():\n        while not input.freeze():\n            await asyncio.sleep(1)\n            history = cpu_history.get()\n            cpu = psutil.cpu_percent(interval=None)\n            timestamp = time.strftime(\"%H:%M:%S\")\n            history.append({\"Time\": timestamp, \"CPU (%)\": cpu})\n            # Limit history to max(samples, rows)\n            maxlen = max(input.samples(), input.rows())\n            if len(history) > maxlen:\n                history = history[-maxlen:]\n            cpu_history.set(history)\n\n    # Clear history\n    @reactive.effect\n    @reactive.event(input.clear)\n    def _():\n        cpu_history.set([])\n\n    # CPU usage DataFrame\n    @reactive.calc\n    def cpu_df():\n        history = cpu_history.get()\n        df = pd.DataFrame(history)\n        if not df.empty:\n            df = df.tail(input.rows())\n        return df\n\n    # Plot\n    @output\n    @render.plot\n    def cpu_plot():\n        df = pd.DataFrame(cpu_history.get())\n        if df.empty:\n            fig, ax = plt.subplots()\n            ax.text(0.5, 0.5, \"No data\", ha=\"center\", va=\"center\")\n            hide_axis_ticks(ax)\n            return fig\n        df = df.tail(input.samples())\n        fig, ax = plt.subplots(figsize=(8, 3))\n        cmap = plt.get_cmap(input.colormap())\n        normed = [v/100 for v in df[\"CPU (%)\"]]\n        colors = cmap(normed)\n        bars = ax.bar(df[\"Time\"], df[\"CPU (%)\"], color=colors)\n        ax.set_ylim(0, 100)\n        ax.set_ylabel(\"CPU (%)\")\n        ax.set_xlabel(\"Time\")\n        ax.set_title(\"CPU Usage Over Time\")\n        ax.tick_params(axis='x', rotation=45)\n        # Optionally hide ticks if too many samples\n        if len(df) > 20:\n            hide_axis_ticks(ax)\n        fig.tight_layout()\n        return fig\n\n    # Table\n    @output\n    @render.table\n    def cpu_table():\n        df = cpu_df()\n        if df.empty:\n            return pd.DataFrame({\"Info\": [\"No data\"]})\n        return df\n\napp = App(app_ui, server)\n```",
+  "latency_seconds": 4.742725439999049,
+  "usage": {
+    "completion_tokens": 915,
+    "prompt_tokens": 185,
+    "total_tokens": 1100,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7690,
+  "response_sha256": "16b3b873eb1ea38278d43ed944bf6848b27ca0593e7c90d003abe65f45d8c57b",
+  "artifact_sha256": "068bd4f8e5c44125e37d64087f9aa61622956737eeaa66b961965270bcb40f43"
+}

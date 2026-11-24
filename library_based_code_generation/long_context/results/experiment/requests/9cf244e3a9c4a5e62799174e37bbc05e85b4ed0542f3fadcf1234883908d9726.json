@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 147,
+    "task_sha256": "0207ca0b037f07aef2a519587579832030c757111a256269e358693e2dc84a80",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a full pipeline on the SPM Faces dataset using the MNE-Python library. The pipeline should include artifact removal, averaging epochs, forward model computation, and source reconstruction using dSPM on the contrast \"faces - scrambled\". The code should load and filter data, set up epochs, fit ICA, find and remove major artifacts, compute and visualize the contrast, estimate noise covariance, visualize fields on MEG helmet, compute forward and inverse solutions, and finally plot the contrast in 3D.\n\nYou can find the following APIs from the library helpful:\ncenter_and_norm, _get_and_verify_data_sizes, test_label_io_and_time_course_estimates, _get_contrast_indices, test_compute_epochs_csd_on_artificial_data, _on_set_change, on_set_view, _on_pick, _on_hide, _interpret_code, compute_covariance, compute_source_psd_epochs, _compute_source_psd_epochs, _iter_forward_solutions, average_forward_solutions, compute_raw_data_covariance, compute_epochs_csd, _compute_cov_epochs, compute_epochs_psd, compute_proj_epochs"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em67iaB0qbYJoyQ1c73PUf3xshmbz",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport mne\nfrom mne.datasets import spm_face\nfrom mne.preprocessing import ICA, create_eog_epochs, create_ecg_epochs\nfrom mne.minimum_norm import make_inverse_operator, apply_inverse, apply_inverse_epochs\nfrom mne import compute_covariance\nimport numpy as np\n\n# 1. Load SPM Faces dataset\ndata_path = spm_face.data_path()\nraw_fname = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D.ds'\nevent_fname = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D-eve.fif'\n\nraw = mne.io.read_raw_ctf(raw_fname, preload=True)\nraw.pick_types(meg=True, eeg=False, stim=True, eog=True)\nraw.filter(1., 40., fir_design='firwin')\n\n# 2. Set up events and epochs\nevents = mne.read_events(event_fname)\nevent_id = {'faces': 1, 'scrambled': 2}\ntmin, tmax = -0.2, 0.5\n\nepochs = mne.Epochs(raw, events, event_id, tmin, tmax, baseline=(None, 0),\n                    reject=dict(mag=4e-12), preload=True)\n\n# 3. ICA for artifact removal\nica = ICA(n_components=20, random_state=97, max_iter='auto')\nica.fit(epochs)\n\n# Find EOG/ECG artifacts\neog_inds, eog_scores = ica.find_bads_eog(epochs)\necg_inds, ecg_scores = ica.find_bads_ecg(epochs)\n\nica.exclude = eog_inds + ecg_inds\nepochs_clean = ica.apply(epochs.copy())\n\n# 4. Averaging epochs\nevoked_faces = epochs_clean['faces'].average()\nevoked_scrambled = epochs_clean['scrambled'].average()\n\n# 5. Compute contrast\ncontrast = mne.combine_evoked([evoked_faces, evoked_scrambled], weights=[1, -1])\n\n# 6. Estimate noise covariance\nnoise_cov = compute_covariance(epochs_clean, tmax=0., method='auto')\n\n# 7. Visualize fields on MEG helmet\ncontrast.plot_topomap(times=np.linspace(0.1, 0.2, 5), ch_type='mag')\n\n# 8. Compute forward model\nsubjects_dir = data_path + '/subjects'\ntrans = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D-trans.fif'\nsrc = mne.setup_source_space('spm', spacing='oct6', subjects_dir=subjects_dir, add_dist=False)\nbem = mne.make_bem_model(subject='spm', ico=4, conductivity=(0.3,), subjects_dir=subjects_dir)\nbem_sol = mne.make_bem_solution(bem)\nfwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem_sol, meg=True, eeg=False)\n\n# 9. Compute inverse operator\ninverse_operator = make_inverse_operator(raw.info, fwd, noise_cov, loose=0.2, depth=0.8)\n\n# 10. Source reconstruction using dSPM\nstc_contrast = apply_inverse(contrast, inverse_operator, lambda2=1. / 9., method='dSPM')\n\n# 11. Plot the contrast in 3D\nbrain = stc_contrast.plot(subject='spm', subjects_dir=subjects_dir, initial_time=0.170,\n                          hemi='both', surface='inflated', time_viewer=False)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131990,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_67c7cfda46",
+    "usage": {
+      "completion_tokens": 765,
+      "prompt_tokens": 255,
+      "total_tokens": 1020,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport mne\nfrom mne.datasets import spm_face\nfrom mne.preprocessing import ICA, create_eog_epochs, create_ecg_epochs\nfrom mne.minimum_norm import make_inverse_operator, apply_inverse, apply_inverse_epochs\nfrom mne import compute_covariance\nimport numpy as np\n\n# 1. Load SPM Faces dataset\ndata_path = spm_face.data_path()\nraw_fname = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D.ds'\nevent_fname = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D-eve.fif'\n\nraw = mne.io.read_raw_ctf(raw_fname, preload=True)\nraw.pick_types(meg=True, eeg=False, stim=True, eog=True)\nraw.filter(1., 40., fir_design='firwin')\n\n# 2. Set up events and epochs\nevents = mne.read_events(event_fname)\nevent_id = {'faces': 1, 'scrambled': 2}\ntmin, tmax = -0.2, 0.5\n\nepochs = mne.Epochs(raw, events, event_id, tmin, tmax, baseline=(None, 0),\n                    reject=dict(mag=4e-12), preload=True)\n\n# 3. ICA for artifact removal\nica = ICA(n_components=20, random_state=97, max_iter='auto')\nica.fit(epochs)\n\n# Find EOG/ECG artifacts\neog_inds, eog_scores = ica.find_bads_eog(epochs)\necg_inds, ecg_scores = ica.find_bads_ecg(epochs)\n\nica.exclude = eog_inds + ecg_inds\nepochs_clean = ica.apply(epochs.copy())\n\n# 4. Averaging epochs\nevoked_faces = epochs_clean['faces'].average()\nevoked_scrambled = epochs_clean['scrambled'].average()\n\n# 5. Compute contrast\ncontrast = mne.combine_evoked([evoked_faces, evoked_scrambled], weights=[1, -1])\n\n# 6. Estimate noise covariance\nnoise_cov = compute_covariance(epochs_clean, tmax=0., method='auto')\n\n# 7. Visualize fields on MEG helmet\ncontrast.plot_topomap(times=np.linspace(0.1, 0.2, 5), ch_type='mag')\n\n# 8. Compute forward model\nsubjects_dir = data_path + '/subjects'\ntrans = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces1_3D-trans.fif'\nsrc = mne.setup_source_space('spm', spacing='oct6', subjects_dir=subjects_dir, add_dist=False)\nbem = mne.make_bem_model(subject='spm', ico=4, conductivity=(0.3,), subjects_dir=subjects_dir)\nbem_sol = mne.make_bem_solution(bem)\nfwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem_sol, meg=True, eeg=False)\n\n# 9. Compute inverse operator\ninverse_operator = make_inverse_operator(raw.info, fwd, noise_cov, loose=0.2, depth=0.8)\n\n# 10. Source reconstruction using dSPM\nstc_contrast = apply_inverse(contrast, inverse_operator, lambda2=1. / 9., method='dSPM')\n\n# 11. Plot the contrast in 3D\nbrain = stc_contrast.plot(subject='spm', subjects_dir=subjects_dir, initial_time=0.170,\n                          hemi='both', surface='inflated', time_viewer=False)\n```",
+  "latency_seconds": 4.125130051001179,
+  "usage": {
+    "completion_tokens": 765,
+    "prompt_tokens": 255,
+    "total_tokens": 1020,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6630,
+  "response_sha256": "656f306cef9bf46a7a372a71b08f6e1630aa7d44f8dad95db372c7ea8515cc8f",
+  "artifact_sha256": "9ff5358a89a90ac0407cb618556b40617164bc7cfa7e96bebc5c081567dd8504"
+}

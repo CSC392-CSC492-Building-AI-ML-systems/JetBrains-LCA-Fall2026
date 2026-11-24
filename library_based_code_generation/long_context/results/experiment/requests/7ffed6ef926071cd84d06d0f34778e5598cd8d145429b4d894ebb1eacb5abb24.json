@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 2,
+    "task_sha256": "575848c24f211b29083b9cdf8733944b3786e4b590d2bc4ed0508393f3114511",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks:\n\n1. Import necessary libraries and modules including numpy, argparse, matplotlib, scipy, and fealpy.\n2. Define command line arguments for time division, initial spatial division, and number of spatial iterations.\n3. Create an initial 2D triangular mesh using the fealpy library.\n4. Define the parameters for the PDE (Partial Differential Equation) using the ADI_2d class from fealpy.\n5. Initialize the electric and magnetic fields using the FirstKindNedelecFiniteElementSpace2d and ScaledMonomialSpace2d classes from fealpy.\n6. Define a function to get the phi curl matrix.\n7. Create mass and curl matrices using the fealpy library.\n8. Iterate over the number of spatial iterations, in each iteration:\n   - Compute the right-hand side of the equation for the next time layer.\n   - Handle the boundary conditions for the next time layer.\n   - Compute the electric and magnetic fields for the next time layer.\n   - Calculate the error between the computed and actual solutions for the electric and magnetic fields.\n9. If not the last iteration, refine the mesh uniformly.\n10. Finally, display the error matrix and plot the error rates using the fealpy library."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4dcM2qVh3CK8ribPRRzFDVAz8g3",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport argparse\nimport matplotlib.pyplot as plt\nfrom scipy.sparse import csr_matrix\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.pde.adi_2d import ADI_2d\nfrom fealpy.functionspace import FirstKindNedelecFiniteElementSpace2d, ScaledMonomialSpace2d\nfrom fealpy.tools.show import showmultirate\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='2D ADI PDE Solver with FEALPy')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--nx', type=int, default=8, help='Initial spatial division')\n    parser.add_argument('--nrefine', type=int, default=3, help='Number of spatial iterations')\n    return parser.parse_args()\n\ndef get_phi_curl_matrix(space, pspace):\n    cell2dof = space.cell2dof()\n    phi_curl = np.zeros((cell2dof.shape[0], pspace.number_of_global_dofs()))\n    # Placeholder: actual implementation depends on fealpy's API\n    # Here, we assume a function exists or you need to implement it\n    # For demonstration, we fill with zeros\n    return csr_matrix(phi_curl)\n\ndef main():\n    args = parse_args()\n    nt = args.nt\n    nx = args.nx\n    nrefine = args.nrefine\n\n    error_matrix = np.zeros((nrefine, 2))\n    h_list = []\n\n    # 1. Create initial mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx, nx)\n\n    for i in range(nrefine):\n        # 2. PDE parameters\n        pde = ADI_2d()\n        t0 = 0\n        T = 1\n        dt = (T - t0) / nt\n\n        # 3. Function spaces\n        space = FirstKindNedelecFiniteElementSpace2d(mesh)\n        pspace = ScaledMonomialSpace2d(mesh, p=2)\n\n        # 4. Initial conditions\n        uh = space.interpolation(pde.u0)\n        vh = pspace.interpolation(pde.v0)\n\n        # 5. Matrices\n        M = space.mass_matrix()\n        C = space.curl_matrix()\n        phi_curl = get_phi_curl_matrix(space, pspace)\n        Mp = pspace.mass_matrix()\n\n        # 6. Time stepping\n        for k in range(nt):\n            t1 = t0 + (k+1)*dt\n            # Compute right-hand side\n            f1 = space.source_vector(lambda x: pde.source(x, t1))\n            # Boundary conditions\n            bc_dof = space.boundary_dof()\n            uh[bc_dof] = 0.0\n            # Solve for next time layer (simplified, actual system may differ)\n            A = M + dt * C @ Mp @ C.T\n            b = M @ uh + dt * f1\n            uh = np.linalg.solve(A.toarray(), b)\n            # Magnetic field update (simplified)\n            vh = Mp @ vh + dt * phi_curl @ uh\n\n        # 7. Error calculation\n        error_matrix[i, 0] = space.integralalg.L2_error(pde.u, uh, power=2)\n        error_matrix[i, 1] = pspace.integralalg.L2_error(pde.v, vh, power=2)\n        h_list.append(mesh.h_min())\n\n        # 8. Mesh refinement\n        if i < nrefine - 1:\n            mesh = mesh.uniform_refine()\n\n    # 9. Display error matrix and plot error rates\n    print(\"Error Matrix:\\n\", error_matrix)\n    showmultirate(plt, 0, h_list, error_matrix[:, 0], label='Electric Field L2 Error')\n    showmultirate(plt, 0, h_list, error_matrix[:, 1], label='Magnetic Field L2 Error')\n    plt.xlabel('h')\n    plt.ylabel('L2 Error')\n    plt.legend()\n    plt.show()\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126280,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 907,
+      "prompt_tokens": 290,
+      "total_tokens": 1197,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport argparse\nimport matplotlib.pyplot as plt\nfrom scipy.sparse import csr_matrix\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.pde.adi_2d import ADI_2d\nfrom fealpy.functionspace import FirstKindNedelecFiniteElementSpace2d, ScaledMonomialSpace2d\nfrom fealpy.tools.show import showmultirate\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description='2D ADI PDE Solver with FEALPy')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--nx', type=int, default=8, help='Initial spatial division')\n    parser.add_argument('--nrefine', type=int, default=3, help='Number of spatial iterations')\n    return parser.parse_args()\n\ndef get_phi_curl_matrix(space, pspace):\n    cell2dof = space.cell2dof()\n    phi_curl = np.zeros((cell2dof.shape[0], pspace.number_of_global_dofs()))\n    # Placeholder: actual implementation depends on fealpy's API\n    # Here, we assume a function exists or you need to implement it\n    # For demonstration, we fill with zeros\n    return csr_matrix(phi_curl)\n\ndef main():\n    args = parse_args()\n    nt = args.nt\n    nx = args.nx\n    nrefine = args.nrefine\n\n    error_matrix = np.zeros((nrefine, 2))\n    h_list = []\n\n    # 1. Create initial mesh\n    domain = [0, 1, 0, 1]\n    mesh = TriangleMesh.from_box(domain, nx, nx)\n\n    for i in range(nrefine):\n        # 2. PDE parameters\n        pde = ADI_2d()\n        t0 = 0\n        T = 1\n        dt = (T - t0) / nt\n\n        # 3. Function spaces\n        space = FirstKindNedelecFiniteElementSpace2d(mesh)\n        pspace = ScaledMonomialSpace2d(mesh, p=2)\n\n        # 4. Initial conditions\n        uh = space.interpolation(pde.u0)\n        vh = pspace.interpolation(pde.v0)\n\n        # 5. Matrices\n        M = space.mass_matrix()\n        C = space.curl_matrix()\n        phi_curl = get_phi_curl_matrix(space, pspace)\n        Mp = pspace.mass_matrix()\n\n        # 6. Time stepping\n        for k in range(nt):\n            t1 = t0 + (k+1)*dt\n            # Compute right-hand side\n            f1 = space.source_vector(lambda x: pde.source(x, t1))\n            # Boundary conditions\n            bc_dof = space.boundary_dof()\n            uh[bc_dof] = 0.0\n            # Solve for next time layer (simplified, actual system may differ)\n            A = M + dt * C @ Mp @ C.T\n            b = M @ uh + dt * f1\n            uh = np.linalg.solve(A.toarray(), b)\n            # Magnetic field update (simplified)\n            vh = Mp @ vh + dt * phi_curl @ uh\n\n        # 7. Error calculation\n        error_matrix[i, 0] = space.integralalg.L2_error(pde.u, uh, power=2)\n        error_matrix[i, 1] = pspace.integralalg.L2_error(pde.v, vh, power=2)\n        h_list.append(mesh.h_min())\n\n        # 8. Mesh refinement\n        if i < nrefine - 1:\n            mesh = mesh.uniform_refine()\n\n    # 9. Display error matrix and plot error rates\n    print(\"Error Matrix:\\n\", error_matrix)\n    showmultirate(plt, 0, h_list, error_matrix[:, 0], label='Electric Field L2 Error')\n    showmultirate(plt, 0, h_list, error_matrix[:, 1], label='Magnetic Field L2 Error')\n    plt.xlabel('h')\n    plt.ylabel('L2 Error')\n    plt.legend()\n    plt.show()\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 8.158557046001079,
+  "usage": {
+    "completion_tokens": 907,
+    "prompt_tokens": 290,
+    "total_tokens": 1197,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7836,
+  "response_sha256": "f13341f66ef916e02a4c8a9e5f6f3b1986ccf0723c341b5aeb9295c322575ee9",
+  "artifact_sha256": "1651773ee16260b01756bb85cc2914d1e9aaa493fe164a0da1a13a272c666f44"
+}

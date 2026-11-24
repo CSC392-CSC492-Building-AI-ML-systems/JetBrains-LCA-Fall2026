@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 25,
+    "task_sha256": "4852afecd9ab1a9281037c0f390bb7a3d0b2e9342b1c0da26f45d1b390f7f7d5",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a coil optimization problem using the simsopt library. The goal is to find coils that generate a specific target normal field on a given surface. The objective function includes terms for the magnetic field, coil length, coil-to-coil distance, coil-to-surface distance, curvature, and mean squared curvature. The code should initialize the boundary magnetic surface, create initial coils, define the individual terms of the objective function, and form the total objective function. It should then perform a Taylor test and run the optimization. After the optimization, the code should use the result as the initial guess for a subsequent optimization with reduced penalty for the coil length. Finally, the code should save the optimized coil shapes and currents.\n\nYou can find the following APIs from the library helpful:\ncoil_optimization, A_and_dA_vjp, A, A_vjp, _A_impl, Coil, _optimization_setup, test_curves_and_surface, TestCoil, MagneticField, CircularCoil, dA_by_dcoilcurrents, MeanSquaredCurvature, test_biotsavart_B_is_curlA, test_profile_optimization, relax_and_split, test_qfm_surface_optimization_convergence, test_perturbed_objective_distance, objective, make_optimization_plots"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4uAbTEkmxpumERy2VEVopWTgdFs",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom simsopt.field.coil import Coil, curves_to_coils\nfrom simsopt.field.curve import CurveCWSFourier\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.magneticfield import MagneticField\nfrom simsopt.field.surface import SurfaceRZFourier\nfrom simsopt.objectives import (\n    SquaredFlux,\n    CurveLength,\n    CurveCurveDistance,\n    CurveSurfaceDistance,\n    MeanSquaredCurvature,\n    CurveCurvature,\n    LinearObjective,\n)\nfrom simsopt.solve import least_squares_serial_solve\nfrom simsopt.util.taylor_test import taylor_test\nfrom simsopt._core.util import save_pickle\n\n# 1. Initialize the boundary magnetic surface\nnphi = 64\nntheta = 32\nR0 = 10.0\nr0 = 1.0\nsurface = SurfaceRZFourier(nphi, ntheta, mpol=3, ntor=3, stellsym=True)\nsurface.set(\"rc(0,0)\", R0)\nsurface.set(\"rc(1,0)\", r0)\nsurface.set(\"zc(1,0)\", 0.3 * r0)\n\n# 2. Create initial coils\nncoils = 6\ncoils = []\nfor i in range(ncoils):\n    curve = CurveCWSFourier(npoints=100, order=5)\n    phi0 = 2 * np.pi * i / ncoils\n    curve.set(\"x0c\", R0 + 2.0 * np.cos(phi0))\n    curve.set(\"y0c\", R0 + 2.0 * np.sin(phi0))\n    curve.set(\"z0c\", 0.0)\n    coil = Coil(curve, current=1e5)\n    coils.append(coil)\n\n# 3. Define the target normal field on the surface\n# For demonstration, use zero normal field (vacuum field)\ntarget_Bn = np.zeros((surface.nphi, surface.ntheta))\n\n# 4. Define the individual terms of the objective function\nbs = BiotSavart(coils)\nmagnetic_field_term = SquaredFlux(surface, bs, target_Bn, weight=1.0)\ncoil_length_term = LinearObjective([CurveLength(coil.curve) for coil in coils], weights=1e-3)\ncoil_coil_distance_term = LinearObjective(\n    [CurveCurveDistance(c1.curve, c2.curve, dmin=0.5) for i, c1 in enumerate(coils) for j, c2 in enumerate(coils) if i < j],\n    weights=1.0\n)\ncoil_surface_distance_term = LinearObjective(\n    [CurveSurfaceDistance(coil.curve, surface, dmin=0.5) for coil in coils],\n    weights=1.0\n)\ncurvature_term = LinearObjective([CurveCurvature(coil.curve) for coil in coils], weights=1e-2)\nmean_squared_curvature_term = LinearObjective([MeanSquaredCurvature(coil.curve) for coil in coils], weights=1e-2)\n\n# 5. Form the total objective function\nobjective = (\n    magnetic_field_term\n    + coil_length_term\n    + coil_coil_distance_term\n    + coil_surface_distance_term\n    + curvature_term\n    + mean_squared_curvature_term\n)\n\n# 6. Perform a Taylor test\nx0 = objective.x.copy()\ntaylor_test(objective, x0)\n\n# 7. Run the optimization\nleast_squares_serial_solve(objective, verbose=2, max_nfev=100)\n\n# 8. Reduce penalty for coil length and re-optimize\ncoil_length_term.weights = [w * 0.1 for w in coil_length_term.weights]\nobjective = (\n    magnetic_field_term\n    + coil_length_term\n    + coil_coil_distance_term\n    + coil_surface_distance_term\n    + curvature_term\n    + mean_squared_curvature_term\n)\nleast_squares_serial_solve(objective, verbose=2, max_nfev=100)\n\n# 9. Save the optimized coil shapes and currents\nfor i, coil in enumerate(coils):\n    coil.save(f\"optimized_coil_{i}.json\")\n    np.save(f\"optimized_coil_{i}_current.npy\", np.array([coil.current]))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127306,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_128048d39c",
+    "usage": {
+      "completion_tokens": 919,
+      "prompt_tokens": 288,
+      "total_tokens": 1207,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom simsopt.field.coil import Coil, curves_to_coils\nfrom simsopt.field.curve import CurveCWSFourier\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.magneticfield import MagneticField\nfrom simsopt.field.surface import SurfaceRZFourier\nfrom simsopt.objectives import (\n    SquaredFlux,\n    CurveLength,\n    CurveCurveDistance,\n    CurveSurfaceDistance,\n    MeanSquaredCurvature,\n    CurveCurvature,\n    LinearObjective,\n)\nfrom simsopt.solve import least_squares_serial_solve\nfrom simsopt.util.taylor_test import taylor_test\nfrom simsopt._core.util import save_pickle\n\n# 1. Initialize the boundary magnetic surface\nnphi = 64\nntheta = 32\nR0 = 10.0\nr0 = 1.0\nsurface = SurfaceRZFourier(nphi, ntheta, mpol=3, ntor=3, stellsym=True)\nsurface.set(\"rc(0,0)\", R0)\nsurface.set(\"rc(1,0)\", r0)\nsurface.set(\"zc(1,0)\", 0.3 * r0)\n\n# 2. Create initial coils\nncoils = 6\ncoils = []\nfor i in range(ncoils):\n    curve = CurveCWSFourier(npoints=100, order=5)\n    phi0 = 2 * np.pi * i / ncoils\n    curve.set(\"x0c\", R0 + 2.0 * np.cos(phi0))\n    curve.set(\"y0c\", R0 + 2.0 * np.sin(phi0))\n    curve.set(\"z0c\", 0.0)\n    coil = Coil(curve, current=1e5)\n    coils.append(coil)\n\n# 3. Define the target normal field on the surface\n# For demonstration, use zero normal field (vacuum field)\ntarget_Bn = np.zeros((surface.nphi, surface.ntheta))\n\n# 4. Define the individual terms of the objective function\nbs = BiotSavart(coils)\nmagnetic_field_term = SquaredFlux(surface, bs, target_Bn, weight=1.0)\ncoil_length_term = LinearObjective([CurveLength(coil.curve) for coil in coils], weights=1e-3)\ncoil_coil_distance_term = LinearObjective(\n    [CurveCurveDistance(c1.curve, c2.curve, dmin=0.5) for i, c1 in enumerate(coils) for j, c2 in enumerate(coils) if i < j],\n    weights=1.0\n)\ncoil_surface_distance_term = LinearObjective(\n    [CurveSurfaceDistance(coil.curve, surface, dmin=0.5) for coil in coils],\n    weights=1.0\n)\ncurvature_term = LinearObjective([CurveCurvature(coil.curve) for coil in coils], weights=1e-2)\nmean_squared_curvature_term = LinearObjective([MeanSquaredCurvature(coil.curve) for coil in coils], weights=1e-2)\n\n# 5. Form the total objective function\nobjective = (\n    magnetic_field_term\n    + coil_length_term\n    + coil_coil_distance_term\n    + coil_surface_distance_term\n    + curvature_term\n    + mean_squared_curvature_term\n)\n\n# 6. Perform a Taylor test\nx0 = objective.x.copy()\ntaylor_test(objective, x0)\n\n# 7. Run the optimization\nleast_squares_serial_solve(objective, verbose=2, max_nfev=100)\n\n# 8. Reduce penalty for coil length and re-optimize\ncoil_length_term.weights = [w * 0.1 for w in coil_length_term.weights]\nobjective = (\n    magnetic_field_term\n    + coil_length_term\n    + coil_coil_distance_term\n    + coil_surface_distance_term\n    + curvature_term\n    + mean_squared_curvature_term\n)\nleast_squares_serial_solve(objective, verbose=2, max_nfev=100)\n\n# 9. Save the optimized coil shapes and currents\nfor i, coil in enumerate(coils):\n    coil.save(f\"optimized_coil_{i}.json\")\n    np.save(f\"optimized_coil_{i}_current.npy\", np.array([coil.current]))\n```",
+  "latency_seconds": 7.381286991998422,
+  "usage": {
+    "completion_tokens": 919,
+    "prompt_tokens": 288,
+    "total_tokens": 1207,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7928,
+  "response_sha256": "7392a8ada097299cc588ff1abaeffd3569fae49f86e5424244822e86863d7732",
+  "artifact_sha256": "ab57d3649c2abd3ac3001038140bb1c0a7774db49aefc5e1131889ab1587cc56"
+}

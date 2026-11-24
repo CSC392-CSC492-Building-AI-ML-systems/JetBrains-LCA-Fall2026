@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 3,
+    "task_sha256": "41e33cf0ebbb626c4393c8349bdc1d6c074fc9c714626a7d35ecba733f19db94",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the effective electronic coupling based on single determinant diabatic states using the pyscf library. The code should first define a molecule with specific atoms and basis. Then, it should perform two state calculations with DFT, storing molecular orbital information into separate chkfiles. The code should then read the MO coefficients and occupation numbers from these chkfiles. Afterwards, it should calculate the overlap between two determinants, construct density matrices, calculate one-electron and two-electron part contributions, and calculate new total energy. Finally, the code should calculate the effective electronic coupling and print the results. The code should also remove the chkfiles at the end."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4eShWB7qm8kPxvqUwUf8VkHPjbm",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport os\nfrom pyscf import gto, dft, scf, lib\n\n# Define molecule and basis\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.587000\nH 0.000000 0.757000 0.587000\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# State 1: DFT calculation, save to chkfile1\nmf1 = dft.RKS(mol)\nmf1.xc = 'b3lyp'\nmf1.chkfile = 'state1.chk'\nmf1.kernel()\n\n# State 2: DFT calculation with slightly modified geometry, save to chkfile2\nmol2 = mol.copy()\nmol2.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.687000\nH 0.000000 0.757000 0.487000\n'''\nmol2.build()\nmf2 = dft.RKS(mol2)\nmf2.xc = 'b3lyp'\nmf2.chkfile = 'state2.chk'\nmf2.kernel()\n\n# Read MO coefficients and occupations from chkfiles\nmo1 = scf.chkfile.load('state1.chk', 'scf/mo_coeff')\nocc1 = scf.chkfile.load('state1.chk', 'scf/mo_occ')\nmo2 = scf.chkfile.load('state2.chk', 'scf/mo_coeff')\nocc2 = scf.chkfile.load('state2.chk', 'scf/mo_occ')\n\n# Get overlap matrix S\nS = mol.intor('int1e_ovlp')\n\n# Select occupied orbitals\nocc_idx1 = np.where(occ1 > 0)[0]\nocc_idx2 = np.where(occ2 > 0)[0]\nmo1_occ = mo1[:, occ_idx1]\nmo2_occ = mo2[:, occ_idx2]\n\n# Overlap between two determinants (Slater-Condon rule)\nS_mo = np.dot(mo1_occ.T, np.dot(S, mo2_occ))\ndet_overlap = np.linalg.det(S_mo)\n\n# Construct density matrices\ndm1 = np.dot(mo1_occ, mo1_occ.T) * 2\ndm2 = np.dot(mo2_occ, mo2_occ.T) * 2\n\n# One-electron integrals\nh1 = mol.intor('int1e_kin') + mol.intor('int1e_nuc')\n\n# Two-electron integrals (antisymmetrized)\neri = mol.intor('int2e', aosym='s8')\n\n# One-electron part\nE1 = np.sum(h1 * (dm1 + dm2) / 2)\n\n# Two-electron part\ndef get_2e(dm):\n    return 0.5 * np.einsum('pq,rs,pqrs->', dm, dm, eri)\n\nE2 = (get_2e(dm1) + get_2e(dm2)) / 2\n\n# Total energy for the mixed state\nE_total = E1 + E2\n\n# Get energies of diabatic states\nE1_diab = mf1.e_tot\nE2_diab = mf2.e_tot\n\n# Effective electronic coupling (assuming symmetric off-diagonal Hamiltonian)\nH12 = (E_total - (E1_diab + E2_diab) / 2) / det_overlap\n\nprint(f\"Determinant overlap: {det_overlap:.6e}\")\nprint(f\"State 1 energy: {E1_diab:.6f} Ha\")\nprint(f\"State 2 energy: {E2_diab:.6f} Ha\")\nprint(f\"Mixed state energy: {E_total:.6f} Ha\")\nprint(f\"Effective electronic coupling (H12): {H12:.6e} Ha\")\n\n# Remove chkfiles\nos.remove('state1.chk')\nos.remove('state2.chk')\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126332,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_3b94341bc3",
+    "usage": {
+      "completion_tokens": 881,
+      "prompt_tokens": 161,
+      "total_tokens": 1042,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport os\nfrom pyscf import gto, dft, scf, lib\n\n# Define molecule and basis\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.587000\nH 0.000000 0.757000 0.587000\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# State 1: DFT calculation, save to chkfile1\nmf1 = dft.RKS(mol)\nmf1.xc = 'b3lyp'\nmf1.chkfile = 'state1.chk'\nmf1.kernel()\n\n# State 2: DFT calculation with slightly modified geometry, save to chkfile2\nmol2 = mol.copy()\nmol2.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.687000\nH 0.000000 0.757000 0.487000\n'''\nmol2.build()\nmf2 = dft.RKS(mol2)\nmf2.xc = 'b3lyp'\nmf2.chkfile = 'state2.chk'\nmf2.kernel()\n\n# Read MO coefficients and occupations from chkfiles\nmo1 = scf.chkfile.load('state1.chk', 'scf/mo_coeff')\nocc1 = scf.chkfile.load('state1.chk', 'scf/mo_occ')\nmo2 = scf.chkfile.load('state2.chk', 'scf/mo_coeff')\nocc2 = scf.chkfile.load('state2.chk', 'scf/mo_occ')\n\n# Get overlap matrix S\nS = mol.intor('int1e_ovlp')\n\n# Select occupied orbitals\nocc_idx1 = np.where(occ1 > 0)[0]\nocc_idx2 = np.where(occ2 > 0)[0]\nmo1_occ = mo1[:, occ_idx1]\nmo2_occ = mo2[:, occ_idx2]\n\n# Overlap between two determinants (Slater-Condon rule)\nS_mo = np.dot(mo1_occ.T, np.dot(S, mo2_occ))\ndet_overlap = np.linalg.det(S_mo)\n\n# Construct density matrices\ndm1 = np.dot(mo1_occ, mo1_occ.T) * 2\ndm2 = np.dot(mo2_occ, mo2_occ.T) * 2\n\n# One-electron integrals\nh1 = mol.intor('int1e_kin') + mol.intor('int1e_nuc')\n\n# Two-electron integrals (antisymmetrized)\neri = mol.intor('int2e', aosym='s8')\n\n# One-electron part\nE1 = np.sum(h1 * (dm1 + dm2) / 2)\n\n# Two-electron part\ndef get_2e(dm):\n    return 0.5 * np.einsum('pq,rs,pqrs->', dm, dm, eri)\n\nE2 = (get_2e(dm1) + get_2e(dm2)) / 2\n\n# Total energy for the mixed state\nE_total = E1 + E2\n\n# Get energies of diabatic states\nE1_diab = mf1.e_tot\nE2_diab = mf2.e_tot\n\n# Effective electronic coupling (assuming symmetric off-diagonal Hamiltonian)\nH12 = (E_total - (E1_diab + E2_diab) / 2) / det_overlap\n\nprint(f\"Determinant overlap: {det_overlap:.6e}\")\nprint(f\"State 1 energy: {E1_diab:.6f} Ha\")\nprint(f\"State 2 energy: {E2_diab:.6f} Ha\")\nprint(f\"Mixed state energy: {E_total:.6f} Ha\")\nprint(f\"Effective electronic coupling (H12): {H12:.6e} Ha\")\n\n# Remove chkfiles\nos.remove('state1.chk')\nos.remove('state2.chk')\n```",
+  "latency_seconds": 4.541722210000444,
+  "usage": {
+    "completion_tokens": 881,
+    "prompt_tokens": 161,
+    "total_tokens": 1042,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7370,
+  "response_sha256": "38ab7c14df3a101e982cf04174f3ab5d75bd199690e87d0eeb76c1533d9254db",
+  "artifact_sha256": "63cff5cf2f23a1d6d818907071f9360e48a3de165790ef7e17c11f86baf2af94"
+}

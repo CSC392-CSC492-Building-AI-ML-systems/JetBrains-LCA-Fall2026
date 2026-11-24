@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 59,
+    "task_sha256": "034d5470008ef7e4fbc756619f1149ee1ac982b89d5f403b5d28e64bb161b914",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary libraries and sets up logging. Then, define a function to train a model for a specified number of iterations. This function should declare array keys for raw intensities, labelled objects, per-voxel affinities, loss weights, predicted affinities, and gradients of the loss with respect to the predicted affinities. \n\nNext, the function should read a configuration file and calculate the input and output sizes in world units. It should then formulate a request for what a batch should contain and a snapshot request for inspection. \n\nThe function should then assemble a training pipeline that includes reading batches from an HDF5 file, normalizing raw data, choosing a random location for each requested batch, applying various augmentations, growing a boundary between labels, converting labels into affinities, balancing labels, pre-caching batches, performing one training iteration for each passing batch, saving the passing batch as an HDF5 file for inspection, and printing profiling stats. \n\nFinally, the function should print a statement indicating the start of training, build the pipeline, request batches for the specified number of iterations, and print a statement indicating the end of training. \n\nThe code should then call this function with a specified number of iterations when run as a main program."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5IXOP08DO1FcK7nvG0xZMl4HSAZ",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport logging\nimport numpy as np\nimport h5py\nimport yaml\nimport gunpowder as gp\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\ndef train_model(num_iterations):\n    # Declare array keys\n    RAW = gp.ArrayKey('RAW')\n    LABELS = gp.ArrayKey('LABELS')\n    AFFINITIES = gp.ArrayKey('AFFINITIES')\n    LOSS_WEIGHTS = gp.ArrayKey('LOSS_WEIGHTS')\n    PRED_AFFINITIES = gp.ArrayKey('PRED_AFFINITIES')\n    GRADIENTS = gp.ArrayKey('GRADIENTS')\n\n    # Read configuration file\n    with open('config.yaml', 'r') as f:\n        config = yaml.safe_load(f)\n\n    voxel_size = gp.Coordinate(config['voxel_size'])\n    input_size = gp.Coordinate(config['input_shape']) * voxel_size\n    output_size = gp.Coordinate(config['output_shape']) * voxel_size\n\n    # Formulate batch request\n    request = gp.BatchRequest()\n    request.add(RAW, input_size)\n    request.add(LABELS, output_size)\n    request.add(AFFINITIES, output_size)\n    request.add(LOSS_WEIGHTS, output_size)\n    request.add(PRED_AFFINITIES, output_size)\n    request.add(GRADIENTS, output_size)\n\n    # Snapshot request for inspection\n    snapshot_request = gp.BatchRequest()\n    snapshot_request.add(RAW, input_size)\n    snapshot_request.add(LABELS, output_size)\n    snapshot_request.add(AFFINITIES, output_size)\n    snapshot_request.add(PRED_AFFINITIES, output_size)\n\n    # Assemble pipeline\n    data_sources = tuple(\n        gp.Hdf5Source(\n            filename=sample['hdf5_file'],\n            datasets={\n                RAW: sample['raw_dataset'],\n                LABELS: sample['labels_dataset']\n            },\n            array_specs={\n                RAW: gp.ArraySpec(interpolatable=True, voxel_size=voxel_size),\n                LABELS: gp.ArraySpec(interpolatable=False, voxel_size=voxel_size)\n            }\n        ) +\n        gp.Normalize(RAW) +\n        gp.Pad(RAW, None) +\n        gp.Pad(LABELS, None) +\n        gp.RandomLocation()\n        for sample in config['samples']\n    )\n\n    pipeline = (\n        data_sources +\n        gp.RandomProvider() +\n        gp.SimpleAugment() +\n        gp.ElasticAugment(\n            control_point_spacing=[40, 40, 40],\n            jitter_sigma=[2, 2, 2],\n            rotation_interval=[0, np.pi/2]\n        ) +\n        gp.GrowBoundary(\n            labels=LABELS,\n            steps=1,\n            only_xy=True\n        ) +\n        gp.AddAffinities(\n            affinity_neighborhood=config['affinity_neighborhood'],\n            labels=LABELS,\n            affinities=AFFINITIES\n        ) +\n        gp.BalanceLabels(\n            labels=AFFINITIES,\n            scales=LOSS_WEIGHTS\n        ) +\n        gp.PreCache(\n            cache_size=40,\n            num_workers=10\n        ) +\n        gp.Train(\n            'train_net',\n            optimizer=config['optimizer'],\n            loss=config['loss'],\n            inputs={\n                'raw': RAW,\n                'labels': AFFINITIES,\n                'loss_weights': LOSS_WEIGHTS\n            },\n            outputs={\n                'affinities': PRED_AFFINITIES\n            },\n            gradients={\n                'affinities': GRADIENTS\n            }\n        ) +\n        gp.Snapshot(\n            dataset_names={\n                RAW: 'volumes/raw',\n                LABELS: 'volumes/labels',\n                AFFINITIES: 'volumes/affinities',\n                PRED_AFFINITIES: 'volumes/pred_affinities'\n            },\n            output_filename='batch_{iteration}.hdf',\n            every=1,\n            additional_request=snapshot_request\n        ) +\n        gp.PrintProfilingStats(every=10)\n    )\n\n    logger.info(\"Starting training for %d iterations...\", num_iterations)\n    with gp.build(pipeline):\n        for i in range(num_iterations):\n            batch = pipeline.request_batch(request)\n    logger.info(\"Training finished after %d iterations.\", num_iterations)\n\nif __name__ == '__main__':\n    train_model(1000)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128817,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_a60da2450d",
+    "usage": {
+      "completion_tokens": 907,
+      "prompt_tokens": 284,
+      "total_tokens": 1191,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport logging\nimport numpy as np\nimport h5py\nimport yaml\nimport gunpowder as gp\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\ndef train_model(num_iterations):\n    # Declare array keys\n    RAW = gp.ArrayKey('RAW')\n    LABELS = gp.ArrayKey('LABELS')\n    AFFINITIES = gp.ArrayKey('AFFINITIES')\n    LOSS_WEIGHTS = gp.ArrayKey('LOSS_WEIGHTS')\n    PRED_AFFINITIES = gp.ArrayKey('PRED_AFFINITIES')\n    GRADIENTS = gp.ArrayKey('GRADIENTS')\n\n    # Read configuration file\n    with open('config.yaml', 'r') as f:\n        config = yaml.safe_load(f)\n\n    voxel_size = gp.Coordinate(config['voxel_size'])\n    input_size = gp.Coordinate(config['input_shape']) * voxel_size\n    output_size = gp.Coordinate(config['output_shape']) * voxel_size\n\n    # Formulate batch request\n    request = gp.BatchRequest()\n    request.add(RAW, input_size)\n    request.add(LABELS, output_size)\n    request.add(AFFINITIES, output_size)\n    request.add(LOSS_WEIGHTS, output_size)\n    request.add(PRED_AFFINITIES, output_size)\n    request.add(GRADIENTS, output_size)\n\n    # Snapshot request for inspection\n    snapshot_request = gp.BatchRequest()\n    snapshot_request.add(RAW, input_size)\n    snapshot_request.add(LABELS, output_size)\n    snapshot_request.add(AFFINITIES, output_size)\n    snapshot_request.add(PRED_AFFINITIES, output_size)\n\n    # Assemble pipeline\n    data_sources = tuple(\n        gp.Hdf5Source(\n            filename=sample['hdf5_file'],\n            datasets={\n                RAW: sample['raw_dataset'],\n                LABELS: sample['labels_dataset']\n            },\n            array_specs={\n                RAW: gp.ArraySpec(interpolatable=True, voxel_size=voxel_size),\n                LABELS: gp.ArraySpec(interpolatable=False, voxel_size=voxel_size)\n            }\n        ) +\n        gp.Normalize(RAW) +\n        gp.Pad(RAW, None) +\n        gp.Pad(LABELS, None) +\n        gp.RandomLocation()\n        for sample in config['samples']\n    )\n\n    pipeline = (\n        data_sources +\n        gp.RandomProvider() +\n        gp.SimpleAugment() +\n        gp.ElasticAugment(\n            control_point_spacing=[40, 40, 40],\n            jitter_sigma=[2, 2, 2],\n            rotation_interval=[0, np.pi/2]\n        ) +\n        gp.GrowBoundary(\n            labels=LABELS,\n            steps=1,\n            only_xy=True\n        ) +\n        gp.AddAffinities(\n            affinity_neighborhood=config['affinity_neighborhood'],\n            labels=LABELS,\n            affinities=AFFINITIES\n        ) +\n        gp.BalanceLabels(\n            labels=AFFINITIES,\n            scales=LOSS_WEIGHTS\n        ) +\n        gp.PreCache(\n            cache_size=40,\n            num_workers=10\n        ) +\n        gp.Train(\n            'train_net',\n            optimizer=config['optimizer'],\n            loss=config['loss'],\n            inputs={\n                'raw': RAW,\n                'labels': AFFINITIES,\n                'loss_weights': LOSS_WEIGHTS\n            },\n            outputs={\n                'affinities': PRED_AFFINITIES\n            },\n            gradients={\n                'affinities': GRADIENTS\n            }\n        ) +\n        gp.Snapshot(\n            dataset_names={\n                RAW: 'volumes/raw',\n                LABELS: 'volumes/labels',\n                AFFINITIES: 'volumes/affinities',\n                PRED_AFFINITIES: 'volumes/pred_affinities'\n            },\n            output_filename='batch_{iteration}.hdf',\n            every=1,\n            additional_request=snapshot_request\n        ) +\n        gp.PrintProfilingStats(every=10)\n    )\n\n    logger.info(\"Starting training for %d iterations...\", num_iterations)\n    with gp.build(pipeline):\n        for i in range(num_iterations):\n            batch = pipeline.request_batch(request)\n    logger.info(\"Training finished after %d iterations.\", num_iterations)\n\nif __name__ == '__main__':\n    train_model(1000)\n```",
+  "latency_seconds": 4.493170165000265,
+  "usage": {
+    "completion_tokens": 907,
+    "prompt_tokens": 284,
+    "total_tokens": 1191,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7824,
+  "response_sha256": "46c4f3a4b4dec0dd4c1d628e7aa7d80ff19eb8b436e1551a3779edf2f6061b6c",
+  "artifact_sha256": "ee0f3744e437b990b56b9d2c282beee32fcabc8950b9d7a1622c82a195053792"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 144,
+    "task_sha256": "398efaeeabf93ea6740bdb7378f0827350556359ff4d82d097e8ba03d79451b2",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the pysilfont library to create an FTML (Font Test Markup Language) document from a UFO (Unified Font Object) and a glyph data CSV file. The script should accept various command line arguments to customize the output, such as input UFO, output file, glyph info CSV file, font code, log file name, list of BCP47 language tags, right-to-left feature enabling, rendering check disabling, test name, font source, text scaling, anchor points regular expression, total width of all string column, and XSL stylesheet. The script should read the input CSV, initialize the FTML document, and add encoded characters, unencoded specials and ligatures, Lam-Alef data, and diacritic attachment data to the document based on the provided arguments. Finally, the script should write the output FTML file."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em66Lfwqc3Dgo9NZU9JRW41Ozrdbi",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\n#!/usr/bin/env python3\n\nimport argparse\nimport csv\nimport sys\nimport re\nfrom pathlib import Path\nfrom pysilfont.ftml import FTML\nfrom pysilfont.ufo import openFont\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Generate FTML from UFO and glyph data CSV using pysilfont.\")\n    parser.add_argument(\"--ufo\", required=True, help=\"Input UFO font directory\")\n    parser.add_argument(\"--out\", required=True, help=\"Output FTML file\")\n    parser.add_argument(\"--csv\", required=True, help=\"Glyph info CSV file\")\n    parser.add_argument(\"--fontcode\", default=\"\", help=\"Font code\")\n    parser.add_argument(\"--log\", default=None, help=\"Log file name\")\n    parser.add_argument(\"--langs\", default=\"\", help=\"Comma-separated list of BCP47 language tags\")\n    parser.add_argument(\"--rtl\", action=\"store_true\", help=\"Enable right-to-left feature\")\n    parser.add_argument(\"--norendercheck\", action=\"store_true\", help=\"Disable rendering check\")\n    parser.add_argument(\"--testname\", default=\"Test\", help=\"Test name\")\n    parser.add_argument(\"--fontsrc\", default=\"\", help=\"Font source\")\n    parser.add_argument(\"--scale\", type=float, default=1.0, help=\"Text scaling factor\")\n    parser.add_argument(\"--anchorre\", default=\"\", help=\"Anchor points regular expression\")\n    parser.add_argument(\"--totalwidth\", type=int, default=0, help=\"Total width of all string column\")\n    parser.add_argument(\"--xsl\", default=None, help=\"XSL stylesheet\")\n    return parser.parse_args()\n\ndef read_csv(csv_path):\n    with open(csv_path, newline='', encoding='utf-8') as csvfile:\n        reader = csv.DictReader(csvfile)\n        rows = [row for row in reader]\n    return rows\n\ndef main():\n    args = parse_args()\n\n    # Logging\n    if args.log:\n        sys.stderr = open(args.log, \"w\")\n\n    # Open UFO font\n    font = openFont(args.ufo, layers=True)\n\n    # Read glyph data CSV\n    glyph_rows = read_csv(args.csv)\n\n    # Prepare FTML document\n    ftml = FTML(testname=args.testname, fontsrc=args.fontsrc, xsl=args.xsl)\n    ftml.setFont(font, fontcode=args.fontcode, scale=args.scale)\n\n    # Set languages\n    langs = [l.strip() for l in args.langs.split(\",\") if l.strip()]\n    if langs:\n        ftml.setLangs(langs)\n\n    # Set RTL\n    if args.rtl:\n        ftml.setRTL(True)\n\n    # Set rendering check\n    if args.norendercheck:\n        ftml.setRenderCheck(False)\n\n    # Set anchor regex\n    anchorre = re.compile(args.anchorre) if args.anchorre else None\n\n    # Add encoded characters, specials, ligatures, Lam-Alef, diacritics\n    for row in glyph_rows:\n        glyphname = row.get(\"glyphname\") or row.get(\"GlyphName\")\n        unicodeval = row.get(\"unicode\") or row.get(\"Unicode\")\n        typ = row.get(\"type\") or row.get(\"Type\", \"\").lower()\n        string = row.get(\"string\") or row.get(\"String\")\n        comment = row.get(\"comment\") or row.get(\"Comment\", \"\")\n\n        # Encoded characters\n        if typ == \"encoded\" and unicodeval:\n            ftml.addChar(glyphname, int(unicodeval, 16), comment=comment)\n\n        # Specials (unencoded)\n        elif typ == \"special\":\n            ftml.addSpecial(glyphname, comment=comment)\n\n        # Ligatures\n        elif typ == \"ligature\":\n            ftml.addLigature(glyphname, string, comment=comment)\n\n        # Lam-Alef\n        elif typ == \"lamalef\":\n            ftml.addLamAlef(glyphname, string, comment=comment)\n\n        # Diacritic attachment\n        elif typ == \"diacritic\":\n            if anchorre:\n                anchors = [a for a in font[glyphname].anchors if anchorre.match(a.name)]\n            else:\n                anchors = font[glyphname].anchors\n            ftml.addDiacritic(glyphname, anchors, comment=comment)\n\n    # Set total width if specified\n    if args.totalwidth > 0:\n        ftml.setTotalWidth(args.totalwidth)\n\n    # Write FTML output\n    with open(args.out, \"w\", encoding=\"utf-8\") as outf:\n        outf.write(ftml.toXML())\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131905,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 969,
+      "prompt_tokens": 203,
+      "total_tokens": 1172,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\n#!/usr/bin/env python3\n\nimport argparse\nimport csv\nimport sys\nimport re\nfrom pathlib import Path\nfrom pysilfont.ftml import FTML\nfrom pysilfont.ufo import openFont\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"Generate FTML from UFO and glyph data CSV using pysilfont.\")\n    parser.add_argument(\"--ufo\", required=True, help=\"Input UFO font directory\")\n    parser.add_argument(\"--out\", required=True, help=\"Output FTML file\")\n    parser.add_argument(\"--csv\", required=True, help=\"Glyph info CSV file\")\n    parser.add_argument(\"--fontcode\", default=\"\", help=\"Font code\")\n    parser.add_argument(\"--log\", default=None, help=\"Log file name\")\n    parser.add_argument(\"--langs\", default=\"\", help=\"Comma-separated list of BCP47 language tags\")\n    parser.add_argument(\"--rtl\", action=\"store_true\", help=\"Enable right-to-left feature\")\n    parser.add_argument(\"--norendercheck\", action=\"store_true\", help=\"Disable rendering check\")\n    parser.add_argument(\"--testname\", default=\"Test\", help=\"Test name\")\n    parser.add_argument(\"--fontsrc\", default=\"\", help=\"Font source\")\n    parser.add_argument(\"--scale\", type=float, default=1.0, help=\"Text scaling factor\")\n    parser.add_argument(\"--anchorre\", default=\"\", help=\"Anchor points regular expression\")\n    parser.add_argument(\"--totalwidth\", type=int, default=0, help=\"Total width of all string column\")\n    parser.add_argument(\"--xsl\", default=None, help=\"XSL stylesheet\")\n    return parser.parse_args()\n\ndef read_csv(csv_path):\n    with open(csv_path, newline='', encoding='utf-8') as csvfile:\n        reader = csv.DictReader(csvfile)\n        rows = [row for row in reader]\n    return rows\n\ndef main():\n    args = parse_args()\n\n    # Logging\n    if args.log:\n        sys.stderr = open(args.log, \"w\")\n\n    # Open UFO font\n    font = openFont(args.ufo, layers=True)\n\n    # Read glyph data CSV\n    glyph_rows = read_csv(args.csv)\n\n    # Prepare FTML document\n    ftml = FTML(testname=args.testname, fontsrc=args.fontsrc, xsl=args.xsl)\n    ftml.setFont(font, fontcode=args.fontcode, scale=args.scale)\n\n    # Set languages\n    langs = [l.strip() for l in args.langs.split(\",\") if l.strip()]\n    if langs:\n        ftml.setLangs(langs)\n\n    # Set RTL\n    if args.rtl:\n        ftml.setRTL(True)\n\n    # Set rendering check\n    if args.norendercheck:\n        ftml.setRenderCheck(False)\n\n    # Set anchor regex\n    anchorre = re.compile(args.anchorre) if args.anchorre else None\n\n    # Add encoded characters, specials, ligatures, Lam-Alef, diacritics\n    for row in glyph_rows:\n        glyphname = row.get(\"glyphname\") or row.get(\"GlyphName\")\n        unicodeval = row.get(\"unicode\") or row.get(\"Unicode\")\n        typ = row.get(\"type\") or row.get(\"Type\", \"\").lower()\n        string = row.get(\"string\") or row.get(\"String\")\n        comment = row.get(\"comment\") or row.get(\"Comment\", \"\")\n\n        # Encoded characters\n        if typ == \"encoded\" and unicodeval:\n            ftml.addChar(glyphname, int(unicodeval, 16), comment=comment)\n\n        # Specials (unencoded)\n        elif typ == \"special\":\n            ftml.addSpecial(glyphname, comment=comment)\n\n        # Ligatures\n        elif typ == \"ligature\":\n            ftml.addLigature(glyphname, string, comment=comment)\n\n        # Lam-Alef\n        elif typ == \"lamalef\":\n            ftml.addLamAlef(glyphname, string, comment=comment)\n\n        # Diacritic attachment\n        elif typ == \"diacritic\":\n            if anchorre:\n                anchors = [a for a in font[glyphname].anchors if anchorre.match(a.name)]\n            else:\n                anchors = font[glyphname].anchors\n            ftml.addDiacritic(glyphname, anchors, comment=comment)\n\n    # Set total width if specified\n    if args.totalwidth > 0:\n        ftml.setTotalWidth(args.totalwidth)\n\n    # Write FTML output\n    with open(args.out, \"w\", encoding=\"utf-8\") as outf:\n        outf.write(ftml.toXML())\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.049738512996555,
+  "usage": {
+    "completion_tokens": 969,
+    "prompt_tokens": 203,
+    "total_tokens": 1172,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8158,
+  "response_sha256": "9601cd478d4113a25546865972f73bb67b01e85b230c553e1d2b758081fe4260",
+  "artifact_sha256": "d71de5bcb1780993f10e3ec1cb3a4a7eb18cdcdbc4c871be0f4e1aef4f8e95b7"
+}

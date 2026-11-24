@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 111,
+    "task_sha256": "479ff92cf3bb30bab3d34250e8f7180066c56e14b4124516d4d9d7e5a17eff81",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a FOCUS-like Stage II coil optimization problem for finite build coils using the simsopt library. The code should approximate each finite build coil using a multifilament approach and model the multifilament pack. The objective function should be defined as a combination of the squared flux, curve length penalty, and coil-to-coil distance penalty. The code should also include the initialization of the boundary magnetic surface, creation of equally spaced curves and multifilament grid, application of stellarator and rotation symmetries, and definition of the Biot-Savart law. The code should perform a Taylor test and run the optimization using the L-BFGS-B method from scipy.optimize. The output should be saved in VTK format.\n\nYou can find the following APIs from the library helpful:\nA_and_dA_vjp, test_curves_and_surface, relax_and_split, A, OneOf, OneOfTest, test_get_and_write_nml, B_and_dB_vjp, _A_impl, A_vjp, coil_optimization, test_biotsavart_gradient_symmetric_and_divergence_free, subtest_biotsavart_gradient_symmetric_and_divergence_free, test_independent_of_scaling, test_out_of_bounds, test_independent_of_resolution, test_independent_of_quadpoints, OneOfIntsComposite, OneOfTstComposite, create_multifilament_grid"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5oIs0ZBdZgZapzA9TrmdHyu5vWm",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom simsopt.field.coil import Coil, BiotSavart, create_multifilament_grid\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.magneticfield import SurfaceRZFourier\nfrom simsopt.field.coil_optimize import SquaredFlux, CurveLength, CoilCoilDistance, CoilOptimizationProblem\nfrom simsopt.geo.curve import curves_to_vtk\nfrom simsopt.geo.curve import CurveRZFourier\nfrom simsopt.util.symmetry import apply_stellarator_symmetry, apply_rotation_symmetry\nfrom scipy.optimize import minimize\n\n# Parameters\nncoils = 4\nnfilaments = 5  # multifilament grid per coil (e.g., 5x5)\nnphi = 100\norder = 5\nnfp = 2  # number of field periods\nsymmetry = True\n\n# 1. Initialize boundary magnetic surface\nsurface = SurfaceRZFourier(nphi, mpol=order, ntor=order, nfp=nfp)\nsurface.set(\"rc(0,0)\", 10.0)\nsurface.set(\"zc(1,0)\", 2.0)\n\n# 2. Create equally spaced curves (coils)\ncoils = []\nfor i in range(ncoils):\n    curve = CurveRZFourier(nphi, order, order, nfp=nfp)\n    angle = 2 * np.pi * i / ncoils\n    curve.set(\"rc(0,0)\", 12.0)\n    curve.set(\"zc(1,0)\", 2.0 * np.cos(angle))\n    curve.set(\"rc(1,0)\", 1.0)\n    if symmetry:\n        apply_stellarator_symmetry(curve, nfp)\n        apply_rotation_symmetry(curve, nfp)\n    coil = Coil(curve, current=1e5)\n    # 3. Approximate each coil with a multifilament grid\n    multifilaments = create_multifilament_grid(coil, nfilaments, nfilaments)\n    coils.extend(multifilaments)\n\ncoil_collection = CoilCollection(coils)\n\n# 4. Biot-Savart law\nbs = BiotSavart(coil_collection)\n\n# 5. Objective function: squared flux + curve length penalty + coil-to-coil distance penalty\nflux_obj = SquaredFlux(surface, bs)\nlength_obj = CurveLength(coil_collection)\ndistance_obj = CoilCoilDistance(coil_collection, min_distance=1.0)\n\ndef objective(x):\n    coil_collection.set_dof(x)\n    f_flux = flux_obj.J()\n    f_length = length_obj.J()\n    f_dist = distance_obj.J()\n    return f_flux + 1e-3 * f_length + 1e-2 * f_dist\n\ndef gradient(x):\n    coil_collection.set_dof(x)\n    grad = flux_obj.dJ()\n    grad += 1e-3 * length_obj.dJ()\n    grad += 1e-2 * distance_obj.dJ()\n    return grad\n\n# 6. Taylor test\ndef taylor_test(x0, v, epsilons=[1e-6, 1e-7, 1e-8]):\n    f0 = objective(x0)\n    g0 = gradient(x0)\n    for eps in epsilons:\n        f1 = objective(x0 + eps * v)\n        approx = f0 + eps * np.dot(g0, v)\n        print(f\"eps={eps:.1e}, f1={f1:.8e}, approx={approx:.8e}, error={abs(f1-approx):.2e}\")\n\nx0 = coil_collection.get_dof()\nv = np.random.randn(len(x0))\ntaylor_test(x0, v)\n\n# 7. Optimization\nres = minimize(objective, x0, jac=gradient, method='L-BFGS-B', options={'maxiter': 100})\n\n# 8. Save output in VTK format\ncoil_collection.set_dof(res.x)\ncurves_to_vtk(coil_collection.curves, \"optimized_coils.vtk\")\nsurface.to_vtk(\"boundary_surface.vtk\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130786,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8b0c5e528c",
+    "usage": {
+      "completion_tokens": 881,
+      "prompt_tokens": 316,
+      "total_tokens": 1197,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom simsopt.field.coil import Coil, BiotSavart, create_multifilament_grid\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.magneticfield import SurfaceRZFourier\nfrom simsopt.field.coil_optimize import SquaredFlux, CurveLength, CoilCoilDistance, CoilOptimizationProblem\nfrom simsopt.geo.curve import curves_to_vtk\nfrom simsopt.geo.curve import CurveRZFourier\nfrom simsopt.util.symmetry import apply_stellarator_symmetry, apply_rotation_symmetry\nfrom scipy.optimize import minimize\n\n# Parameters\nncoils = 4\nnfilaments = 5  # multifilament grid per coil (e.g., 5x5)\nnphi = 100\norder = 5\nnfp = 2  # number of field periods\nsymmetry = True\n\n# 1. Initialize boundary magnetic surface\nsurface = SurfaceRZFourier(nphi, mpol=order, ntor=order, nfp=nfp)\nsurface.set(\"rc(0,0)\", 10.0)\nsurface.set(\"zc(1,0)\", 2.0)\n\n# 2. Create equally spaced curves (coils)\ncoils = []\nfor i in range(ncoils):\n    curve = CurveRZFourier(nphi, order, order, nfp=nfp)\n    angle = 2 * np.pi * i / ncoils\n    curve.set(\"rc(0,0)\", 12.0)\n    curve.set(\"zc(1,0)\", 2.0 * np.cos(angle))\n    curve.set(\"rc(1,0)\", 1.0)\n    if symmetry:\n        apply_stellarator_symmetry(curve, nfp)\n        apply_rotation_symmetry(curve, nfp)\n    coil = Coil(curve, current=1e5)\n    # 3. Approximate each coil with a multifilament grid\n    multifilaments = create_multifilament_grid(coil, nfilaments, nfilaments)\n    coils.extend(multifilaments)\n\ncoil_collection = CoilCollection(coils)\n\n# 4. Biot-Savart law\nbs = BiotSavart(coil_collection)\n\n# 5. Objective function: squared flux + curve length penalty + coil-to-coil distance penalty\nflux_obj = SquaredFlux(surface, bs)\nlength_obj = CurveLength(coil_collection)\ndistance_obj = CoilCoilDistance(coil_collection, min_distance=1.0)\n\ndef objective(x):\n    coil_collection.set_dof(x)\n    f_flux = flux_obj.J()\n    f_length = length_obj.J()\n    f_dist = distance_obj.J()\n    return f_flux + 1e-3 * f_length + 1e-2 * f_dist\n\ndef gradient(x):\n    coil_collection.set_dof(x)\n    grad = flux_obj.dJ()\n    grad += 1e-3 * length_obj.dJ()\n    grad += 1e-2 * distance_obj.dJ()\n    return grad\n\n# 6. Taylor test\ndef taylor_test(x0, v, epsilons=[1e-6, 1e-7, 1e-8]):\n    f0 = objective(x0)\n    g0 = gradient(x0)\n    for eps in epsilons:\n        f1 = objective(x0 + eps * v)\n        approx = f0 + eps * np.dot(g0, v)\n        print(f\"eps={eps:.1e}, f1={f1:.8e}, approx={approx:.8e}, error={abs(f1-approx):.2e}\")\n\nx0 = coil_collection.get_dof()\nv = np.random.randn(len(x0))\ntaylor_test(x0, v)\n\n# 7. Optimization\nres = minimize(objective, x0, jac=gradient, method='L-BFGS-B', options={'maxiter': 100})\n\n# 8. Save output in VTK format\ncoil_collection.set_dof(res.x)\ncurves_to_vtk(coil_collection.curves, \"optimized_coils.vtk\")\nsurface.to_vtk(\"boundary_surface.vtk\")\n```",
+  "latency_seconds": 4.990083754000807,
+  "usage": {
+    "completion_tokens": 881,
+    "prompt_tokens": 316,
+    "total_tokens": 1197,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7680,
+  "response_sha256": "8d485c6eafd8b63babf3e4f8ef3bdebefcf12c7ad29472eac9b0986467a59610",
+  "artifact_sha256": "dd50994152df6156ea71cd0c301ff819197b0a14576c622f77ec8c11e8814dcc"
+}

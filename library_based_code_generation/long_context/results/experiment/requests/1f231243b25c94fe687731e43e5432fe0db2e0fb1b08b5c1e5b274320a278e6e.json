@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 125,
+    "task_sha256": "67110f73073a0e65aff24f335137dba1d6b13e4cec81198464a484265f6bdaba",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a cell using the pyscf.pbc.gto.Cell() function, with specified atom positions, basis, pseudo, a, unit, and verbosity. Then, perform KHF and KMP2 calculations with 2x2x2 k-points, and print the KMP2 energy per unit cell. Repeat the KHF and KMP2 calculations for a single k-point calculation. Then, perform a single k-point calculation using the RHF method, and print the RMP2 energy per unit cell at the k-point. Also, generate the first and second order reduced density matrices, and calculate the total energy based on these matrices. Convert the RHF object to UHF and GHF objects, and for each, perform a UMP2 and GMP2 calculation respectively, generate the first and second order reduced density matrices, and calculate the total energy based on these matrices. Print the UMP2 and GMP2 energy per unit cell at the k-point, and the total energy based on the MP2 density matrices.\n\nYou can find the following APIs from the library helpful:\n__and__, sign_and_symbs, add_and_permute, _load_and_unpack, _get_intor_and_comp, rsh_and_hybrid_coeff, test_des_and_cre, test_spin_and_pointgroup_sa4, test_spin_and_pointgroup_sa4_newton, calculate_energy, A, print_mo_energy_occ, energy, energy_mp2, _momentum_rotation_matrices, print_mo_energy_occ_kpts, des_a, make_A, cre_a, energy_1body"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5w57OzO5t7miOwj6PD392y5XmZo",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import pbc\nfrom pyscf.pbc import gto, scf, mp\nfrom pyscf.pbc.tools import lattice\n\n# Define cell parameters\ncell = gto.Cell()\ncell.atom = '''\nH 0 0 0\nH 0 0 0.74\n'''\ncell.a = '''\n0.0 1.0 1.0\n1.0 0.0 1.0\n1.0 1.0 0.0\n'''\ncell.unit = 'Bohr'\ncell.basis = 'sto-3g'\ncell.pseudo = 'gth-pade'\ncell.verbosity = 4\ncell.build()\n\n# KHF and KMP2 with 2x2x2 k-points\nkmesh = [2, 2, 2]\nkpts = cell.make_kpts(kmesh)\nkhf = scf.KRHF(cell, kpts=kpts)\nkhf.kernel()\nkmp2 = mp.KMP2(khf)\nemp2, t2 = kmp2.kernel()\nprint(\"KMP2 energy per unit cell (2x2x2 k-points):\", emp2)\n\n# KHF and KMP2 with single k-point\nkmesh1 = [1, 1, 1]\nkpts1 = cell.make_kpts(kmesh1)\nkhf1 = scf.KRHF(cell, kpts=kpts1)\nkhf1.kernel()\nkmp2_1 = mp.KMP2(khf1)\nemp2_1, t2_1 = kmp2_1.kernel()\nprint(\"KMP2 energy per unit cell (single k-point):\", emp2_1)\n\n# RHF and RMP2 with single k-point\nrhf = scf.RHF(cell)\nrhf.kernel()\nrmp2 = mp.MP2(rhf)\nemp2_rhf, t2_rhf = rmp2.kernel()\nprint(\"RMP2 energy per unit cell (single k-point):\", emp2_rhf)\n\n# Generate 1- and 2-RDMs and calculate total energy for RMP2\nrdm1 = rmp2.make_rdm1()\nrdm2 = rmp2.make_rdm2()\nh1 = rhf.get_hcore()\neri = rhf.with_df.ao2mo(rhf.mo_coeff)\ne1 = np.einsum('ij,ji', h1, rdm1)\ne2 = 0.5 * np.einsum('ijkl,ijkl', eri, rdm2)\ne_tot_rmp2 = e1 + e2 + cell.energy_nuc()\nprint(\"RMP2 total energy from RDMs:\", e_tot_rmp2)\n\n# Convert RHF to UHF and GHF\nuhf = rhf.to_uhf()\nghf = rhf.to_ghf()\n\n# UMP2 calculation\nump2 = mp.UMP2(uhf)\nemp2_uhf, t2_uhf = ump2.kernel()\nprint(\"UMP2 energy per unit cell (single k-point):\", emp2_uhf)\nrdm1_uhf = ump2.make_rdm1()\nrdm2_uhf = ump2.make_rdm2()\nh1_uhf = uhf.get_hcore()\neri_uhf = uhf.with_df.ao2mo(uhf.mo_coeff)\ne1_uhf = np.einsum('ij,ji', h1_uhf, rdm1_uhf)\ne2_uhf = 0.5 * np.einsum('ijkl,ijkl', eri_uhf, rdm2_uhf)\ne_tot_ump2 = e1_uhf + e2_uhf + cell.energy_nuc()\nprint(\"UMP2 total energy from RDMs:\", e_tot_ump2)\n\n# GMP2 calculation\ngmp2 = mp.GMP2(ghf)\nemp2_ghf, t2_ghf = gmp2.kernel()\nprint(\"GMP2 energy per unit cell (single k-point):\", emp2_ghf)\nrdm1_ghf = gmp2.make_rdm1()\nrdm2_ghf = gmp2.make_rdm2()\nh1_ghf = ghf.get_hcore()\neri_ghf = ghf.with_df.ao2mo(ghf.mo_coeff)\ne1_ghf = np.einsum('ij,ji', h1_ghf, rdm1_ghf)\ne2_ghf = 0.5 * np.einsum('ijkl,ijkl', eri_ghf, rdm2_ghf)\ne_tot_gmp2 = e1_ghf + e2_ghf + cell.energy_nuc()\nprint(\"GMP2 total energy from RDMs:\", e_tot_gmp2)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131269,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_bce17ff7c2",
+    "usage": {
+      "completion_tokens": 1041,
+      "prompt_tokens": 352,
+      "total_tokens": 1393,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import pbc\nfrom pyscf.pbc import gto, scf, mp\nfrom pyscf.pbc.tools import lattice\n\n# Define cell parameters\ncell = gto.Cell()\ncell.atom = '''\nH 0 0 0\nH 0 0 0.74\n'''\ncell.a = '''\n0.0 1.0 1.0\n1.0 0.0 1.0\n1.0 1.0 0.0\n'''\ncell.unit = 'Bohr'\ncell.basis = 'sto-3g'\ncell.pseudo = 'gth-pade'\ncell.verbosity = 4\ncell.build()\n\n# KHF and KMP2 with 2x2x2 k-points\nkmesh = [2, 2, 2]\nkpts = cell.make_kpts(kmesh)\nkhf = scf.KRHF(cell, kpts=kpts)\nkhf.kernel()\nkmp2 = mp.KMP2(khf)\nemp2, t2 = kmp2.kernel()\nprint(\"KMP2 energy per unit cell (2x2x2 k-points):\", emp2)\n\n# KHF and KMP2 with single k-point\nkmesh1 = [1, 1, 1]\nkpts1 = cell.make_kpts(kmesh1)\nkhf1 = scf.KRHF(cell, kpts=kpts1)\nkhf1.kernel()\nkmp2_1 = mp.KMP2(khf1)\nemp2_1, t2_1 = kmp2_1.kernel()\nprint(\"KMP2 energy per unit cell (single k-point):\", emp2_1)\n\n# RHF and RMP2 with single k-point\nrhf = scf.RHF(cell)\nrhf.kernel()\nrmp2 = mp.MP2(rhf)\nemp2_rhf, t2_rhf = rmp2.kernel()\nprint(\"RMP2 energy per unit cell (single k-point):\", emp2_rhf)\n\n# Generate 1- and 2-RDMs and calculate total energy for RMP2\nrdm1 = rmp2.make_rdm1()\nrdm2 = rmp2.make_rdm2()\nh1 = rhf.get_hcore()\neri = rhf.with_df.ao2mo(rhf.mo_coeff)\ne1 = np.einsum('ij,ji', h1, rdm1)\ne2 = 0.5 * np.einsum('ijkl,ijkl', eri, rdm2)\ne_tot_rmp2 = e1 + e2 + cell.energy_nuc()\nprint(\"RMP2 total energy from RDMs:\", e_tot_rmp2)\n\n# Convert RHF to UHF and GHF\nuhf = rhf.to_uhf()\nghf = rhf.to_ghf()\n\n# UMP2 calculation\nump2 = mp.UMP2(uhf)\nemp2_uhf, t2_uhf = ump2.kernel()\nprint(\"UMP2 energy per unit cell (single k-point):\", emp2_uhf)\nrdm1_uhf = ump2.make_rdm1()\nrdm2_uhf = ump2.make_rdm2()\nh1_uhf = uhf.get_hcore()\neri_uhf = uhf.with_df.ao2mo(uhf.mo_coeff)\ne1_uhf = np.einsum('ij,ji', h1_uhf, rdm1_uhf)\ne2_uhf = 0.5 * np.einsum('ijkl,ijkl', eri_uhf, rdm2_uhf)\ne_tot_ump2 = e1_uhf + e2_uhf + cell.energy_nuc()\nprint(\"UMP2 total energy from RDMs:\", e_tot_ump2)\n\n# GMP2 calculation\ngmp2 = mp.GMP2(ghf)\nemp2_ghf, t2_ghf = gmp2.kernel()\nprint(\"GMP2 energy per unit cell (single k-point):\", emp2_ghf)\nrdm1_ghf = gmp2.make_rdm1()\nrdm2_ghf = gmp2.make_rdm2()\nh1_ghf = ghf.get_hcore()\neri_ghf = ghf.with_df.ao2mo(ghf.mo_coeff)\ne1_ghf = np.einsum('ij,ji', h1_ghf, rdm1_ghf)\ne2_ghf = 0.5 * np.einsum('ijkl,ijkl', eri_ghf, rdm2_ghf)\ne_tot_gmp2 = e1_ghf + e2_ghf + cell.energy_nuc()\nprint(\"GMP2 total energy from RDMs:\", e_tot_gmp2)\n```",
+  "latency_seconds": 5.843698351000057,
+  "usage": {
+    "completion_tokens": 1041,
+    "prompt_tokens": 352,
+    "total_tokens": 1393,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9032,
+  "response_sha256": "6b53a356a38e9993f8810a888e79ec81422c07fbe552678478133871a44cd027",
+  "artifact_sha256": "5ce331c329ea049c2c93cdf13342089f882f8e201f091a0c4a0c576248eeb791"
+}

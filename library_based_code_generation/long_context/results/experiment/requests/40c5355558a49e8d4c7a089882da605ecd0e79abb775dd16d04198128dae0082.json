@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 111,
+    "task_sha256": "479ff92cf3bb30bab3d34250e8f7180066c56e14b4124516d4d9d7e5a17eff81",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a FOCUS-like Stage II coil optimization problem for finite build coils using the simsopt library. The code should approximate each finite build coil using a multifilament approach and model the multifilament pack. The objective function should be defined as a combination of the squared flux, curve length penalty, and coil-to-coil distance penalty. The code should also include the initialization of the boundary magnetic surface, creation of equally spaced curves and multifilament grid, application of stellarator and rotation symmetries, and definition of the Biot-Savart law. The code should perform a Taylor test and run the optimization using the L-BFGS-B method from scipy.optimize. The output should be saved in VTK format."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5nmPuROWPwoxf3dNU5egTbfVk6w",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom simsopt.geo import SurfaceRZFourier, CurveCWSFourier, curves_to_vtk, create_equally_spaced_curves\nfrom simsopt.field.coil import Coil, BiotSavart\nfrom simsopt.field.multipole import MultiFilamentCoil\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.objectives.fluxobjective import SquaredFlux\nfrom simsopt.objectives.length import CurveLength\nfrom simsopt.objectives.coilcoildist import CoilCoilDistance\nfrom simsopt.util.symmetry import apply_stellarator_symmetry, apply_rotational_symmetry\nfrom simsopt.solve import TaylorTest\nfrom scipy.optimize import minimize\n\n# Parameters\nnphi = 64\nntheta = 32\nncoils = 6\nnfilaments = 7  # multifilament grid per coil\norder = 8\nnfp = 2\nsymmetry = True\nrot_symmetry = True\n\n# 1. Initialize boundary magnetic surface\nsurf = SurfaceRZFourier(nphi, ntheta, mpol=5, ntor=5, stellsym=symmetry, nfp=nfp)\nsurf.set('rc(0,0)', 10.0)\nsurf.set('zc(1,0)', 2.0)\n\n# 2. Create equally spaced curves (coil centerlines)\ncurves = create_equally_spaced_curves(ncoils, order, nfp=nfp, stellsym=symmetry)\nif symmetry:\n    curves = apply_stellarator_symmetry(curves, nfp)\nif rot_symmetry:\n    curves = apply_rotational_symmetry(curves, nfp)\n\n# 3. Create multifilament grid for each coil\ncoils = []\nfor curve in curves:\n    multifilament = MultiFilamentCoil(curve, nfilaments, spacing=0.03)\n    coils.append(multifilament)\n\ncoil_collection = CoilCollection(coils)\n\n# 4. Biot-Savart law\nbs = BiotSavart(coil_collection)\n\n# 5. Objective function: squared flux + length penalty + coil-to-coil distance penalty\nflux_obj = SquaredFlux(surf, bs, nphi=nphi, ntheta=ntheta)\nlength_obj = CurveLength(coil_collection, weight=1e-3)\ndist_obj = CoilCoilDistance(coil_collection, d_min=0.2, weight=1e-2)\n\ndef objective(x):\n    coil_collection.set_dof(x)\n    f = flux_obj.J() + length_obj.J() + dist_obj.J()\n    return f\n\ndef grad(x):\n    coil_collection.set_dof(x)\n    grad_flux = flux_obj.dJ()\n    grad_length = length_obj.dJ()\n    grad_dist = dist_obj.dJ()\n    return grad_flux + grad_length + grad_dist\n\nx0 = coil_collection.get_dof()\n\n# 6. Taylor test\nprint(\"Running Taylor test...\")\ntaylor = TaylorTest(objective, grad, x0)\ntaylor.check()\n\n# 7. Optimization\nprint(\"Starting optimization...\")\nres = minimize(objective, x0, jac=grad, method='L-BFGS-B', options={'maxiter': 100, 'disp': True})\ncoil_collection.set_dof(res.x)\n\n# 8. Save output in VTK format\ncurves_to_vtk(coil_collection, \"optimized_coils.vtk\")\nsurf.to_vtk(\"boundary_surface.vtk\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130754,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8b0c5e528c",
+    "usage": {
+      "completion_tokens": 737,
+      "prompt_tokens": 180,
+      "total_tokens": 917,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom simsopt.geo import SurfaceRZFourier, CurveCWSFourier, curves_to_vtk, create_equally_spaced_curves\nfrom simsopt.field.coil import Coil, BiotSavart\nfrom simsopt.field.multipole import MultiFilamentCoil\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.objectives.fluxobjective import SquaredFlux\nfrom simsopt.objectives.length import CurveLength\nfrom simsopt.objectives.coilcoildist import CoilCoilDistance\nfrom simsopt.util.symmetry import apply_stellarator_symmetry, apply_rotational_symmetry\nfrom simsopt.solve import TaylorTest\nfrom scipy.optimize import minimize\n\n# Parameters\nnphi = 64\nntheta = 32\nncoils = 6\nnfilaments = 7  # multifilament grid per coil\norder = 8\nnfp = 2\nsymmetry = True\nrot_symmetry = True\n\n# 1. Initialize boundary magnetic surface\nsurf = SurfaceRZFourier(nphi, ntheta, mpol=5, ntor=5, stellsym=symmetry, nfp=nfp)\nsurf.set('rc(0,0)', 10.0)\nsurf.set('zc(1,0)', 2.0)\n\n# 2. Create equally spaced curves (coil centerlines)\ncurves = create_equally_spaced_curves(ncoils, order, nfp=nfp, stellsym=symmetry)\nif symmetry:\n    curves = apply_stellarator_symmetry(curves, nfp)\nif rot_symmetry:\n    curves = apply_rotational_symmetry(curves, nfp)\n\n# 3. Create multifilament grid for each coil\ncoils = []\nfor curve in curves:\n    multifilament = MultiFilamentCoil(curve, nfilaments, spacing=0.03)\n    coils.append(multifilament)\n\ncoil_collection = CoilCollection(coils)\n\n# 4. Biot-Savart law\nbs = BiotSavart(coil_collection)\n\n# 5. Objective function: squared flux + length penalty + coil-to-coil distance penalty\nflux_obj = SquaredFlux(surf, bs, nphi=nphi, ntheta=ntheta)\nlength_obj = CurveLength(coil_collection, weight=1e-3)\ndist_obj = CoilCoilDistance(coil_collection, d_min=0.2, weight=1e-2)\n\ndef objective(x):\n    coil_collection.set_dof(x)\n    f = flux_obj.J() + length_obj.J() + dist_obj.J()\n    return f\n\ndef grad(x):\n    coil_collection.set_dof(x)\n    grad_flux = flux_obj.dJ()\n    grad_length = length_obj.dJ()\n    grad_dist = dist_obj.dJ()\n    return grad_flux + grad_length + grad_dist\n\nx0 = coil_collection.get_dof()\n\n# 6. Taylor test\nprint(\"Running Taylor test...\")\ntaylor = TaylorTest(objective, grad, x0)\ntaylor.check()\n\n# 7. Optimization\nprint(\"Starting optimization...\")\nres = minimize(objective, x0, jac=grad, method='L-BFGS-B', options={'maxiter': 100, 'disp': True})\ncoil_collection.set_dof(res.x)\n\n# 8. Save output in VTK format\ncurves_to_vtk(coil_collection, \"optimized_coils.vtk\")\nsurf.to_vtk(\"boundary_surface.vtk\")\n```",
+  "latency_seconds": 4.426683715999388,
+  "usage": {
+    "completion_tokens": 737,
+    "prompt_tokens": 180,
+    "total_tokens": 917,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6256,
+  "response_sha256": "734d2c724d4f0a9cc5767d0d16c725b3bfbb9b45de6266d3482d4d43e38ec65c",
+  "artifact_sha256": "960a90b162dc17a055d6ac1efedb0a97dbf64a3a715ff919d3d7b627c97c7a7d"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 24,
+    "task_sha256": "8b5bdefb6763b297a500c89bab2ef341dff8acb922a45eb8f628fe4a568abe84",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary libraries and modules such as argparse, sys, numpy, matplotlib, scipy, mumps, and fealpy. The code should define a Poisuille PDE from the navier_stokes_mold_2d module and set up a command-line argument parser to accept parameters like the degree of motion finite element space, degree of pressure finite element space, number of time divisions, evolution end time, output directory, steps, and non-linearization method. \n\nThe code should then parse these arguments and use them to define variables. It should also create a TriangleMesh from a unit square and a UniformTimeLine for time evolution. The code should define LagrangeFiniteElementSpace for motion and pressure, and calculate the number of global degrees of freedom for both. \n\nThe code should then set up a BilinearForm and MixedBilinearForm, and add domain integrators to them. It should assemble these forms and get their matrices. The code should also calculate the mass matrix of the motion space and initialize an error matrix. \n\nIn a loop, the code should advance to the next time level, add a ScalarConvectionIntegrator to a new BilinearForm, assemble it, and get its matrix. It should calculate a divergence matrix and a new matrix M. It should also calculate a source vector and set up boundary conditions. \n\nThe code should then solve the system of equations, update the motion and pressure functions, calculate the L2 error and maximum error, and advance to the next time level. Finally, the code should print the sum of absolute values of the motion function.\n\nYou can find the following APIs from the library helpful:\n__and__, a, matrix_A, a_u, get_code, get_quadrature_points_and_weights, get_quadrature_point_and_weight, get_gauss_point_and_weight, ATriMesher, get_all_gauss_point_and_weight, test_assembly_cell_righthand_side_and_matrix, assembly_for_sspace_and_vspace_with_vector_basis, test_assembly_cell_righthand_side_and_dof_matrix, get_number_of_time_steps, number_of_time_levels, test_dirichlte_and_neumann_bc_on_tetrahedron_mesh, test_dirichlet_and_neumann_bc_on_interval_mesh, test_uniform_mesh2d_cell_area_and_edge_length, rigid_motion_matrix, SetItMethod"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4tFyLQPmdmRs4PDU1LL4kbdZNrA",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport sys\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom scipy import linalg\nfrom mumps import DMumpsContext\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegrator import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.bilinearform import BilinearForm, MixedBilinearForm\nfrom fealpy.pde.navier_stokes_mold_2d import Poisuille\n\ndef main():\n    parser = argparse.ArgumentParser(description='Solve 2D Navier-Stokes Poisuille flow.')\n    parser.add_argument('--motion_degree', type=int, default=2, help='Degree of motion finite element space')\n    parser.add_argument('--pressure_degree', type=int, default=1, help='Degree of pressure finite element space')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--T', type=float, default=1.0, help='Evolution end time')\n    parser.add_argument('--output_dir', type=str, default='./output', help='Output directory')\n    parser.add_argument('--steps', type=int, default=10, help='Number of steps')\n    parser.add_argument('--nonlinear_method', type=str, default='Picard', help='Non-linearization method')\n    args = parser.parse_args()\n\n    motion_degree = args.motion_degree\n    pressure_degree = args.pressure_degree\n    nt = args.nt\n    T = args.T\n    output_dir = args.output_dir\n    steps = args.steps\n    nonlinear_method = args.nonlinear_method\n\n    pde = Poisuille()\n    n = 10\n    mesh = TriangleMesh.from_unit_square(n, n)\n    timeline = UniformTimeLine(0, T, nt)\n\n    motion_space = LagrangeFiniteElementSpace(mesh, motion_degree, dim=2)\n    pressure_space = LagrangeFiniteElementSpace(mesh, pressure_degree, dim=1)\n\n    Ndof_u = motion_space.number_of_global_dofs()\n    Ndof_p = pressure_space.number_of_global_dofs()\n\n    a = BilinearForm(motion_space, motion_space)\n    a.add_domain_integrator('grad_grad')\n    a.assemble()\n    A = a.matrix_A()\n\n    b = MixedBilinearForm(motion_space, pressure_space)\n    b.add_domain_integrator('div_test')\n    b.assemble()\n    B = b.matrix_A()\n\n    mass_form = BilinearForm(motion_space, motion_space)\n    mass_form.add_domain_integrator('mass')\n    mass_form.assemble()\n    M = mass_form.matrix_A()\n\n    error_matrix = np.zeros((steps, 2))\n\n    u = motion_space.function()\n    p = pressure_space.function()\n    u[:] = pde.u0(motion_space.dof_coor())\n    p[:] = pde.p0(pressure_space.dof_coor())\n\n    for k in range(1, timeline.number_of_time_levels()):\n        t1 = timeline.next_time_level()\n        dt = timeline.current_time_step_length()\n\n        convection_form = BilinearForm(motion_space, motion_space)\n        convection_form.add_domain_integrator('scalar_convection', c=u)\n        convection_form.assemble()\n        C = convection_form.matrix_A()\n\n        div_form = MixedBilinearForm(motion_space, pressure_space)\n        div_form.add_domain_integrator('div_test')\n        div_form.assemble()\n        D = div_form.matrix_A()\n\n        M_new = M + dt * (A + C)\n\n        f = motion_space.source_vector(pde.source, t1)\n        bc = motion_space.dirichlet_bc(pde.dirichlet, t1)\n\n        rhs = M @ u + dt * f\n        bc.apply(M_new, rhs, u)\n\n        # Assemble saddle point system\n        Z = np.zeros((Ndof_p, Ndof_p))\n        K = np.block([\n            [M_new, -dt * B.T],\n            [B, Z]\n        ])\n        F = np.concatenate([rhs, np.zeros(Ndof_p)])\n\n        ctx = DMumpsContext()\n        ctx.set_silent()\n        ctx.set_matrix(K, sym=0)\n        ctx.set_rhs(F)\n        ctx.run(job=6)\n        sol = ctx.get_solution()\n        ctx.destroy()\n\n        u[:] = sol[:Ndof_u]\n        p[:] = sol[Ndof_u:]\n\n        u_exact = pde.u(t1, motion_space.dof_coor())\n        l2_error = np.sqrt(np.sum((u - u_exact)**2))\n        max_error = np.max(np.abs(u - u_exact))\n        error_matrix[k-1, 0] = l2_error\n        error_matrix[k-1, 1] = max_error\n\n        timeline.advance()\n\n    print(np.sum(np.abs(u)))\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127249,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_54ef0fa0c3",
+    "usage": {
+      "completion_tokens": 1025,
+      "prompt_tokens": 505,
+      "total_tokens": 1530,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport sys\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom scipy import linalg\nfrom mumps import DMumpsContext\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.timeintegrator import UniformTimeLine\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.bilinearform import BilinearForm, MixedBilinearForm\nfrom fealpy.pde.navier_stokes_mold_2d import Poisuille\n\ndef main():\n    parser = argparse.ArgumentParser(description='Solve 2D Navier-Stokes Poisuille flow.')\n    parser.add_argument('--motion_degree', type=int, default=2, help='Degree of motion finite element space')\n    parser.add_argument('--pressure_degree', type=int, default=1, help='Degree of pressure finite element space')\n    parser.add_argument('--nt', type=int, default=10, help='Number of time divisions')\n    parser.add_argument('--T', type=float, default=1.0, help='Evolution end time')\n    parser.add_argument('--output_dir', type=str, default='./output', help='Output directory')\n    parser.add_argument('--steps', type=int, default=10, help='Number of steps')\n    parser.add_argument('--nonlinear_method', type=str, default='Picard', help='Non-linearization method')\n    args = parser.parse_args()\n\n    motion_degree = args.motion_degree\n    pressure_degree = args.pressure_degree\n    nt = args.nt\n    T = args.T\n    output_dir = args.output_dir\n    steps = args.steps\n    nonlinear_method = args.nonlinear_method\n\n    pde = Poisuille()\n    n = 10\n    mesh = TriangleMesh.from_unit_square(n, n)\n    timeline = UniformTimeLine(0, T, nt)\n\n    motion_space = LagrangeFiniteElementSpace(mesh, motion_degree, dim=2)\n    pressure_space = LagrangeFiniteElementSpace(mesh, pressure_degree, dim=1)\n\n    Ndof_u = motion_space.number_of_global_dofs()\n    Ndof_p = pressure_space.number_of_global_dofs()\n\n    a = BilinearForm(motion_space, motion_space)\n    a.add_domain_integrator('grad_grad')\n    a.assemble()\n    A = a.matrix_A()\n\n    b = MixedBilinearForm(motion_space, pressure_space)\n    b.add_domain_integrator('div_test')\n    b.assemble()\n    B = b.matrix_A()\n\n    mass_form = BilinearForm(motion_space, motion_space)\n    mass_form.add_domain_integrator('mass')\n    mass_form.assemble()\n    M = mass_form.matrix_A()\n\n    error_matrix = np.zeros((steps, 2))\n\n    u = motion_space.function()\n    p = pressure_space.function()\n    u[:] = pde.u0(motion_space.dof_coor())\n    p[:] = pde.p0(pressure_space.dof_coor())\n\n    for k in range(1, timeline.number_of_time_levels()):\n        t1 = timeline.next_time_level()\n        dt = timeline.current_time_step_length()\n\n        convection_form = BilinearForm(motion_space, motion_space)\n        convection_form.add_domain_integrator('scalar_convection', c=u)\n        convection_form.assemble()\n        C = convection_form.matrix_A()\n\n        div_form = MixedBilinearForm(motion_space, pressure_space)\n        div_form.add_domain_integrator('div_test')\n        div_form.assemble()\n        D = div_form.matrix_A()\n\n        M_new = M + dt * (A + C)\n\n        f = motion_space.source_vector(pde.source, t1)\n        bc = motion_space.dirichlet_bc(pde.dirichlet, t1)\n\n        rhs = M @ u + dt * f\n        bc.apply(M_new, rhs, u)\n\n        # Assemble saddle point system\n        Z = np.zeros((Ndof_p, Ndof_p))\n        K = np.block([\n            [M_new, -dt * B.T],\n            [B, Z]\n        ])\n        F = np.concatenate([rhs, np.zeros(Ndof_p)])\n\n        ctx = DMumpsContext()\n        ctx.set_silent()\n        ctx.set_matrix(K, sym=0)\n        ctx.set_rhs(F)\n        ctx.run(job=6)\n        sol = ctx.get_solution()\n        ctx.destroy()\n\n        u[:] = sol[:Ndof_u]\n        p[:] = sol[Ndof_u:]\n\n        u_exact = pde.u(t1, motion_space.dof_coor())\n        l2_error = np.sqrt(np.sum((u - u_exact)**2))\n        max_error = np.max(np.abs(u - u_exact))\n        error_matrix[k-1, 0] = l2_error\n        error_matrix[k-1, 1] = max_error\n\n        timeline.advance()\n\n    print(np.sum(np.abs(u)))\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 6.2034313149997615,
+  "usage": {
+    "completion_tokens": 1025,
+    "prompt_tokens": 505,
+    "total_tokens": 1530,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9210,
+  "response_sha256": "9e23cb1c5415e6f9ac1ca24acd20201ea8fa11f75d35158741f6210b367617cf",
+  "artifact_sha256": "695b1e04a9ef1b2dc7497385fdf76643b6574758d0104b91924986618cf05cbe"
+}

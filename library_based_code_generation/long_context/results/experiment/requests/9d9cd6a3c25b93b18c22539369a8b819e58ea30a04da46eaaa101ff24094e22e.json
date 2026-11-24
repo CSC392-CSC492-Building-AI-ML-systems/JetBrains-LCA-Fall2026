@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 54,
+    "task_sha256": "8f26c9f3e2a72266a1e5ca95d7aee688f2b1dca36dc1901e2da258eef8517d25",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the avalanche library to implement an online continual learning scenario with the Replay strategy. The code should first set up the necessary configurations and transformations. Then, it should create an online continual learning scenario using the MNIST dataset for training and testing. A SimpleMLP model should be created and some metrics for evaluation should be chosen. The code should then create a Replay strategy instance with a ReservoirSamplingBuffer storage policy. Finally, the code should implement a training loop where it trains on the online train stream of the scenario and evaluates on the test stream. The results of the evaluation should be stored in a list. The code should also include an argument parser to select the cuda device to use."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5FXEBfCbwbqXXJVAOdqrtyL0p66",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport torch\nfrom avalanche.benchmarks.datasets import MNIST\nfrom avalanche.benchmarks.generators import online_scenario\nfrom avalanche.models import SimpleMLP\nfrom avalanche.training.strategies import Replay\nfrom avalanche.training.storage_policy import ReservoirSamplingBuffer\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics, forgetting_metrics\nfrom avalanche.evaluation.plugins import EvaluationPlugin\nfrom avalanche.logging import InteractiveLogger\nfrom torchvision import transforms\n\nparser = argparse.ArgumentParser()\nparser.add_argument('--cuda', type=int, default=0, help='CUDA device to use, -1 for CPU')\nargs = parser.parse_args()\n\ndevice = torch.device(f'cuda:{args.cuda}' if args.cuda >= 0 and torch.cuda.is_available() else 'cpu')\n\ntransform = transforms.Compose([\n    transforms.ToTensor(),\n    transforms.Normalize((0.1307,), (0.3081,))\n])\n\ntrain_dataset = MNIST(root='./data', train=True, download=True, transform=transform)\ntest_dataset = MNIST(root='./data', train=False, download=True, transform=transform)\n\nscenario = online_scenario(\n    train_dataset,\n    test_dataset,\n    n_experiences=10,\n    experience_size=1000,\n    shuffle=True,\n    seed=1234,\n    class_ids_from_zero_in_each_exp=False\n)\n\nmodel = SimpleMLP(num_classes=10, input_size=28*28)\n\ninteractive_logger = InteractiveLogger()\neval_plugin = EvaluationPlugin(\n    accuracy_metrics(epoch=True, experience=True, stream=True),\n    loss_metrics(epoch=True, experience=True, stream=True),\n    forgetting_metrics(experience=True, stream=True),\n    loggers=[interactive_logger]\n)\n\nreplay_strategy = Replay(\n    model,\n    buffer_size=500,\n    storage_policy=ReservoirSamplingBuffer(max_size=500),\n    train_mb_size=32,\n    train_epochs=1,\n    eval_mb_size=128,\n    device=device,\n    evaluator=eval_plugin\n)\n\nresults = []\n\nfor experience in scenario.train_stream:\n    replay_strategy.train(experience)\n    eval_results = replay_strategy.eval(scenario.test_stream)\n    results.append(eval_results)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128631,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_585f7b5d19",
+    "usage": {
+      "completion_tokens": 438,
+      "prompt_tokens": 171,
+      "total_tokens": 609,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport torch\nfrom avalanche.benchmarks.datasets import MNIST\nfrom avalanche.benchmarks.generators import online_scenario\nfrom avalanche.models import SimpleMLP\nfrom avalanche.training.strategies import Replay\nfrom avalanche.training.storage_policy import ReservoirSamplingBuffer\nfrom avalanche.evaluation.metrics import accuracy_metrics, loss_metrics, forgetting_metrics\nfrom avalanche.evaluation.plugins import EvaluationPlugin\nfrom avalanche.logging import InteractiveLogger\nfrom torchvision import transforms\n\nparser = argparse.ArgumentParser()\nparser.add_argument('--cuda', type=int, default=0, help='CUDA device to use, -1 for CPU')\nargs = parser.parse_args()\n\ndevice = torch.device(f'cuda:{args.cuda}' if args.cuda >= 0 and torch.cuda.is_available() else 'cpu')\n\ntransform = transforms.Compose([\n    transforms.ToTensor(),\n    transforms.Normalize((0.1307,), (0.3081,))\n])\n\ntrain_dataset = MNIST(root='./data', train=True, download=True, transform=transform)\ntest_dataset = MNIST(root='./data', train=False, download=True, transform=transform)\n\nscenario = online_scenario(\n    train_dataset,\n    test_dataset,\n    n_experiences=10,\n    experience_size=1000,\n    shuffle=True,\n    seed=1234,\n    class_ids_from_zero_in_each_exp=False\n)\n\nmodel = SimpleMLP(num_classes=10, input_size=28*28)\n\ninteractive_logger = InteractiveLogger()\neval_plugin = EvaluationPlugin(\n    accuracy_metrics(epoch=True, experience=True, stream=True),\n    loss_metrics(epoch=True, experience=True, stream=True),\n    forgetting_metrics(experience=True, stream=True),\n    loggers=[interactive_logger]\n)\n\nreplay_strategy = Replay(\n    model,\n    buffer_size=500,\n    storage_policy=ReservoirSamplingBuffer(max_size=500),\n    train_mb_size=32,\n    train_epochs=1,\n    eval_mb_size=128,\n    device=device,\n    evaluator=eval_plugin\n)\n\nresults = []\n\nfor experience in scenario.train_stream:\n    replay_strategy.train(experience)\n    eval_results = replay_strategy.eval(scenario.test_stream)\n    results.append(eval_results)\n```",
+  "latency_seconds": 3.082715589000145,
+  "usage": {
+    "completion_tokens": 438,
+    "prompt_tokens": 171,
+    "total_tokens": 609,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 3846,
+  "response_sha256": "428f3d30f8d8f681852e893c862b1b3c5875681bf213eeb0aed062f7cc862156",
+  "artifact_sha256": "f93e710467bd4ae28bf631dd96be939ec6ebdc2e8ba446ca031c713ecd277395"
+}

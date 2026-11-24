@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 46,
+    "task_sha256": "9affaca3fb7cad9481e8019be8bd782da57aa99a3cc4d0ddd4b893a172a5c935",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs two tasks using the pyscf library. The first task is to transform a Full Configuration Interaction (FCI) wavefunction with respect to orbital rotation/transformation. This involves creating two molecules with different atomic configurations, calculating their FCI energies, and then transforming the wavefunction of the first molecule to match the second one. The second task is to transfer a FCI wavefunction from a smaller orbital space to a larger one. This involves creating a molecule with a specific atomic configuration, calculating its FCI energy, and then expanding the wavefunction to a larger orbital space. The code should also compare the transformed wavefunction with the one obtained from the FCI solver and check if they are close. Finally, the code should transform the FCI wavefunction using a different method and compare the results with the previous transformation."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em59UGn30DFs0bxNAWRJDYzXuTTxp",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci, mcscf, tools\n\ndef canonicalize(mol, mf):\n    mo_coeff = mf.mo_coeff\n    mo_energy = mf.mo_energy\n    return mo_coeff, mo_energy\n\ndef get_fci_wfn(mol, mf, norb, nelec):\n    h1 = mf.mo_coeff.T @ mf.get_hcore() @ mf.mo_coeff\n    eri = ao2mo.kernel(mol, mf.mo_coeff)\n    cisolver = fci.FCI(mol, mf.mo_coeff)\n    e, fcivec = cisolver.kernel(h1, eri, norb, nelec)\n    return e, fcivec, cisolver\n\ndef transform_fci_wfn(fcivec, norb, nelec, U):\n    # Transform FCI wavefunction with orbital rotation U\n    return fci.addons.transform_ci(fcivec, norb, nelec, U)\n\ndef expand_fci_wfn(fcivec_small, norb_small, nelec, norb_large):\n    # Expand FCI wavefunction from small to large orbital space\n    fcivec_large = np.zeros([2]*norb_large*2)\n    idx = (slice(0,2**norb_small*nelec[0]), slice(0,2**norb_small*nelec[1]))\n    fcivec_large[:2**norb_small, :2**norb_small] = fcivec_small\n    return fcivec_large\n\ndef compare_wfn(wfn1, wfn2, tol=1e-8):\n    return np.allclose(wfn1, wfn2, atol=tol)\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation\nmol1 = gto.M(atom='H 0 0 0; H 0 0 0.74', basis='sto-3g', spin=0, charge=0)\nmf1 = scf.RHF(mol1).run()\nmo1, _ = canonicalize(mol1, mf1)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelec\ne1, fcivec1, cisolver1 = get_fci_wfn(mol1, mf1, norb1, nelec1)\n\nmol2 = gto.M(atom='H 0 0 0; H 0 0 1.0', basis='sto-3g', spin=0, charge=0)\nmf2 = scf.RHF(mol2).run()\nmo2, _ = canonicalize(mol2, mf2)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelec\ne2, fcivec2, cisolver2 = get_fci_wfn(mol2, mf2, norb2, nelec2)\n\n# Orbital rotation matrix from mo1 to mo2\nU = np.dot(mo1.T, mo2)\nfcivec1_trans = transform_fci_wfn(fcivec1, norb1, nelec1, U)\n\n# FCI wavefunction for mol2 in its own basis\nh1_2 = mo2.T @ mf2.get_hcore() @ mo2\neri2 = ao2mo.kernel(mol2, mo2)\ne2_ref, fcivec2_ref = cisolver2.kernel(h1_2, eri2, norb2, nelec2)\n\nprint(\"Task 1: Are transformed and reference FCI wavefunctions close?\")\nprint(compare_wfn(fcivec1_trans, fcivec2_ref))\n\n# Task 2: Transfer FCI wavefunction from smaller to larger orbital space\nmol3 = gto.M(atom='H 0 0 0; H 0 0 0.74', basis='sto-3g', spin=0, charge=0)\nmf3 = scf.RHF(mol3).run()\nmo3, _ = canonicalize(mol3, mf3)\nnorb3 = 2  # Use only 2 orbitals\nnelec3 = mol3.nelec\ne3, fcivec3, cisolver3 = get_fci_wfn(mol3, mf3, norb3, nelec3)\n\nnorb4 = 4  # Expand to 4 orbitals\nfcivec4 = expand_fci_wfn(fcivec3, norb3, nelec3, norb4)\n\n# FCI in larger space (should be zero except for the block corresponding to the small space)\ncisolver4 = fci.FCI(mol3, mf3.mo_coeff[:, :norb4])\nh1_4 = mo3[:, :norb4].T @ mf3.get_hcore() @ mo3[:, :norb4]\neri4 = ao2mo.kernel(mol3, mo3[:, :norb4])\ne4, fcivec4_ref = cisolver4.kernel(h1_4, eri4, norb4, nelec3)\n\nprint(\"Task 2: Are expanded and reference FCI wavefunctions close?\")\nprint(compare_wfn(fcivec4, fcivec4_ref))\n\n# Task 3: Transform FCI wavefunction using a different method (e.g., using FCI.addons.reorder_fermion)\n# Here, as an example, we use reorder_fermion to permute orbitals and compare with transform_ci\nperm = np.arange(norb1)[::-1]  # Reverse orbital order\nfcivec1_perm = fci.addons.reorder_fermion(fcivec1, norb1, nelec1, perm)\nU_perm = np.eye(norb1)[:, perm]\nfcivec1_trans_perm = transform_fci_wfn(fcivec1, norb1, nelec1, U_perm)\n\nprint(\"Task 3: Are permuted and transformed FCI wavefunctions close?\")\nprint(compare_wfn(fcivec1_perm, fcivec1_trans_perm))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128256,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_d1445ec092",
+    "usage": {
+      "completion_tokens": 1290,
+      "prompt_tokens": 198,
+      "total_tokens": 1488,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci, mcscf, tools\n\ndef canonicalize(mol, mf):\n    mo_coeff = mf.mo_coeff\n    mo_energy = mf.mo_energy\n    return mo_coeff, mo_energy\n\ndef get_fci_wfn(mol, mf, norb, nelec):\n    h1 = mf.mo_coeff.T @ mf.get_hcore() @ mf.mo_coeff\n    eri = ao2mo.kernel(mol, mf.mo_coeff)\n    cisolver = fci.FCI(mol, mf.mo_coeff)\n    e, fcivec = cisolver.kernel(h1, eri, norb, nelec)\n    return e, fcivec, cisolver\n\ndef transform_fci_wfn(fcivec, norb, nelec, U):\n    # Transform FCI wavefunction with orbital rotation U\n    return fci.addons.transform_ci(fcivec, norb, nelec, U)\n\ndef expand_fci_wfn(fcivec_small, norb_small, nelec, norb_large):\n    # Expand FCI wavefunction from small to large orbital space\n    fcivec_large = np.zeros([2]*norb_large*2)\n    idx = (slice(0,2**norb_small*nelec[0]), slice(0,2**norb_small*nelec[1]))\n    fcivec_large[:2**norb_small, :2**norb_small] = fcivec_small\n    return fcivec_large\n\ndef compare_wfn(wfn1, wfn2, tol=1e-8):\n    return np.allclose(wfn1, wfn2, atol=tol)\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation\nmol1 = gto.M(atom='H 0 0 0; H 0 0 0.74', basis='sto-3g', spin=0, charge=0)\nmf1 = scf.RHF(mol1).run()\nmo1, _ = canonicalize(mol1, mf1)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelec\ne1, fcivec1, cisolver1 = get_fci_wfn(mol1, mf1, norb1, nelec1)\n\nmol2 = gto.M(atom='H 0 0 0; H 0 0 1.0', basis='sto-3g', spin=0, charge=0)\nmf2 = scf.RHF(mol2).run()\nmo2, _ = canonicalize(mol2, mf2)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelec\ne2, fcivec2, cisolver2 = get_fci_wfn(mol2, mf2, norb2, nelec2)\n\n# Orbital rotation matrix from mo1 to mo2\nU = np.dot(mo1.T, mo2)\nfcivec1_trans = transform_fci_wfn(fcivec1, norb1, nelec1, U)\n\n# FCI wavefunction for mol2 in its own basis\nh1_2 = mo2.T @ mf2.get_hcore() @ mo2\neri2 = ao2mo.kernel(mol2, mo2)\ne2_ref, fcivec2_ref = cisolver2.kernel(h1_2, eri2, norb2, nelec2)\n\nprint(\"Task 1: Are transformed and reference FCI wavefunctions close?\")\nprint(compare_wfn(fcivec1_trans, fcivec2_ref))\n\n# Task 2: Transfer FCI wavefunction from smaller to larger orbital space\nmol3 = gto.M(atom='H 0 0 0; H 0 0 0.74', basis='sto-3g', spin=0, charge=0)\nmf3 = scf.RHF(mol3).run()\nmo3, _ = canonicalize(mol3, mf3)\nnorb3 = 2  # Use only 2 orbitals\nnelec3 = mol3.nelec\ne3, fcivec3, cisolver3 = get_fci_wfn(mol3, mf3, norb3, nelec3)\n\nnorb4 = 4  # Expand to 4 orbitals\nfcivec4 = expand_fci_wfn(fcivec3, norb3, nelec3, norb4)\n\n# FCI in larger space (should be zero except for the block corresponding to the small space)\ncisolver4 = fci.FCI(mol3, mf3.mo_coeff[:, :norb4])\nh1_4 = mo3[:, :norb4].T @ mf3.get_hcore() @ mo3[:, :norb4]\neri4 = ao2mo.kernel(mol3, mo3[:, :norb4])\ne4, fcivec4_ref = cisolver4.kernel(h1_4, eri4, norb4, nelec3)\n\nprint(\"Task 2: Are expanded and reference FCI wavefunctions close?\")\nprint(compare_wfn(fcivec4, fcivec4_ref))\n\n# Task 3: Transform FCI wavefunction using a different method (e.g., using FCI.addons.reorder_fermion)\n# Here, as an example, we use reorder_fermion to permute orbitals and compare with transform_ci\nperm = np.arange(norb1)[::-1]  # Reverse orbital order\nfcivec1_perm = fci.addons.reorder_fermion(fcivec1, norb1, nelec1, perm)\nU_perm = np.eye(norb1)[:, perm]\nfcivec1_trans_perm = transform_fci_wfn(fcivec1, norb1, nelec1, U_perm)\n\nprint(\"Task 3: Are permuted and transformed FCI wavefunctions close?\")\nprint(compare_wfn(fcivec1_perm, fcivec1_trans_perm))\n```",
+  "latency_seconds": 7.045842823999919,
+  "usage": {
+    "completion_tokens": 1290,
+    "prompt_tokens": 198,
+    "total_tokens": 1488,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10716,
+  "response_sha256": "de08367e68e6da29c5d9a68bb210682bca0be41de3542f5aec87e57c927652db",
+  "artifact_sha256": "21ddbb6fa33feecb4c071c61f0a2b35fbfa0cc9f984fb705048fd28e1fcbcb2e"
+}

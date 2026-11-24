@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 83,
+    "task_sha256": "4fb7721ec93256608a0505d4dca5903fabef85968b9695176b75e33f77008a4c",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that downloads an image and performs various image and box augmentations using the paz library. The code should include the creation of sequential pipelines for image and box augmentation, as well as preprocessing. The image augmentation pipeline should include random contrast, brightness, saturation, and hue adjustments. The box augmentation pipeline should include conversion to image box coordinates, expansion, random sample cropping, and random flipping of boxes left and right. The code should also include a pipeline for drawing boxes and a pipeline for preprocessing boxes, which includes matching boxes to a set of default boxes, encoding them, and expanding the class label to a one-hot vector. Finally, the code should put everything together in a single processor and demonstrate the image and box augmentations. The code should also include a sequence generator for processing batches of data.\n\nYou can find the following APIs from the library helpful:\ntest_nms_per_class_and_merge_box, ProcessorA, GetHeatmapsAndTags, ToImageBoxCoordinates, code_snippet, test_deterministic_and_stochastic_in_sequential_processor, test_stochastic_and_deterministic_in_sequential_processor, point2D_a, TransformA, target_A, transform_A, origin_A, test_controlmap_reduction_and_keep, test_controlmap_reduction_and_retention, split_and_normalize_alpha_channel, test_controlmap_reduction_and_flip, test_controlmap_reduction_and_selection_to_arg_1, test_controlmap_reduction_and_selection_to_arg_2, box_coordinates, RandomFlipBoxesLeftRight"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5XKRLupvPmeFFgBKXppWcCxbW7D",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport requests\nfrom io import BytesIO\nfrom PIL import Image\nimport paz.processors as processors\nimport paz.pipelines as pipelines\nimport paz.transforms as transforms\nimport paz.backend.image as image_backend\nimport paz.backend.boxes as box_backend\n\n# Download an image\nurl = 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg'\nresponse = requests.get(url)\nimg = Image.open(BytesIO(response.content)).convert('RGB')\nimg = np.array(img)\n\n# Dummy boxes and labels for demonstration\nboxes = np.array([[50, 50, 200, 200], [300, 100, 400, 300]], dtype=np.float32)\nlabels = np.array([1, 2], dtype=np.int32)\n\n# Define image augmentation pipeline\nimage_augmentation = processors.SequentialProcessor([\n    transforms.RandomContrast(0.5, 1.5),\n    transforms.RandomBrightness(0.5, 1.5),\n    transforms.RandomSaturation(0.5, 1.5),\n    transforms.RandomHue(18),\n])\n\n# Define box augmentation pipeline\nbox_augmentation = processors.SequentialProcessor([\n    transforms.ToImageBoxCoordinates(),\n    transforms.Expand(4, [123, 117, 104]),\n    transforms.RandomSampleCrop(),\n    transforms.RandomFlipBoxesLeftRight(),\n])\n\n# Define pipeline for drawing boxes\ndraw_boxes = processors.DrawBoxes2D(class_names=['BG', 'Class1', 'Class2'])\n\n# Define preprocessing pipeline for boxes\ndefault_boxes = box_backend.create_default_boxes()\npreprocess_boxes = processors.SequentialProcessor([\n    processors.MatchBoxes(default_boxes, threshold=0.5),\n    processors.EncodeBoxes(default_boxes),\n    processors.OneHotLabels(num_classes=3)\n])\n\n# Compose everything into a single processor\nclass FullProcessor(processors.ProcessorA):\n    def call(self, image, boxes, labels):\n        image = image_augmentation(image)\n        boxes, labels = box_augmentation([boxes, labels])\n        draw_img = draw_boxes([image.copy(), boxes, labels])\n        encoded_boxes, one_hot_labels = preprocess_boxes([boxes, labels])\n        return image, boxes, labels, draw_img, encoded_boxes, one_hot_labels\n\nprocessor = FullProcessor()\n\n# Demonstrate the augmentations\naug_image, aug_boxes, aug_labels, draw_img, encoded_boxes, one_hot_labels = processor(img, boxes, labels)\n\n# Show the augmented image with boxes (requires matplotlib)\nimport matplotlib.pyplot as plt\nplt.figure(figsize=(10, 10))\nplt.imshow(draw_img)\nplt.axis('off')\nplt.show()\n\n# Sequence generator for batch processing\nclass SequenceGenerator:\n    def __init__(self, images, boxes, labels, batch_size=2):\n        self.images = images\n        self.boxes = boxes\n        self.labels = labels\n        self.batch_size = batch_size\n        self.processor = processor\n\n    def __len__(self):\n        return int(np.ceil(len(self.images) / self.batch_size))\n\n    def __getitem__(self, idx):\n        batch_images = self.images[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_boxes = self.boxes[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_labels = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]\n        processed = [self.processor(img, box, label) for img, box, label in zip(batch_images, batch_boxes, batch_labels)]\n        aug_images, aug_boxes, aug_labels, draw_imgs, encoded_boxes, one_hot_labels = zip(*processed)\n        return np.array(aug_images), np.array(aug_boxes), np.array(aug_labels), np.array(draw_imgs), np.array(encoded_boxes), np.array(one_hot_labels)\n\n# Example usage of the sequence generator\nimages = [img] * 4\nboxes_list = [boxes] * 4\nlabels_list = [labels] * 4\ngenerator = SequenceGenerator(images, boxes_list, labels_list, batch_size=2)\nbatch = generator[0]\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129734,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8f7529d0f0",
+    "usage": {
+      "completion_tokens": 852,
+      "prompt_tokens": 334,
+      "total_tokens": 1186,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport requests\nfrom io import BytesIO\nfrom PIL import Image\nimport paz.processors as processors\nimport paz.pipelines as pipelines\nimport paz.transforms as transforms\nimport paz.backend.image as image_backend\nimport paz.backend.boxes as box_backend\n\n# Download an image\nurl = 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg'\nresponse = requests.get(url)\nimg = Image.open(BytesIO(response.content)).convert('RGB')\nimg = np.array(img)\n\n# Dummy boxes and labels for demonstration\nboxes = np.array([[50, 50, 200, 200], [300, 100, 400, 300]], dtype=np.float32)\nlabels = np.array([1, 2], dtype=np.int32)\n\n# Define image augmentation pipeline\nimage_augmentation = processors.SequentialProcessor([\n    transforms.RandomContrast(0.5, 1.5),\n    transforms.RandomBrightness(0.5, 1.5),\n    transforms.RandomSaturation(0.5, 1.5),\n    transforms.RandomHue(18),\n])\n\n# Define box augmentation pipeline\nbox_augmentation = processors.SequentialProcessor([\n    transforms.ToImageBoxCoordinates(),\n    transforms.Expand(4, [123, 117, 104]),\n    transforms.RandomSampleCrop(),\n    transforms.RandomFlipBoxesLeftRight(),\n])\n\n# Define pipeline for drawing boxes\ndraw_boxes = processors.DrawBoxes2D(class_names=['BG', 'Class1', 'Class2'])\n\n# Define preprocessing pipeline for boxes\ndefault_boxes = box_backend.create_default_boxes()\npreprocess_boxes = processors.SequentialProcessor([\n    processors.MatchBoxes(default_boxes, threshold=0.5),\n    processors.EncodeBoxes(default_boxes),\n    processors.OneHotLabels(num_classes=3)\n])\n\n# Compose everything into a single processor\nclass FullProcessor(processors.ProcessorA):\n    def call(self, image, boxes, labels):\n        image = image_augmentation(image)\n        boxes, labels = box_augmentation([boxes, labels])\n        draw_img = draw_boxes([image.copy(), boxes, labels])\n        encoded_boxes, one_hot_labels = preprocess_boxes([boxes, labels])\n        return image, boxes, labels, draw_img, encoded_boxes, one_hot_labels\n\nprocessor = FullProcessor()\n\n# Demonstrate the augmentations\naug_image, aug_boxes, aug_labels, draw_img, encoded_boxes, one_hot_labels = processor(img, boxes, labels)\n\n# Show the augmented image with boxes (requires matplotlib)\nimport matplotlib.pyplot as plt\nplt.figure(figsize=(10, 10))\nplt.imshow(draw_img)\nplt.axis('off')\nplt.show()\n\n# Sequence generator for batch processing\nclass SequenceGenerator:\n    def __init__(self, images, boxes, labels, batch_size=2):\n        self.images = images\n        self.boxes = boxes\n        self.labels = labels\n        self.batch_size = batch_size\n        self.processor = processor\n\n    def __len__(self):\n        return int(np.ceil(len(self.images) / self.batch_size))\n\n    def __getitem__(self, idx):\n        batch_images = self.images[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_boxes = self.boxes[idx * self.batch_size:(idx + 1) * self.batch_size]\n        batch_labels = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]\n        processed = [self.processor(img, box, label) for img, box, label in zip(batch_images, batch_boxes, batch_labels)]\n        aug_images, aug_boxes, aug_labels, draw_imgs, encoded_boxes, one_hot_labels = zip(*processed)\n        return np.array(aug_images), np.array(aug_boxes), np.array(aug_labels), np.array(draw_imgs), np.array(encoded_boxes), np.array(one_hot_labels)\n\n# Example usage of the sequence generator\nimages = [img] * 4\nboxes_list = [boxes] * 4\nlabels_list = [labels] * 4\ngenerator = SequenceGenerator(images, boxes_list, labels_list, batch_size=2)\nbatch = generator[0]\n```",
+  "latency_seconds": 5.7179229210014455,
+  "usage": {
+    "completion_tokens": 852,
+    "prompt_tokens": 334,
+    "total_tokens": 1186,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7484,
+  "response_sha256": "1bf99b3b8b759f054291360c092555a65c44016f08283dad7fa767b33a09fbaf",
+  "artifact_sha256": "3a9612bbc76d632ebdc0e0ff34727af5e74dc2158481e060f1062c55ac055a21"
+}

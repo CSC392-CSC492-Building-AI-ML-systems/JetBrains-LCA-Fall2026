@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 110,
+    "task_sha256": "9123c12313c1fedaa97ae8f7dd81d16f6e28102b1ea90fba6e090858a09dd630",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a few steps of steepest ascent for the maximization of Poisson log-likelihood objective function using subset gradients. The code should allow the user to specify the reconstruction engine, raw data file, path to data files, number of steepest descent steps, whether to use locally optimal steepest ascent, verbosity, and whether to show plots or not. The code should import the specified engine module from the sirf library, process the command-line options, and define a function to truncate the image. The main function should create an acquisition model, read PET acquisition data from the specified file, create a filter that zeroes the image outside a cylinder of the same diameter as the image xy-section size, create an initial image estimate, create an objective function of Poisson logarithmic likelihood type compatible with the acquisition data type, and perform the steepest descent steps. If anything goes wrong, the code should catch and display the error information.\n\nYou can find the following APIs from the library helpful:\ncreate_from_3D_image, ObjectiveFunction, create_uniform_image, from_acquisition_data, get_objective_function, set_objective_function, PoissonLogLikelihoodWithLinearModelForMeanAndProjData, ImageData, TruncateToCylinderProcessor, AcquisitionData, TestSTIRObjectiveFunction, number_of_samples, number_of_acquisitions, number_of_readouts, value_of, data_type, get_backprojection_of_acquisition_ratio, read_from_file, NiftiImageData, ImageDataProcessor"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5nhYCHhFInqxUjwkpxxysMiqqa2",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport sys\nimport argparse\nimport importlib\nimport traceback\n\nimport numpy as np\nimport matplotlib.pyplot as plt\n\ntry:\n    from sirf.Utilities import show_2D_array\nexcept ImportError:\n    def show_2D_array(arr, title=None):\n        plt.imshow(arr, cmap='gray')\n        if title:\n            plt.title(title)\n        plt.show()\n\ndef truncate_image(image):\n    from sirf.STIR import TruncateToCylinderProcessor\n    processor = TruncateToCylinderProcessor()\n    processor.set_strictly_less_than_radius(False)\n    return processor.process(image)\n\ndef main():\n    parser = argparse.ArgumentParser(description='Steepest ascent for Poisson log-likelihood using subset gradients.')\n    parser.add_argument('--engine', type=str, required=True, help='Reconstruction engine module (e.g., STIR)')\n    parser.add_argument('--raw_data_file', type=str, required=True, help='Raw data file')\n    parser.add_argument('--data_path', type=str, default='.', help='Path to data files')\n    parser.add_argument('--num_steps', type=int, default=5, help='Number of steepest ascent steps')\n    parser.add_argument('--locally_optimal', action='store_true', help='Use locally optimal steepest ascent')\n    parser.add_argument('--verbose', action='store_true', help='Verbosity')\n    parser.add_argument('--show_plots', action='store_true', help='Show plots')\n    args = parser.parse_args()\n\n    try:\n        # Import engine module\n        engine_mod = importlib.import_module(f'sirf.{args.engine}')\n        # Set up acquisition data\n        acq_data = engine_mod.AcquisitionData(args.raw_data_file)\n        if args.verbose:\n            print('Acquisition data loaded.')\n\n        # Create acquisition model\n        acq_model = engine_mod.AcquisitionModelUsingRayTracingMatrix()\n        if args.verbose:\n            print('Acquisition model created.')\n\n        # Create initial image estimate\n        image = acq_data.create_uniform_image(1.0)\n        if args.verbose:\n            print('Initial image created.')\n\n        # Truncate image to cylinder\n        image = truncate_image(image)\n        if args.verbose:\n            print('Image truncated to cylinder.')\n\n        # Create Poisson log-likelihood objective function\n        obj_fun = engine_mod.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()\n        obj_fun.set_acquisition_model(acq_model)\n        obj_fun.set_acquisition_data(acq_data)\n        if args.verbose:\n            print('Objective function created.')\n\n        # Number of subsets\n        num_subsets = 1\n        if hasattr(obj_fun, 'set_num_subsets'):\n            num_subsets = 4\n            obj_fun.set_num_subsets(num_subsets)\n            if args.verbose:\n                print(f'Number of subsets set to {num_subsets}.')\n\n        # Steepest ascent steps\n        for step in range(args.num_steps):\n            subset_num = step % num_subsets\n            grad = obj_fun.gradient(image, subset_num)\n            if args.locally_optimal:\n                # Compute optimal step size (simple line search)\n                step_size = 1.0\n                for _ in range(5):\n                    test_image = image.clone()\n                    test_image += grad * step_size\n                    val1 = obj_fun.value(image, subset_num)\n                    val2 = obj_fun.value(test_image, subset_num)\n                    if val2 > val1:\n                        step_size *= 1.2\n                    else:\n                        step_size *= 0.5\n                        break\n                if args.verbose:\n                    print(f'Step {step+1}: Locally optimal step size {step_size}')\n            else:\n                step_size = 1e-2\n                if args.verbose:\n                    print(f'Step {step+1}: Fixed step size {step_size}')\n            image += grad * step_size\n            image = truncate_image(image)\n            if args.verbose:\n                val = obj_fun.value(image, subset_num)\n                print(f'Step {step+1}: Objective function value: {val}')\n            if args.show_plots:\n                arr = image.as_array()\n                show_2D_array(arr[arr.shape[0]//2], title=f'Step {step+1}')\n\n        if args.verbose:\n            print('Steepest ascent completed.')\n\n    except Exception as e:\n        print('An error occurred:')\n        print(str(e))\n        traceback.print_exc()\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130749,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_6942672214",
+    "usage": {
+      "completion_tokens": 933,
+      "prompt_tokens": 334,
+      "total_tokens": 1267,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport sys\nimport argparse\nimport importlib\nimport traceback\n\nimport numpy as np\nimport matplotlib.pyplot as plt\n\ntry:\n    from sirf.Utilities import show_2D_array\nexcept ImportError:\n    def show_2D_array(arr, title=None):\n        plt.imshow(arr, cmap='gray')\n        if title:\n            plt.title(title)\n        plt.show()\n\ndef truncate_image(image):\n    from sirf.STIR import TruncateToCylinderProcessor\n    processor = TruncateToCylinderProcessor()\n    processor.set_strictly_less_than_radius(False)\n    return processor.process(image)\n\ndef main():\n    parser = argparse.ArgumentParser(description='Steepest ascent for Poisson log-likelihood using subset gradients.')\n    parser.add_argument('--engine', type=str, required=True, help='Reconstruction engine module (e.g., STIR)')\n    parser.add_argument('--raw_data_file', type=str, required=True, help='Raw data file')\n    parser.add_argument('--data_path', type=str, default='.', help='Path to data files')\n    parser.add_argument('--num_steps', type=int, default=5, help='Number of steepest ascent steps')\n    parser.add_argument('--locally_optimal', action='store_true', help='Use locally optimal steepest ascent')\n    parser.add_argument('--verbose', action='store_true', help='Verbosity')\n    parser.add_argument('--show_plots', action='store_true', help='Show plots')\n    args = parser.parse_args()\n\n    try:\n        # Import engine module\n        engine_mod = importlib.import_module(f'sirf.{args.engine}')\n        # Set up acquisition data\n        acq_data = engine_mod.AcquisitionData(args.raw_data_file)\n        if args.verbose:\n            print('Acquisition data loaded.')\n\n        # Create acquisition model\n        acq_model = engine_mod.AcquisitionModelUsingRayTracingMatrix()\n        if args.verbose:\n            print('Acquisition model created.')\n\n        # Create initial image estimate\n        image = acq_data.create_uniform_image(1.0)\n        if args.verbose:\n            print('Initial image created.')\n\n        # Truncate image to cylinder\n        image = truncate_image(image)\n        if args.verbose:\n            print('Image truncated to cylinder.')\n\n        # Create Poisson log-likelihood objective function\n        obj_fun = engine_mod.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()\n        obj_fun.set_acquisition_model(acq_model)\n        obj_fun.set_acquisition_data(acq_data)\n        if args.verbose:\n            print('Objective function created.')\n\n        # Number of subsets\n        num_subsets = 1\n        if hasattr(obj_fun, 'set_num_subsets'):\n            num_subsets = 4\n            obj_fun.set_num_subsets(num_subsets)\n            if args.verbose:\n                print(f'Number of subsets set to {num_subsets}.')\n\n        # Steepest ascent steps\n        for step in range(args.num_steps):\n            subset_num = step % num_subsets\n            grad = obj_fun.gradient(image, subset_num)\n            if args.locally_optimal:\n                # Compute optimal step size (simple line search)\n                step_size = 1.0\n                for _ in range(5):\n                    test_image = image.clone()\n                    test_image += grad * step_size\n                    val1 = obj_fun.value(image, subset_num)\n                    val2 = obj_fun.value(test_image, subset_num)\n                    if val2 > val1:\n                        step_size *= 1.2\n                    else:\n                        step_size *= 0.5\n                        break\n                if args.verbose:\n                    print(f'Step {step+1}: Locally optimal step size {step_size}')\n            else:\n                step_size = 1e-2\n                if args.verbose:\n                    print(f'Step {step+1}: Fixed step size {step_size}')\n            image += grad * step_size\n            image = truncate_image(image)\n            if args.verbose:\n                val = obj_fun.value(image, subset_num)\n                print(f'Step {step+1}: Objective function value: {val}')\n            if args.show_plots:\n                arr = image.as_array()\n                show_2D_array(arr[arr.shape[0]//2], title=f'Step {step+1}')\n\n        if args.verbose:\n            print('Steepest ascent completed.')\n\n    except Exception as e:\n        print('An error occurred:')\n        print(str(e))\n        traceback.print_exc()\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 5.463567576996866,
+  "usage": {
+    "completion_tokens": 933,
+    "prompt_tokens": 334,
+    "total_tokens": 1267,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8132,
+  "response_sha256": "bf1615435cf473d5813f48de3b01346e6b96b56d7f92942e49f469e9ba8c6471",
+  "artifact_sha256": "33c9b876a1d8324fa42646c242faa698239991600dff7c685dfd1fdc31711f8a"
+}

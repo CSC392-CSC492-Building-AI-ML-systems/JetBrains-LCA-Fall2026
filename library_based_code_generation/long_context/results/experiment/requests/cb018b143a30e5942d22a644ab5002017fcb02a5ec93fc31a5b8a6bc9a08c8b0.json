@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 44,
+    "task_sha256": "1b2be38fdf4d1f63a2e7b792ede7d3ed91ce5ece470f81f77f25ee32c2c13a90",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a PCB analysis using the PyAEDT library. The code should start by importing necessary libraries and setting up project files and paths. It should download a specific project file and set up a temporary project directory. Then, it should open an EDB project, create a cutout on selected nets, and export it to Q3D. The code should identify pin locations on the components to define where to assign sources and sinks for Q3D and append Z elevation. After that, it should save and close the EDB, open it in Hfss 3D Layout to generate the 3D model, and export the layout to Q3D. The code should then launch the newly created Q3D project, plot it, and assign sources and sinks on nets using the previously calculated positions. It should create a setup and a frequency sweep from DC to 2GHz, analyze the project, compute ACL and ACR solutions, plot them, and finally, release the desktop.\n\nYou can find the following APIs from the library helpful:\nmove_and_connect_to, test_54b_open_and_load_a_polyline, duplicate_and_unite, duplicate_and_mirror, check_and_download_file, clean_cache_and_files, get_version_and_release, check_and_download_folder, enforce_dc_and_causality, set_position_and_rotation, find_and_fix_disjoint_nets, get_position_and_rotation, _update_segments_and_points, array_center_and_edge, _is_file_existing_and_released, _read_and_synch_settings_file, export_to_q3d, create_port_between_pin_and_layer, test_43_fillet_and_undo, _get_reference_and_integration_points"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em57ysusw5UzgzCYvoeFYpiCEz3S9",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport tempfile\nimport shutil\nimport matplotlib.pyplot as plt\nfrom pyaedt import Edb, Hfss3dLayout, Q3d, Desktop, download_kit_files, download_file\nfrom pyaedt.generic.general_methods import generate_unique_name\n\n# Set up AEDT Desktop\ndesktop_version = \"2023.2\"\nnon_graphical = True\nnew_thread = True\nDesktop(desktop_version, non_graphical, new_thread)\n\n# Download example EDB project file\nproject_url = \"https://github.com/pyansys/pyaedt-assets/raw/main/edb/ANSYS-HSD_V1.aedb.tar.gz\"\ntemp_dir = tempfile.mkdtemp()\naedb_archive = os.path.join(temp_dir, \"ANSYS-HSD_V1.aedb.tar.gz\")\naedb_folder = os.path.join(temp_dir, \"ANSYS-HSD_V1.aedb\")\ndownload_file(project_url, aedb_archive)\nshutil.unpack_archive(aedb_archive, temp_dir)\n\n# Open EDB project\nedb = Edb(edb_folder, edbversion=desktop_version)\n\n# Select nets for cutout\nselected_nets = [\"DDR4_DQ0\", \"DDR4_DQ1\"]\ncutout = edb.cutout(selected_nets)\n\n# Export cutout to Q3D\nq3d_export_path = os.path.join(temp_dir, \"cutout_for_q3d.aedb\")\ncutout.export_to_q3d(q3d_export_path)\n\n# Identify pin locations and Z elevation\npin_positions = {}\nz_elevation = 0.1  # mm, example value\nfor comp in cutout.components.values():\n    for pin in comp.pins.values():\n        pos = pin.position\n        pin_positions[pin.name] = (pos[0], pos[1], z_elevation)\n\n# Save and close EDB\ncutout.save_edb()\ncutout.close_edb()\n\n# Open in Hfss 3D Layout to generate 3D model\nhfss3d = Hfss3dLayout(q3d_export_path, specified_version=desktop_version)\nhfss3d.export_to_q3d(q3d_export_path)\nhfss3d.close_project()\n\n# Launch Q3D project\nq3d = Q3d(q3d_export_path, specified_version=desktop_version)\n\n# Plot the Q3D model\nq3d.plot(show=True)\n\n# Assign sources and sinks on nets using pin positions\nsource_net = selected_nets[0]\nsink_net = selected_nets[1]\nsource_pin = list(pin_positions.keys())[0]\nsink_pin = list(pin_positions.keys())[1]\nsource_pos = pin_positions[source_pin]\nsink_pos = pin_positions[sink_pin]\n\nsource_name = q3d.create_source(source_net, source_pos)\nsink_name = q3d.create_sink(sink_net, sink_pos)\n\n# Create setup and frequency sweep\nsetup = q3d.create_setup(name=\"Setup1\")\nsetup.props[\"Frequency\"] = \"2GHz\"\nsetup.update()\nq3d.create_linear_count_sweep(setupname=\"Setup1\", unit=\"Hz\", freqstart=0, freqstop=2e9, num_of_freq_points=201, sweepname=\"Sweep1\")\n\n# Analyze the project\nq3d.analyze_setup(\"Setup1\")\n\n# Compute ACL and ACR solutions\nacl = q3d.get_ac_loss(\"Setup1\")\nacr = q3d.get_ac_resistance(\"Setup1\")\n\n# Plot ACL and ACR\nplt.figure()\nplt.plot(acl[\"Freq\"], acl[\"ACL\"], label=\"ACL\")\nplt.plot(acr[\"Freq\"], acr[\"ACR\"], label=\"ACR\")\nplt.xlabel(\"Frequency (Hz)\")\nplt.ylabel(\"Loss / Resistance\")\nplt.legend()\nplt.title(\"ACL and ACR vs Frequency\")\nplt.show()\n\n# Release desktop\nq3d.release_desktop(close_projects=True, close_desktop=True)\nshutil.rmtree(temp_dir)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128162,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_019fa6b647",
+    "usage": {
+      "completion_tokens": 828,
+      "prompt_tokens": 371,
+      "total_tokens": 1199,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport tempfile\nimport shutil\nimport matplotlib.pyplot as plt\nfrom pyaedt import Edb, Hfss3dLayout, Q3d, Desktop, download_kit_files, download_file\nfrom pyaedt.generic.general_methods import generate_unique_name\n\n# Set up AEDT Desktop\ndesktop_version = \"2023.2\"\nnon_graphical = True\nnew_thread = True\nDesktop(desktop_version, non_graphical, new_thread)\n\n# Download example EDB project file\nproject_url = \"https://github.com/pyansys/pyaedt-assets/raw/main/edb/ANSYS-HSD_V1.aedb.tar.gz\"\ntemp_dir = tempfile.mkdtemp()\naedb_archive = os.path.join(temp_dir, \"ANSYS-HSD_V1.aedb.tar.gz\")\naedb_folder = os.path.join(temp_dir, \"ANSYS-HSD_V1.aedb\")\ndownload_file(project_url, aedb_archive)\nshutil.unpack_archive(aedb_archive, temp_dir)\n\n# Open EDB project\nedb = Edb(edb_folder, edbversion=desktop_version)\n\n# Select nets for cutout\nselected_nets = [\"DDR4_DQ0\", \"DDR4_DQ1\"]\ncutout = edb.cutout(selected_nets)\n\n# Export cutout to Q3D\nq3d_export_path = os.path.join(temp_dir, \"cutout_for_q3d.aedb\")\ncutout.export_to_q3d(q3d_export_path)\n\n# Identify pin locations and Z elevation\npin_positions = {}\nz_elevation = 0.1  # mm, example value\nfor comp in cutout.components.values():\n    for pin in comp.pins.values():\n        pos = pin.position\n        pin_positions[pin.name] = (pos[0], pos[1], z_elevation)\n\n# Save and close EDB\ncutout.save_edb()\ncutout.close_edb()\n\n# Open in Hfss 3D Layout to generate 3D model\nhfss3d = Hfss3dLayout(q3d_export_path, specified_version=desktop_version)\nhfss3d.export_to_q3d(q3d_export_path)\nhfss3d.close_project()\n\n# Launch Q3D project\nq3d = Q3d(q3d_export_path, specified_version=desktop_version)\n\n# Plot the Q3D model\nq3d.plot(show=True)\n\n# Assign sources and sinks on nets using pin positions\nsource_net = selected_nets[0]\nsink_net = selected_nets[1]\nsource_pin = list(pin_positions.keys())[0]\nsink_pin = list(pin_positions.keys())[1]\nsource_pos = pin_positions[source_pin]\nsink_pos = pin_positions[sink_pin]\n\nsource_name = q3d.create_source(source_net, source_pos)\nsink_name = q3d.create_sink(sink_net, sink_pos)\n\n# Create setup and frequency sweep\nsetup = q3d.create_setup(name=\"Setup1\")\nsetup.props[\"Frequency\"] = \"2GHz\"\nsetup.update()\nq3d.create_linear_count_sweep(setupname=\"Setup1\", unit=\"Hz\", freqstart=0, freqstop=2e9, num_of_freq_points=201, sweepname=\"Sweep1\")\n\n# Analyze the project\nq3d.analyze_setup(\"Setup1\")\n\n# Compute ACL and ACR solutions\nacl = q3d.get_ac_loss(\"Setup1\")\nacr = q3d.get_ac_resistance(\"Setup1\")\n\n# Plot ACL and ACR\nplt.figure()\nplt.plot(acl[\"Freq\"], acl[\"ACL\"], label=\"ACL\")\nplt.plot(acr[\"Freq\"], acr[\"ACR\"], label=\"ACR\")\nplt.xlabel(\"Frequency (Hz)\")\nplt.ylabel(\"Loss / Resistance\")\nplt.legend()\nplt.title(\"ACL and ACR vs Frequency\")\nplt.show()\n\n# Release desktop\nq3d.release_desktop(close_projects=True, close_desktop=True)\nshutil.rmtree(temp_dir)\n```",
+  "latency_seconds": 6.087053393999668,
+  "usage": {
+    "completion_tokens": 828,
+    "prompt_tokens": 371,
+    "total_tokens": 1199,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7366,
+  "response_sha256": "4a098b8169e863dceb3d5db2a67cf215ee940209e4d0088b1a0275528237f8db",
+  "artifact_sha256": "d2b9659f2335349e628ff783159add85ef547ff93724a92793468174997c207b"
+}

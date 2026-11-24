@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 140,
+    "task_sha256": "7c777ea216290fdaa0bc1322f8ba2de4692b2453e1ff871f2a2c48da963edd66",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that parses command line arguments for paths of detection, recognition, and table recognition models of PPOCR, recognition model label file, table recognition dictionary path, recognition model inference batch size, test image file path, inference device type, device ID, and inference backend type. Then, based on the parsed arguments, it should build runtime options for detection, recognition, and table recognition models. Depending on the device and backend type, it should set the appropriate backend and device for each model. If TensorRT backend is used, it should set the dynamic shape and save the TRT cache file to disk. After setting the runtime options, it should load the models and set the preprocessor and postprocessor parameters for the detection model. Then, it should create an instance of PPStructureV2Table with the loaded models and set the recognition batch size. Finally, it should read the input image, predict and print the results, visualize the results, and save the visualized image.\n\nYou can find the following APIs from the library helpful:\nthe_answer, test_save_model_does_convert_and_saves_the_model, test_save_model_does_not_convert_to_external_data_and_saves_the_model, testUnhandledCxxExceptionsAbortTheProgram, should_set_tensorrt, And, test_save_and_load_model, test_And, LogicalAnd, InsightFaceRecognitionPostprocessor, InsightFaceRecognitionPreprocessor, face_recognition_to_json, json_to_face_recognition, create_and_destroy, BackendIsNotSupposedToImplementIt, test_split_predict_and_lift_lexical_references_for_caffe2_backend, set_device, test_save_and_load_tensor, InsightFaceRecognitionBase, test_logical_and"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em63feiCk4eXkonqh1n3fOEnxSF1E",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport cv2\nimport os\n\nfrom ppocr.runtime import (\n    RuntimeOption,\n    Backend,\n    Device,\n    PaddleOCRDetectionModel,\n    PaddleOCRRecognitionModel,\n    PaddleOCRTableModel,\n    PPStructureV2Table\n)\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"PPOCR Structure Table Inference\")\n    parser.add_argument('--det_model_path', type=str, required=True, help='Path to detection model directory')\n    parser.add_argument('--rec_model_path', type=str, required=True, help='Path to recognition model directory')\n    parser.add_argument('--table_model_path', type=str, required=True, help='Path to table recognition model directory')\n    parser.add_argument('--rec_label_file', type=str, required=True, help='Path to recognition model label file')\n    parser.add_argument('--table_dict_path', type=str, required=True, help='Path to table recognition dictionary file')\n    parser.add_argument('--rec_batch_num', type=int, default=6, help='Recognition model inference batch size')\n    parser.add_argument('--image_path', type=str, required=True, help='Path to test image file')\n    parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'gpu'], help='Inference device type')\n    parser.add_argument('--device_id', type=int, default=0, help='Device ID')\n    parser.add_argument('--backend', type=str, default='default', choices=['default', 'onnx_runtime', 'tensorrt', 'openvino'], help='Inference backend type')\n    return parser.parse_args()\n\ndef build_runtime_option(device, device_id, backend, model_type):\n    option = RuntimeOption()\n    # Set device\n    if device == 'gpu':\n        option.use_gpu(device_id)\n    else:\n        option.use_cpu()\n    # Set backend\n    if backend == 'onnx_runtime':\n        option.use_onnx_runtime()\n    elif backend == 'tensorrt':\n        option.use_trt_backend()\n        # Set dynamic shape for TRT\n        if model_type == 'det':\n            option.set_trt_input_shape('x', [1, 3, 32, 32], [1, 3, 640, 640], [1, 3, 1280, 1280])\n        elif model_type == 'rec':\n            option.set_trt_input_shape('x', [1, 3, 32, 10], [1, 3, 32, 320], [1, 3, 32, 2304])\n        elif model_type == 'table':\n            option.set_trt_input_shape('x', [1, 3, 32, 32], [1, 3, 488, 488], [1, 3, 976, 976])\n        # Save TRT cache\n        trt_cache = f\"{model_type}_trt_cache_{device_id}.bin\"\n        option.set_trt_cache_file(trt_cache)\n    elif backend == 'openvino':\n        option.use_openvino_backend()\n    # Default backend is Paddle\n    return option\n\ndef main():\n    args = parse_args()\n\n    # Build runtime options\n    det_option = build_runtime_option(args.device, args.device_id, args.backend, 'det')\n    rec_option = build_runtime_option(args.device, args.device_id, args.backend, 'rec')\n    table_option = build_runtime_option(args.device, args.device_id, args.backend, 'table')\n\n    # Load models\n    det_model = PaddleOCRDetectionModel(args.det_model_path, runtime_option=det_option)\n    rec_model = PaddleOCRRecognitionModel(args.rec_model_path, args.rec_label_file, runtime_option=rec_option)\n    table_model = PaddleOCRTableModel(args.table_model_path, args.table_dict_path, runtime_option=table_option)\n\n    # Set preprocessor and postprocessor parameters for detection model\n    det_model.preprocessor.max_side_len = 960\n    det_model.postprocessor.box_thresh = 0.6\n    det_model.postprocessor.unclip_ratio = 1.5\n\n    # Create PPStructureV2Table instance\n    structure = PPStructureV2Table(det_model, rec_model, table_model)\n    structure.rec_batch_num = args.rec_batch_num\n\n    # Read input image\n    image = cv2.imread(args.image_path)\n    if image is None:\n        raise FileNotFoundError(f\"Image not found: {args.image_path}\")\n\n    # Predict and print results\n    results = structure(image)\n    print(results)\n\n    # Visualize and save\n    vis_img = structure.visualize(image, results)\n    save_path = os.path.splitext(args.image_path)[0] + \"_vis.jpg\"\n    cv2.imwrite(save_path, vis_img)\n    print(f\"Visualized image saved to {save_path}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131739,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1016,
+      "prompt_tokens": 371,
+      "total_tokens": 1387,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport cv2\nimport os\n\nfrom ppocr.runtime import (\n    RuntimeOption,\n    Backend,\n    Device,\n    PaddleOCRDetectionModel,\n    PaddleOCRRecognitionModel,\n    PaddleOCRTableModel,\n    PPStructureV2Table\n)\n\ndef parse_args():\n    parser = argparse.ArgumentParser(description=\"PPOCR Structure Table Inference\")\n    parser.add_argument('--det_model_path', type=str, required=True, help='Path to detection model directory')\n    parser.add_argument('--rec_model_path', type=str, required=True, help='Path to recognition model directory')\n    parser.add_argument('--table_model_path', type=str, required=True, help='Path to table recognition model directory')\n    parser.add_argument('--rec_label_file', type=str, required=True, help='Path to recognition model label file')\n    parser.add_argument('--table_dict_path', type=str, required=True, help='Path to table recognition dictionary file')\n    parser.add_argument('--rec_batch_num', type=int, default=6, help='Recognition model inference batch size')\n    parser.add_argument('--image_path', type=str, required=True, help='Path to test image file')\n    parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'gpu'], help='Inference device type')\n    parser.add_argument('--device_id', type=int, default=0, help='Device ID')\n    parser.add_argument('--backend', type=str, default='default', choices=['default', 'onnx_runtime', 'tensorrt', 'openvino'], help='Inference backend type')\n    return parser.parse_args()\n\ndef build_runtime_option(device, device_id, backend, model_type):\n    option = RuntimeOption()\n    # Set device\n    if device == 'gpu':\n        option.use_gpu(device_id)\n    else:\n        option.use_cpu()\n    # Set backend\n    if backend == 'onnx_runtime':\n        option.use_onnx_runtime()\n    elif backend == 'tensorrt':\n        option.use_trt_backend()\n        # Set dynamic shape for TRT\n        if model_type == 'det':\n            option.set_trt_input_shape('x', [1, 3, 32, 32], [1, 3, 640, 640], [1, 3, 1280, 1280])\n        elif model_type == 'rec':\n            option.set_trt_input_shape('x', [1, 3, 32, 10], [1, 3, 32, 320], [1, 3, 32, 2304])\n        elif model_type == 'table':\n            option.set_trt_input_shape('x', [1, 3, 32, 32], [1, 3, 488, 488], [1, 3, 976, 976])\n        # Save TRT cache\n        trt_cache = f\"{model_type}_trt_cache_{device_id}.bin\"\n        option.set_trt_cache_file(trt_cache)\n    elif backend == 'openvino':\n        option.use_openvino_backend()\n    # Default backend is Paddle\n    return option\n\ndef main():\n    args = parse_args()\n\n    # Build runtime options\n    det_option = build_runtime_option(args.device, args.device_id, args.backend, 'det')\n    rec_option = build_runtime_option(args.device, args.device_id, args.backend, 'rec')\n    table_option = build_runtime_option(args.device, args.device_id, args.backend, 'table')\n\n    # Load models\n    det_model = PaddleOCRDetectionModel(args.det_model_path, runtime_option=det_option)\n    rec_model = PaddleOCRRecognitionModel(args.rec_model_path, args.rec_label_file, runtime_option=rec_option)\n    table_model = PaddleOCRTableModel(args.table_model_path, args.table_dict_path, runtime_option=table_option)\n\n    # Set preprocessor and postprocessor parameters for detection model\n    det_model.preprocessor.max_side_len = 960\n    det_model.postprocessor.box_thresh = 0.6\n    det_model.postprocessor.unclip_ratio = 1.5\n\n    # Create PPStructureV2Table instance\n    structure = PPStructureV2Table(det_model, rec_model, table_model)\n    structure.rec_batch_num = args.rec_batch_num\n\n    # Read input image\n    image = cv2.imread(args.image_path)\n    if image is None:\n        raise FileNotFoundError(f\"Image not found: {args.image_path}\")\n\n    # Predict and print results\n    results = structure(image)\n    print(results)\n\n    # Visualize and save\n    vis_img = structure.visualize(image, results)\n    save_path = os.path.splitext(args.image_path)[0] + \"_vis.jpg\"\n    cv2.imwrite(save_path, vis_img)\n    print(f\"Visualized image saved to {save_path}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 4.668249576003291,
+  "usage": {
+    "completion_tokens": 1016,
+    "prompt_tokens": 371,
+    "total_tokens": 1387,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8870,
+  "response_sha256": "0bf7960cef341c983dea18a3b8596d3b98196ce124f71d532e070c6725b970b4",
+  "artifact_sha256": "67531a1e11033057a6571c3dab479e897f0136a08280ccf38eac6fc21ed634c0"
+}

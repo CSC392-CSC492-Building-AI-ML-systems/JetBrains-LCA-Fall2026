@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 141,
+    "task_sha256": "18b1ccf28b3edb2f3700819378f5090e27301bf3389ec33079a374da1d3acf63",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the force from Quantum Mechanics (QM) region acting on the background Molecular Mechanics (MM) particles. The code should define a molecule using the pyscf library, generate random coordinates and charges for MM particles, and define a function to calculate the force. The force calculation should include the interaction between QM atoms and MM particles, and the interaction between electron density and MM particles. The code should then calculate the force from Hartree-Fock (HF) electron density and verify it. \n\nNext, the code should consider the response of HF orbitals in the analytical gradients for post-HF methods. As an example, it should use MP2 gradients to demonstrate how to include the orbital response effects in the force for MM particles. The code should define a function to make the reduced density matrix (rdm1) with orbital response, calculate the force from MP2 electron density (including orbital response), and verify it."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em64AoVDzDJ6j9dP4hW7QatpJBFOP",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mp\n\n# Define QM molecule\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.587000\nH 0.000000 0.757000 0.587000\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# Generate random MM particles: positions and charges\nn_mm = 5\nnp.random.seed(42)\nmm_coords = np.random.uniform(-3, 3, (n_mm, 3))\nmm_charges = np.random.uniform(-1, 1, n_mm)\n\n# Function to calculate force from QM region on MM particles\ndef calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm):\n    # Get QM atom coords and charges\n    qm_coords = mol.atom_coords()\n    qm_charges = mol.atom_charges()\n    # Force from QM nuclei on MM particles\n    force_nuc = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        for qc, qq in zip(qm_coords, qm_charges):\n            r = mmc - qc\n            dist = np.linalg.norm(r)\n            if dist > 1e-12:\n                force_nuc[i] += mmq * qq * r / dist**3\n    # Force from QM electron density on MM particles\n    # Compute potential at MM positions due to electron density\n    ao = mol.eval_gto('GTOval', mm_coords)\n    # Electron density at MM positions\n    rho = np.einsum('pi,ij,pj->p', ao, dm, ao)\n    # Gradient of AO at MM positions\n    ao_grad = mol.eval_gto('GTOval_deriv1', mm_coords)\n    # ao_grad: (3, n_mm, n_ao)\n    force_elec = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        # Gradient of electron potential at MM position\n        grad_phi = np.einsum('xj,ij->x', ao_grad[:,i,:], dm @ ao[i,:])\n        force_elec[i] -= mmq * grad_phi\n    # Total force\n    force = force_nuc + force_elec\n    return force\n\n# Hartree-Fock calculation\nmf = scf.RHF(mol)\nmf.kernel()\ndm_hf = mf.make_rdm1()\n\n# Calculate force from HF electron density\nforce_hf = calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm_hf)\nprint(\"Force from HF electron density on MM particles:\\n\", force_hf)\n\n# Verify: finite difference check for one MM particle\ndef finite_diff_force(mol, mm_coords, mm_charges, dm, idx=0, delta=1e-4):\n    # Move MM particle idx by delta in x\n    mm_coords_p = mm_coords.copy()\n    mm_coords_m = mm_coords.copy()\n    mm_coords_p[idx,0] += delta\n    mm_coords_m[idx,0] -= delta\n    # Compute energy\n    def mm_energy(mm_coords):\n        # Nuclei-MM\n        qm_coords = mol.atom_coords()\n        qm_charges = mol.atom_charges()\n        e_nuc = 0.0\n        for mmc, mmq in zip(mm_coords, mm_charges):\n            for qc, qq in zip(qm_coords, qm_charges):\n                r = mmc - qc\n                dist = np.linalg.norm(r)\n                if dist > 1e-12:\n                    e_nuc += mmq * qq / dist\n        # Electron-MM\n        ao = mol.eval_gto('GTOval', mm_coords)\n        rho = np.einsum('pi,ij,pj->p', ao, dm, ao)\n        e_elec = -np.dot(mm_charges, rho)\n        return e_nuc + e_elec\n    e_p = mm_energy(mm_coords_p)\n    e_m = mm_energy(mm_coords_m)\n    fd_force = -(e_p - e_m) / (2*delta)\n    return fd_force\n\nfd_force_x = finite_diff_force(mol, mm_coords, mm_charges, dm_hf, idx=0)\nprint(\"Finite difference force (x) on MM particle 0:\", fd_force_x)\nprint(\"Analytical force (x) on MM particle 0:\", force_hf[0,0])\n\n# MP2 calculation\nmp2 = mp.MP2(mf)\nmp2.kernel()\n\n# Function to make rdm1 with orbital response (MP2)\ndef make_mp2_rdm1_with_orbital_response(mp2):\n    # MP2 rdm1 with orbital response\n    # Use pyscf's built-in function\n    dm1 = mp2.make_rdm1()\n    # Add orbital response (z-vector)\n    # For demonstration, use the gradient module to get the response\n    from pyscf.grad import mp2 as mp2_grad\n    # Get z-vector (orbital response)\n    zvec = mp2_grad.kernel(mp2, mo_energy=mp2.mo_energy, mo_coeff=mp2.mo_coeff, mo_occ=mp2.mo_occ, verbose=0)[1]\n    # The z-vector is used in the response part of the density matrix\n    # For simplicity, we use the rdm1 as is, since pyscf's make_rdm1 includes the response\n    return dm1\n\ndm_mp2 = make_mp2_rdm1_with_orbital_response(mp2)\n\n# Calculate force from MP2 electron density (including orbital response)\nforce_mp2 = calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm_mp2)\nprint(\"Force from MP2 electron density (with orbital response) on MM particles:\\n\", force_mp2)\n\n# Verify: finite difference check for one MM particle (MP2)\nfd_force_x_mp2 = finite_diff_force(mol, mm_coords, mm_charges, dm_mp2, idx=0)\nprint(\"Finite difference force (x) on MM particle 0 (MP2):\", fd_force_x_mp2)\nprint(\"Analytical force (x) on MM particle 0 (MP2):\", force_mp2[0,0])\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131770,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1384,
+      "prompt_tokens": 217,
+      "total_tokens": 1601,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, mp\n\n# Define QM molecule\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757000 0.587000\nH 0.000000 0.757000 0.587000\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# Generate random MM particles: positions and charges\nn_mm = 5\nnp.random.seed(42)\nmm_coords = np.random.uniform(-3, 3, (n_mm, 3))\nmm_charges = np.random.uniform(-1, 1, n_mm)\n\n# Function to calculate force from QM region on MM particles\ndef calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm):\n    # Get QM atom coords and charges\n    qm_coords = mol.atom_coords()\n    qm_charges = mol.atom_charges()\n    # Force from QM nuclei on MM particles\n    force_nuc = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        for qc, qq in zip(qm_coords, qm_charges):\n            r = mmc - qc\n            dist = np.linalg.norm(r)\n            if dist > 1e-12:\n                force_nuc[i] += mmq * qq * r / dist**3\n    # Force from QM electron density on MM particles\n    # Compute potential at MM positions due to electron density\n    ao = mol.eval_gto('GTOval', mm_coords)\n    # Electron density at MM positions\n    rho = np.einsum('pi,ij,pj->p', ao, dm, ao)\n    # Gradient of AO at MM positions\n    ao_grad = mol.eval_gto('GTOval_deriv1', mm_coords)\n    # ao_grad: (3, n_mm, n_ao)\n    force_elec = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        # Gradient of electron potential at MM position\n        grad_phi = np.einsum('xj,ij->x', ao_grad[:,i,:], dm @ ao[i,:])\n        force_elec[i] -= mmq * grad_phi\n    # Total force\n    force = force_nuc + force_elec\n    return force\n\n# Hartree-Fock calculation\nmf = scf.RHF(mol)\nmf.kernel()\ndm_hf = mf.make_rdm1()\n\n# Calculate force from HF electron density\nforce_hf = calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm_hf)\nprint(\"Force from HF electron density on MM particles:\\n\", force_hf)\n\n# Verify: finite difference check for one MM particle\ndef finite_diff_force(mol, mm_coords, mm_charges, dm, idx=0, delta=1e-4):\n    # Move MM particle idx by delta in x\n    mm_coords_p = mm_coords.copy()\n    mm_coords_m = mm_coords.copy()\n    mm_coords_p[idx,0] += delta\n    mm_coords_m[idx,0] -= delta\n    # Compute energy\n    def mm_energy(mm_coords):\n        # Nuclei-MM\n        qm_coords = mol.atom_coords()\n        qm_charges = mol.atom_charges()\n        e_nuc = 0.0\n        for mmc, mmq in zip(mm_coords, mm_charges):\n            for qc, qq in zip(qm_coords, qm_charges):\n                r = mmc - qc\n                dist = np.linalg.norm(r)\n                if dist > 1e-12:\n                    e_nuc += mmq * qq / dist\n        # Electron-MM\n        ao = mol.eval_gto('GTOval', mm_coords)\n        rho = np.einsum('pi,ij,pj->p', ao, dm, ao)\n        e_elec = -np.dot(mm_charges, rho)\n        return e_nuc + e_elec\n    e_p = mm_energy(mm_coords_p)\n    e_m = mm_energy(mm_coords_m)\n    fd_force = -(e_p - e_m) / (2*delta)\n    return fd_force\n\nfd_force_x = finite_diff_force(mol, mm_coords, mm_charges, dm_hf, idx=0)\nprint(\"Finite difference force (x) on MM particle 0:\", fd_force_x)\nprint(\"Analytical force (x) on MM particle 0:\", force_hf[0,0])\n\n# MP2 calculation\nmp2 = mp.MP2(mf)\nmp2.kernel()\n\n# Function to make rdm1 with orbital response (MP2)\ndef make_mp2_rdm1_with_orbital_response(mp2):\n    # MP2 rdm1 with orbital response\n    # Use pyscf's built-in function\n    dm1 = mp2.make_rdm1()\n    # Add orbital response (z-vector)\n    # For demonstration, use the gradient module to get the response\n    from pyscf.grad import mp2 as mp2_grad\n    # Get z-vector (orbital response)\n    zvec = mp2_grad.kernel(mp2, mo_energy=mp2.mo_energy, mo_coeff=mp2.mo_coeff, mo_occ=mp2.mo_occ, verbose=0)[1]\n    # The z-vector is used in the response part of the density matrix\n    # For simplicity, we use the rdm1 as is, since pyscf's make_rdm1 includes the response\n    return dm1\n\ndm_mp2 = make_mp2_rdm1_with_orbital_response(mp2)\n\n# Calculate force from MP2 electron density (including orbital response)\nforce_mp2 = calc_force_qm_on_mm(mol, mm_coords, mm_charges, dm_mp2)\nprint(\"Force from MP2 electron density (with orbital response) on MM particles:\\n\", force_mp2)\n\n# Verify: finite difference check for one MM particle (MP2)\nfd_force_x_mp2 = finite_diff_force(mol, mm_coords, mm_charges, dm_mp2, idx=0)\nprint(\"Finite difference force (x) on MM particle 0 (MP2):\", fd_force_x_mp2)\nprint(\"Analytical force (x) on MM particle 0 (MP2):\", force_mp2[0,0])\n```",
+  "latency_seconds": 9.587792389000242,
+  "usage": {
+    "completion_tokens": 1384,
+    "prompt_tokens": 217,
+    "total_tokens": 1601,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11506,
+  "response_sha256": "f163abedd6960c7844a2ab08e7af951a11c1baffbb89613cba21744af5ad4540",
+  "artifact_sha256": "4ec393b4f65ef7e0b39004ebc5b6da00037890bfc81278799d199232d4a76794"
+}

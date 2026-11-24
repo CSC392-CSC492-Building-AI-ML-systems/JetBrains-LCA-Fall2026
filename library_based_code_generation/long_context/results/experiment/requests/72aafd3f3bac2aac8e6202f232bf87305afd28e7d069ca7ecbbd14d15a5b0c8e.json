@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 141,
+    "task_sha256": "18b1ccf28b3edb2f3700819378f5090e27301bf3389ec33079a374da1d3acf63",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the force from Quantum Mechanics (QM) region acting on the background Molecular Mechanics (MM) particles. The code should define a molecule using the pyscf library, generate random coordinates and charges for MM particles, and define a function to calculate the force. The force calculation should include the interaction between QM atoms and MM particles, and the interaction between electron density and MM particles. The code should then calculate the force from Hartree-Fock (HF) electron density and verify it. \n\nNext, the code should consider the response of HF orbitals in the analytical gradients for post-HF methods. As an example, it should use MP2 gradients to demonstrate how to include the orbital response effects in the force for MM particles. The code should define a function to make the reduced density matrix (rdm1) with orbital response, calculate the force from MP2 electron density (including orbital response), and verify it.\n\nYou can find the following APIs from the library helpful:\n__and__, extra_force, _load_and_unpack, add_and_permute, sign_and_symbs, _force_SO3_degeneracy_, test_frac_particles, add_mm_charges, format_xc_code, _stand_sym_code, test_des_and_cre, _get_intor_and_comp, rsh_and_hybrid_coeff, _force_Ex_Ey_degeneracy_, add_mm_charges_grad, density, test_spin_and_pointgroup_sa4, density_fitting_hf, test_grad_mm, create_mm_mol"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em64J7Fc4hldZj4K1yOHp7whKOhln",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, grad, mp\n\n# Define QM molecule\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757160 0.586260\nH 0.000000 0.757160 0.586260\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# Generate random MM particles (positions and charges)\nn_mm = 5\nmm_coords = np.random.uniform(-3, 3, (n_mm, 3))\nmm_charges = np.random.uniform(-1, 1, n_mm)\n\n# Add MM particles to the molecule (for pyscf MM interface)\nfrom pyscf.qmmm import add_mm_charges, add_mm_charges_grad\n\n# Function to calculate force from QM region on MM particles\ndef calc_qm_mm_force(mol, mf, mm_coords, mm_charges):\n    # Nuclear force on MM particles\n    force_nuc = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        for atom in mol.atom_coords():\n            r = mmc - atom\n            dist = np.linalg.norm(r)\n            force_nuc[i] += mmq * mol.atom_charges()[0] * r / dist**3\n    # Electron density force on MM particles\n    # Use pyscf's add_mm_charges_grad to get the force\n    mm_mol = add_mm_charges(mol, mm_coords, mm_charges)\n    mf_mm = scf.RHF(mm_mol)\n    mf_mm.__dict__.update(mf.__dict__)\n    grad_obj = grad.RHF(mf_mm)\n    # The following gives the force on MM particles (negative gradient)\n    mm_force = grad_obj.extra_force(mm_coords, mm_charges)\n    return mm_force\n\n# Hartree-Fock calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Calculate force from HF electron density\nhf_force = calc_qm_mm_force(mol, mf, mm_coords, mm_charges)\nprint(\"HF force on MM particles:\\n\", hf_force)\n\n# Verify by finite difference (numerical gradient)\ndef finite_diff_force(mol, mf, mm_coords, mm_charges, delta=1e-4):\n    n_mm = len(mm_coords)\n    force_fd = np.zeros_like(mm_coords)\n    for i in range(n_mm):\n        for j in range(3):\n            mm_coords_p = mm_coords.copy()\n            mm_coords_m = mm_coords.copy()\n            mm_coords_p[i, j] += delta\n            mm_coords_m[i, j] -= delta\n            mm_mol_p = add_mm_charges(mol, mm_coords_p, mm_charges)\n            mm_mol_m = add_mm_charges(mol, mm_coords_m, mm_charges)\n            mf_p = scf.RHF(mm_mol_p)\n            mf_p.__dict__.update(mf.__dict__)\n            mf_p.kernel()\n            e_p = mf_p.e_tot\n            mf_m = scf.RHF(mm_mol_m)\n            mf_m.__dict__.update(mf.__dict__)\n            mf_m.kernel()\n            e_m = mf_m.e_tot\n            force_fd[i, j] = -(e_p - e_m) / (2 * delta)\n    return force_fd\n\nhf_force_fd = finite_diff_force(mol, mf, mm_coords, mm_charges)\nprint(\"HF force (finite diff) on MM particles:\\n\", hf_force_fd)\n\n# MP2 gradients: include orbital response\ndef make_mp2_rdm1_with_orbital_response(mf, mp2_obj):\n    # Get MP2 1-RDM with orbital response\n    dm1 = mp2_obj.make_rdm1()\n    return dm1\n\ndef calc_mp2_mm_force(mol, mf, mm_coords, mm_charges):\n    # MP2 calculation\n    mp2_obj = mp.MP2(mf)\n    mp2_obj.kernel()\n    # Get MP2 1-RDM with orbital response\n    dm1 = make_mp2_rdm1_with_orbital_response(mf, mp2_obj)\n    # Add MM charges to molecule\n    mm_mol = add_mm_charges(mol, mm_coords, mm_charges)\n    # Build Fock matrix with MP2 density\n    mf_mm = scf.RHF(mm_mol)\n    mf_mm.__dict__.update(mf.__dict__)\n    mf_mm.get_veff = lambda *args, **kwargs: mf_mm.get_veff(*args, dm=dm1, **kwargs)\n    grad_obj = grad.RHF(mf_mm)\n    mm_force = grad_obj.extra_force(mm_coords, mm_charges, dm=dm1)\n    return mm_force\n\n# Calculate force from MP2 electron density (including orbital response)\nmp2_force = calc_mp2_mm_force(mol, mf, mm_coords, mm_charges)\nprint(\"MP2 force on MM particles (with orbital response):\\n\", mp2_force)\n\n# Verify by finite difference for MP2\ndef finite_diff_force_mp2(mol, mf, mm_coords, mm_charges, delta=1e-4):\n    n_mm = len(mm_coords)\n    force_fd = np.zeros_like(mm_coords)\n    for i in range(n_mm):\n        for j in range(3):\n            mm_coords_p = mm_coords.copy()\n            mm_coords_m = mm_coords.copy()\n            mm_coords_p[i, j] += delta\n            mm_coords_m[i, j] -= delta\n            mm_mol_p = add_mm_charges(mol, mm_coords_p, mm_charges)\n            mm_mol_m = add_mm_charges(mol, mm_coords_m, mm_charges)\n            mf_p = scf.RHF(mm_mol_p)\n            mf_p.__dict__.update(mf.__dict__)\n            mf_p.kernel()\n            mp2_p = mp.MP2(mf_p)\n            mp2_p.kernel()\n            e_p = mp2_p.e_tot\n            mf_m = scf.RHF(mm_mol_m)\n            mf_m.__dict__.update(mf.__dict__)\n            mf_m.kernel()\n            mp2_m = mp.MP2(mf_m)\n            mp2_m.kernel()\n            e_m = mp2_m.e_tot\n            force_fd[i, j] = -(e_p - e_m) / (2 * delta)\n    return force_fd\n\nmp2_force_fd = finite_diff_force_mp2(mol, mf, mm_coords, mm_charges)\nprint(\"MP2 force (finite diff) on MM particles:\\n\", mp2_force_fd)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131779,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1435,
+      "prompt_tokens": 335,
+      "total_tokens": 1770,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, grad, mp\n\n# Define QM molecule\nmol = gto.Mole()\nmol.atom = '''\nO 0.000000 0.000000 0.000000\nH 0.000000 -0.757160 0.586260\nH 0.000000 0.757160 0.586260\n'''\nmol.basis = 'sto-3g'\nmol.charge = 0\nmol.spin = 0\nmol.build()\n\n# Generate random MM particles (positions and charges)\nn_mm = 5\nmm_coords = np.random.uniform(-3, 3, (n_mm, 3))\nmm_charges = np.random.uniform(-1, 1, n_mm)\n\n# Add MM particles to the molecule (for pyscf MM interface)\nfrom pyscf.qmmm import add_mm_charges, add_mm_charges_grad\n\n# Function to calculate force from QM region on MM particles\ndef calc_qm_mm_force(mol, mf, mm_coords, mm_charges):\n    # Nuclear force on MM particles\n    force_nuc = np.zeros_like(mm_coords)\n    for i, (mmc, mmq) in enumerate(zip(mm_coords, mm_charges)):\n        for atom in mol.atom_coords():\n            r = mmc - atom\n            dist = np.linalg.norm(r)\n            force_nuc[i] += mmq * mol.atom_charges()[0] * r / dist**3\n    # Electron density force on MM particles\n    # Use pyscf's add_mm_charges_grad to get the force\n    mm_mol = add_mm_charges(mol, mm_coords, mm_charges)\n    mf_mm = scf.RHF(mm_mol)\n    mf_mm.__dict__.update(mf.__dict__)\n    grad_obj = grad.RHF(mf_mm)\n    # The following gives the force on MM particles (negative gradient)\n    mm_force = grad_obj.extra_force(mm_coords, mm_charges)\n    return mm_force\n\n# Hartree-Fock calculation\nmf = scf.RHF(mol)\nmf.kernel()\n\n# Calculate force from HF electron density\nhf_force = calc_qm_mm_force(mol, mf, mm_coords, mm_charges)\nprint(\"HF force on MM particles:\\n\", hf_force)\n\n# Verify by finite difference (numerical gradient)\ndef finite_diff_force(mol, mf, mm_coords, mm_charges, delta=1e-4):\n    n_mm = len(mm_coords)\n    force_fd = np.zeros_like(mm_coords)\n    for i in range(n_mm):\n        for j in range(3):\n            mm_coords_p = mm_coords.copy()\n            mm_coords_m = mm_coords.copy()\n            mm_coords_p[i, j] += delta\n            mm_coords_m[i, j] -= delta\n            mm_mol_p = add_mm_charges(mol, mm_coords_p, mm_charges)\n            mm_mol_m = add_mm_charges(mol, mm_coords_m, mm_charges)\n            mf_p = scf.RHF(mm_mol_p)\n            mf_p.__dict__.update(mf.__dict__)\n            mf_p.kernel()\n            e_p = mf_p.e_tot\n            mf_m = scf.RHF(mm_mol_m)\n            mf_m.__dict__.update(mf.__dict__)\n            mf_m.kernel()\n            e_m = mf_m.e_tot\n            force_fd[i, j] = -(e_p - e_m) / (2 * delta)\n    return force_fd\n\nhf_force_fd = finite_diff_force(mol, mf, mm_coords, mm_charges)\nprint(\"HF force (finite diff) on MM particles:\\n\", hf_force_fd)\n\n# MP2 gradients: include orbital response\ndef make_mp2_rdm1_with_orbital_response(mf, mp2_obj):\n    # Get MP2 1-RDM with orbital response\n    dm1 = mp2_obj.make_rdm1()\n    return dm1\n\ndef calc_mp2_mm_force(mol, mf, mm_coords, mm_charges):\n    # MP2 calculation\n    mp2_obj = mp.MP2(mf)\n    mp2_obj.kernel()\n    # Get MP2 1-RDM with orbital response\n    dm1 = make_mp2_rdm1_with_orbital_response(mf, mp2_obj)\n    # Add MM charges to molecule\n    mm_mol = add_mm_charges(mol, mm_coords, mm_charges)\n    # Build Fock matrix with MP2 density\n    mf_mm = scf.RHF(mm_mol)\n    mf_mm.__dict__.update(mf.__dict__)\n    mf_mm.get_veff = lambda *args, **kwargs: mf_mm.get_veff(*args, dm=dm1, **kwargs)\n    grad_obj = grad.RHF(mf_mm)\n    mm_force = grad_obj.extra_force(mm_coords, mm_charges, dm=dm1)\n    return mm_force\n\n# Calculate force from MP2 electron density (including orbital response)\nmp2_force = calc_mp2_mm_force(mol, mf, mm_coords, mm_charges)\nprint(\"MP2 force on MM particles (with orbital response):\\n\", mp2_force)\n\n# Verify by finite difference for MP2\ndef finite_diff_force_mp2(mol, mf, mm_coords, mm_charges, delta=1e-4):\n    n_mm = len(mm_coords)\n    force_fd = np.zeros_like(mm_coords)\n    for i in range(n_mm):\n        for j in range(3):\n            mm_coords_p = mm_coords.copy()\n            mm_coords_m = mm_coords.copy()\n            mm_coords_p[i, j] += delta\n            mm_coords_m[i, j] -= delta\n            mm_mol_p = add_mm_charges(mol, mm_coords_p, mm_charges)\n            mm_mol_m = add_mm_charges(mol, mm_coords_m, mm_charges)\n            mf_p = scf.RHF(mm_mol_p)\n            mf_p.__dict__.update(mf.__dict__)\n            mf_p.kernel()\n            mp2_p = mp.MP2(mf_p)\n            mp2_p.kernel()\n            e_p = mp2_p.e_tot\n            mf_m = scf.RHF(mm_mol_m)\n            mf_m.__dict__.update(mf.__dict__)\n            mf_m.kernel()\n            mp2_m = mp.MP2(mf_m)\n            mp2_m.kernel()\n            e_m = mp2_m.e_tot\n            force_fd[i, j] = -(e_p - e_m) / (2 * delta)\n    return force_fd\n\nmp2_force_fd = finite_diff_force_mp2(mol, mf, mm_coords, mm_charges)\nprint(\"MP2 force (finite diff) on MM particles:\\n\", mp2_force_fd)\n```",
+  "latency_seconds": 8.544243551001273,
+  "usage": {
+    "completion_tokens": 1435,
+    "prompt_tokens": 335,
+    "total_tokens": 1770,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 12150,
+  "response_sha256": "2d8467f8acf71a5b68e1b73d986589a1f4256f9280297270f589f65ece78e328",
+  "artifact_sha256": "285e3ca63ac778c798bcc20f706a175dbda8b865f15f0a2007dbe9916dedb10f"
+}

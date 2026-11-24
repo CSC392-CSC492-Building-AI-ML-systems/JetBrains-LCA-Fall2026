@@ -1,5 +1,9 @@
 # Library-based Code Generation BM25 baseline results
 
+For the completed GPT-4.1 API-list context experiment, see the
+[long-context evaluation](long_context/RESULTS.md). It reports seven configurations,
+all 150 tasks, paired uncertainty and supporting artifacts separately from the baselines below.
+
 The BM25 top-20 baseline results below cover all 150 test examples for each of the six released models. These scores come from the existing per-model `metadata.json` files alongside the checked-in predictions. No new model API calls were made to create this report, so the original generation environment and dataset revision were not recorded with those existing outputs.
 
 | Model | ChrF | API Recall |

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 127,
+    "task_sha256": "7173aac790fa37a598ebe7c60aee450661aede58495a5b6625ceb71d6b39a1a8",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the coupling matrix for singlet energy transfer (SET) and triplet energy transfer (TET) between two molecules using the pyscf library. The code should perform CIS calculations for the excited states of two molecules, calculate the intermolecular 2e integrals, transform these integrals to MO basis, and compute the J-type and K-type coupling. The code should also include functions to compute the Coulomb integrals and exchange integrals across the two molecules, and to evaluate the coupling term including J, K and DFT XC contributions. The code should finally evaluate the overall coupling term.\n\nYou can find the following APIs from the library helpful:\n__and__, _load_and_unpack, add_and_permute, sign_and_symbs, calculate_integrals_, _compute_field_integrals, format_xc_code, to_supercell_mo_integrals, _get_intor_and_comp, rsh_and_hybrid_coeff, test_des_and_cre, _compute_multipole_potential_integrals, to_supercell_ao_integrals, _stand_sym_code, transform_integrals_df, transform_integrals_outcore, transform_integrals_incore, from_integrals, test_spin_and_pointgroup_sa4, two_pole"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5wfOVXpQq85kyRh1m7IRxaoANJT",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ci, ao2mo, dft\nfrom pyscf import lib\nfrom pyscf import symm\nfrom pyscf import mcscf\nfrom pyscf import cc\nfrom pyscf import tdscf\n\ndef get_cis_state(mol, mf, nstates=1, singlet=True):\n    cis_solver = tdscf.TDHF(mf) if singlet else tdscf.TDDFT(mf)\n    cis_solver.nstates = nstates\n    cis_solver.kernel()\n    return cis_solver\n\ndef get_mo_coeff(mf):\n    return mf.mo_coeff\n\ndef get_2e_ao_integrals(mol1, mol2):\n    # Build a combined molecule for 2e integrals\n    mol_comb = gto.Mole()\n    mol_comb.atom = mol1.atom + ';' + mol2.atom\n    mol_comb.basis = {**mol1.basis, **mol2.basis}\n    mol_comb.unit = mol1.unit\n    mol_comb.build()\n    eri = mol_comb.intor('int2e', aosym='s1')\n    nao1 = mol1.nao_nr()\n    nao2 = mol2.nao_nr()\n    return eri, nao1, nao2, mol_comb\n\ndef transform_eri_ao_to_mo(eri, mo1, mo2, nao1, nao2):\n    # Transform AO integrals to MO basis for two molecules\n    mo = np.block([\n        [mo1, np.zeros((mo1.shape[0], mo2.shape[1]))],\n        [np.zeros((mo2.shape[0], mo1.shape[1])), mo2]\n    ])\n    nmo = mo.shape[1]\n    eri_mo = ao2mo.incore.full(eri, mo, compact=False)\n    eri_mo = eri_mo.reshape((nmo, nmo, nmo, nmo))\n    return eri_mo\n\ndef get_coulomb_integral(eri_mo, occ1, virt1, occ2, virt2):\n    # J-type (Coulomb) coupling\n    J = 0.0\n    for i in occ1:\n        for a in virt1:\n            for j in occ2:\n                for b in virt2:\n                    J += eri_mo[i,a,j,b]\n    return J\n\ndef get_exchange_integral(eri_mo, occ1, virt1, occ2, virt2):\n    # K-type (Exchange) coupling\n    K = 0.0\n    for i in occ1:\n        for a in virt1:\n            for j in occ2:\n                for b in virt2:\n                    K += eri_mo[i,b,j,a]\n    return K\n\ndef get_dft_xc_contribution(mol1, mol2, mo1, mo2, xc='PBE'):\n    # DFT XC contribution (approximate, for illustration)\n    mf1 = dft.RKS(mol1)\n    mf1.xc = xc\n    mf1.kernel()\n    mf2 = dft.RKS(mol2)\n    mf2.xc = xc\n    mf2.kernel()\n    # Overlap between densities (approximate)\n    dm1 = mf1.make_rdm1()\n    dm2 = mf2.make_rdm1()\n    s12 = np.dot(mo1.T, np.dot(mol1.intor('int1e_ovlp'), mo2))\n    xc_contrib = np.sum(s12 * s12)\n    return xc_contrib\n\ndef get_occ_virt_indices(mf, nstates=1):\n    nocc = mf.mol.nelectron // 2\n    nmo = mf.mo_coeff.shape[1]\n    occ = list(range(nocc))\n    virt = list(range(nocc, nmo))\n    return occ, virt\n\ndef compute_coupling_matrix(mol1, mol2, nstates=1, xc='PBE'):\n    # SCF calculations\n    mf1 = scf.RHF(mol1).run()\n    mf2 = scf.RHF(mol2).run()\n    # CIS calculations\n    cis1 = get_cis_state(mol1, mf1, nstates=nstates, singlet=True)\n    cis2 = get_cis_state(mol2, mf2, nstates=nstates, singlet=True)\n    # MO coefficients\n    mo1 = get_mo_coeff(mf1)\n    mo2 = get_mo_coeff(mf2)\n    # AO 2e integrals\n    eri, nao1, nao2, mol_comb = get_2e_ao_integrals(mol1, mol2)\n    # MO transformation\n    eri_mo = transform_eri_ao_to_mo(eri, mo1, mo2, nao1, nao2)\n    # Occupied and virtual indices\n    occ1, virt1 = get_occ_virt_indices(mf1)\n    occ2, virt2 = get_occ_virt_indices(mf2)\n    # Coupling terms\n    J = get_coulomb_integral(eri_mo, occ1, virt1, occ2, virt2)\n    K = get_exchange_integral(eri_mo, occ1, virt1, occ2, virt2)\n    DFT_XC = get_dft_xc_contribution(mol1, mol2, mo1, mo2, xc=xc)\n    # SET and TET coupling\n    SET = J + DFT_XC\n    TET = J - K + DFT_XC\n    return {'J': J, 'K': K, 'DFT_XC': DFT_XC, 'SET': SET, 'TET': TET}\n\n# Example usage:\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; F 0 0 1.1'\nmol1.basis = 'sto-3g'\nmol1.unit = 'Bohr'\nmol1.build()\n\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 5; F 0 0 6.1'\nmol2.basis = 'sto-3g'\nmol2.unit = 'Bohr'\nmol2.build()\n\ncoupling = compute_coupling_matrix(mol1, mol2, nstates=1, xc='PBE')\nprint('Coupling matrix:', coupling)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131305,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_4e128184ae",
+    "usage": {
+      "completion_tokens": 1369,
+      "prompt_tokens": 280,
+      "total_tokens": 1649,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ci, ao2mo, dft\nfrom pyscf import lib\nfrom pyscf import symm\nfrom pyscf import mcscf\nfrom pyscf import cc\nfrom pyscf import tdscf\n\ndef get_cis_state(mol, mf, nstates=1, singlet=True):\n    cis_solver = tdscf.TDHF(mf) if singlet else tdscf.TDDFT(mf)\n    cis_solver.nstates = nstates\n    cis_solver.kernel()\n    return cis_solver\n\ndef get_mo_coeff(mf):\n    return mf.mo_coeff\n\ndef get_2e_ao_integrals(mol1, mol2):\n    # Build a combined molecule for 2e integrals\n    mol_comb = gto.Mole()\n    mol_comb.atom = mol1.atom + ';' + mol2.atom\n    mol_comb.basis = {**mol1.basis, **mol2.basis}\n    mol_comb.unit = mol1.unit\n    mol_comb.build()\n    eri = mol_comb.intor('int2e', aosym='s1')\n    nao1 = mol1.nao_nr()\n    nao2 = mol2.nao_nr()\n    return eri, nao1, nao2, mol_comb\n\ndef transform_eri_ao_to_mo(eri, mo1, mo2, nao1, nao2):\n    # Transform AO integrals to MO basis for two molecules\n    mo = np.block([\n        [mo1, np.zeros((mo1.shape[0], mo2.shape[1]))],\n        [np.zeros((mo2.shape[0], mo1.shape[1])), mo2]\n    ])\n    nmo = mo.shape[1]\n    eri_mo = ao2mo.incore.full(eri, mo, compact=False)\n    eri_mo = eri_mo.reshape((nmo, nmo, nmo, nmo))\n    return eri_mo\n\ndef get_coulomb_integral(eri_mo, occ1, virt1, occ2, virt2):\n    # J-type (Coulomb) coupling\n    J = 0.0\n    for i in occ1:\n        for a in virt1:\n            for j in occ2:\n                for b in virt2:\n                    J += eri_mo[i,a,j,b]\n    return J\n\ndef get_exchange_integral(eri_mo, occ1, virt1, occ2, virt2):\n    # K-type (Exchange) coupling\n    K = 0.0\n    for i in occ1:\n        for a in virt1:\n            for j in occ2:\n                for b in virt2:\n                    K += eri_mo[i,b,j,a]\n    return K\n\ndef get_dft_xc_contribution(mol1, mol2, mo1, mo2, xc='PBE'):\n    # DFT XC contribution (approximate, for illustration)\n    mf1 = dft.RKS(mol1)\n    mf1.xc = xc\n    mf1.kernel()\n    mf2 = dft.RKS(mol2)\n    mf2.xc = xc\n    mf2.kernel()\n    # Overlap between densities (approximate)\n    dm1 = mf1.make_rdm1()\n    dm2 = mf2.make_rdm1()\n    s12 = np.dot(mo1.T, np.dot(mol1.intor('int1e_ovlp'), mo2))\n    xc_contrib = np.sum(s12 * s12)\n    return xc_contrib\n\ndef get_occ_virt_indices(mf, nstates=1):\n    nocc = mf.mol.nelectron // 2\n    nmo = mf.mo_coeff.shape[1]\n    occ = list(range(nocc))\n    virt = list(range(nocc, nmo))\n    return occ, virt\n\ndef compute_coupling_matrix(mol1, mol2, nstates=1, xc='PBE'):\n    # SCF calculations\n    mf1 = scf.RHF(mol1).run()\n    mf2 = scf.RHF(mol2).run()\n    # CIS calculations\n    cis1 = get_cis_state(mol1, mf1, nstates=nstates, singlet=True)\n    cis2 = get_cis_state(mol2, mf2, nstates=nstates, singlet=True)\n    # MO coefficients\n    mo1 = get_mo_coeff(mf1)\n    mo2 = get_mo_coeff(mf2)\n    # AO 2e integrals\n    eri, nao1, nao2, mol_comb = get_2e_ao_integrals(mol1, mol2)\n    # MO transformation\n    eri_mo = transform_eri_ao_to_mo(eri, mo1, mo2, nao1, nao2)\n    # Occupied and virtual indices\n    occ1, virt1 = get_occ_virt_indices(mf1)\n    occ2, virt2 = get_occ_virt_indices(mf2)\n    # Coupling terms\n    J = get_coulomb_integral(eri_mo, occ1, virt1, occ2, virt2)\n    K = get_exchange_integral(eri_mo, occ1, virt1, occ2, virt2)\n    DFT_XC = get_dft_xc_contribution(mol1, mol2, mo1, mo2, xc=xc)\n    # SET and TET coupling\n    SET = J + DFT_XC\n    TET = J - K + DFT_XC\n    return {'J': J, 'K': K, 'DFT_XC': DFT_XC, 'SET': SET, 'TET': TET}\n\n# Example usage:\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; F 0 0 1.1'\nmol1.basis = 'sto-3g'\nmol1.unit = 'Bohr'\nmol1.build()\n\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 5; F 0 0 6.1'\nmol2.basis = 'sto-3g'\nmol2.unit = 'Bohr'\nmol2.build()\n\ncoupling = compute_coupling_matrix(mol1, mol2, nstates=1, xc='PBE')\nprint('Coupling matrix:', coupling)\n```",
+  "latency_seconds": 7.171732794999116,
+  "usage": {
+    "completion_tokens": 1369,
+    "prompt_tokens": 280,
+    "total_tokens": 1649,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11512,
+  "response_sha256": "1cbdcddf114e8d0408fb58a6a2e33b81190a87f620129c8f36f3bca02c7833b2",
+  "artifact_sha256": "f753e87c5c4d8ecbe87989fb9777d2c3323534667277d8415d92e55213b80b5d"
+}

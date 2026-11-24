@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 16,
+    "task_sha256": "0c250207529368f123ec920449eafef2a528ca2966f8267a3d4494f482bb6962",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the SIRF library to create multiplicative sinograms from normalisation and/or attenuation data. The code should accept command-line options for the path to data files, template sinogram, attenuation image file, ECAT8 bin normalisation file, output file, transform for attenuation image, transform type, and an option for non-interactive mode. The code should check if the provided files exist, and if not, use default files. It should also handle different types of transformations for the attenuation image. The main function of the code should create an acquisition model, check if norm and attenuation are present, and based on that, create an acquisition sensitivity model. It should then project the data if normalisation is added, and finally write the multiplicative sinogram to the specified output file."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4nWz1mPiqkRWFTIJefaOoEJnEXS",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nimport os\nimport sys\nimport sirf.STIR as pet\n\ndef file_or_default(path, default):\n    return path if path and os.path.isfile(path) else default\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Create multiplicative sinograms using SIRF.\")\n    parser.add_argument('--template', type=str, help='Path to template sinogram file')\n    parser.add_argument('--attenuation_image', type=str, help='Path to attenuation image file')\n    parser.add_argument('--norm_file', type=str, help='Path to ECAT8 bin normalisation file')\n    parser.add_argument('--output', type=str, required=True, help='Output file for multiplicative sinogram')\n    parser.add_argument('--transform', type=str, help='Path to transformation for attenuation image')\n    parser.add_argument('--transform_type', type=str, choices=['affine', 'rigid', 'none'], default='none', help='Type of transformation')\n    parser.add_argument('--non_interactive', action='store_true', help='Run in non-interactive mode')\n    parser.add_argument('--default_template', type=str, default='template.hs', help='Default template sinogram')\n    parser.add_argument('--default_attenuation', type=str, default='attenuation.hv', help='Default attenuation image')\n    parser.add_argument('--default_norm', type=str, default='norm.n', help='Default normalisation file')\n    args = parser.parse_args()\n\n    template_path = file_or_default(args.template, args.default_template)\n    attenuation_path = file_or_default(args.attenuation_image, args.default_attenuation)\n    norm_path = file_or_default(args.norm_file, args.default_norm)\n    transform_path = args.transform\n\n    if not os.path.isfile(template_path):\n        print(f\"Template sinogram file not found: {template_path}\")\n        sys.exit(1)\n\n    acq_data = pet.AcquisitionData(template_path)\n    acq_model = pet.AcquisitionModelUsingRayTracingMatrix()\n    acq_model.set_up(acq_data, pet.ImageData(attenuation_path) if os.path.isfile(attenuation_path) else acq_data.create_uniform_image(1.0))\n\n    attenuation_model = None\n    if os.path.isfile(attenuation_path):\n        attn_image = pet.ImageData(attenuation_path)\n        if transform_path and os.path.isfile(transform_path) and args.transform_type != 'none':\n            if args.transform_type == 'affine':\n                from sirf.Reg import AffineTransformation\n                tx = AffineTransformation(transform_path)\n                attn_image = tx.apply_to_image(attn_image)\n            elif args.transform_type == 'rigid':\n                from sirf.Reg import RigidTransformation\n                tx = RigidTransformation(transform_path)\n                attn_image = tx.apply_to_image(attn_image)\n        attenuation_model = pet.AcquisitionSensitivityModel(attn_image, acq_model, False)\n\n    norm_model = None\n    if os.path.isfile(norm_path):\n        norm_model = pet.AcquisitionSensitivityModel(norm_path)\n\n    if attenuation_model and norm_model:\n        sens_model = pet.AcquisitionSensitivityModelPair(norm_model, attenuation_model)\n    elif attenuation_model:\n        sens_model = attenuation_model\n    elif norm_model:\n        sens_model = norm_model\n    else:\n        print(\"Neither attenuation nor normalisation data found. Exiting.\")\n        sys.exit(1)\n\n    sens_model.set_up(acq_data)\n    mult_sino = acq_data.clone()\n    sens_model.forward(mult_sino)\n\n    mult_sino.write(args.output)\n    if not args.non_interactive:\n        print(f\"Multiplicative sinogram written to {args.output}\")\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126894,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_67c7cfda46",
+    "usage": {
+      "completion_tokens": 770,
+      "prompt_tokens": 192,
+      "total_tokens": 962,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nimport os\nimport sys\nimport sirf.STIR as pet\n\ndef file_or_default(path, default):\n    return path if path and os.path.isfile(path) else default\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Create multiplicative sinograms using SIRF.\")\n    parser.add_argument('--template', type=str, help='Path to template sinogram file')\n    parser.add_argument('--attenuation_image', type=str, help='Path to attenuation image file')\n    parser.add_argument('--norm_file', type=str, help='Path to ECAT8 bin normalisation file')\n    parser.add_argument('--output', type=str, required=True, help='Output file for multiplicative sinogram')\n    parser.add_argument('--transform', type=str, help='Path to transformation for attenuation image')\n    parser.add_argument('--transform_type', type=str, choices=['affine', 'rigid', 'none'], default='none', help='Type of transformation')\n    parser.add_argument('--non_interactive', action='store_true', help='Run in non-interactive mode')\n    parser.add_argument('--default_template', type=str, default='template.hs', help='Default template sinogram')\n    parser.add_argument('--default_attenuation', type=str, default='attenuation.hv', help='Default attenuation image')\n    parser.add_argument('--default_norm', type=str, default='norm.n', help='Default normalisation file')\n    args = parser.parse_args()\n\n    template_path = file_or_default(args.template, args.default_template)\n    attenuation_path = file_or_default(args.attenuation_image, args.default_attenuation)\n    norm_path = file_or_default(args.norm_file, args.default_norm)\n    transform_path = args.transform\n\n    if not os.path.isfile(template_path):\n        print(f\"Template sinogram file not found: {template_path}\")\n        sys.exit(1)\n\n    acq_data = pet.AcquisitionData(template_path)\n    acq_model = pet.AcquisitionModelUsingRayTracingMatrix()\n    acq_model.set_up(acq_data, pet.ImageData(attenuation_path) if os.path.isfile(attenuation_path) else acq_data.create_uniform_image(1.0))\n\n    attenuation_model = None\n    if os.path.isfile(attenuation_path):\n        attn_image = pet.ImageData(attenuation_path)\n        if transform_path and os.path.isfile(transform_path) and args.transform_type != 'none':\n            if args.transform_type == 'affine':\n                from sirf.Reg import AffineTransformation\n                tx = AffineTransformation(transform_path)\n                attn_image = tx.apply_to_image(attn_image)\n            elif args.transform_type == 'rigid':\n                from sirf.Reg import RigidTransformation\n                tx = RigidTransformation(transform_path)\n                attn_image = tx.apply_to_image(attn_image)\n        attenuation_model = pet.AcquisitionSensitivityModel(attn_image, acq_model, False)\n\n    norm_model = None\n    if os.path.isfile(norm_path):\n        norm_model = pet.AcquisitionSensitivityModel(norm_path)\n\n    if attenuation_model and norm_model:\n        sens_model = pet.AcquisitionSensitivityModelPair(norm_model, attenuation_model)\n    elif attenuation_model:\n        sens_model = attenuation_model\n    elif norm_model:\n        sens_model = norm_model\n    else:\n        print(\"Neither attenuation nor normalisation data found. Exiting.\")\n        sys.exit(1)\n\n    sens_model.set_up(acq_data)\n    mult_sino = acq_data.clone()\n    sens_model.forward(mult_sino)\n\n    mult_sino.write(args.output)\n    if not args.non_interactive:\n        print(f\"Multiplicative sinogram written to {args.output}\")\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 4.4354323469997325,
+  "usage": {
+    "completion_tokens": 770,
+    "prompt_tokens": 192,
+    "total_tokens": 962,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6544,
+  "response_sha256": "bb53c77f73cba752d53b89f1d3273a9ae090826dc055a642a7bc06e9706b772b",
+  "artifact_sha256": "4ea090bf1ed41c1862e8a54dc7677758876053f178f6b52c0fe87ab7460fbdc4"
+}

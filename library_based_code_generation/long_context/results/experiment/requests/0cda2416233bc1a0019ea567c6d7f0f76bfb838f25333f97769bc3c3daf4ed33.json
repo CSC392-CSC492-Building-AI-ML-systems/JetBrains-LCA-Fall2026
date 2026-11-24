@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 29,
+    "task_sha256": "ac58f42157f5fc78a6123bdb5abbd2cf8aba8664ee64172dc70b924f11d3e753",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the PyVista library to create a 3D visualization of the solar system. The code should load models of the planets, apply textures to them, and position them in a 3D space. It should also create a light source to simulate the sun. The code should then add these models to a plotter and display them. Additionally, the code should create subplots for individual planets, showing their textures. Finally, the code should create a visualization of Venus with and without its atmosphere.\n\nYou can find the following APIs from the library helpful:\n_the_callback, _run_code, download_letter_a, _split_code_at_show, test_rotations_should_match_by_a_360_degree_difference, test_download_letter_a, create_timer, create_button, create_grid, create_mixed_cells, create_hex_example, create_axes_marker, test_should_remove_array, test_should_del_array, test_should_pop_array, test_key_should_exist, test_value_should_exist, test_values_should_be_pyvista_ndarrays, create_axes_orientation_box, _download_and_read"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4xxerZs5dMP8GFAYFRlmZhJYiwi",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport pyvista as pv\nimport numpy as np\n\n# Planet data: name, radius (in 1000 km), distance from sun (in 10^6 km), texture url\nplanets = [\n    {\n        \"name\": \"Mercury\",\n        \"radius\": 2.44,\n        \"distance\": 57.9,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/2/2e/Mercury_in_true_color.jpg\"\n    },\n    {\n        \"name\": \"Venus\",\n        \"radius\": 6.05,\n        \"distance\": 108.2,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg\",\n        \"atmosphere\": \"https://upload.wikimedia.org/wikipedia/commons/8/85/Venus_globe.jpg\"\n    },\n    {\n        \"name\": \"Earth\",\n        \"radius\": 6.37,\n        \"distance\": 149.6,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg\"\n    },\n    {\n        \"name\": \"Mars\",\n        \"radius\": 3.39,\n        \"distance\": 227.9,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg\"\n    },\n    {\n        \"name\": \"Jupiter\",\n        \"radius\": 69.9,\n        \"distance\": 778.5,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg\"\n    },\n    {\n        \"name\": \"Saturn\",\n        \"radius\": 58.2,\n        \"distance\": 1434,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg\"\n    },\n    {\n        \"name\": \"Uranus\",\n        \"radius\": 25.4,\n        \"distance\": 2871,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg\"\n    },\n    {\n        \"name\": \"Neptune\",\n        \"radius\": 24.6,\n        \"distance\": 4495,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg\"\n    }\n]\n\n# Scale factors for visualization\ndistance_scale = 1 / 100  # compress distances\nradius_scale = 1 / 10     # compress radii\n\n# Create plotter for solar system\nplotter = pv.Plotter(window_size=(1600, 900), lighting='three lights')\nplotter.set_background(\"black\")\n\n# Add a light source at the sun's position\nsun_position = (0, 0, 0)\nlight = pv.Light(position=sun_position, focal_point=(1, 0, 0), color='white', intensity=2.0, light_type='scene light')\nplotter.add_light(light)\n\n# Add the sun (as a sphere with yellow color)\nsun_radius = 109 * 6.37 * radius_scale  # Sun is ~109x Earth's radius\nsun = pv.Sphere(radius=sun_radius, center=sun_position, theta_resolution=64, phi_resolution=64)\nplotter.add_mesh(sun, color='yellow', smooth_shading=True, name='Sun', specular=1.0, specular_power=20)\n\n# Add planets\nplanet_meshes = []\nfor planet in planets:\n    r = planet[\"radius\"] * radius_scale\n    d = planet[\"distance\"] * distance_scale + sun_radius + r * 2  # avoid overlap with sun\n    center = (d, 0, 0)\n    sphere = pv.Sphere(radius=r, center=center, theta_resolution=64, phi_resolution=64)\n    texture = pv.read_texture(planet[\"texture\"])\n    plotter.add_mesh(sphere, texture=texture, smooth_shading=True, name=planet[\"name\"])\n    planet_meshes.append((planet, sphere, texture))\n\n# Add orbits (as circles)\nfor planet in planets:\n    d = planet[\"distance\"] * distance_scale + sun_radius + planet[\"radius\"] * radius_scale * 2\n    theta = np.linspace(0, 2 * np.pi, 200)\n    x = d * np.cos(theta)\n    y = d * np.sin(theta)\n    z = np.zeros_like(theta)\n    orbit = np.column_stack((x, y, z))\n    plotter.add_lines(orbit, color='white', width=1, opacity=0.2)\n\nplotter.add_text(\"Solar System\", font_size=24, color='white', position='upper_left')\n\n# Show the solar system\nplotter.show(auto_close=False)\n\n# Create subplots for individual planets\nn_planets = len(planets)\nn_cols = 4\nn_rows = int(np.ceil(n_planets / n_cols))\nsubplotter = pv.Plotter(shape=(n_rows, n_cols), window_size=(1600, 900))\nsubplotter.set_background(\"black\")\n\nfor idx, (planet, sphere, texture) in enumerate(planet_meshes):\n    row = idx // n_cols\n    col = idx % n_cols\n    subplotter.subplot(row, col)\n    # Center planet at origin for subplot\n    planet_sphere = pv.Sphere(radius=planet[\"radius\"] * radius_scale, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\n    subplotter.add_mesh(planet_sphere, texture=texture, smooth_shading=True)\n    subplotter.add_text(planet[\"name\"], font_size=14, color='white', position='lower_left')\n    subplotter.camera_position = 'yz'\n\nsubplotter.show(auto_close=False)\n\n# Venus with and without atmosphere\nvenus = [p for p in planets if p[\"name\"] == \"Venus\"][0]\nvenus_radius = venus[\"radius\"] * radius_scale\nvenus_sphere = pv.Sphere(radius=venus_radius, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\nvenus_texture = pv.read_texture(venus[\"texture\"])\nvenus_atmo_texture = pv.read_texture(venus[\"atmosphere\"])\n\n# Atmosphere as a slightly larger transparent sphere\natmo_sphere = pv.Sphere(radius=venus_radius * 1.05, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\n\nvenus_plotter = pv.Plotter(shape=(1, 2), window_size=(1000, 500))\nvenus_plotter.set_background(\"black\")\n\n# Venus without atmosphere\nvenus_plotter.subplot(0, 0)\nvenus_plotter.add_mesh(venus_sphere, texture=venus_texture, smooth_shading=True)\nvenus_plotter.add_text(\"Venus (Surface)\", font_size=16, color='white', position='lower_left')\nvenus_plotter.camera_position = 'yz'\n\n# Venus with atmosphere\nvenus_plotter.subplot(0, 1)\nvenus_plotter.add_mesh(venus_sphere, texture=venus_texture, smooth_shading=True)\nvenus_plotter.add_mesh(atmo_sphere, texture=venus_atmo_texture, opacity=0.5, smooth_shading=True)\nvenus_plotter.add_text(\"Venus (With Atmosphere)\", font_size=16, color='white', position='lower_left')\nvenus_plotter.camera_position = 'yz'\n\nvenus_plotter.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127541,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_128048d39c",
+    "usage": {
+      "completion_tokens": 1594,
+      "prompt_tokens": 245,
+      "total_tokens": 1839,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport pyvista as pv\nimport numpy as np\n\n# Planet data: name, radius (in 1000 km), distance from sun (in 10^6 km), texture url\nplanets = [\n    {\n        \"name\": \"Mercury\",\n        \"radius\": 2.44,\n        \"distance\": 57.9,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/2/2e/Mercury_in_true_color.jpg\"\n    },\n    {\n        \"name\": \"Venus\",\n        \"radius\": 6.05,\n        \"distance\": 108.2,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg\",\n        \"atmosphere\": \"https://upload.wikimedia.org/wikipedia/commons/8/85/Venus_globe.jpg\"\n    },\n    {\n        \"name\": \"Earth\",\n        \"radius\": 6.37,\n        \"distance\": 149.6,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg\"\n    },\n    {\n        \"name\": \"Mars\",\n        \"radius\": 3.39,\n        \"distance\": 227.9,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg\"\n    },\n    {\n        \"name\": \"Jupiter\",\n        \"radius\": 69.9,\n        \"distance\": 778.5,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg\"\n    },\n    {\n        \"name\": \"Saturn\",\n        \"radius\": 58.2,\n        \"distance\": 1434,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg\"\n    },\n    {\n        \"name\": \"Uranus\",\n        \"radius\": 25.4,\n        \"distance\": 2871,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg\"\n    },\n    {\n        \"name\": \"Neptune\",\n        \"radius\": 24.6,\n        \"distance\": 4495,\n        \"texture\": \"https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg\"\n    }\n]\n\n# Scale factors for visualization\ndistance_scale = 1 / 100  # compress distances\nradius_scale = 1 / 10     # compress radii\n\n# Create plotter for solar system\nplotter = pv.Plotter(window_size=(1600, 900), lighting='three lights')\nplotter.set_background(\"black\")\n\n# Add a light source at the sun's position\nsun_position = (0, 0, 0)\nlight = pv.Light(position=sun_position, focal_point=(1, 0, 0), color='white', intensity=2.0, light_type='scene light')\nplotter.add_light(light)\n\n# Add the sun (as a sphere with yellow color)\nsun_radius = 109 * 6.37 * radius_scale  # Sun is ~109x Earth's radius\nsun = pv.Sphere(radius=sun_radius, center=sun_position, theta_resolution=64, phi_resolution=64)\nplotter.add_mesh(sun, color='yellow', smooth_shading=True, name='Sun', specular=1.0, specular_power=20)\n\n# Add planets\nplanet_meshes = []\nfor planet in planets:\n    r = planet[\"radius\"] * radius_scale\n    d = planet[\"distance\"] * distance_scale + sun_radius + r * 2  # avoid overlap with sun\n    center = (d, 0, 0)\n    sphere = pv.Sphere(radius=r, center=center, theta_resolution=64, phi_resolution=64)\n    texture = pv.read_texture(planet[\"texture\"])\n    plotter.add_mesh(sphere, texture=texture, smooth_shading=True, name=planet[\"name\"])\n    planet_meshes.append((planet, sphere, texture))\n\n# Add orbits (as circles)\nfor planet in planets:\n    d = planet[\"distance\"] * distance_scale + sun_radius + planet[\"radius\"] * radius_scale * 2\n    theta = np.linspace(0, 2 * np.pi, 200)\n    x = d * np.cos(theta)\n    y = d * np.sin(theta)\n    z = np.zeros_like(theta)\n    orbit = np.column_stack((x, y, z))\n    plotter.add_lines(orbit, color='white', width=1, opacity=0.2)\n\nplotter.add_text(\"Solar System\", font_size=24, color='white', position='upper_left')\n\n# Show the solar system\nplotter.show(auto_close=False)\n\n# Create subplots for individual planets\nn_planets = len(planets)\nn_cols = 4\nn_rows = int(np.ceil(n_planets / n_cols))\nsubplotter = pv.Plotter(shape=(n_rows, n_cols), window_size=(1600, 900))\nsubplotter.set_background(\"black\")\n\nfor idx, (planet, sphere, texture) in enumerate(planet_meshes):\n    row = idx // n_cols\n    col = idx % n_cols\n    subplotter.subplot(row, col)\n    # Center planet at origin for subplot\n    planet_sphere = pv.Sphere(radius=planet[\"radius\"] * radius_scale, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\n    subplotter.add_mesh(planet_sphere, texture=texture, smooth_shading=True)\n    subplotter.add_text(planet[\"name\"], font_size=14, color='white', position='lower_left')\n    subplotter.camera_position = 'yz'\n\nsubplotter.show(auto_close=False)\n\n# Venus with and without atmosphere\nvenus = [p for p in planets if p[\"name\"] == \"Venus\"][0]\nvenus_radius = venus[\"radius\"] * radius_scale\nvenus_sphere = pv.Sphere(radius=venus_radius, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\nvenus_texture = pv.read_texture(venus[\"texture\"])\nvenus_atmo_texture = pv.read_texture(venus[\"atmosphere\"])\n\n# Atmosphere as a slightly larger transparent sphere\natmo_sphere = pv.Sphere(radius=venus_radius * 1.05, center=(0, 0, 0), theta_resolution=64, phi_resolution=64)\n\nvenus_plotter = pv.Plotter(shape=(1, 2), window_size=(1000, 500))\nvenus_plotter.set_background(\"black\")\n\n# Venus without atmosphere\nvenus_plotter.subplot(0, 0)\nvenus_plotter.add_mesh(venus_sphere, texture=venus_texture, smooth_shading=True)\nvenus_plotter.add_text(\"Venus (Surface)\", font_size=16, color='white', position='lower_left')\nvenus_plotter.camera_position = 'yz'\n\n# Venus with atmosphere\nvenus_plotter.subplot(0, 1)\nvenus_plotter.add_mesh(venus_sphere, texture=venus_texture, smooth_shading=True)\nvenus_plotter.add_mesh(atmo_sphere, texture=venus_atmo_texture, opacity=0.5, smooth_shading=True)\nvenus_plotter.add_text(\"Venus (With Atmosphere)\", font_size=16, color='white', position='lower_left')\nvenus_plotter.camera_position = 'yz'\n\nvenus_plotter.show()\n```",
+  "latency_seconds": 12.774607078999907,
+  "usage": {
+    "completion_tokens": 1594,
+    "prompt_tokens": 245,
+    "total_tokens": 1839,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 13242,
+  "response_sha256": "e6c2332806288d22ba479735a579f811a6a6f28f9eb328bb794901b5080dc101",
+  "artifact_sha256": "f1577046188ba1a1db667dd31ddff6e132a0b1c4a38ac78373f8078366484205"
+}

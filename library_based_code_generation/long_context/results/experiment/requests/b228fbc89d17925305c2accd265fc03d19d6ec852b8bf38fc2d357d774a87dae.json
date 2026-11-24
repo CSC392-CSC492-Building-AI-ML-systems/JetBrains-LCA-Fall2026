@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 104,
+    "task_sha256": "4d12843f36a9e3e1dc97061d6066f7f40bdce4102398193cab19fdcf2bdc3f96",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that visualizes a wrench applied to a 6-DOF robot arm. The wrench is assumed to be measured by a force/torque sensor at the tool center point (TCP) of the robot arm due to a spherical mass. The code should include a function to plot the transformation about and along a screw axis, which represents the wrench. The wrench is then transformed from the TCP to the robot's base frame using the adjoint representation of the transformation. The transformed wrench has a force component and a torque component, which are also visualized as a screw. The code should also load a robot model from a URDF file, set joint angles, and plot the robot model and the transformations. The visualization should include the robot arm, the TCP, the spherical mass, and the wrench in both the TCP frame and the base frame. The code should be able to save the visualization as an image. The pytransform3d library is used for transformations and visualizations."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5jbqwH9VrNLSqAeVFAJ7swX6phP",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pytransform3d.urdf import UrdfTransformManager\nfrom pytransform3d.transform_manager import TransformManager\nfrom pytransform3d.transformations import (\n    transform_from, vector_to_skew_symmetric, adjoint_from_transform\n)\nfrom pytransform3d.plot_utils import make_3d_axis\nfrom pytransform3d.plot_transform import plot_transform\nfrom pytransform3d.plot_screw import plot_screw\n\ndef plot_screw_axis(ax, origin, direction, moment, length=0.2, color='r', label=None):\n    \"\"\"Plot a screw axis (force/torque) as an arrow and a moment as a circle.\"\"\"\n    # Plot force vector\n    ax.quiver(\n        origin[0], origin[1], origin[2],\n        direction[0], direction[1], direction[2],\n        length=length, color=color, linewidth=2, label=label\n    )\n    # Plot torque as a circular arrow\n    if np.linalg.norm(moment) > 1e-6:\n        # Find a vector perpendicular to moment for the circle\n        perp = np.cross(moment, [1, 0, 0])\n        if np.linalg.norm(perp) < 1e-6:\n            perp = np.cross(moment, [0, 1, 0])\n        perp = perp / np.linalg.norm(perp)\n        theta = np.linspace(0, 2 * np.pi, 100)\n        circle = (np.outer(np.cos(theta), perp) +\n                  np.outer(np.sin(theta), np.cross(moment, perp) / np.linalg.norm(moment)))\n        circle = origin + 0.05 * circle\n        ax.plot(circle[:, 0], circle[:, 1], circle[:, 2], color=color, linestyle='--')\n\ndef transform_wrench(wrench, H):\n    \"\"\"Transform a wrench from one frame to another using adjoint.\"\"\"\n    Ad = adjoint_from_transform(H)\n    return Ad.T @ wrench\n\ndef main():\n    # Load robot from URDF\n    urdf_path = \"robot.urdf\"  # Replace with your URDF file path\n    tm = UrdfTransformManager()\n    with open(urdf_path) as f:\n        urdf_string = f.read()\n    tm.load_urdf(urdf_string)\n\n    # Set joint angles (example: all zeros)\n    joint_names = list(tm._joint_to_child_link.keys())\n    joint_angles = np.zeros(len(joint_names))\n    joint_dict = dict(zip(joint_names, joint_angles))\n    tm.set_joint_angles(joint_dict)\n\n    # Get base and TCP frame names\n    base_frame = tm.get_root()\n    tcp_frame = list(tm._link_to_parent_joint.keys())[-1]  # Last link as TCP\n\n    # Get TCP pose in base frame\n    H_base_tcp = tm.get_transform(tcp_frame, base_frame)\n\n    # Define spherical mass at TCP\n    mass = 1.0  # kg\n    g = np.array([0, 0, -9.81])  # gravity\n    force_tcp = mass * g\n    torque_tcp = np.zeros(3)  # Assume force acts at TCP, no offset\n    wrench_tcp = np.hstack((force_tcp, torque_tcp))\n\n    # Transform wrench to base frame\n    wrench_base = transform_wrench(wrench_tcp, H_base_tcp)\n\n    # Visualization\n    fig = plt.figure(figsize=(10, 8))\n    ax = make_3d_axis(ax_s=fig.add_subplot(111, projection='3d'), unit='m')\n    ax.set_title(\"6-DOF Robot Arm Wrench Visualization\")\n\n    # Plot robot\n    tm.plot_frames_in(ax, base_frame, s=0.05)\n    tm.plot_graph(ax=ax, show_visuals=True, show_collision=False)\n\n    # Plot TCP\n    tcp_pos = H_base_tcp[:3, 3]\n    plot_transform(ax=ax, A2b=H_base_tcp, s=0.07, name=\"TCP\", alpha=0.7)\n\n    # Plot spherical mass at TCP\n    u, v = np.mgrid[0:2 * np.pi:20j, 0:np.pi:10j]\n    r = 0.03\n    x = tcp_pos[0] + r * np.cos(u) * np.sin(v)\n    y = tcp_pos[1] + r * np.sin(u) * np.sin(v)\n    z = tcp_pos[2] + r * np.cos(v)\n    ax.plot_surface(x, y, z, color='b', alpha=0.5)\n\n    # Plot wrench at TCP (in TCP frame)\n    plot_screw_axis(\n        ax, tcp_pos, force_tcp / np.linalg.norm(force_tcp), torque_tcp,\n        length=0.15, color='r', label=\"Wrench (TCP frame)\"\n    )\n\n    # Plot wrench in base frame (at TCP position)\n    force_base = wrench_base[:3]\n    torque_base = wrench_base[3:]\n    plot_screw_axis(\n        ax, tcp_pos, force_base / np.linalg.norm(force_base), torque_base,\n        length=0.15, color='g', label=\"Wrench (Base frame)\"\n    )\n\n    # Legend and view\n    ax.legend()\n    ax.set_xlim([tcp_pos[0] - 0.3, tcp_pos[0] + 0.3])\n    ax.set_ylim([tcp_pos[1] - 0.3, tcp_pos[1] + 0.3])\n    ax.set_zlim([tcp_pos[2] - 0.3, tcp_pos[2] + 0.3])\n    ax.view_init(elev=30, azim=45)\n\n    # Save image\n    plt.tight_layout()\n    plt.savefig(\"robot_wrench_visualization.png\", dpi=300)\n    plt.show()\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130495,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_fcf0924fe3",
+    "usage": {
+      "completion_tokens": 1258,
+      "prompt_tokens": 229,
+      "total_tokens": 1487,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pytransform3d.urdf import UrdfTransformManager\nfrom pytransform3d.transform_manager import TransformManager\nfrom pytransform3d.transformations import (\n    transform_from, vector_to_skew_symmetric, adjoint_from_transform\n)\nfrom pytransform3d.plot_utils import make_3d_axis\nfrom pytransform3d.plot_transform import plot_transform\nfrom pytransform3d.plot_screw import plot_screw\n\ndef plot_screw_axis(ax, origin, direction, moment, length=0.2, color='r', label=None):\n    \"\"\"Plot a screw axis (force/torque) as an arrow and a moment as a circle.\"\"\"\n    # Plot force vector\n    ax.quiver(\n        origin[0], origin[1], origin[2],\n        direction[0], direction[1], direction[2],\n        length=length, color=color, linewidth=2, label=label\n    )\n    # Plot torque as a circular arrow\n    if np.linalg.norm(moment) > 1e-6:\n        # Find a vector perpendicular to moment for the circle\n        perp = np.cross(moment, [1, 0, 0])\n        if np.linalg.norm(perp) < 1e-6:\n            perp = np.cross(moment, [0, 1, 0])\n        perp = perp / np.linalg.norm(perp)\n        theta = np.linspace(0, 2 * np.pi, 100)\n        circle = (np.outer(np.cos(theta), perp) +\n                  np.outer(np.sin(theta), np.cross(moment, perp) / np.linalg.norm(moment)))\n        circle = origin + 0.05 * circle\n        ax.plot(circle[:, 0], circle[:, 1], circle[:, 2], color=color, linestyle='--')\n\ndef transform_wrench(wrench, H):\n    \"\"\"Transform a wrench from one frame to another using adjoint.\"\"\"\n    Ad = adjoint_from_transform(H)\n    return Ad.T @ wrench\n\ndef main():\n    # Load robot from URDF\n    urdf_path = \"robot.urdf\"  # Replace with your URDF file path\n    tm = UrdfTransformManager()\n    with open(urdf_path) as f:\n        urdf_string = f.read()\n    tm.load_urdf(urdf_string)\n\n    # Set joint angles (example: all zeros)\n    joint_names = list(tm._joint_to_child_link.keys())\n    joint_angles = np.zeros(len(joint_names))\n    joint_dict = dict(zip(joint_names, joint_angles))\n    tm.set_joint_angles(joint_dict)\n\n    # Get base and TCP frame names\n    base_frame = tm.get_root()\n    tcp_frame = list(tm._link_to_parent_joint.keys())[-1]  # Last link as TCP\n\n    # Get TCP pose in base frame\n    H_base_tcp = tm.get_transform(tcp_frame, base_frame)\n\n    # Define spherical mass at TCP\n    mass = 1.0  # kg\n    g = np.array([0, 0, -9.81])  # gravity\n    force_tcp = mass * g\n    torque_tcp = np.zeros(3)  # Assume force acts at TCP, no offset\n    wrench_tcp = np.hstack((force_tcp, torque_tcp))\n\n    # Transform wrench to base frame\n    wrench_base = transform_wrench(wrench_tcp, H_base_tcp)\n\n    # Visualization\n    fig = plt.figure(figsize=(10, 8))\n    ax = make_3d_axis(ax_s=fig.add_subplot(111, projection='3d'), unit='m')\n    ax.set_title(\"6-DOF Robot Arm Wrench Visualization\")\n\n    # Plot robot\n    tm.plot_frames_in(ax, base_frame, s=0.05)\n    tm.plot_graph(ax=ax, show_visuals=True, show_collision=False)\n\n    # Plot TCP\n    tcp_pos = H_base_tcp[:3, 3]\n    plot_transform(ax=ax, A2b=H_base_tcp, s=0.07, name=\"TCP\", alpha=0.7)\n\n    # Plot spherical mass at TCP\n    u, v = np.mgrid[0:2 * np.pi:20j, 0:np.pi:10j]\n    r = 0.03\n    x = tcp_pos[0] + r * np.cos(u) * np.sin(v)\n    y = tcp_pos[1] + r * np.sin(u) * np.sin(v)\n    z = tcp_pos[2] + r * np.cos(v)\n    ax.plot_surface(x, y, z, color='b', alpha=0.5)\n\n    # Plot wrench at TCP (in TCP frame)\n    plot_screw_axis(\n        ax, tcp_pos, force_tcp / np.linalg.norm(force_tcp), torque_tcp,\n        length=0.15, color='r', label=\"Wrench (TCP frame)\"\n    )\n\n    # Plot wrench in base frame (at TCP position)\n    force_base = wrench_base[:3]\n    torque_base = wrench_base[3:]\n    plot_screw_axis(\n        ax, tcp_pos, force_base / np.linalg.norm(force_base), torque_base,\n        length=0.15, color='g', label=\"Wrench (Base frame)\"\n    )\n\n    # Legend and view\n    ax.legend()\n    ax.set_xlim([tcp_pos[0] - 0.3, tcp_pos[0] + 0.3])\n    ax.set_ylim([tcp_pos[1] - 0.3, tcp_pos[1] + 0.3])\n    ax.set_zlim([tcp_pos[2] - 0.3, tcp_pos[2] + 0.3])\n    ax.view_init(elev=30, azim=45)\n\n    # Save image\n    plt.tight_layout()\n    plt.savefig(\"robot_wrench_visualization.png\", dpi=300)\n    plt.show()\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 8.645896096000797,
+  "usage": {
+    "completion_tokens": 1258,
+    "prompt_tokens": 229,
+    "total_tokens": 1487,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10522,
+  "response_sha256": "2d2e46d736db32deee5ec661e20d9cb5b27b6fc49481c5e00c6f2c471341e4a4",
+  "artifact_sha256": "4501e79794bd398b7bba6f6c04b21113a1287e1ca9fefa408955bc16f10aaf3d"
+}

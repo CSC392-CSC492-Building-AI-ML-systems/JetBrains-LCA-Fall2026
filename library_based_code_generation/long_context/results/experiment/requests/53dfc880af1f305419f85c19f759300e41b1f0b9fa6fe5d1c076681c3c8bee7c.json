@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 17,
+    "task_sha256": "6e6b3729169963cf493a4c005c50a9ecc495a594d4610f89a52fb29778c244bf",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the bluemira library to solve a 2D magnetostatic problem for a single coil. The code should first import necessary modules and define parameters for the coil and enclosure. Then, it should create the coil and enclosure using the bluemira library's geometry tools and set the mesh options for each. The code should also create components for the universe, enclosure, and coil. \n\nNext, the code should create a mesh and convert it for use in the FEniCS library. After setting up the mesh, the code should instantiate a magnetostatic solver and define the source term for the problem. The source term should be plotted for visualization. \n\nThe code should then solve the magnetostatic problem and calculate the magnetic field. Finally, the code should compare the calculated magnetic field with the theoretical value along the z-axis and along a radial path at a certain z-offset. The differences between the calculated and theoretical values should be plotted for each comparison."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4nyX4WfoRqLsr2YjHMD7bfW20JF",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom bluemira.geometry import Geometry, Coil, Box\nfrom bluemira.component import Component\nfrom bluemira.mesh import Mesh\nfrom bluemira.solver import MagnetostaticSolver\nfrom bluemira.utils.fenics import mesh_to_fenics\nfrom dolfin import FunctionSpace, Function, plot as fenics_plot, Point\n\n# Parameters\ncoil_radius = 0.05         # meters\ncoil_length = 0.01         # meters\ncoil_current = 10.0        # Amperes\ncoil_turns = 100\ncoil_center = (0.0, 0.0, 0.0)\n\nenclosure_size = (0.2, 0.2, 0.2)  # meters (x, y, z)\nenclosure_center = (0.0, 0.0, 0.0)\n\nmesh_size_coil = 0.002\nmesh_size_enclosure = 0.01\n\n# Create geometry\ngeometry = Geometry()\n\n# Create coil\ncoil = Coil(\n    center=coil_center,\n    radius=coil_radius,\n    length=coil_length,\n    turns=coil_turns,\n    current=coil_current,\n    axis='z'\n)\ngeometry.add(coil, mesh_size=mesh_size_coil)\n\n# Create enclosure\nenclosure = Box(\n    center=enclosure_center,\n    size=enclosure_size\n)\ngeometry.add(enclosure, mesh_size=mesh_size_enclosure)\n\n# Create components\nuniverse = Component('universe', geometry=geometry)\nenclosure_comp = Component('enclosure', geometry=enclosure)\ncoil_comp = Component('coil', geometry=coil)\n\n# Create mesh\nmesh = Mesh(geometry)\nmesh.generate()\nfenics_mesh = mesh_to_fenics(mesh)\n\n# Magnetostatic solver setup\nsolver = MagnetostaticSolver(mesh=fenics_mesh)\nsolver.add_coil(coil_comp)\n\n# Define source term (current density)\nJ = solver.source_term()\nV = FunctionSpace(fenics_mesh, 'CG', 1)\nJ_func = Function(V)\nJ_func.vector()[:] = J\n\n# Plot source term\nplt.figure()\nfenics_plot(J_func, title=\"Source Term (Current Density)\")\nplt.title(\"Source Term (Current Density)\")\nplt.show()\n\n# Solve magnetostatic problem\nA = solver.solve()\n\n# Calculate magnetic field B = curl(A)\nB = solver.magnetic_field(A)\n\n# Theoretical B field along z-axis (on axis of coil)\nmu0 = 4 * np.pi * 1e-7\nz_vals = np.linspace(-0.1, 0.1, 100)\nBz_calc = []\nBz_theory = []\nfor z in z_vals:\n    p = Point(0, 0, z)\n    B_vec = B(p)\n    Bz_calc.append(B_vec[2])\n    # Theoretical on-axis field for finite solenoid\n    z1 = z - coil_length/2\n    z2 = z + coil_length/2\n    Bz = (mu0 * coil_turns * coil_current / 2) * (\n        (z2 / np.sqrt(coil_radius**2 + z2**2)) -\n        (z1 / np.sqrt(coil_radius**2 + z1**2))\n    ) / coil_length\n    Bz_theory.append(Bz)\n\nBz_calc = np.array(Bz_calc)\nBz_theory = np.array(Bz_theory)\ndiff_z = Bz_calc - Bz_theory\n\nplt.figure()\nplt.plot(z_vals, Bz_calc, label='Calculated Bz')\nplt.plot(z_vals, Bz_theory, '--', label='Theoretical Bz')\nplt.xlabel('z (m)')\nplt.ylabel('Bz (T)')\nplt.title('Magnetic Field Along z-axis')\nplt.legend()\nplt.show()\n\nplt.figure()\nplt.plot(z_vals, diff_z)\nplt.xlabel('z (m)')\nplt.ylabel('Bz_calc - Bz_theory (T)')\nplt.title('Difference Along z-axis')\nplt.show()\n\n# Radial path at z = 0.01 m\nr_vals = np.linspace(0, 0.1, 100)\nz_offset = 0.01\nBr_calc = []\nBr_theory = []\nfor r in r_vals:\n    p = Point(r, 0, z_offset)\n    B_vec = B(p)\n    Br_calc.append(B_vec[0])\n    # Theoretical off-axis field is complex; for small r, use on-axis approx\n    z1 = z_offset - coil_length/2\n    z2 = z_offset + coil_length/2\n    Bz = (mu0 * coil_turns * coil_current / 2) * (\n        (z2 / np.sqrt(coil_radius**2 + z2**2)) -\n        (z1 / np.sqrt(coil_radius**2 + z1**2))\n    ) / coil_length\n    Br_theory.append(0.0)  # Approximate Br ~ 0 on axis\n\nBr_calc = np.array(Br_calc)\nBr_theory = np.array(Br_theory)\ndiff_r = Br_calc - Br_theory\n\nplt.figure()\nplt.plot(r_vals, Br_calc, label='Calculated Br')\nplt.plot(r_vals, Br_theory, '--', label='Theoretical Br')\nplt.xlabel('r (m)')\nplt.ylabel('Br (T)')\nplt.title('Radial Magnetic Field at z = {:.3f} m'.format(z_offset))\nplt.legend()\nplt.show()\n\nplt.figure()\nplt.plot(r_vals, diff_r)\nplt.xlabel('r (m)')\nplt.ylabel('Br_calc - Br_theory (T)')\nplt.title('Difference Along Radial Path at z = {:.3f} m'.format(z_offset))\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126922,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8b0c5e528c",
+    "usage": {
+      "completion_tokens": 1224,
+      "prompt_tokens": 228,
+      "total_tokens": 1452,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom bluemira.geometry import Geometry, Coil, Box\nfrom bluemira.component import Component\nfrom bluemira.mesh import Mesh\nfrom bluemira.solver import MagnetostaticSolver\nfrom bluemira.utils.fenics import mesh_to_fenics\nfrom dolfin import FunctionSpace, Function, plot as fenics_plot, Point\n\n# Parameters\ncoil_radius = 0.05         # meters\ncoil_length = 0.01         # meters\ncoil_current = 10.0        # Amperes\ncoil_turns = 100\ncoil_center = (0.0, 0.0, 0.0)\n\nenclosure_size = (0.2, 0.2, 0.2)  # meters (x, y, z)\nenclosure_center = (0.0, 0.0, 0.0)\n\nmesh_size_coil = 0.002\nmesh_size_enclosure = 0.01\n\n# Create geometry\ngeometry = Geometry()\n\n# Create coil\ncoil = Coil(\n    center=coil_center,\n    radius=coil_radius,\n    length=coil_length,\n    turns=coil_turns,\n    current=coil_current,\n    axis='z'\n)\ngeometry.add(coil, mesh_size=mesh_size_coil)\n\n# Create enclosure\nenclosure = Box(\n    center=enclosure_center,\n    size=enclosure_size\n)\ngeometry.add(enclosure, mesh_size=mesh_size_enclosure)\n\n# Create components\nuniverse = Component('universe', geometry=geometry)\nenclosure_comp = Component('enclosure', geometry=enclosure)\ncoil_comp = Component('coil', geometry=coil)\n\n# Create mesh\nmesh = Mesh(geometry)\nmesh.generate()\nfenics_mesh = mesh_to_fenics(mesh)\n\n# Magnetostatic solver setup\nsolver = MagnetostaticSolver(mesh=fenics_mesh)\nsolver.add_coil(coil_comp)\n\n# Define source term (current density)\nJ = solver.source_term()\nV = FunctionSpace(fenics_mesh, 'CG', 1)\nJ_func = Function(V)\nJ_func.vector()[:] = J\n\n# Plot source term\nplt.figure()\nfenics_plot(J_func, title=\"Source Term (Current Density)\")\nplt.title(\"Source Term (Current Density)\")\nplt.show()\n\n# Solve magnetostatic problem\nA = solver.solve()\n\n# Calculate magnetic field B = curl(A)\nB = solver.magnetic_field(A)\n\n# Theoretical B field along z-axis (on axis of coil)\nmu0 = 4 * np.pi * 1e-7\nz_vals = np.linspace(-0.1, 0.1, 100)\nBz_calc = []\nBz_theory = []\nfor z in z_vals:\n    p = Point(0, 0, z)\n    B_vec = B(p)\n    Bz_calc.append(B_vec[2])\n    # Theoretical on-axis field for finite solenoid\n    z1 = z - coil_length/2\n    z2 = z + coil_length/2\n    Bz = (mu0 * coil_turns * coil_current / 2) * (\n        (z2 / np.sqrt(coil_radius**2 + z2**2)) -\n        (z1 / np.sqrt(coil_radius**2 + z1**2))\n    ) / coil_length\n    Bz_theory.append(Bz)\n\nBz_calc = np.array(Bz_calc)\nBz_theory = np.array(Bz_theory)\ndiff_z = Bz_calc - Bz_theory\n\nplt.figure()\nplt.plot(z_vals, Bz_calc, label='Calculated Bz')\nplt.plot(z_vals, Bz_theory, '--', label='Theoretical Bz')\nplt.xlabel('z (m)')\nplt.ylabel('Bz (T)')\nplt.title('Magnetic Field Along z-axis')\nplt.legend()\nplt.show()\n\nplt.figure()\nplt.plot(z_vals, diff_z)\nplt.xlabel('z (m)')\nplt.ylabel('Bz_calc - Bz_theory (T)')\nplt.title('Difference Along z-axis')\nplt.show()\n\n# Radial path at z = 0.01 m\nr_vals = np.linspace(0, 0.1, 100)\nz_offset = 0.01\nBr_calc = []\nBr_theory = []\nfor r in r_vals:\n    p = Point(r, 0, z_offset)\n    B_vec = B(p)\n    Br_calc.append(B_vec[0])\n    # Theoretical off-axis field is complex; for small r, use on-axis approx\n    z1 = z_offset - coil_length/2\n    z2 = z_offset + coil_length/2\n    Bz = (mu0 * coil_turns * coil_current / 2) * (\n        (z2 / np.sqrt(coil_radius**2 + z2**2)) -\n        (z1 / np.sqrt(coil_radius**2 + z1**2))\n    ) / coil_length\n    Br_theory.append(0.0)  # Approximate Br ~ 0 on axis\n\nBr_calc = np.array(Br_calc)\nBr_theory = np.array(Br_theory)\ndiff_r = Br_calc - Br_theory\n\nplt.figure()\nplt.plot(r_vals, Br_calc, label='Calculated Br')\nplt.plot(r_vals, Br_theory, '--', label='Theoretical Br')\nplt.xlabel('r (m)')\nplt.ylabel('Br (T)')\nplt.title('Radial Magnetic Field at z = {:.3f} m'.format(z_offset))\nplt.legend()\nplt.show()\n\nplt.figure()\nplt.plot(r_vals, diff_r)\nplt.xlabel('r (m)')\nplt.ylabel('Br_calc - Br_theory (T)')\nplt.title('Difference Along Radial Path at z = {:.3f} m'.format(z_offset))\nplt.show()\n```",
+  "latency_seconds": 6.460675727001217,
+  "usage": {
+    "completion_tokens": 1224,
+    "prompt_tokens": 228,
+    "total_tokens": 1452,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10248,
+  "response_sha256": "147820085fba13d769f49b9884adddc7a65581ba509f8f2f67ee9bfbf28d78bc",
+  "artifact_sha256": "d980a286008338063104f34421c948bd4a868578130b1554e56080d48984a0fb"
+}

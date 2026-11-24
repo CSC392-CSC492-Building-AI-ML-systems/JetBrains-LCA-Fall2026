@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 20,
+    "task_sha256": "f4755b449740f3a86e4af7ccb53f741b9306893c407c25795dc590635ae25e3d",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that sets up a Monte Carlo simulation using the Basilisk library, specifically using the Python Spice setup. The simulation should create a simple spacecraft with specific initial conditions. The code should also include the loading of Spice kernels within Python to pull the Hubble states from Spice. This Python Spice call should be performed within each Monte Carlo thread. The Hubble states should then be printed to the terminal. The Monte Carlo scenario should be set up to run 12 times. The code should also include a Controller class with Spice kernel loading code that is commented out. The simulation should be set up within a class called \"MySimulation\". The code should also include a function to access the Spice Kernel and print out the state. Finally, the code should include a main function that sets up and executes the Monte Carlo simulation, and cleans up the data after the test."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4pnkPxhi63i1tuSlo3RQXchIomN",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport numpy as np\nimport basilisk\nfrom basilisk.architecture import bskLogging\nfrom basilisk.architecture import messaging\nfrom basilisk.simulation import spacecraft\nfrom basilisk.simulation import sim_model\nfrom basilisk.utilities import SimulationBaseClass\nfrom basilisk.utilities import macros\nfrom basilisk.utilities import spiceInterface\nfrom basilisk.utilities import monteCarloInterface\nfrom basilisk.utilities import bskSim\nfrom basilisk.utilities import orbitalMotion\n\n# Path to SPICE kernels (update as needed)\nSPICE_KERNELS_PATH = os.path.join(os.path.dirname(__file__), \"kernels\")\nHUBBLE_ID = -205\n\ndef get_hubble_state(spice_instance, et):\n    state, lt = spice_instance.getBodyState(\n        \"HST\", \"EARTH\", \"J2000\", \"NONE\", et)\n    print(f\"Hubble State at ET={et}: {state}\")\n\nclass Controller:\n    def __init__(self):\n        pass\n\n    def load_spice_kernels(self, spice_instance):\n        # Example commented-out code for loading kernels\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"naif0012.tls\"))\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"de430.bsp\"))\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"hst_edited.bsp\"))\n        pass\n\nclass MySimulation:\n    def __init__(self, run_number):\n        self.run_number = run_number\n        self.simTaskName = \"simTask\"\n        self.simProcessName = \"simProcess\"\n        self.spice = None\n        self.scObject = None\n        self.sim = None\n\n    def setup_simulation(self):\n        self.sim = SimulationBaseClass.SimBaseClass()\n        self.sim.CreateNewProcess(self.simProcessName)\n        self.sim.CreateNewTask(self.simTaskName, macros.sec2nano(1.0))\n\n        # Set up spacecraft\n        self.scObject = spacecraft.Spacecraft()\n        self.scObject.ModelTag = \"spacecraftBody\"\n        mass = 11110.0  # Hubble mass in kg\n        self.scObject.hub.mHub = mass\n        self.scObject.hub.IHubPntBc_B = [1000.0, 1000.0, 1000.0]\n        self.scObject.hub.r_BcB_B = [0.0, 0.0, 0.0]\n        self.sim.AddModelToTask(self.simTaskName, self.scObject)\n\n        # Set up SPICE\n        self.spice = spiceInterface.SpiceInterface()\n        self.spice.ModelTag = \"SpiceInterface\"\n        self.spice.SPICEDataPath = SPICE_KERNELS_PATH\n        self.spice.UTCCalInit = '2020 JAN 01 00:00:00.0'\n        self.spice.addSpiceKernel(\"naif0012.tls\")\n        self.spice.addSpiceKernel(\"de430.bsp\")\n        self.spice.addSpiceKernel(\"hst_edited.bsp\")\n        self.sim.AddModelToTask(self.simTaskName, self.spice)\n\n    def run(self):\n        self.setup_simulation()\n        self.sim.InitializeSimulation()\n        et = self.spice.getInitialEphemerisTime()\n        get_hubble_state(self.spice, et)\n        self.sim.TerminateSimulation()\n\ndef monte_carlo_run(run_number):\n    sim = MySimulation(run_number)\n    sim.run()\n\ndef main():\n    num_runs = 12\n    for i in range(num_runs):\n        print(f\"--- Monte Carlo Run {i+1} ---\")\n        monte_carlo_run(i)\n    # Clean up data after test\n    if os.path.exists(\"basiliskMonteCarloData\"):\n        import shutil\n        shutil.rmtree(\"basiliskMonteCarloData\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127035,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_b50162a62f",
+    "usage": {
+      "completion_tokens": 837,
+      "prompt_tokens": 203,
+      "total_tokens": 1040,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport numpy as np\nimport basilisk\nfrom basilisk.architecture import bskLogging\nfrom basilisk.architecture import messaging\nfrom basilisk.simulation import spacecraft\nfrom basilisk.simulation import sim_model\nfrom basilisk.utilities import SimulationBaseClass\nfrom basilisk.utilities import macros\nfrom basilisk.utilities import spiceInterface\nfrom basilisk.utilities import monteCarloInterface\nfrom basilisk.utilities import bskSim\nfrom basilisk.utilities import orbitalMotion\n\n# Path to SPICE kernels (update as needed)\nSPICE_KERNELS_PATH = os.path.join(os.path.dirname(__file__), \"kernels\")\nHUBBLE_ID = -205\n\ndef get_hubble_state(spice_instance, et):\n    state, lt = spice_instance.getBodyState(\n        \"HST\", \"EARTH\", \"J2000\", \"NONE\", et)\n    print(f\"Hubble State at ET={et}: {state}\")\n\nclass Controller:\n    def __init__(self):\n        pass\n\n    def load_spice_kernels(self, spice_instance):\n        # Example commented-out code for loading kernels\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"naif0012.tls\"))\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"de430.bsp\"))\n        # spice_instance.loadSpiceKernel(os.path.join(SPICE_KERNELS_PATH, \"hst_edited.bsp\"))\n        pass\n\nclass MySimulation:\n    def __init__(self, run_number):\n        self.run_number = run_number\n        self.simTaskName = \"simTask\"\n        self.simProcessName = \"simProcess\"\n        self.spice = None\n        self.scObject = None\n        self.sim = None\n\n    def setup_simulation(self):\n        self.sim = SimulationBaseClass.SimBaseClass()\n        self.sim.CreateNewProcess(self.simProcessName)\n        self.sim.CreateNewTask(self.simTaskName, macros.sec2nano(1.0))\n\n        # Set up spacecraft\n        self.scObject = spacecraft.Spacecraft()\n        self.scObject.ModelTag = \"spacecraftBody\"\n        mass = 11110.0  # Hubble mass in kg\n        self.scObject.hub.mHub = mass\n        self.scObject.hub.IHubPntBc_B = [1000.0, 1000.0, 1000.0]\n        self.scObject.hub.r_BcB_B = [0.0, 0.0, 0.0]\n        self.sim.AddModelToTask(self.simTaskName, self.scObject)\n\n        # Set up SPICE\n        self.spice = spiceInterface.SpiceInterface()\n        self.spice.ModelTag = \"SpiceInterface\"\n        self.spice.SPICEDataPath = SPICE_KERNELS_PATH\n        self.spice.UTCCalInit = '2020 JAN 01 00:00:00.0'\n        self.spice.addSpiceKernel(\"naif0012.tls\")\n        self.spice.addSpiceKernel(\"de430.bsp\")\n        self.spice.addSpiceKernel(\"hst_edited.bsp\")\n        self.sim.AddModelToTask(self.simTaskName, self.spice)\n\n    def run(self):\n        self.setup_simulation()\n        self.sim.InitializeSimulation()\n        et = self.spice.getInitialEphemerisTime()\n        get_hubble_state(self.spice, et)\n        self.sim.TerminateSimulation()\n\ndef monte_carlo_run(run_number):\n    sim = MySimulation(run_number)\n    sim.run()\n\ndef main():\n    num_runs = 12\n    for i in range(num_runs):\n        print(f\"--- Monte Carlo Run {i+1} ---\")\n        monte_carlo_run(i)\n    # Clean up data after test\n    if os.path.exists(\"basiliskMonteCarloData\"):\n        import shutil\n        shutil.rmtree(\"basiliskMonteCarloData\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.577996312998948,
+  "usage": {
+    "completion_tokens": 837,
+    "prompt_tokens": 203,
+    "total_tokens": 1040,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7102,
+  "response_sha256": "3fcaa07e504a66b1e8360567c2e25451ab84eb7383482365a1f72f2d318fdd5a",
+  "artifact_sha256": "15f34080c910d2ecf016568cb53da963b4088dcf3ec0967b50e574c748862861"
+}

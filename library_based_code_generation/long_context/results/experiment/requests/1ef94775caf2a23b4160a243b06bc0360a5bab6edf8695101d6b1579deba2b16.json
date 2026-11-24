@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 142,
+    "task_sha256": "4a6713bbebf74c8a3210a971ab542ab589c4a0f13fa351bcb55356d151483ce9",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a text editor using the urwid library in Python. The text editor should be able to lazily load text files, handle keypresses for saving and quitting the application, deleting and backspacing at the end and beginning of lines respectively, starting new lines, and navigating left and right. It should also be able to combine and split lines of text, and save the edited text back to the original file. The text editor should have a custom list walker for lazily loading the text file and a display that includes a list box for the text and a footer with instructions. The main function should take a filename as an argument and instantiate the text editor with that file.\n\nYou can find the following APIs from the library helpful:\nwait_and_feed, _to_text, text, Text, SelectableText, BigText, insert_text, TextLayout, TextTest, test2_text, _text_content, TextCanvas, get_text, set_text, TextError, get_display_text, BigTextDisplay, _not_a_container, ThingWithAPopUp, test_init_with_a_generator"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em65EaHG708P6fwaem4Nz9SXE3NfU",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport urwid\nimport sys\nimport os\n\nclass LazyTextWalker(urwid.ListWalker):\n    def __init__(self, filename):\n        self.filename = filename\n        self.lines = []\n        self.focus = 0\n        self._file_loaded = False\n        self._load_file()\n\n    def _load_file(self):\n        if not self._file_loaded:\n            if os.path.exists(self.filename):\n                with open(self.filename, 'r', encoding='utf-8') as f:\n                    self.lines = [line.rstrip('\\n') for line in f]\n            else:\n                self.lines = ['']\n            self._file_loaded = True\n\n    def get_focus(self):\n        return self._get_at_pos(self.focus)\n\n    def set_focus(self, focus):\n        self.focus = focus\n        self._modified()\n\n    def get_next(self, pos):\n        return self._get_at_pos(pos + 1)\n\n    def get_prev(self, pos):\n        return self._get_at_pos(pos - 1)\n\n    def _get_at_pos(self, pos):\n        if 0 <= pos < len(self.lines):\n            return EditableLine(self, pos), pos\n        return None, None\n\n    def insert_line(self, pos, text=''):\n        self.lines.insert(pos, text)\n        self._modified()\n\n    def delete_line(self, pos):\n        if len(self.lines) > 1:\n            del self.lines[pos]\n            self._modified()\n\n    def save(self):\n        with open(self.filename, 'w', encoding='utf-8') as f:\n            for line in self.lines:\n                f.write(line + '\\n')\n\nclass EditableLine(urwid.WidgetWrap):\n    def __init__(self, walker, pos):\n        self.walker = walker\n        self.pos = pos\n        self.edit = urwid.Edit('', walker.lines[pos])\n        super().__init__(self.edit)\n\n    def selectable(self):\n        return True\n\n    def keypress(self, size, key):\n        return self.edit.keypress(size, key)\n\n    def get_edit_text(self):\n        return self.edit.edit_text\n\n    def set_edit_text(self, text):\n        self.edit.set_edit_text(text)\n\n    def get_edit_pos(self):\n        return self.edit.edit_pos\n\n    def set_edit_pos(self, pos):\n        self.edit.edit_pos = pos\n\nclass TextEditor(urwid.WidgetWrap):\n    def __init__(self, filename):\n        self.filename = filename\n        self.walker = LazyTextWalker(filename)\n        self.listbox = urwid.ListBox(self.walker)\n        self.footer = urwid.Text(\n            u\"Ctrl+S: Save | Ctrl+Q: Quit | Enter: New Line | Backspace/Delete: Remove | ←/→: Move\"\n        )\n        self.frame = urwid.Frame(self.listbox, footer=self.footer)\n        super().__init__(self.frame)\n\n    def keypress(self, size, key):\n        if key == 'ctrl s':\n            self.walker.save()\n            self.footer.set_text(\"Saved! Ctrl+S: Save | Ctrl+Q: Quit | Enter: New Line | Backspace/Delete: Remove | ←/→: Move\")\n            return\n        elif key == 'ctrl q':\n            raise urwid.ExitMainLoop()\n        focus_widget, focus_pos = self.walker.get_focus()\n        if focus_widget is None:\n            return\n        edit = focus_widget\n        edit_text = edit.get_edit_text()\n        edit_pos = edit.get_edit_pos()\n        # Navigation\n        if key == 'left':\n            if edit_pos > 0:\n                edit.set_edit_pos(edit_pos - 1)\n            elif focus_pos > 0:\n                prev_widget, prev_pos = self.walker.get_prev(focus_pos)\n                if prev_widget:\n                    self.walker.set_focus(prev_pos)\n                    prev_widget.set_edit_pos(len(prev_widget.get_edit_text()))\n        elif key == 'right':\n            if edit_pos < len(edit_text):\n                edit.set_edit_pos(edit_pos + 1)\n            elif focus_pos < len(self.walker.lines) - 1:\n                next_widget, next_pos = self.walker.get_next(focus_pos)\n                if next_widget:\n                    self.walker.set_focus(next_pos)\n                    next_widget.set_edit_pos(0)\n        # New line\n        elif key == 'enter':\n            left = edit_text[:edit_pos]\n            right = edit_text[edit_pos:]\n            self.walker.lines[focus_pos] = left\n            self.walker.insert_line(focus_pos + 1, right)\n            self.walker.set_focus(focus_pos + 1)\n            next_widget, _ = self.walker.get_focus()\n            next_widget.set_edit_pos(0)\n        # Backspace\n        elif key == 'backspace':\n            if edit_pos > 0:\n                new_text = edit_text[:edit_pos - 1] + edit_text[edit_pos:]\n                edit.set_edit_text(new_text)\n                edit.set_edit_pos(edit_pos - 1)\n                self.walker.lines[focus_pos] = new_text\n            elif focus_pos > 0:\n                prev_widget, prev_pos = self.walker.get_prev(focus_pos)\n                prev_text = prev_widget.get_edit_text()\n                new_text = prev_text + edit_text\n                self.walker.lines[prev_pos] = new_text\n                self.walker.delete_line(focus_pos)\n                self.walker.set_focus(prev_pos)\n                prev_widget, _ = self.walker.get_focus()\n                prev_widget.set_edit_text(new_text)\n                prev_widget.set_edit_pos(len(prev_text))\n        # Delete\n        elif key == 'delete':\n            if edit_pos < len(edit_text):\n                new_text = edit_text[:edit_pos] + edit_text[edit_pos + 1:]\n                edit.set_edit_text(new_text)\n                self.walker.lines[focus_pos] = new_text\n            elif focus_pos < len(self.walker.lines) - 1:\n                next_widget, next_pos = self.walker.get_next(focus_pos)\n                next_text = next_widget.get_edit_text()\n                new_text = edit_text + next_text\n                self.walker.lines[focus_pos] = new_text\n                self.walker.delete_line(next_pos)\n                edit.set_edit_text(new_text)\n                edit.set_edit_pos(edit_pos)\n        else:\n            res = edit.keypress(size, key)\n            self.walker.lines[focus_pos] = edit.get_edit_text()\n            return res\n\ndef main(filename):\n    editor = TextEditor(filename)\n    loop = urwid.MainLoop(editor, unhandled_input=editor.keypress)\n    loop.run()\n\nif __name__ == '__main__':\n    if len(sys.argv) != 2:\n        print(\"Usage: python text_editor.py <filename>\")\n        sys.exit(1)\n    main(sys.argv[1])\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131836,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_31a1fa9e98",
+    "usage": {
+      "completion_tokens": 1414,
+      "prompt_tokens": 252,
+      "total_tokens": 1666,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport urwid\nimport sys\nimport os\n\nclass LazyTextWalker(urwid.ListWalker):\n    def __init__(self, filename):\n        self.filename = filename\n        self.lines = []\n        self.focus = 0\n        self._file_loaded = False\n        self._load_file()\n\n    def _load_file(self):\n        if not self._file_loaded:\n            if os.path.exists(self.filename):\n                with open(self.filename, 'r', encoding='utf-8') as f:\n                    self.lines = [line.rstrip('\\n') for line in f]\n            else:\n                self.lines = ['']\n            self._file_loaded = True\n\n    def get_focus(self):\n        return self._get_at_pos(self.focus)\n\n    def set_focus(self, focus):\n        self.focus = focus\n        self._modified()\n\n    def get_next(self, pos):\n        return self._get_at_pos(pos + 1)\n\n    def get_prev(self, pos):\n        return self._get_at_pos(pos - 1)\n\n    def _get_at_pos(self, pos):\n        if 0 <= pos < len(self.lines):\n            return EditableLine(self, pos), pos\n        return None, None\n\n    def insert_line(self, pos, text=''):\n        self.lines.insert(pos, text)\n        self._modified()\n\n    def delete_line(self, pos):\n        if len(self.lines) > 1:\n            del self.lines[pos]\n            self._modified()\n\n    def save(self):\n        with open(self.filename, 'w', encoding='utf-8') as f:\n            for line in self.lines:\n                f.write(line + '\\n')\n\nclass EditableLine(urwid.WidgetWrap):\n    def __init__(self, walker, pos):\n        self.walker = walker\n        self.pos = pos\n        self.edit = urwid.Edit('', walker.lines[pos])\n        super().__init__(self.edit)\n\n    def selectable(self):\n        return True\n\n    def keypress(self, size, key):\n        return self.edit.keypress(size, key)\n\n    def get_edit_text(self):\n        return self.edit.edit_text\n\n    def set_edit_text(self, text):\n        self.edit.set_edit_text(text)\n\n    def get_edit_pos(self):\n        return self.edit.edit_pos\n\n    def set_edit_pos(self, pos):\n        self.edit.edit_pos = pos\n\nclass TextEditor(urwid.WidgetWrap):\n    def __init__(self, filename):\n        self.filename = filename\n        self.walker = LazyTextWalker(filename)\n        self.listbox = urwid.ListBox(self.walker)\n        self.footer = urwid.Text(\n            u\"Ctrl+S: Save | Ctrl+Q: Quit | Enter: New Line | Backspace/Delete: Remove | ←/→: Move\"\n        )\n        self.frame = urwid.Frame(self.listbox, footer=self.footer)\n        super().__init__(self.frame)\n\n    def keypress(self, size, key):\n        if key == 'ctrl s':\n            self.walker.save()\n            self.footer.set_text(\"Saved! Ctrl+S: Save | Ctrl+Q: Quit | Enter: New Line | Backspace/Delete: Remove | ←/→: Move\")\n            return\n        elif key == 'ctrl q':\n            raise urwid.ExitMainLoop()\n        focus_widget, focus_pos = self.walker.get_focus()\n        if focus_widget is None:\n            return\n        edit = focus_widget\n        edit_text = edit.get_edit_text()\n        edit_pos = edit.get_edit_pos()\n        # Navigation\n        if key == 'left':\n            if edit_pos > 0:\n                edit.set_edit_pos(edit_pos - 1)\n            elif focus_pos > 0:\n                prev_widget, prev_pos = self.walker.get_prev(focus_pos)\n                if prev_widget:\n                    self.walker.set_focus(prev_pos)\n                    prev_widget.set_edit_pos(len(prev_widget.get_edit_text()))\n        elif key == 'right':\n            if edit_pos < len(edit_text):\n                edit.set_edit_pos(edit_pos + 1)\n            elif focus_pos < len(self.walker.lines) - 1:\n                next_widget, next_pos = self.walker.get_next(focus_pos)\n                if next_widget:\n                    self.walker.set_focus(next_pos)\n                    next_widget.set_edit_pos(0)\n        # New line\n        elif key == 'enter':\n            left = edit_text[:edit_pos]\n            right = edit_text[edit_pos:]\n            self.walker.lines[focus_pos] = left\n            self.walker.insert_line(focus_pos + 1, right)\n            self.walker.set_focus(focus_pos + 1)\n            next_widget, _ = self.walker.get_focus()\n            next_widget.set_edit_pos(0)\n        # Backspace\n        elif key == 'backspace':\n            if edit_pos > 0:\n                new_text = edit_text[:edit_pos - 1] + edit_text[edit_pos:]\n                edit.set_edit_text(new_text)\n                edit.set_edit_pos(edit_pos - 1)\n                self.walker.lines[focus_pos] = new_text\n            elif focus_pos > 0:\n                prev_widget, prev_pos = self.walker.get_prev(focus_pos)\n                prev_text = prev_widget.get_edit_text()\n                new_text = prev_text + edit_text\n                self.walker.lines[prev_pos] = new_text\n                self.walker.delete_line(focus_pos)\n                self.walker.set_focus(prev_pos)\n                prev_widget, _ = self.walker.get_focus()\n                prev_widget.set_edit_text(new_text)\n                prev_widget.set_edit_pos(len(prev_text))\n        # Delete\n        elif key == 'delete':\n            if edit_pos < len(edit_text):\n                new_text = edit_text[:edit_pos] + edit_text[edit_pos + 1:]\n                edit.set_edit_text(new_text)\n                self.walker.lines[focus_pos] = new_text\n            elif focus_pos < len(self.walker.lines) - 1:\n                next_widget, next_pos = self.walker.get_next(focus_pos)\n                next_text = next_widget.get_edit_text()\n                new_text = edit_text + next_text\n                self.walker.lines[focus_pos] = new_text\n                self.walker.delete_line(next_pos)\n                edit.set_edit_text(new_text)\n                edit.set_edit_pos(edit_pos)\n        else:\n            res = edit.keypress(size, key)\n            self.walker.lines[focus_pos] = edit.get_edit_text()\n            return res\n\ndef main(filename):\n    editor = TextEditor(filename)\n    loop = urwid.MainLoop(editor, unhandled_input=editor.keypress)\n    loop.run()\n\nif __name__ == '__main__':\n    if len(sys.argv) != 2:\n        print(\"Usage: python text_editor.py <filename>\")\n        sys.exit(1)\n    main(sys.argv[1])\n```",
+  "latency_seconds": 6.097911412998656,
+  "usage": {
+    "completion_tokens": 1414,
+    "prompt_tokens": 252,
+    "total_tokens": 1666,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11816,
+  "response_sha256": "ea8ff6a36177945473a2e823fec5419325c93c826189d1abe002cf4896628753",
+  "artifact_sha256": "30a19a44044a7f90395c38e9e1a3e446e68875cda47d3b98e768818068a3d357"
+}

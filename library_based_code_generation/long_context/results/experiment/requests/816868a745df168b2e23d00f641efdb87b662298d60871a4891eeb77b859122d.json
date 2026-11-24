@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 63,
+    "task_sha256": "20c8a52f1ffe93449796c8144d57afd0b64527aef1c6b1ceb0b540f248dcc539",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that calculates the average elemental stress on a given volume using the pydpf-core library. The code should first create a model targeting a given result file and get all node IDs in the model to find the minimum amount of surrounding elements to get a minimum volume. Then, it should read the volume by element and find the minimum list of elements by node to get the volume check. After that, the code should create a workflow to compute equivalent stress averaged on elements, apply dot product seqv.volume, sum up those on the list of elements, and divide this sum by the total volume on these elements. Finally, the code should plot equivalent elemental stress and volume averaged elemental equivalent stress, and use the operator with the same algorithm that has been implemented.\n\nYou can find the following APIs from the library helpful:\nelements_volume, InputsElementsVolume, OutputsElementsVolume, elemental_volume, InputsElementalVolume, OutputsElementalVolume, a, should_average, volume_fraction, cyclic_volume, __generate_code, model_elements, fieldA, meshA, scopingA, valueA, OutputsVolumeFraction, InputsCyclicVolume, InputsVolumeFraction, OutputsCyclicVolume"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5LPfKNGBQ4xAClahY40UIkSRHvl",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport matplotlib.pyplot as plt\nfrom ansys.dpf import core as dpf\nfrom ansys.dpf.core import operators as ops\n\n# Path to result file\nresult_file = \"path/to/your/result_file.rst\"\n\n# Load model\nmodel = dpf.Model(result_file)\nmesh = model.metadata.meshed_region\n\n# Get all node IDs\nall_node_ids = mesh.nodes.scoping.ids\n\n# Find node with minimum number of surrounding elements\nmin_elem_count = float('inf')\nmin_node_id = None\nnode_to_elems = {}\nfor node_id in all_node_ids:\n    elems = mesh.nodes.elements(node_id)\n    node_to_elems[node_id] = elems\n    if len(elems) < min_elem_count:\n        min_elem_count = len(elems)\n        min_node_id = node_id\n\n# Get minimum list of elements by node\nmin_elem_list = node_to_elems[min_node_id]\n\n# Read volume by element\nelem_scoping = dpf.Scoping(ids=min_elem_list, location=\"Elemental\")\nvol_op = ops.mesh.elements_volume()\nvol_op.inputs.mesh.connect(mesh)\nvol_op.inputs.scoping.connect(elem_scoping)\nelem_vol_field = vol_op.outputs.field()\n\n# Get total volume for these elements\ntotal_volume = sum(elem_vol_field.data)\n\n# Compute equivalent (von Mises) stress averaged on elements\nstress_op = ops.result.stress_eqv()\nstress_op.inputs.data_sources.connect(model)\nstress_op.inputs.mesh_scoping.connect(elem_scoping)\nstress_op.inputs.requested_location.connect(\"Elemental\")\nstress_field = stress_op.outputs.fields_container()[0]\n\n# Multiply equivalent stress by volume (dot product)\nstress_times_vol = [s * v for s, v in zip(stress_field.data, elem_vol_field.data)]\nsum_stress_times_vol = sum(stress_times_vol)\n\n# Calculate average elemental stress on the given volume\navg_elem_stress = sum_stress_times_vol / total_volume\n\n# Plot equivalent elemental stress\nplt.figure(figsize=(10, 4))\nplt.subplot(1, 2, 1)\nplt.bar(range(len(stress_field.data)), stress_field.data)\nplt.title(\"Equivalent Elemental Stress\")\nplt.xlabel(\"Element Index\")\nplt.ylabel(\"Stress (Pa)\")\n\n# Plot volume averaged elemental equivalent stress\nplt.subplot(1, 2, 2)\nplt.bar([0], [avg_elem_stress])\nplt.title(\"Volume Averaged Elemental Equivalent Stress\")\nplt.xlabel(\"Averaged\")\nplt.ylabel(\"Stress (Pa)\")\nplt.tight_layout()\nplt.show()\n\n# Operator with same algorithm\nclass AverageElementalStressOperator(dpf.Operator):\n    def __init__(self):\n        super().__init__(name=\"average_elemental_stress\")\n        self.inputs.add(\"data_sources\", dpf.DataSources)\n        self.inputs.add(\"mesh_scoping\", dpf.Scoping)\n        self.outputs.add(\"average_stress\", float)\n\n    def run(self):\n        stress_op = ops.result.stress_eqv()\n        stress_op.inputs.data_sources.connect(self.inputs[\"data_sources\"].get())\n        stress_op.inputs.mesh_scoping.connect(self.inputs[\"mesh_scoping\"].get())\n        stress_op.inputs.requested_location.connect(\"Elemental\")\n        stress_field = stress_op.outputs.fields_container()[0]\n\n        vol_op = ops.mesh.elements_volume()\n        vol_op.inputs.mesh.connect(mesh)\n        vol_op.inputs.scoping.connect(self.inputs[\"mesh_scoping\"].get())\n        elem_vol_field = vol_op.outputs.field()\n\n        stress_times_vol = [s * v for s, v in zip(stress_field.data, elem_vol_field.data)]\n        sum_stress_times_vol = sum(stress_times_vol)\n        total_volume = sum(elem_vol_field.data)\n        avg_elem_stress = sum_stress_times_vol / total_volume\n        self.outputs[\"average_stress\"].set(avg_elem_stress)\n\n# Usage of the operator\navg_stress_op = AverageElementalStressOperator()\navg_stress_op.inputs[\"data_sources\"].set(model)\navg_stress_op.inputs[\"mesh_scoping\"].set(elem_scoping)\navg_stress_op.run()\nprint(\"Average Elemental Stress (Operator):\", avg_stress_op.outputs[\"average_stress\"].get())\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128995,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_3c6b77ab8c",
+    "usage": {
+      "completion_tokens": 865,
+      "prompt_tokens": 266,
+      "total_tokens": 1131,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport matplotlib.pyplot as plt\nfrom ansys.dpf import core as dpf\nfrom ansys.dpf.core import operators as ops\n\n# Path to result file\nresult_file = \"path/to/your/result_file.rst\"\n\n# Load model\nmodel = dpf.Model(result_file)\nmesh = model.metadata.meshed_region\n\n# Get all node IDs\nall_node_ids = mesh.nodes.scoping.ids\n\n# Find node with minimum number of surrounding elements\nmin_elem_count = float('inf')\nmin_node_id = None\nnode_to_elems = {}\nfor node_id in all_node_ids:\n    elems = mesh.nodes.elements(node_id)\n    node_to_elems[node_id] = elems\n    if len(elems) < min_elem_count:\n        min_elem_count = len(elems)\n        min_node_id = node_id\n\n# Get minimum list of elements by node\nmin_elem_list = node_to_elems[min_node_id]\n\n# Read volume by element\nelem_scoping = dpf.Scoping(ids=min_elem_list, location=\"Elemental\")\nvol_op = ops.mesh.elements_volume()\nvol_op.inputs.mesh.connect(mesh)\nvol_op.inputs.scoping.connect(elem_scoping)\nelem_vol_field = vol_op.outputs.field()\n\n# Get total volume for these elements\ntotal_volume = sum(elem_vol_field.data)\n\n# Compute equivalent (von Mises) stress averaged on elements\nstress_op = ops.result.stress_eqv()\nstress_op.inputs.data_sources.connect(model)\nstress_op.inputs.mesh_scoping.connect(elem_scoping)\nstress_op.inputs.requested_location.connect(\"Elemental\")\nstress_field = stress_op.outputs.fields_container()[0]\n\n# Multiply equivalent stress by volume (dot product)\nstress_times_vol = [s * v for s, v in zip(stress_field.data, elem_vol_field.data)]\nsum_stress_times_vol = sum(stress_times_vol)\n\n# Calculate average elemental stress on the given volume\navg_elem_stress = sum_stress_times_vol / total_volume\n\n# Plot equivalent elemental stress\nplt.figure(figsize=(10, 4))\nplt.subplot(1, 2, 1)\nplt.bar(range(len(stress_field.data)), stress_field.data)\nplt.title(\"Equivalent Elemental Stress\")\nplt.xlabel(\"Element Index\")\nplt.ylabel(\"Stress (Pa)\")\n\n# Plot volume averaged elemental equivalent stress\nplt.subplot(1, 2, 2)\nplt.bar([0], [avg_elem_stress])\nplt.title(\"Volume Averaged Elemental Equivalent Stress\")\nplt.xlabel(\"Averaged\")\nplt.ylabel(\"Stress (Pa)\")\nplt.tight_layout()\nplt.show()\n\n# Operator with same algorithm\nclass AverageElementalStressOperator(dpf.Operator):\n    def __init__(self):\n        super().__init__(name=\"average_elemental_stress\")\n        self.inputs.add(\"data_sources\", dpf.DataSources)\n        self.inputs.add(\"mesh_scoping\", dpf.Scoping)\n        self.outputs.add(\"average_stress\", float)\n\n    def run(self):\n        stress_op = ops.result.stress_eqv()\n        stress_op.inputs.data_sources.connect(self.inputs[\"data_sources\"].get())\n        stress_op.inputs.mesh_scoping.connect(self.inputs[\"mesh_scoping\"].get())\n        stress_op.inputs.requested_location.connect(\"Elemental\")\n        stress_field = stress_op.outputs.fields_container()[0]\n\n        vol_op = ops.mesh.elements_volume()\n        vol_op.inputs.mesh.connect(mesh)\n        vol_op.inputs.scoping.connect(self.inputs[\"mesh_scoping\"].get())\n        elem_vol_field = vol_op.outputs.field()\n\n        stress_times_vol = [s * v for s, v in zip(stress_field.data, elem_vol_field.data)]\n        sum_stress_times_vol = sum(stress_times_vol)\n        total_volume = sum(elem_vol_field.data)\n        avg_elem_stress = sum_stress_times_vol / total_volume\n        self.outputs[\"average_stress\"].set(avg_elem_stress)\n\n# Usage of the operator\navg_stress_op = AverageElementalStressOperator()\navg_stress_op.inputs[\"data_sources\"].set(model)\navg_stress_op.inputs[\"mesh_scoping\"].set(elem_scoping)\navg_stress_op.run()\nprint(\"Average Elemental Stress (Operator):\", avg_stress_op.outputs[\"average_stress\"].get())\n```",
+  "latency_seconds": 4.810050390999095,
+  "usage": {
+    "completion_tokens": 865,
+    "prompt_tokens": 266,
+    "total_tokens": 1131,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7452,
+  "response_sha256": "e7360cb7ce8968a69be3e9143ae5f8775b6eeca6057492608f87ca835bfb2314",
+  "artifact_sha256": "9e5c80fdb85ba60c2ead484cdf0d1212f3aae8e78624f8c7d790a829b065f4d0"
+}

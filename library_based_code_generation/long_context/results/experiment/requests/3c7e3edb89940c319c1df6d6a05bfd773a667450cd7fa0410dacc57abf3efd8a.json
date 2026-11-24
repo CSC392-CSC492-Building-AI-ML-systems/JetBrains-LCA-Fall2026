@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 93,
+    "task_sha256": "539baed7a47465055d45570cd10cc5556f25b879335c145c9fc10227cfe6b68a",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a StarCraft II bot using the python-sc2 library. The bot should be designed to play as the Protoss race and follow a strategy of building three bases and three stargates. The bot should manage resources, build structures, train units, and engage in combat. It should use chrono boost on active nexuses, attack with all workers if no nexuses are left, and attack the enemy with void rays when there are more than five. The bot should also manage worker distribution, build pylons when supply is low, train probes on undersaturated nexuses, expand when there are less than three nexuses, build a gateway and a cybernetics core, build gas near completed nexuses, and build stargates when there are less than three but at least three nexuses. The bot should also train void rays at idle stargates when there are at least three townhalls. The bot should be run on the \"(2)CatalystLE\" map against an easy difficulty Protoss computer opponent.\n\nYou can find the following APIs from the library helpful:\n__and__, _abilities_count_and_build_progress, Bot, build_gas, build, build_bot_object_from_pickle_data, retrieve_and_set, run_host_and_join, ExporterBot, BotProcess, BotAI, EmptyBot, TestBot, run_bot_iteration, train, select_build_worker, build_progress, get_attacker_and_defender, get_map_specific_bot, _test_run_bot_ai_init_on_all_maps"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5ci595BNNQ38ZKJlRxBxXvxjsLX",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport random\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.constants import *\nfrom sc2.bot_ai import BotAI\n\nclass ThreeBaseThreeStargateBot(BotAI):\n    async def on_step(self, iteration):\n        await self.distribute_workers()\n        await self.build_pylons()\n        await self.train_probes()\n        await self.expand()\n        await self.build_gateway_and_cybercore()\n        await self.build_gas()\n        await self.build_stargates()\n        await self.train_voidrays()\n        await self.chrono_boost()\n        await self.attack_with_voidrays()\n        await self.all_in_if_no_nexus()\n\n    async def build_pylons(self):\n        if self.supply_left < 5 and not self.already_pending(PYLON):\n            nexuses = self.townhalls.ready\n            if nexuses.exists:\n                pos = nexuses.random.position.towards(self.game_info.map_center, 5)\n                await self.build(PYLON, near=pos)\n\n    async def train_probes(self):\n        for nexus in self.townhalls.ready.idle:\n            if self.can_afford(PROBE) and nexus.assigned_harvesters < nexus.ideal_harvesters:\n                nexus.train(PROBE)\n\n    async def expand(self):\n        if self.townhalls.amount < 3 and self.can_afford(NEXUS) and not self.already_pending(NEXUS):\n            await self.expand_now()\n\n    async def build_gateway_and_cybercore(self):\n        if self.structures(PYLON).ready.exists:\n            pylon = self.structures(PYLON).ready.random\n            if self.structures(GATEWAY).amount < 1 and self.can_afford(GATEWAY):\n                await self.build(GATEWAY, near=pylon)\n            elif self.structures(GATEWAY).ready.exists and self.structures(CYBERNETICSCORE).amount < 1 and self.can_afford(CYBERNETICSCORE):\n                await self.build(CYBERNETICSCORE, near=pylon)\n\n    async def build_gas(self):\n        for nexus in self.townhalls.ready:\n            vgs = self.vespene_geyser.closer_than(15.0, nexus)\n            for vg in vgs:\n                if self.can_afford(ASSIMILATOR) and not self.gas_buildings.closer_than(1.0, vg).exists:\n                    worker = self.select_build_worker(vg.position)\n                    if worker:\n                        worker.build(ASSIMILATOR, vg)\n                        break\n\n    async def build_stargates(self):\n        if self.townhalls.ready.amount >= 3:\n            if self.structures(STARGATE).amount + self.already_pending(STARGATE) < 3:\n                pylon = self.structures(PYLON).ready.random\n                if self.can_afford(STARGATE):\n                    await self.build(STARGATE, near=pylon)\n\n    async def train_voidrays(self):\n        if self.townhalls.ready.amount >= 3:\n            for stargate in self.structures(STARGATE).ready.idle:\n                if self.can_afford(VOIDRAY):\n                    stargate.train(VOIDRAY)\n\n    async def chrono_boost(self):\n        for nexus in self.townhalls.ready:\n            abilities = await self.get_available_abilities(nexus)\n            if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:\n                # Prioritize stargates, then cybercore, then gateway, then nexus\n                targets = self.structures(STARGATE).ready | self.structures(CYBERNETICSCORE).ready | self.structures(GATEWAY).ready | self.townhalls.ready\n                for target in targets:\n                    if target.is_training or target.is_researching:\n                        nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, target)\n                        break\n\n    async def attack_with_voidrays(self):\n        voidrays = self.units(VOIDRAY).ready\n        if voidrays.amount > 5:\n            target = self.enemy_start_locations[0]\n            for vr in voidrays.idle:\n                vr.attack(target)\n\n    async def all_in_if_no_nexus(self):\n        if not self.townhalls.exists and self.units(PROBE).exists:\n            for worker in self.units(PROBE).idle:\n                worker.attack(self.enemy_start_locations[0])\n\ndef main():\n    run_game(\n        maps.get(\"(2)CatalystLE\"),\n        [\n            Bot(Race.Protoss, ThreeBaseThreeStargateBot()),\n            Computer(Race.Protoss, Difficulty.Easy)\n        ],\n        realtime=False,\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130068,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8b0c5e528c",
+    "usage": {
+      "completion_tokens": 1017,
+      "prompt_tokens": 335,
+      "total_tokens": 1352,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport random\nfrom sc2 import maps, run_game, Race, Difficulty\nfrom sc2.player import Bot, Computer\nfrom sc2.constants import *\nfrom sc2.bot_ai import BotAI\n\nclass ThreeBaseThreeStargateBot(BotAI):\n    async def on_step(self, iteration):\n        await self.distribute_workers()\n        await self.build_pylons()\n        await self.train_probes()\n        await self.expand()\n        await self.build_gateway_and_cybercore()\n        await self.build_gas()\n        await self.build_stargates()\n        await self.train_voidrays()\n        await self.chrono_boost()\n        await self.attack_with_voidrays()\n        await self.all_in_if_no_nexus()\n\n    async def build_pylons(self):\n        if self.supply_left < 5 and not self.already_pending(PYLON):\n            nexuses = self.townhalls.ready\n            if nexuses.exists:\n                pos = nexuses.random.position.towards(self.game_info.map_center, 5)\n                await self.build(PYLON, near=pos)\n\n    async def train_probes(self):\n        for nexus in self.townhalls.ready.idle:\n            if self.can_afford(PROBE) and nexus.assigned_harvesters < nexus.ideal_harvesters:\n                nexus.train(PROBE)\n\n    async def expand(self):\n        if self.townhalls.amount < 3 and self.can_afford(NEXUS) and not self.already_pending(NEXUS):\n            await self.expand_now()\n\n    async def build_gateway_and_cybercore(self):\n        if self.structures(PYLON).ready.exists:\n            pylon = self.structures(PYLON).ready.random\n            if self.structures(GATEWAY).amount < 1 and self.can_afford(GATEWAY):\n                await self.build(GATEWAY, near=pylon)\n            elif self.structures(GATEWAY).ready.exists and self.structures(CYBERNETICSCORE).amount < 1 and self.can_afford(CYBERNETICSCORE):\n                await self.build(CYBERNETICSCORE, near=pylon)\n\n    async def build_gas(self):\n        for nexus in self.townhalls.ready:\n            vgs = self.vespene_geyser.closer_than(15.0, nexus)\n            for vg in vgs:\n                if self.can_afford(ASSIMILATOR) and not self.gas_buildings.closer_than(1.0, vg).exists:\n                    worker = self.select_build_worker(vg.position)\n                    if worker:\n                        worker.build(ASSIMILATOR, vg)\n                        break\n\n    async def build_stargates(self):\n        if self.townhalls.ready.amount >= 3:\n            if self.structures(STARGATE).amount + self.already_pending(STARGATE) < 3:\n                pylon = self.structures(PYLON).ready.random\n                if self.can_afford(STARGATE):\n                    await self.build(STARGATE, near=pylon)\n\n    async def train_voidrays(self):\n        if self.townhalls.ready.amount >= 3:\n            for stargate in self.structures(STARGATE).ready.idle:\n                if self.can_afford(VOIDRAY):\n                    stargate.train(VOIDRAY)\n\n    async def chrono_boost(self):\n        for nexus in self.townhalls.ready:\n            abilities = await self.get_available_abilities(nexus)\n            if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:\n                # Prioritize stargates, then cybercore, then gateway, then nexus\n                targets = self.structures(STARGATE).ready | self.structures(CYBERNETICSCORE).ready | self.structures(GATEWAY).ready | self.townhalls.ready\n                for target in targets:\n                    if target.is_training or target.is_researching:\n                        nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, target)\n                        break\n\n    async def attack_with_voidrays(self):\n        voidrays = self.units(VOIDRAY).ready\n        if voidrays.amount > 5:\n            target = self.enemy_start_locations[0]\n            for vr in voidrays.idle:\n                vr.attack(target)\n\n    async def all_in_if_no_nexus(self):\n        if not self.townhalls.exists and self.units(PROBE).exists:\n            for worker in self.units(PROBE).idle:\n                worker.attack(self.enemy_start_locations[0])\n\ndef main():\n    run_game(\n        maps.get(\"(2)CatalystLE\"),\n        [\n            Bot(Race.Protoss, ThreeBaseThreeStargateBot()),\n            Computer(Race.Protoss, Difficulty.Easy)\n        ],\n        realtime=False,\n    )\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.147882097000547,
+  "usage": {
+    "completion_tokens": 1017,
+    "prompt_tokens": 335,
+    "total_tokens": 1352,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8806,
+  "response_sha256": "f5f6d625f3bf89bb761e07b75215c183276052a3a87916cf6805d34bed2d2f9e",
+  "artifact_sha256": "16777a2a1a20e7d794b3d49e489988d8c30cf313f783f4af6781c9e400028f42"
+}

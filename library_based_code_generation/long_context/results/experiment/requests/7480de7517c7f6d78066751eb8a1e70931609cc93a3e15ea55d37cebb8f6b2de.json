@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 46,
+    "task_sha256": "9affaca3fb7cad9481e8019be8bd782da57aa99a3cc4d0ddd4b893a172a5c935",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs two tasks using the pyscf library. The first task is to transform a Full Configuration Interaction (FCI) wavefunction with respect to orbital rotation/transformation. This involves creating two molecules with different atomic configurations, calculating their FCI energies, and then transforming the wavefunction of the first molecule to match the second one. The second task is to transfer a FCI wavefunction from a smaller orbital space to a larger one. This involves creating a molecule with a specific atomic configuration, calculating its FCI energy, and then expanding the wavefunction to a larger orbital space. The code should also compare the transformed wavefunction with the one obtained from the FCI solver and check if they are close. Finally, the code should transform the FCI wavefunction using a different method and compare the results with the previous transformation.\n\nYou can find the following APIs from the library helpful:\nA, to_fci, cre_a, des_a, make_A, symmetrize_wavefunction, test_from_to_fci, from_fci, FCI, read_A_mat, get_A_mat, test_h4_a, FCISolver, FCIBase, StateSpecificFCISolver, test_detect_symm_c2h_a, test_detect_symm_d2h_a, test_detect_symm_d2_a, __and__, StateAverageFCISolver"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5AHRJN0V1CcK7OjAf1reolL4amd",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation/transformation\n\n# Molecule 1\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; H 0 0 1'\nmol1.basis = 'sto-3g'\nmol1.spin = 0\nmol1.build()\nmf1 = scf.RHF(mol1).run()\nh1 = mf1.get_hcore()\neri1 = ao2mo.kernel(mol1, mf1.mo_coeff)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelectron\n\n# FCI for molecule 1\ncisolver1 = fci.FCI(mol1, mf1.mo_coeff)\ne1, fcivec1 = cisolver1.kernel(h1, eri1, norb1, nelec1)\n\n# Molecule 2 (different atomic configuration)\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 0; H 0 0 1.5'\nmol2.basis = 'sto-3g'\nmol2.spin = 0\nmol2.build()\nmf2 = scf.RHF(mol2).run()\nh2 = mf2.get_hcore()\neri2 = ao2mo.kernel(mol2, mf2.mo_coeff)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelectron\n\n# FCI for molecule 2\ncisolver2 = fci.FCI(mol2, mf2.mo_coeff)\ne2, fcivec2 = cisolver2.kernel(h2, eri2, norb2, nelec2)\n\n# Transform fcivec1 to the orbital basis of mol2\n# Get the transformation matrix from mol1 to mol2\nU = np.dot(mf1.mo_coeff.T, mf2.mo_coeff)\nfcivec1_trans = fci.addons.transform_ci(fcivec1, norb1, nelec1, U)\n\n# Compare the transformed wavefunction with the FCI wavefunction of mol2\nfcivec2_norm = fcivec2 / np.linalg.norm(fcivec2)\nfcivec1_trans_norm = fcivec1_trans / np.linalg.norm(fcivec1_trans)\noverlap = np.dot(fcivec2_norm.ravel().conj(), fcivec1_trans_norm.ravel())\nprint(\"Task 1: Overlap between transformed fcivec1 and fcivec2:\", np.abs(overlap))\nprint(\"Task 1: Are they close?\", np.allclose(fcivec2_norm, fcivec1_trans_norm, atol=1e-6))\n\n# Alternative transformation using from_fci and to_fci\nfcivec1_ao = fci.addons.from_fci(fcivec1, norb1, nelec1, mf1.mo_coeff)\nfcivec1_to2 = fci.addons.to_fci(fcivec1_ao, norb2, nelec2, mf2.mo_coeff)\nfcivec1_to2_norm = fcivec1_to2 / np.linalg.norm(fcivec1_to2)\noverlap2 = np.dot(fcivec2_norm.ravel().conj(), fcivec1_to2_norm.ravel())\nprint(\"Task 1 (alternative): Overlap between transformed fcivec1 (from/to_fci) and fcivec2:\", np.abs(overlap2))\nprint(\"Task 1 (alternative): Are they close?\", np.allclose(fcivec2_norm, fcivec1_to2_norm, atol=1e-6))\n\n# Task 2: Transfer FCI wavefunction from a smaller orbital space to a larger one\n\n# Molecule with 2 H atoms\nmol3 = gto.Mole()\nmol3.atom = 'H 0 0 0; H 0 0 1'\nmol3.basis = 'sto-3g'\nmol3.spin = 0\nmol3.build()\nmf3 = scf.RHF(mol3).run()\nh3 = mf3.get_hcore()\neri3 = ao2mo.kernel(mol3, mf3.mo_coeff)\nnorb3 = mf3.mo_coeff.shape[1]\nnelec3 = mol3.nelectron\n\n# FCI for molecule 3\ncisolver3 = fci.FCI(mol3, mf3.mo_coeff)\ne3, fcivec3 = cisolver3.kernel(h3, eri3, norb3, nelec3)\n\n# Expand to a larger orbital space (add 2 more orbitals)\nnorb4 = norb3 + 2\nnelec4 = nelec3\n# Pad the MO coefficients with zeros for the new orbitals\nmo_coeff4 = np.zeros((mol3.nao_nr(), norb4))\nmo_coeff4[:, :norb3] = mf3.mo_coeff\n# Pad the integrals with zeros for the new orbitals\nh4 = np.zeros((norb4, norb4))\nh4[:norb3, :norb3] = h3\neri4 = np.zeros((norb4, norb4, norb4, norb4))\neri4[:norb3, :norb3, :norb3, :norb3] = ao2mo.restore(1, eri3, norb3)\n\n# Expand the FCI wavefunction\nfcivec3_expanded = fci.addons.expand_ci(fcivec3, norb3, nelec3, norb4)\n\n# FCI in the larger space (should be the same as the expanded one for the first norb3 orbitals)\ncisolver4 = fci.FCI()\ne4, fcivec4 = cisolver4.kernel(h4, eri4, norb4, nelec4)\n\n# Compare the expanded wavefunction with the FCI wavefunction in the larger space\nfcivec4_norm = fcivec4 / np.linalg.norm(fcivec4)\nfcivec3_expanded_norm = fcivec3_expanded / np.linalg.norm(fcivec3_expanded)\noverlap3 = np.dot(fcivec4_norm.ravel().conj(), fcivec3_expanded_norm.ravel())\nprint(\"Task 2: Overlap between expanded fcivec3 and fcivec4:\", np.abs(overlap3))\nprint(\"Task 2: Are they close?\", np.allclose(fcivec4_norm, fcivec3_expanded_norm, atol=1e-6))\n\n# Alternative expansion using from_fci and to_fci\nfcivec3_ao = fci.addons.from_fci(fcivec3, norb3, nelec3, mf3.mo_coeff)\nfcivec3_to4 = fci.addons.to_fci(fcivec3_ao, norb4, nelec4, mo_coeff4)\nfcivec3_to4_norm = fcivec3_to4 / np.linalg.norm(fcivec3_to4)\noverlap4 = np.dot(fcivec4_norm.ravel().conj(), fcivec3_to4_norm.ravel())\nprint(\"Task 2 (alternative): Overlap between expanded fcivec3 (from/to_fci) and fcivec4:\", np.abs(overlap4))\nprint(\"Task 2 (alternative): Are they close?\", np.allclose(fcivec4_norm, fcivec3_to4_norm, atol=1e-6))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128305,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_d1445ec092",
+    "usage": {
+      "completion_tokens": 1609,
+      "prompt_tokens": 304,
+      "total_tokens": 1913,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nfrom pyscf import gto, scf, ao2mo, fci\n\n# Task 1: Transform FCI wavefunction with respect to orbital rotation/transformation\n\n# Molecule 1\nmol1 = gto.Mole()\nmol1.atom = 'H 0 0 0; H 0 0 1'\nmol1.basis = 'sto-3g'\nmol1.spin = 0\nmol1.build()\nmf1 = scf.RHF(mol1).run()\nh1 = mf1.get_hcore()\neri1 = ao2mo.kernel(mol1, mf1.mo_coeff)\nnorb1 = mf1.mo_coeff.shape[1]\nnelec1 = mol1.nelectron\n\n# FCI for molecule 1\ncisolver1 = fci.FCI(mol1, mf1.mo_coeff)\ne1, fcivec1 = cisolver1.kernel(h1, eri1, norb1, nelec1)\n\n# Molecule 2 (different atomic configuration)\nmol2 = gto.Mole()\nmol2.atom = 'H 0 0 0; H 0 0 1.5'\nmol2.basis = 'sto-3g'\nmol2.spin = 0\nmol2.build()\nmf2 = scf.RHF(mol2).run()\nh2 = mf2.get_hcore()\neri2 = ao2mo.kernel(mol2, mf2.mo_coeff)\nnorb2 = mf2.mo_coeff.shape[1]\nnelec2 = mol2.nelectron\n\n# FCI for molecule 2\ncisolver2 = fci.FCI(mol2, mf2.mo_coeff)\ne2, fcivec2 = cisolver2.kernel(h2, eri2, norb2, nelec2)\n\n# Transform fcivec1 to the orbital basis of mol2\n# Get the transformation matrix from mol1 to mol2\nU = np.dot(mf1.mo_coeff.T, mf2.mo_coeff)\nfcivec1_trans = fci.addons.transform_ci(fcivec1, norb1, nelec1, U)\n\n# Compare the transformed wavefunction with the FCI wavefunction of mol2\nfcivec2_norm = fcivec2 / np.linalg.norm(fcivec2)\nfcivec1_trans_norm = fcivec1_trans / np.linalg.norm(fcivec1_trans)\noverlap = np.dot(fcivec2_norm.ravel().conj(), fcivec1_trans_norm.ravel())\nprint(\"Task 1: Overlap between transformed fcivec1 and fcivec2:\", np.abs(overlap))\nprint(\"Task 1: Are they close?\", np.allclose(fcivec2_norm, fcivec1_trans_norm, atol=1e-6))\n\n# Alternative transformation using from_fci and to_fci\nfcivec1_ao = fci.addons.from_fci(fcivec1, norb1, nelec1, mf1.mo_coeff)\nfcivec1_to2 = fci.addons.to_fci(fcivec1_ao, norb2, nelec2, mf2.mo_coeff)\nfcivec1_to2_norm = fcivec1_to2 / np.linalg.norm(fcivec1_to2)\noverlap2 = np.dot(fcivec2_norm.ravel().conj(), fcivec1_to2_norm.ravel())\nprint(\"Task 1 (alternative): Overlap between transformed fcivec1 (from/to_fci) and fcivec2:\", np.abs(overlap2))\nprint(\"Task 1 (alternative): Are they close?\", np.allclose(fcivec2_norm, fcivec1_to2_norm, atol=1e-6))\n\n# Task 2: Transfer FCI wavefunction from a smaller orbital space to a larger one\n\n# Molecule with 2 H atoms\nmol3 = gto.Mole()\nmol3.atom = 'H 0 0 0; H 0 0 1'\nmol3.basis = 'sto-3g'\nmol3.spin = 0\nmol3.build()\nmf3 = scf.RHF(mol3).run()\nh3 = mf3.get_hcore()\neri3 = ao2mo.kernel(mol3, mf3.mo_coeff)\nnorb3 = mf3.mo_coeff.shape[1]\nnelec3 = mol3.nelectron\n\n# FCI for molecule 3\ncisolver3 = fci.FCI(mol3, mf3.mo_coeff)\ne3, fcivec3 = cisolver3.kernel(h3, eri3, norb3, nelec3)\n\n# Expand to a larger orbital space (add 2 more orbitals)\nnorb4 = norb3 + 2\nnelec4 = nelec3\n# Pad the MO coefficients with zeros for the new orbitals\nmo_coeff4 = np.zeros((mol3.nao_nr(), norb4))\nmo_coeff4[:, :norb3] = mf3.mo_coeff\n# Pad the integrals with zeros for the new orbitals\nh4 = np.zeros((norb4, norb4))\nh4[:norb3, :norb3] = h3\neri4 = np.zeros((norb4, norb4, norb4, norb4))\neri4[:norb3, :norb3, :norb3, :norb3] = ao2mo.restore(1, eri3, norb3)\n\n# Expand the FCI wavefunction\nfcivec3_expanded = fci.addons.expand_ci(fcivec3, norb3, nelec3, norb4)\n\n# FCI in the larger space (should be the same as the expanded one for the first norb3 orbitals)\ncisolver4 = fci.FCI()\ne4, fcivec4 = cisolver4.kernel(h4, eri4, norb4, nelec4)\n\n# Compare the expanded wavefunction with the FCI wavefunction in the larger space\nfcivec4_norm = fcivec4 / np.linalg.norm(fcivec4)\nfcivec3_expanded_norm = fcivec3_expanded / np.linalg.norm(fcivec3_expanded)\noverlap3 = np.dot(fcivec4_norm.ravel().conj(), fcivec3_expanded_norm.ravel())\nprint(\"Task 2: Overlap between expanded fcivec3 and fcivec4:\", np.abs(overlap3))\nprint(\"Task 2: Are they close?\", np.allclose(fcivec4_norm, fcivec3_expanded_norm, atol=1e-6))\n\n# Alternative expansion using from_fci and to_fci\nfcivec3_ao = fci.addons.from_fci(fcivec3, norb3, nelec3, mf3.mo_coeff)\nfcivec3_to4 = fci.addons.to_fci(fcivec3_ao, norb4, nelec4, mo_coeff4)\nfcivec3_to4_norm = fcivec3_to4 / np.linalg.norm(fcivec3_to4)\noverlap4 = np.dot(fcivec4_norm.ravel().conj(), fcivec3_to4_norm.ravel())\nprint(\"Task 2 (alternative): Overlap between expanded fcivec3 (from/to_fci) and fcivec4:\", np.abs(overlap4))\nprint(\"Task 2 (alternative): Are they close?\", np.allclose(fcivec4_norm, fcivec3_to4_norm, atol=1e-6))\n```",
+  "latency_seconds": 8.083232328999657,
+  "usage": {
+    "completion_tokens": 1609,
+    "prompt_tokens": 304,
+    "total_tokens": 1913,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 13480,
+  "response_sha256": "f2b70ede87aa7b9f34fd136b4d82685e57d33fb744a129273ecf5a01115c5081",
+  "artifact_sha256": "5cb05c23dfaaa16e7470c12f302ebe49bdd0e22c9581c1a47db23d35f5f7189c"
+}

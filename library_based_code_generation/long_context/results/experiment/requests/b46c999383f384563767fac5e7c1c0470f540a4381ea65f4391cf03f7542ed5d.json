@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 39,
+    "task_sha256": "c0d5d626c2e572cb169246c28d261dc87fa73bf4bcbbed3fdd4d169a408f7807",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that demonstrates how to create different minerals, compute seismic velocities, and compare them to a seismic reference model using the BurnMan library. The code should include four examples of creating composite minerals: two minerals mixed in simple mole fractions, a mix of three minerals, using preset solutions, and defining a custom solution. The code should also include the computation of seismic velocities and other properties by supplying BurnMan with a list of minerals and their molar abundances. The results should be compared to a seismic model, and the misfit between the computed and reference values should be calculated. Finally, the code should plot the computed and reference values of Vs, Vphi, density, and geotherm against pressure. The plots should be saved as an image file.\n\nYou can find the following APIs from the library helpful:\nlookup_and_interpolate, print_minerals_of_current_state, phA, instantiate_minerals, interp_smoothed_array_and_derivatives, polynomial_esv_and_mbr_mixing, test_seismic, SeismicTable, _aK_T, set_compositions_and_state_from_parameters, test_polynomial_ESV_and_mbr_mixing, moment_of_inertia, EquationOfState, test_instantiate_minerals, test_reference_values, test_stoichiometric_matrix_two_minerals, moment_of_inertia_factor, ClassA_for_copy_documentation, test_reference_values_morse, test_reference_values_bm4"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em55JU31sO2PWsGdFyjPeaw5xjFF3",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport burnman\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# 1. Create composite minerals\n\n# Example 1: Two minerals mixed in simple mole fractions\nolivine = burnman.minerals.SLB_2011.olivine()\nwadsleyite = burnman.minerals.SLB_2011.wadsleyite()\nminerals_2 = [olivine, wadsleyite]\nfractions_2 = [0.6, 0.4]\n\n# Example 2: Mix of three minerals\nringwoodite = burnman.minerals.SLB_2011.ringwoodite()\nminerals_3 = [olivine, wadsleyite, ringwoodite]\nfractions_3 = [0.5, 0.3, 0.2]\n\n# Example 3: Using preset solutions\npyrolite = burnman.composites.SLB_2011.pyrolite()\nharzburgite = burnman.composites.SLB_2011.harzburgite()\n\n# Example 4: Defining a custom solution\ncustom_minerals = [burnman.minerals.SLB_2011.olivine(), burnman.minerals.SLB_2011.clinoenstatite()]\ncustom_fractions = [0.7, 0.3]\ncustom_solution = burnman.Composite(custom_minerals, custom_fractions)\n\n# 2. Compute seismic velocities and other properties\n\n# Define pressure (GPa) and temperature (K) arrays\npressures = np.linspace(10, 25, 30)  # GPa\ntemperatures = 1873 + 0.3 * pressures  # Simple geotherm\n\n# List of composites to test\ncomposites = [\n    ('2-mineral', burnman.Composite(minerals_2, fractions_2)),\n    ('3-mineral', burnman.Composite(minerals_3, fractions_3)),\n    ('pyrolite', pyrolite),\n    ('custom', custom_solution)\n]\n\n# Reference seismic model (e.g., PREM)\nreference_model = burnman.seismic.PREM()\nreference_vs = []\nreference_vphi = []\nreference_rho = []\nreference_temp = []\n\nfor p, T in zip(pressures, temperatures):\n    state = {'pressure': p * 1e9, 'temperature': T}\n    reference_vs.append(reference_model.vs(state))\n    reference_vphi.append(reference_model.vphi(state))\n    reference_rho.append(reference_model.density(state))\n    reference_temp.append(T)\n\nreference_vs = np.array(reference_vs)\nreference_vphi = np.array(reference_vphi)\nreference_rho = np.array(reference_rho)\nreference_temp = np.array(reference_temp)\n\n# Store results for plotting\nresults = {}\n\nfor name, composite in composites:\n    vs = []\n    vphi = []\n    rho = []\n    temp = []\n    for p, T in zip(pressures, temperatures):\n        composite.set_state(pressure=p * 1e9, temperature=T)\n        vs.append(composite.seismic_velocities()[1])    # Vs\n        vphi.append(composite.seismic_velocities()[2])  # Vphi\n        rho.append(composite.density())\n        temp.append(T)\n    results[name] = {\n        'vs': np.array(vs),\n        'vphi': np.array(vphi),\n        'rho': np.array(rho),\n        'temp': np.array(temp)\n    }\n\n# 3. Calculate misfit between computed and reference values\nmisfits = {}\nfor name in results:\n    misfit_vs = np.sqrt(np.mean((results[name]['vs'] - reference_vs) ** 2))\n    misfit_vphi = np.sqrt(np.mean((results[name]['vphi'] - reference_vphi) ** 2))\n    misfit_rho = np.sqrt(np.mean((results[name]['rho'] - reference_rho) ** 2))\n    misfits[name] = {'vs': misfit_vs, 'vphi': misfit_vphi, 'rho': misfit_rho}\n\n# 4. Plot computed and reference values\nfig, axs = plt.subplots(2, 2, figsize=(12, 10))\n\n# Vs\nfor name in results:\n    axs[0, 0].plot(pressures, results[name]['vs'], label=f'{name} (misfit={misfits[name][\"vs\"]:.2f})')\naxs[0, 0].plot(pressures, reference_vs, 'k--', label='Reference')\naxs[0, 0].set_xlabel('Pressure (GPa)')\naxs[0, 0].set_ylabel('Vs (m/s)')\naxs[0, 0].legend()\naxs[0, 0].set_title('Shear Velocity (Vs)')\n\n# Vphi\nfor name in results:\n    axs[0, 1].plot(pressures, results[name]['vphi'], label=f'{name} (misfit={misfits[name][\"vphi\"]:.2f})')\naxs[0, 1].plot(pressures, reference_vphi, 'k--', label='Reference')\naxs[0, 1].set_xlabel('Pressure (GPa)')\naxs[0, 1].set_ylabel('Vphi (m/s)')\naxs[0, 1].legend()\naxs[0, 1].set_title('Compressional Velocity (Vphi)')\n\n# Density\nfor name in results:\n    axs[1, 0].plot(pressures, results[name]['rho'], label=f'{name} (misfit={misfits[name][\"rho\"]:.2f})')\naxs[1, 0].plot(pressures, reference_rho, 'k--', label='Reference')\naxs[1, 0].set_xlabel('Pressure (GPa)')\naxs[1, 0].set_ylabel('Density (kg/m³)')\naxs[1, 0].legend()\naxs[1, 0].set_title('Density')\n\n# Geotherm\nfor name in results:\n    axs[1, 1].plot(pressures, results[name]['temp'], label=f'{name}')\naxs[1, 1].plot(pressures, reference_temp, 'k--', label='Reference')\naxs[1, 1].set_xlabel('Pressure (GPa)')\naxs[1, 1].set_ylabel('Temperature (K)')\naxs[1, 1].legend()\naxs[1, 1].set_title('Geotherm')\n\nplt.tight_layout()\nplt.savefig('seismic_comparison.png')\nplt.close()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795127997,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0c9884ecfa",
+    "usage": {
+      "completion_tokens": 1383,
+      "prompt_tokens": 321,
+      "total_tokens": 1704,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport burnman\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# 1. Create composite minerals\n\n# Example 1: Two minerals mixed in simple mole fractions\nolivine = burnman.minerals.SLB_2011.olivine()\nwadsleyite = burnman.minerals.SLB_2011.wadsleyite()\nminerals_2 = [olivine, wadsleyite]\nfractions_2 = [0.6, 0.4]\n\n# Example 2: Mix of three minerals\nringwoodite = burnman.minerals.SLB_2011.ringwoodite()\nminerals_3 = [olivine, wadsleyite, ringwoodite]\nfractions_3 = [0.5, 0.3, 0.2]\n\n# Example 3: Using preset solutions\npyrolite = burnman.composites.SLB_2011.pyrolite()\nharzburgite = burnman.composites.SLB_2011.harzburgite()\n\n# Example 4: Defining a custom solution\ncustom_minerals = [burnman.minerals.SLB_2011.olivine(), burnman.minerals.SLB_2011.clinoenstatite()]\ncustom_fractions = [0.7, 0.3]\ncustom_solution = burnman.Composite(custom_minerals, custom_fractions)\n\n# 2. Compute seismic velocities and other properties\n\n# Define pressure (GPa) and temperature (K) arrays\npressures = np.linspace(10, 25, 30)  # GPa\ntemperatures = 1873 + 0.3 * pressures  # Simple geotherm\n\n# List of composites to test\ncomposites = [\n    ('2-mineral', burnman.Composite(minerals_2, fractions_2)),\n    ('3-mineral', burnman.Composite(minerals_3, fractions_3)),\n    ('pyrolite', pyrolite),\n    ('custom', custom_solution)\n]\n\n# Reference seismic model (e.g., PREM)\nreference_model = burnman.seismic.PREM()\nreference_vs = []\nreference_vphi = []\nreference_rho = []\nreference_temp = []\n\nfor p, T in zip(pressures, temperatures):\n    state = {'pressure': p * 1e9, 'temperature': T}\n    reference_vs.append(reference_model.vs(state))\n    reference_vphi.append(reference_model.vphi(state))\n    reference_rho.append(reference_model.density(state))\n    reference_temp.append(T)\n\nreference_vs = np.array(reference_vs)\nreference_vphi = np.array(reference_vphi)\nreference_rho = np.array(reference_rho)\nreference_temp = np.array(reference_temp)\n\n# Store results for plotting\nresults = {}\n\nfor name, composite in composites:\n    vs = []\n    vphi = []\n    rho = []\n    temp = []\n    for p, T in zip(pressures, temperatures):\n        composite.set_state(pressure=p * 1e9, temperature=T)\n        vs.append(composite.seismic_velocities()[1])    # Vs\n        vphi.append(composite.seismic_velocities()[2])  # Vphi\n        rho.append(composite.density())\n        temp.append(T)\n    results[name] = {\n        'vs': np.array(vs),\n        'vphi': np.array(vphi),\n        'rho': np.array(rho),\n        'temp': np.array(temp)\n    }\n\n# 3. Calculate misfit between computed and reference values\nmisfits = {}\nfor name in results:\n    misfit_vs = np.sqrt(np.mean((results[name]['vs'] - reference_vs) ** 2))\n    misfit_vphi = np.sqrt(np.mean((results[name]['vphi'] - reference_vphi) ** 2))\n    misfit_rho = np.sqrt(np.mean((results[name]['rho'] - reference_rho) ** 2))\n    misfits[name] = {'vs': misfit_vs, 'vphi': misfit_vphi, 'rho': misfit_rho}\n\n# 4. Plot computed and reference values\nfig, axs = plt.subplots(2, 2, figsize=(12, 10))\n\n# Vs\nfor name in results:\n    axs[0, 0].plot(pressures, results[name]['vs'], label=f'{name} (misfit={misfits[name][\"vs\"]:.2f})')\naxs[0, 0].plot(pressures, reference_vs, 'k--', label='Reference')\naxs[0, 0].set_xlabel('Pressure (GPa)')\naxs[0, 0].set_ylabel('Vs (m/s)')\naxs[0, 0].legend()\naxs[0, 0].set_title('Shear Velocity (Vs)')\n\n# Vphi\nfor name in results:\n    axs[0, 1].plot(pressures, results[name]['vphi'], label=f'{name} (misfit={misfits[name][\"vphi\"]:.2f})')\naxs[0, 1].plot(pressures, reference_vphi, 'k--', label='Reference')\naxs[0, 1].set_xlabel('Pressure (GPa)')\naxs[0, 1].set_ylabel('Vphi (m/s)')\naxs[0, 1].legend()\naxs[0, 1].set_title('Compressional Velocity (Vphi)')\n\n# Density\nfor name in results:\n    axs[1, 0].plot(pressures, results[name]['rho'], label=f'{name} (misfit={misfits[name][\"rho\"]:.2f})')\naxs[1, 0].plot(pressures, reference_rho, 'k--', label='Reference')\naxs[1, 0].set_xlabel('Pressure (GPa)')\naxs[1, 0].set_ylabel('Density (kg/m³)')\naxs[1, 0].legend()\naxs[1, 0].set_title('Density')\n\n# Geotherm\nfor name in results:\n    axs[1, 1].plot(pressures, results[name]['temp'], label=f'{name}')\naxs[1, 1].plot(pressures, reference_temp, 'k--', label='Reference')\naxs[1, 1].set_xlabel('Pressure (GPa)')\naxs[1, 1].set_ylabel('Temperature (K)')\naxs[1, 1].legend()\naxs[1, 1].set_title('Geotherm')\n\nplt.tight_layout()\nplt.savefig('seismic_comparison.png')\nplt.close()\n```",
+  "latency_seconds": 8.219820632000847,
+  "usage": {
+    "completion_tokens": 1383,
+    "prompt_tokens": 321,
+    "total_tokens": 1704,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 11706,
+  "response_sha256": "b81c18518ea21e6e9f6da968a3116349fc9040da0e8721c9e3647e2ae407c05e",
+  "artifact_sha256": "e7a21cd66918e934a60574a0e03385a336631fcd49bc1baf9ac31bbf6474b922"
+}

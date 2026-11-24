@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 40,
+    "task_sha256": "052d690945eefb9730b03fa3e378fb75b5528bbfdce7c5adabd9f097d4213455",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs the following tasks using the nni library:\n\n1. Fine-tunes a ResNet18 model on the Cifar10 dataset for 30 epochs and evaluates its accuracy.\n2. Creates a teacher model by duplicating the fine-tuned model.\n3. Creates a pruner using the TaylorPruner and AGPPruner classes, with a configuration list that targets Conv2d operations and has a sparse ratio of 0.5. The pruner is set to run for 100 training steps and 30 total times.\n4. Creates a quantizer using the QATQuantizer class, with a configuration list that targets Conv2d and BatchNorm2d operations and uses int8 quantization. The quantizer starts at the 100th step.\n5. Creates a distiller using the DynamicLayerwiseDistiller class, with a configuration list that targets Conv2d operations and uses the mean squared error method. The distiller uses the teacher model for predictions.\n6. Compresses the model using the distiller for 60 iterations of 100 steps each.\n7. Speeds up the model using the ModelSpeedup class and the masks from the pruner.\n8. Evaluates the accuracy of the compressed model.\n9. Simulates quantization by updating the calibration configuration of the model using the Quantizer class.\n10. Evaluates the accuracy of the compressed and quantized model.\n\nYou can find the following APIs from the library helpful:\nthe_test, the_test_with_annotations, A, ASubModel, __and__, PatternA, _model_and_evaluator, forward_and_backward, exploit_and_explore, _replicate_and_instantiate, set_stage_and_offload, TeacherModelBasedDistiller, test_simplify_and_random, _start_engine_and_strategy, _report_intermediates_and_final, _keep_trying_and_will_success, _get_layer_and_inputs_from_tuner, _build_model_for_step, path_of_module, patched_get_optimizer_cls_and_kwargs"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em562NSNQ4vkI3bdTT3IneIjwjgNN",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nimport torchvision\nimport torchvision.transforms as transforms\nfrom nni.compression.pytorch.pruning import TaylorPruner, AGPPruner\nfrom nni.compression.pytorch.quantization import QATQuantizer, Quantizer\nfrom nni.compression.pytorch.speedup import ModelSpeedup\nfrom nni.compression.pytorch.distillation import DynamicLayerwiseDistiller\n\n# 1. Fine-tune ResNet18 on CIFAR10\ndevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\ntransform = transforms.Compose([\n    transforms.Resize(32),\n    transforms.ToTensor(),\n    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))\n])\ntrainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)\ntrainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)\ntestset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)\ntestloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)\n\nmodel = torchvision.models.resnet18(num_classes=10)\nmodel = model.to(device)\ncriterion = nn.CrossEntropyLoss()\noptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)\n\ndef evaluate(model, dataloader):\n    model.eval()\n    correct = 0\n    total = 0\n    with torch.no_grad():\n        for inputs, targets in dataloader:\n            inputs, targets = inputs.to(device), targets.to(device)\n            outputs = model(inputs)\n            _, predicted = outputs.max(1)\n            total += targets.size(0)\n            correct += predicted.eq(targets).sum().item()\n    return 100. * correct / total\n\nfor epoch in range(30):\n    model.train()\n    for inputs, targets in trainloader:\n        inputs, targets = inputs.to(device), targets.to(device)\n        optimizer.zero_grad()\n        outputs = model(inputs)\n        loss = criterion(outputs, targets)\n        loss.backward()\n        optimizer.step()\n\nacc = evaluate(model, testloader)\nprint(f'Fine-tuned model accuracy: {acc:.2f}%')\n\n# 2. Create teacher model by duplicating the fine-tuned model\nimport copy\nteacher_model = copy.deepcopy(model)\n\n# 3. Create pruner (TaylorPruner and AGPPruner)\npruner_config = [{\n    'sparsity': 0.5,\n    'op_types': ['Conv2d']\n}]\ntaylor_pruner = TaylorPruner(model, pruner_config, optimizer=optimizer, trainer=None, num_iterations=100, pruning_algorithm='TaylorFOWeight')\nagp_pruner = AGPPruner(model, pruner_config, optimizer=optimizer, trainer=None, total_times=30, steps=100)\n\n# 4. Create quantizer (QATQuantizer)\nquantizer_config = [{\n    'quant_types': ['weight', 'input'],\n    'quant_bits': {'weight': 8, 'input': 8},\n    'op_types': ['Conv2d', 'BatchNorm2d']\n}]\nqat_quantizer = QATQuantizer(model, quantizer_config, optimizer=optimizer, start_step=100)\n\n# 5. Create distiller (DynamicLayerwiseDistiller)\ndistiller_config = [{\n    'op_types': ['Conv2d'],\n    'distillation_type': 'mse'\n}]\ndistiller = DynamicLayerwiseDistiller(model, teacher_model, distiller_config, criterion=criterion, optimizer=optimizer)\n\n# 6. Compress model using distiller for 60 iterations of 100 steps each\ndef distiller_trainer(model, optimizer, criterion, trainloader, steps):\n    model.train()\n    data_iter = iter(trainloader)\n    for step in range(steps):\n        try:\n            inputs, targets = next(data_iter)\n        except StopIteration:\n            data_iter = iter(trainloader)\n            inputs, targets = next(data_iter)\n        inputs, targets = inputs.to(device), targets.to(device)\n        optimizer.zero_grad()\n        outputs = model(inputs)\n        loss = criterion(outputs, targets)\n        loss.backward()\n        optimizer.step()\n\nfor iteration in range(60):\n    distiller_trainer(distiller, optimizer, criterion, trainloader, 100)\n\n# 7. Speed up model using ModelSpeedup and pruner masks\n# Use TaylorPruner to generate masks\ntaylor_pruner.compress()\nmasks = taylor_pruner.get_masks()\nModelSpeedup(model, torch.randn(1, 3, 32, 32).to(device), masks).speedup_model()\n\n# 8. Evaluate accuracy of compressed model\nacc_compressed = evaluate(model, testloader)\nprint(f'Compressed model accuracy: {acc_compressed:.2f}%')\n\n# 9. Simulate quantization by updating calibration config using Quantizer\nquantizer = Quantizer(model, quantizer_config)\nquantizer.compress()\n\n# 10. Evaluate accuracy of compressed and quantized model\nacc_quantized = evaluate(model, testloader)\nprint(f'Compressed & Quantized model accuracy: {acc_quantized:.2f}%')\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128042,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_b65cf0ebbf",
+    "usage": {
+      "completion_tokens": 1123,
+      "prompt_tokens": 438,
+      "total_tokens": 1561,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nimport torchvision\nimport torchvision.transforms as transforms\nfrom nni.compression.pytorch.pruning import TaylorPruner, AGPPruner\nfrom nni.compression.pytorch.quantization import QATQuantizer, Quantizer\nfrom nni.compression.pytorch.speedup import ModelSpeedup\nfrom nni.compression.pytorch.distillation import DynamicLayerwiseDistiller\n\n# 1. Fine-tune ResNet18 on CIFAR10\ndevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\ntransform = transforms.Compose([\n    transforms.Resize(32),\n    transforms.ToTensor(),\n    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))\n])\ntrainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)\ntrainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)\ntestset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)\ntestloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)\n\nmodel = torchvision.models.resnet18(num_classes=10)\nmodel = model.to(device)\ncriterion = nn.CrossEntropyLoss()\noptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)\n\ndef evaluate(model, dataloader):\n    model.eval()\n    correct = 0\n    total = 0\n    with torch.no_grad():\n        for inputs, targets in dataloader:\n            inputs, targets = inputs.to(device), targets.to(device)\n            outputs = model(inputs)\n            _, predicted = outputs.max(1)\n            total += targets.size(0)\n            correct += predicted.eq(targets).sum().item()\n    return 100. * correct / total\n\nfor epoch in range(30):\n    model.train()\n    for inputs, targets in trainloader:\n        inputs, targets = inputs.to(device), targets.to(device)\n        optimizer.zero_grad()\n        outputs = model(inputs)\n        loss = criterion(outputs, targets)\n        loss.backward()\n        optimizer.step()\n\nacc = evaluate(model, testloader)\nprint(f'Fine-tuned model accuracy: {acc:.2f}%')\n\n# 2. Create teacher model by duplicating the fine-tuned model\nimport copy\nteacher_model = copy.deepcopy(model)\n\n# 3. Create pruner (TaylorPruner and AGPPruner)\npruner_config = [{\n    'sparsity': 0.5,\n    'op_types': ['Conv2d']\n}]\ntaylor_pruner = TaylorPruner(model, pruner_config, optimizer=optimizer, trainer=None, num_iterations=100, pruning_algorithm='TaylorFOWeight')\nagp_pruner = AGPPruner(model, pruner_config, optimizer=optimizer, trainer=None, total_times=30, steps=100)\n\n# 4. Create quantizer (QATQuantizer)\nquantizer_config = [{\n    'quant_types': ['weight', 'input'],\n    'quant_bits': {'weight': 8, 'input': 8},\n    'op_types': ['Conv2d', 'BatchNorm2d']\n}]\nqat_quantizer = QATQuantizer(model, quantizer_config, optimizer=optimizer, start_step=100)\n\n# 5. Create distiller (DynamicLayerwiseDistiller)\ndistiller_config = [{\n    'op_types': ['Conv2d'],\n    'distillation_type': 'mse'\n}]\ndistiller = DynamicLayerwiseDistiller(model, teacher_model, distiller_config, criterion=criterion, optimizer=optimizer)\n\n# 6. Compress model using distiller for 60 iterations of 100 steps each\ndef distiller_trainer(model, optimizer, criterion, trainloader, steps):\n    model.train()\n    data_iter = iter(trainloader)\n    for step in range(steps):\n        try:\n            inputs, targets = next(data_iter)\n        except StopIteration:\n            data_iter = iter(trainloader)\n            inputs, targets = next(data_iter)\n        inputs, targets = inputs.to(device), targets.to(device)\n        optimizer.zero_grad()\n        outputs = model(inputs)\n        loss = criterion(outputs, targets)\n        loss.backward()\n        optimizer.step()\n\nfor iteration in range(60):\n    distiller_trainer(distiller, optimizer, criterion, trainloader, 100)\n\n# 7. Speed up model using ModelSpeedup and pruner masks\n# Use TaylorPruner to generate masks\ntaylor_pruner.compress()\nmasks = taylor_pruner.get_masks()\nModelSpeedup(model, torch.randn(1, 3, 32, 32).to(device), masks).speedup_model()\n\n# 8. Evaluate accuracy of compressed model\nacc_compressed = evaluate(model, testloader)\nprint(f'Compressed model accuracy: {acc_compressed:.2f}%')\n\n# 9. Simulate quantization by updating calibration config using Quantizer\nquantizer = Quantizer(model, quantizer_config)\nquantizer.compress()\n\n# 10. Evaluate accuracy of compressed and quantized model\nacc_quantized = evaluate(model, testloader)\nprint(f'Compressed & Quantized model accuracy: {acc_quantized:.2f}%')\n```",
+  "latency_seconds": 5.462775545000113,
+  "usage": {
+    "completion_tokens": 1123,
+    "prompt_tokens": 438,
+    "total_tokens": 1561,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9860,
+  "response_sha256": "6738ef2428efb2d0c92c4780a2bf18f104223fcce1a295e2731312f9b82b03b6",
+  "artifact_sha256": "12ecb6171d88221d484f2532944827c88ab3264ce72cb1bf90e04c710c38d116"
+}

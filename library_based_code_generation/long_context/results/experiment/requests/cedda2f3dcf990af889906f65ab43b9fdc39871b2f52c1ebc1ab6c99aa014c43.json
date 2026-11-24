@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 139,
+    "task_sha256": "f73e1f19828ee9126870d8c8186ef181401527f65d61fd28d3e38c4b5843e9f9",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that demonstrates the use of the pydpf-core library for multi-stage cyclic symmetry analysis with advanced customization. The code should download a multi-stage cyclic result, create a model from it, and display the model's state. It should then verify that the model is a multi-stage model by checking the result info. The code should also go over the cyclic support, displaying the number of stages, the number of sectors in each stage, and the number of nodes in the first stage's base sector. \n\nNext, the code should expand displacement results on chosen sectors. It should create a displacement cyclic operator, select the sectors to expand on the first stage, and select the sectors to expand stage by stage. The code should then expand the displacements and get a total deformation. It should also get the expanded mesh. \n\nThe code should then plot the expanded result on the expanded mesh. It should also demonstrate how to expand only some sectors for the mesh, and plot the expanded result on the expanded mesh. \n\nFinally, the code should check results precisely. It should print the time frequency support to see the harmonic index, and verify that the displacement values are the same on all nodes.\n\nYou can find the following APIs from the library helpful:\nshould_average, should_start_server, sectors_to_expand, __generate_code, cyclic_expanded_displacement, meshA, dpf_error_code, InputsCyclicExpandedDisplacement, OutputsCyclicExpandedDisplacement, download_multi_stage_cyclic_result, result_definition_get_cyclic_sectors_scoping, cyclic_support_get_num_sectors, cyclic_support_get_sectors_scoping, result_info_get_number_of_results, dpf_error_set_code, cyclic_multistage, result_definition_set_cyclic_sectors_scoping, a, create_mesh_and_field_mapped, result_info_get_number_of_sub_results"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em63W4AYNzSt8s7fnBKxZj53E9UpF",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport tempfile\nfrom ansys.dpf import core as dpf\nfrom ansys.dpf.core import cyclic_support\nfrom ansys.dpf.core import operators as ops\nfrom ansys.dpf.core.plotter import DpfPlotter\n\n# Download a multi-stage cyclic result\nresult_path = dpf.downloads.download_multi_stage_cyclic_result()\n\n# Create a model from the result\nmodel = dpf.Model(result_path)\nprint(\"Model state:\")\nprint(model)\n\n# Verify that the model is a multi-stage model by checking the result info\nresult_info = model.metadata.result_info\nif result_info.cyclic_type != dpf.enums.CyclicType.MultiStage:\n    raise RuntimeError(\"The loaded model is not a multi-stage cyclic model.\")\nprint(\"Verified: Model is a multi-stage cyclic model.\")\n\n# Go over the cyclic support\ncyclic_sup = model.metadata.cyclic_support\nnum_stages = cyclic_sup.num_stages\nprint(f\"Number of stages: {num_stages}\")\n\nfor stage in range(num_stages):\n    num_sectors = cyclic_sup.num_sectors(stage)\n    print(f\"Stage {stage}: Number of sectors = {num_sectors}\")\n\n# Number of nodes in the first stage's base sector\nbase_sector_scoping = cyclic_sup.sectors_scoping(stage=0, sector=0)\nmesh = model.metadata.mesh\nnodes_in_base_sector = mesh.nodes.scoping.ids_in_scope(base_sector_scoping)\nprint(f\"Number of nodes in first stage's base sector: {len(nodes_in_base_sector)}\")\n\n# Expand displacement results on chosen sectors\n# Create a displacement cyclic operator\ndisp_op = ops.result.cyclic_expanded_displacement(data_sources=model)\n\n# Select sectors to expand on the first stage\nsectors_to_expand_stage0 = [0, 1]  # Example: expand on sectors 0 and 1 of stage 0\ndisp_op.inputs.sectors_to_expand.connect({0: sectors_to_expand_stage0})\n\n# Select sectors to expand stage by stage\nsectors_to_expand_stage1 = [0, 2]  # Example: expand on sectors 0 and 2 of stage 1\ndisp_op.inputs.sectors_to_expand.connect({1: sectors_to_expand_stage1})\n\n# Expand the displacements\nexpanded_disp = disp_op.outputs.fields_container()\n\n# Get total deformation\ntotal_deformation_op = ops.math.norm_fc(fields_container=expanded_disp)\ntotal_deformation = total_deformation_op.outputs.field()\n\n# Get the expanded mesh\nexpanded_mesh = disp_op.outputs.meshed_region()\n\n# Plot the expanded result on the expanded mesh\nplotter = DpfPlotter()\nplotter.add_field(total_deformation, expanded_mesh)\nplotter.show_figure(auto_close=True)\n\n# Expand only some sectors for the mesh and plot\npartial_sectors = {0: [0], 1: [1]}  # Only sector 0 of stage 0 and sector 1 of stage 1\ndisp_op_partial = ops.result.cyclic_expanded_displacement(data_sources=model)\ndisp_op_partial.inputs.sectors_to_expand.connect(partial_sectors)\nexpanded_disp_partial = disp_op_partial.outputs.fields_container()\ntotal_deformation_partial = ops.math.norm_fc(fields_container=expanded_disp_partial).outputs.field()\nexpanded_mesh_partial = disp_op_partial.outputs.meshed_region()\n\nplotter_partial = DpfPlotter()\nplotter_partial.add_field(total_deformation_partial, expanded_mesh_partial)\nplotter_partial.show_figure(auto_close=True)\n\n# Check results precisely\n# Print the time frequency support to see the harmonic index\ntf_support = model.metadata.time_freq_support\nprint(\"Time frequency support:\")\nprint(tf_support)\n\n# Verify that the displacement values are the same on all nodes\ndisp_field = expanded_disp[0]\ndisp_data = disp_field.data\nif (disp_data == disp_data[0]).all():\n    print(\"Displacement values are the same on all nodes.\")\nelse:\n    print(\"Displacement values differ across nodes.\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131730,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_c685e7bb08",
+    "usage": {
+      "completion_tokens": 818,
+      "prompt_tokens": 399,
+      "total_tokens": 1217,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport tempfile\nfrom ansys.dpf import core as dpf\nfrom ansys.dpf.core import cyclic_support\nfrom ansys.dpf.core import operators as ops\nfrom ansys.dpf.core.plotter import DpfPlotter\n\n# Download a multi-stage cyclic result\nresult_path = dpf.downloads.download_multi_stage_cyclic_result()\n\n# Create a model from the result\nmodel = dpf.Model(result_path)\nprint(\"Model state:\")\nprint(model)\n\n# Verify that the model is a multi-stage model by checking the result info\nresult_info = model.metadata.result_info\nif result_info.cyclic_type != dpf.enums.CyclicType.MultiStage:\n    raise RuntimeError(\"The loaded model is not a multi-stage cyclic model.\")\nprint(\"Verified: Model is a multi-stage cyclic model.\")\n\n# Go over the cyclic support\ncyclic_sup = model.metadata.cyclic_support\nnum_stages = cyclic_sup.num_stages\nprint(f\"Number of stages: {num_stages}\")\n\nfor stage in range(num_stages):\n    num_sectors = cyclic_sup.num_sectors(stage)\n    print(f\"Stage {stage}: Number of sectors = {num_sectors}\")\n\n# Number of nodes in the first stage's base sector\nbase_sector_scoping = cyclic_sup.sectors_scoping(stage=0, sector=0)\nmesh = model.metadata.mesh\nnodes_in_base_sector = mesh.nodes.scoping.ids_in_scope(base_sector_scoping)\nprint(f\"Number of nodes in first stage's base sector: {len(nodes_in_base_sector)}\")\n\n# Expand displacement results on chosen sectors\n# Create a displacement cyclic operator\ndisp_op = ops.result.cyclic_expanded_displacement(data_sources=model)\n\n# Select sectors to expand on the first stage\nsectors_to_expand_stage0 = [0, 1]  # Example: expand on sectors 0 and 1 of stage 0\ndisp_op.inputs.sectors_to_expand.connect({0: sectors_to_expand_stage0})\n\n# Select sectors to expand stage by stage\nsectors_to_expand_stage1 = [0, 2]  # Example: expand on sectors 0 and 2 of stage 1\ndisp_op.inputs.sectors_to_expand.connect({1: sectors_to_expand_stage1})\n\n# Expand the displacements\nexpanded_disp = disp_op.outputs.fields_container()\n\n# Get total deformation\ntotal_deformation_op = ops.math.norm_fc(fields_container=expanded_disp)\ntotal_deformation = total_deformation_op.outputs.field()\n\n# Get the expanded mesh\nexpanded_mesh = disp_op.outputs.meshed_region()\n\n# Plot the expanded result on the expanded mesh\nplotter = DpfPlotter()\nplotter.add_field(total_deformation, expanded_mesh)\nplotter.show_figure(auto_close=True)\n\n# Expand only some sectors for the mesh and plot\npartial_sectors = {0: [0], 1: [1]}  # Only sector 0 of stage 0 and sector 1 of stage 1\ndisp_op_partial = ops.result.cyclic_expanded_displacement(data_sources=model)\ndisp_op_partial.inputs.sectors_to_expand.connect(partial_sectors)\nexpanded_disp_partial = disp_op_partial.outputs.fields_container()\ntotal_deformation_partial = ops.math.norm_fc(fields_container=expanded_disp_partial).outputs.field()\nexpanded_mesh_partial = disp_op_partial.outputs.meshed_region()\n\nplotter_partial = DpfPlotter()\nplotter_partial.add_field(total_deformation_partial, expanded_mesh_partial)\nplotter_partial.show_figure(auto_close=True)\n\n# Check results precisely\n# Print the time frequency support to see the harmonic index\ntf_support = model.metadata.time_freq_support\nprint(\"Time frequency support:\")\nprint(tf_support)\n\n# Verify that the displacement values are the same on all nodes\ndisp_field = expanded_disp[0]\ndisp_data = disp_field.data\nif (disp_data == disp_data[0]).all():\n    print(\"Displacement values are the same on all nodes.\")\nelse:\n    print(\"Displacement values differ across nodes.\")\n```",
+  "latency_seconds": 4.383983060000901,
+  "usage": {
+    "completion_tokens": 818,
+    "prompt_tokens": 399,
+    "total_tokens": 1217,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7342,
+  "response_sha256": "7f3610dce18880e02e64830c0ee7d83b477c1093d576c32a8330e376e37fbf0f",
+  "artifact_sha256": "0230b489227134c29b32939c77f266aba9048843198b28130b9a178284ff2e82"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 58,
+    "task_sha256": "0108cb8b8bf8d54b19b6385a3061aa7a9ba508743c57abd97b50a37948545791",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary modules from the torchrec library and defines two functions: `_get_random_dataloader` and `train`. The `_get_random_dataloader` function should take in the number of embeddings, batch size, and a boolean indicating whether to pin memory, and return a DataLoader object. The `train` function should take in parameters for the number of embeddings, embedding dimension, dense architecture layer sizes, over architecture layer sizes, and learning rate. It should initialize the process group, device, rank, and backend, construct a DLRM model, enable optimizer fusion, distribute the model across devices, overlap communication, compute, and device transfer during training, and finally train the model using a training iterator. The script should call the `train` function if it is the main module."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5Hh1NlLUzZN3orvJrpaFQ7U83nP",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nfrom torch.utils.data import DataLoader, Dataset\nimport torch.distributed as dist\nfrom torchrec.datasets.random import RandomRecDataset\nfrom torchrec.models.dlrm import DLRM\nfrom torchrec.distributed import DistributedModelParallel\nfrom torchrec.optim.fused import FusedOptimizer\nfrom torchrec.optim import OverlappedOptimizer\nfrom torchrec.distributed.train_pipeline import TrainPipelineSparseDist\nimport os\n\ndef _get_random_dataloader(num_embeddings: int, batch_size: int, pin_memory: bool) -> DataLoader:\n    dataset = RandomRecDataset(\n        keys=[\"f\" + str(i) for i in range(num_embeddings)],\n        batch_size=batch_size,\n        num_dense=13,\n        num_sparse=num_embeddings,\n        hash_sizes=[10000] * num_embeddings,\n        ids_per_feature=1,\n        num_batches=100,\n    )\n    return DataLoader(\n        dataset,\n        batch_size=None,\n        pin_memory=pin_memory,\n    )\n\ndef train(\n    num_embeddings: int,\n    embedding_dim: int,\n    dense_arch_layer_sizes: list,\n    over_arch_layer_sizes: list,\n    learning_rate: float,\n):\n    backend = \"nccl\" if torch.cuda.is_available() else \"gloo\"\n    dist.init_process_group(backend=backend)\n    rank = dist.get_rank()\n    device = torch.device(f\"cuda:{rank}\" if torch.cuda.is_available() else \"cpu\")\n\n    model = DLRM(\n        embedding_bag_collection=None,\n        dense_in_features=13,\n        dense_arch_layer_sizes=dense_arch_layer_sizes,\n        over_arch_layer_sizes=over_arch_layer_sizes,\n        embedding_dim=embedding_dim,\n        num_embeddings_per_feature=[10000] * num_embeddings,\n        sparse_feature_names=[\"f\" + str(i) for i in range(num_embeddings)],\n    ).to(device)\n\n    optimizer = FusedOptimizer(\n        optim.SGD(model.parameters(), lr=learning_rate)\n    )\n\n    model = DistributedModelParallel(\n        module=model,\n        device=device,\n    )\n\n    overlapped_optimizer = OverlappedOptimizer(\n        optimizer=optimizer,\n        model=model,\n    )\n\n    dataloader = _get_random_dataloader(num_embeddings, batch_size=1024, pin_memory=True)\n\n    train_pipeline = TrainPipelineSparseDist(\n        module=model,\n        optimizer=overlapped_optimizer,\n        dataloader=dataloader,\n        device=device,\n    )\n\n    for batch in train_pipeline:\n        loss = batch[\"loss\"]\n        print(f\"Rank {rank} Loss: {loss.item()}\")\n\nif __name__ == \"__main__\":\n    train(\n        num_embeddings=26,\n        embedding_dim=16,\n        dense_arch_layer_sizes=[512, 256, 64],\n        over_arch_layer_sizes=[512, 256, 1],\n        learning_rate=0.01,\n    )\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128765,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_d1445ec092",
+    "usage": {
+      "completion_tokens": 605,
+      "prompt_tokens": 192,
+      "total_tokens": 797,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nfrom torch.utils.data import DataLoader, Dataset\nimport torch.distributed as dist\nfrom torchrec.datasets.random import RandomRecDataset\nfrom torchrec.models.dlrm import DLRM\nfrom torchrec.distributed import DistributedModelParallel\nfrom torchrec.optim.fused import FusedOptimizer\nfrom torchrec.optim import OverlappedOptimizer\nfrom torchrec.distributed.train_pipeline import TrainPipelineSparseDist\nimport os\n\ndef _get_random_dataloader(num_embeddings: int, batch_size: int, pin_memory: bool) -> DataLoader:\n    dataset = RandomRecDataset(\n        keys=[\"f\" + str(i) for i in range(num_embeddings)],\n        batch_size=batch_size,\n        num_dense=13,\n        num_sparse=num_embeddings,\n        hash_sizes=[10000] * num_embeddings,\n        ids_per_feature=1,\n        num_batches=100,\n    )\n    return DataLoader(\n        dataset,\n        batch_size=None,\n        pin_memory=pin_memory,\n    )\n\ndef train(\n    num_embeddings: int,\n    embedding_dim: int,\n    dense_arch_layer_sizes: list,\n    over_arch_layer_sizes: list,\n    learning_rate: float,\n):\n    backend = \"nccl\" if torch.cuda.is_available() else \"gloo\"\n    dist.init_process_group(backend=backend)\n    rank = dist.get_rank()\n    device = torch.device(f\"cuda:{rank}\" if torch.cuda.is_available() else \"cpu\")\n\n    model = DLRM(\n        embedding_bag_collection=None,\n        dense_in_features=13,\n        dense_arch_layer_sizes=dense_arch_layer_sizes,\n        over_arch_layer_sizes=over_arch_layer_sizes,\n        embedding_dim=embedding_dim,\n        num_embeddings_per_feature=[10000] * num_embeddings,\n        sparse_feature_names=[\"f\" + str(i) for i in range(num_embeddings)],\n    ).to(device)\n\n    optimizer = FusedOptimizer(\n        optim.SGD(model.parameters(), lr=learning_rate)\n    )\n\n    model = DistributedModelParallel(\n        module=model,\n        device=device,\n    )\n\n    overlapped_optimizer = OverlappedOptimizer(\n        optimizer=optimizer,\n        model=model,\n    )\n\n    dataloader = _get_random_dataloader(num_embeddings, batch_size=1024, pin_memory=True)\n\n    train_pipeline = TrainPipelineSparseDist(\n        module=model,\n        optimizer=overlapped_optimizer,\n        dataloader=dataloader,\n        device=device,\n    )\n\n    for batch in train_pipeline:\n        loss = batch[\"loss\"]\n        print(f\"Rank {rank} Loss: {loss.item()}\")\n\nif __name__ == \"__main__\":\n    train(\n        num_embeddings=26,\n        embedding_dim=16,\n        dense_arch_layer_sizes=[512, 256, 64],\n        over_arch_layer_sizes=[512, 256, 1],\n        learning_rate=0.01,\n    )\n```",
+  "latency_seconds": 4.248829381000178,
+  "usage": {
+    "completion_tokens": 605,
+    "prompt_tokens": 192,
+    "total_tokens": 797,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 5224,
+  "response_sha256": "7c692492db7cf2e4e08c477a0290332f250c6cd4701037a5b4f4d7d0853bb756",
+  "artifact_sha256": "6bc553b0d94e1a1aa63d0305e201da7458a2160fff629fdc6f5e5d2770b5f430"
+}

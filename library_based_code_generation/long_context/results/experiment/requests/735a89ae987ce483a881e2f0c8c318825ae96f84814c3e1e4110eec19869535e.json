@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 117,
+    "task_sha256": "663e8f2a21812044a7db13b03c971e09bac336b1af86c7f639677e68afb5a21e",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the blenderproc library to load a 3D scene from an .obj file and texture files, specified by command line arguments. The code should initialize the blenderproc library, load the scene, and label its objects based on a provided mapping. It should then separate walls, floors, and ceilings into distinct objects and assign them appropriate labels. The code should also make lamp and ceiling objects emit light. It should then create a bounding volume hierarchy (BVH) tree containing all objects in the scene. The code should sample camera locations and rotations above the floor, ensuring there are no obstacles in front of the camera and that the scene coverage score is not too low. If these conditions are met, the camera pose should be added. The code should enable normal, depth, and segmentation rendering. Finally, it should render the scene and write the data to a .hdf5 file in a specified output directory."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5qxNr1ILnQrxnximpCuzNErwCGZ",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport blenderproc as bproc\nimport argparse\nimport os\nimport json\nimport numpy as np\n\ndef parse_args():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--obj_file\", required=True, help=\"Path to the .obj file\")\n    parser.add_argument(\"--texture_dir\", required=True, help=\"Directory containing texture files\")\n    parser.add_argument(\"--label_map\", required=True, help=\"JSON file mapping object names to labels\")\n    parser.add_argument(\"--output_dir\", required=True, help=\"Directory to save output .hdf5 file\")\n    parser.add_argument(\"--num_cameras\", type=int, default=10, help=\"Number of camera poses to sample\")\n    parser.add_argument(\"--min_coverage\", type=float, default=0.5, help=\"Minimum scene coverage score\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    bproc.init()\n\n    # Load label mapping\n    with open(args.label_map, \"r\") as f:\n        label_map = json.load(f)\n\n    # Load the .obj file with textures\n    objs = bproc.loader.load_obj(args.obj_file, texture_path=args.texture_dir)\n\n    # Label objects based on mapping\n    for obj in objs:\n        name = obj.get_name()\n        label = label_map.get(name, \"unknown\")\n        obj.set_cp(\"category_id\", label)\n\n    # Separate walls, floors, ceilings\n    wall_objs, floor_objs, ceil_objs = [], [], []\n    for obj in objs:\n        name = obj.get_name().lower()\n        if \"wall\" in name:\n            wall_objs.append(obj)\n            obj.set_cp(\"category_id\", \"wall\")\n        elif \"floor\" in name:\n            floor_objs.append(obj)\n            obj.set_cp(\"category_id\", \"floor\")\n        elif \"ceiling\" in name or \"ceil\" in name:\n            ceil_objs.append(obj)\n            obj.set_cp(\"category_id\", \"ceiling\")\n\n    # Make lamp and ceiling objects emit light\n    for obj in objs:\n        name = obj.get_name().lower()\n        if \"lamp\" in name or \"light\" in name or \"ceiling\" in name or \"ceil\" in name:\n            bproc.types.LightLightSource.create(obj, intensity=1000)\n\n    # Create BVH tree\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(objs)\n\n    # Sample camera poses\n    camera_poses = []\n    coverage = 0.0\n    tries = 0\n    max_tries = args.num_cameras * 20\n    while len(camera_poses) < args.num_cameras and tries < max_tries:\n        tries += 1\n        # Sample above floor\n        if floor_objs:\n            floor_obj = np.random.choice(floor_objs)\n            bbox = floor_obj.get_bound_box()\n            min_x, max_x = bbox[:,0].min(), bbox[:,0].max()\n            min_y, max_y = bbox[:,1].min(), bbox[:,1].max()\n            x = np.random.uniform(min_x, max_x)\n            y = np.random.uniform(min_y, max_y)\n            z = bbox[:,2].max() + np.random.uniform(1.0, 1.8)\n        else:\n            x, y, z = np.random.uniform(-2,2), np.random.uniform(-2,2), np.random.uniform(1,2)\n\n        location = np.array([x, y, z])\n        # Look at random point in scene\n        target = location + np.random.uniform(-1,1,3)\n        rotation = bproc.camera.rotation_from_forward_vec(target - location, inplane_rot=np.random.uniform(-np.pi, np.pi))\n\n        # Check for obstacles in front of camera\n        cam2target = target - location\n        cam2target /= np.linalg.norm(cam2target)\n        hit, _, _, _, _ = bvh_tree.ray_cast(location, cam2target)\n        if hit:\n            continue\n\n        # Check scene coverage\n        coverage = bproc.camera.get_scene_coverage_score([location], objs)\n        if coverage < args.min_coverage:\n            continue\n\n        camera_poses.append((location, rotation))\n\n    # Set up camera\n    cam = bproc.camera.Camera()\n    bproc.camera.add_camera_pose(cam, camera_poses)\n\n    # Enable rendering passes\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output(map_by=\"category_id\")\n\n    # Render and write output\n    data = bproc.renderer.render()\n    output_path = os.path.join(args.output_dir, \"output.hdf5\")\n    bproc.writer.write_hdf5(output_path, data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130951,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_b50162a62f",
+    "usage": {
+      "completion_tokens": 995,
+      "prompt_tokens": 217,
+      "total_tokens": 1212,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport blenderproc as bproc\nimport argparse\nimport os\nimport json\nimport numpy as np\n\ndef parse_args():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--obj_file\", required=True, help=\"Path to the .obj file\")\n    parser.add_argument(\"--texture_dir\", required=True, help=\"Directory containing texture files\")\n    parser.add_argument(\"--label_map\", required=True, help=\"JSON file mapping object names to labels\")\n    parser.add_argument(\"--output_dir\", required=True, help=\"Directory to save output .hdf5 file\")\n    parser.add_argument(\"--num_cameras\", type=int, default=10, help=\"Number of camera poses to sample\")\n    parser.add_argument(\"--min_coverage\", type=float, default=0.5, help=\"Minimum scene coverage score\")\n    return parser.parse_args()\n\ndef main():\n    args = parse_args()\n    bproc.init()\n\n    # Load label mapping\n    with open(args.label_map, \"r\") as f:\n        label_map = json.load(f)\n\n    # Load the .obj file with textures\n    objs = bproc.loader.load_obj(args.obj_file, texture_path=args.texture_dir)\n\n    # Label objects based on mapping\n    for obj in objs:\n        name = obj.get_name()\n        label = label_map.get(name, \"unknown\")\n        obj.set_cp(\"category_id\", label)\n\n    # Separate walls, floors, ceilings\n    wall_objs, floor_objs, ceil_objs = [], [], []\n    for obj in objs:\n        name = obj.get_name().lower()\n        if \"wall\" in name:\n            wall_objs.append(obj)\n            obj.set_cp(\"category_id\", \"wall\")\n        elif \"floor\" in name:\n            floor_objs.append(obj)\n            obj.set_cp(\"category_id\", \"floor\")\n        elif \"ceiling\" in name or \"ceil\" in name:\n            ceil_objs.append(obj)\n            obj.set_cp(\"category_id\", \"ceiling\")\n\n    # Make lamp and ceiling objects emit light\n    for obj in objs:\n        name = obj.get_name().lower()\n        if \"lamp\" in name or \"light\" in name or \"ceiling\" in name or \"ceil\" in name:\n            bproc.types.LightLightSource.create(obj, intensity=1000)\n\n    # Create BVH tree\n    bvh_tree = bproc.object.create_bvh_tree_multi_objects(objs)\n\n    # Sample camera poses\n    camera_poses = []\n    coverage = 0.0\n    tries = 0\n    max_tries = args.num_cameras * 20\n    while len(camera_poses) < args.num_cameras and tries < max_tries:\n        tries += 1\n        # Sample above floor\n        if floor_objs:\n            floor_obj = np.random.choice(floor_objs)\n            bbox = floor_obj.get_bound_box()\n            min_x, max_x = bbox[:,0].min(), bbox[:,0].max()\n            min_y, max_y = bbox[:,1].min(), bbox[:,1].max()\n            x = np.random.uniform(min_x, max_x)\n            y = np.random.uniform(min_y, max_y)\n            z = bbox[:,2].max() + np.random.uniform(1.0, 1.8)\n        else:\n            x, y, z = np.random.uniform(-2,2), np.random.uniform(-2,2), np.random.uniform(1,2)\n\n        location = np.array([x, y, z])\n        # Look at random point in scene\n        target = location + np.random.uniform(-1,1,3)\n        rotation = bproc.camera.rotation_from_forward_vec(target - location, inplane_rot=np.random.uniform(-np.pi, np.pi))\n\n        # Check for obstacles in front of camera\n        cam2target = target - location\n        cam2target /= np.linalg.norm(cam2target)\n        hit, _, _, _, _ = bvh_tree.ray_cast(location, cam2target)\n        if hit:\n            continue\n\n        # Check scene coverage\n        coverage = bproc.camera.get_scene_coverage_score([location], objs)\n        if coverage < args.min_coverage:\n            continue\n\n        camera_poses.append((location, rotation))\n\n    # Set up camera\n    cam = bproc.camera.Camera()\n    bproc.camera.add_camera_pose(cam, camera_poses)\n\n    # Enable rendering passes\n    bproc.renderer.enable_normals_output()\n    bproc.renderer.enable_depth_output()\n    bproc.renderer.enable_segmentation_output(map_by=\"category_id\")\n\n    # Render and write output\n    data = bproc.renderer.render()\n    output_path = os.path.join(args.output_dir, \"output.hdf5\")\n    bproc.writer.write_hdf5(output_path, data)\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 6.40305798999907,
+  "usage": {
+    "completion_tokens": 995,
+    "prompt_tokens": 217,
+    "total_tokens": 1212,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8394,
+  "response_sha256": "09a5cde0dae64db60e548a91bdd2bdd70bbd520bb6acba3616b0bf4d627e81a2",
+  "artifact_sha256": "b2b5e3127841c53564a08d283f2a833dbdcf90dc5255bd1d7d26c355478c0035"
+}

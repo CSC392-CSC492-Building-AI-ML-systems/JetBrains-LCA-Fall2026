@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 149,
+    "task_sha256": "3cd88745c92db6a570f655b62c89cc998cdef7424e66ee3d91977e00206c98a1",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that solves a stage-II coil optimization problem using the simsopt library. The goal is to find coils that generate a specific target normal field on a given surface. The target equilibrium is a W7-X configuration with an average beta of 4%. The code should use a virtual casing calculation to compute the target B_{External}·n. The objective function is given by J = (1/2) ∫ |B_{BiotSavart}·n - B_{External}·n|^2 ds + LENGTH_PENALTY * Σ ½(CurveLength - L0)^2. The code should also include a Taylor test and run the optimization using the L-BFGS-B method. The results should be saved in the \"output\" directory."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em68eVIxZLnoyH66ZIHzd743Ep3IA",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport os\nimport numpy as np\nfrom simsopt._core import load\nfrom simsopt.field.coil import Coil, coils_via_symmetries\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.coilpy import CurveLength\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.virtualcasing import VirtualCasing\nfrom simsopt.field.surface import SurfaceRZFourier\nfrom simsopt.objectives import SquaredFlux, QuadraticPenalty\nfrom simsopt.optimize import Optimizer\nfrom simsopt.util import TaylorTest\n\n# Parameters\nLENGTH_PENALTY = 1e-3\nL0 = 10.0  # Reference length for penalty (meters)\nOUTPUT_DIR = \"output\"\nos.makedirs(OUTPUT_DIR, exist_ok=True)\n\n# Load W7-X equilibrium with <beta> = 4%\neq = load(\"w7x_standard_beta4.h5\")  # You need to provide this file\n\n# Get plasma boundary surface\nsurf = eq.surface\n\n# Discretize surface for field calculations\nnphi, ntheta = 64, 64\nsurf_grid = surf.get_surface(nphi, ntheta)\npoints = surf_grid.reshape((-1, 3))\nnormals = surf.normal(points)\n\n# Compute target B_external·n using virtual casing\nvc = VirtualCasing(eq, surf)\nB_external = vc.B_external(points)\nB_external_dot_n = np.sum(B_external * normals, axis=1)\n\n# Load or create initial coils\ncoils = load(\"w7x_coils_initial.json\")  # You need to provide this file\ncoils = coils_via_symmetries(coils, nfp=5, stellsym=True)\ncoil_collection = CoilCollection(coils)\nbs = BiotSavart(coil_collection)\n\n# Objective: squared flux error + length penalty\ndef objective():\n    B_biot = bs.B(points)\n    B_biot_dot_n = np.sum(B_biot * normals, axis=1)\n    flux_error = 0.5 * np.sum((B_biot_dot_n - B_external_dot_n) ** 2) * surf_grid.weights.sum() / len(points)\n    length_penalty = 0.0\n    for coil in coil_collection.coils:\n        length = CurveLength(coil).J()\n        length_penalty += 0.5 * (length - L0) ** 2\n    return flux_error + LENGTH_PENALTY * length_penalty\n\n# Taylor test\ndef taylor_test():\n    def fun(x):\n        coil_collection.set_dof(x)\n        return objective()\n    x0 = coil_collection.get_dof()\n    TaylorTest(fun, x0).run()\n\ntaylor_test()\n\n# Optimization\ndef fun(x):\n    coil_collection.set_dof(x)\n    return objective()\n\ndef grad(x):\n    coil_collection.set_dof(x)\n    # Use automatic differentiation if available, else finite differences\n    return coil_collection.gradient(objective)\n\nx0 = coil_collection.get_dof()\nopt = Optimizer(fun, x0, grad=grad, method='L-BFGS-B', options={'maxiter': 200, 'disp': True})\nresult = opt.run()\n\n# Save results\ncoil_collection.set_dof(result.x)\ncoil_collection.save(os.path.join(OUTPUT_DIR, \"optimized_coils.json\"))\nnp.save(os.path.join(OUTPUT_DIR, \"optimization_result.npy\"), result.x)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795132048,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0c9884ecfa",
+    "usage": {
+      "completion_tokens": 721,
+      "prompt_tokens": 189,
+      "total_tokens": 910,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport os\nimport numpy as np\nfrom simsopt._core import load\nfrom simsopt.field.coil import Coil, coils_via_symmetries\nfrom simsopt.field.biotsavart import BiotSavart\nfrom simsopt.field.coilpy import CurveLength\nfrom simsopt.field.coil_collection import CoilCollection\nfrom simsopt.field.virtualcasing import VirtualCasing\nfrom simsopt.field.surface import SurfaceRZFourier\nfrom simsopt.objectives import SquaredFlux, QuadraticPenalty\nfrom simsopt.optimize import Optimizer\nfrom simsopt.util import TaylorTest\n\n# Parameters\nLENGTH_PENALTY = 1e-3\nL0 = 10.0  # Reference length for penalty (meters)\nOUTPUT_DIR = \"output\"\nos.makedirs(OUTPUT_DIR, exist_ok=True)\n\n# Load W7-X equilibrium with <beta> = 4%\neq = load(\"w7x_standard_beta4.h5\")  # You need to provide this file\n\n# Get plasma boundary surface\nsurf = eq.surface\n\n# Discretize surface for field calculations\nnphi, ntheta = 64, 64\nsurf_grid = surf.get_surface(nphi, ntheta)\npoints = surf_grid.reshape((-1, 3))\nnormals = surf.normal(points)\n\n# Compute target B_external·n using virtual casing\nvc = VirtualCasing(eq, surf)\nB_external = vc.B_external(points)\nB_external_dot_n = np.sum(B_external * normals, axis=1)\n\n# Load or create initial coils\ncoils = load(\"w7x_coils_initial.json\")  # You need to provide this file\ncoils = coils_via_symmetries(coils, nfp=5, stellsym=True)\ncoil_collection = CoilCollection(coils)\nbs = BiotSavart(coil_collection)\n\n# Objective: squared flux error + length penalty\ndef objective():\n    B_biot = bs.B(points)\n    B_biot_dot_n = np.sum(B_biot * normals, axis=1)\n    flux_error = 0.5 * np.sum((B_biot_dot_n - B_external_dot_n) ** 2) * surf_grid.weights.sum() / len(points)\n    length_penalty = 0.0\n    for coil in coil_collection.coils:\n        length = CurveLength(coil).J()\n        length_penalty += 0.5 * (length - L0) ** 2\n    return flux_error + LENGTH_PENALTY * length_penalty\n\n# Taylor test\ndef taylor_test():\n    def fun(x):\n        coil_collection.set_dof(x)\n        return objective()\n    x0 = coil_collection.get_dof()\n    TaylorTest(fun, x0).run()\n\ntaylor_test()\n\n# Optimization\ndef fun(x):\n    coil_collection.set_dof(x)\n    return objective()\n\ndef grad(x):\n    coil_collection.set_dof(x)\n    # Use automatic differentiation if available, else finite differences\n    return coil_collection.gradient(objective)\n\nx0 = coil_collection.get_dof()\nopt = Optimizer(fun, x0, grad=grad, method='L-BFGS-B', options={'maxiter': 200, 'disp': True})\nresult = opt.run()\n\n# Save results\ncoil_collection.set_dof(result.x)\ncoil_collection.save(os.path.join(OUTPUT_DIR, \"optimized_coils.json\"))\nnp.save(os.path.join(OUTPUT_DIR, \"optimization_result.npy\"), result.x)\n```",
+  "latency_seconds": 5.461549457999354,
+  "usage": {
+    "completion_tokens": 721,
+    "prompt_tokens": 189,
+    "total_tokens": 910,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6146,
+  "response_sha256": "33535ee6ab6450a85dd136f463ff7e2bb0510f4ee759657755dd6ed7abbc75f2",
+  "artifact_sha256": "ee348e0510dd9c7ba2ea10a47093e180b0001d24523fb4374f5cd9069c7de078"
+}

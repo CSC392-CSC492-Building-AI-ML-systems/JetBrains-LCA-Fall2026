@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 42,
+    "task_sha256": "378ed496db7cfe122ea87819fead676d0ea9d8b4af52de528f6fdbfe2585c0f7",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a CRR agent for a specified environment using the Acme library. The agent should be configured with various parameters such as batch size, evaluation period, number of demonstration episodes, random seed, learning rates, discount, target update period, and whether to use SARSA target or not. The environment and dataset names should also be configurable. The code should also include a function to add next action extras to the transitions. The main function should create the environment, get the demonstrations dataset, create the networks to optimize, create the learner, define the evaluator network, create the actor and the environment loop, and finally run the environment loop."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em56YYUe13jkMFrEuzJfCmvjAidHf",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import crr\nfrom acme.jax import experiments\nfrom acme.jax import networks as networks_lib\nfrom acme.jax import utils as jax_utils\nfrom acme.utils import loggers\nimport dm_env\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport optax\nimport functools\n\ndef add_next_action_extras(transitions):\n    # Adds 'next_action' to extras for SARSA targets\n    next_actions = np.roll(transitions['action'], shift=-1, axis=0)\n    transitions['extras']['next_action'] = next_actions\n    return transitions\n\ndef make_environment(env_name: str, seed: int) -> dm_env.Environment:\n    import gym\n    env = gym.make(env_name)\n    env = wrappers.GymWrapper(env)\n    env = wrappers.SinglePrecisionWrapper(env)\n    env.seed(seed)\n    return env\n\ndef get_demonstrations(dataset_name: str, num_episodes: int):\n    # Placeholder: Replace with actual dataset loading logic\n    # Should return a list of transitions dicts\n    # Each transition dict should have keys: 'observation', 'action', 'reward', 'discount', 'next_observation', 'extras'\n    # For demonstration, we return an empty list\n    return []\n\ndef make_networks(env_spec: specs.EnvironmentSpec, policy_lr: float, critic_lr: float):\n    # Simple MLPs for policy and critic\n    def policy_network(obs):\n        mlp = networks_lib.MLP([256, 256, env_spec.actions.num_values])\n        return mlp(obs)\n    def critic_network(obs, action):\n        mlp = networks_lib.MLP([256, 256, 1])\n        x = jnp.concatenate([obs, action], axis=-1)\n        return mlp(x)\n    networks = crr.CRRNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n        sample=functools.partial(jax.random.uniform, minval=-1, maxval=1)\n    )\n    return networks\n\ndef main(\n    env_name: str = 'CartPole-v1',\n    dataset_name: str = 'cartpole_demo',\n    batch_size: int = 256,\n    evaluation_period: int = 1000,\n    num_demonstration_episodes: int = 10,\n    random_seed: int = 42,\n    policy_learning_rate: float = 3e-4,\n    critic_learning_rate: float = 3e-4,\n    discount: float = 0.99,\n    target_update_period: int = 100,\n    use_sarsa_target: bool = False,\n):\n    # Set random seed\n    np.random.seed(random_seed)\n    key = jax.random.PRNGKey(random_seed)\n\n    # Create environment and spec\n    environment = make_environment(env_name, random_seed)\n    environment_spec = specs.make_environment_spec(environment)\n\n    # Get demonstrations\n    demonstrations = get_demonstrations(dataset_name, num_demonstration_episodes)\n\n    # Create networks\n    networks = make_networks(\n        environment_spec,\n        policy_lr=policy_learning_rate,\n        critic_lr=critic_learning_rate\n    )\n\n    # Create logger\n    logger = loggers.TerminalLogger(label='learner', time_delta=10.0)\n\n    # Create learner\n    learner = crr.CrrLearner(\n        networks=networks,\n        random_key=key,\n        dataset=demonstrations,\n        batch_size=batch_size,\n        discount=discount,\n        policy_optimizer=optax.adam(policy_learning_rate),\n        critic_optimizer=optax.adam(critic_learning_rate),\n        target_update_period=target_update_period,\n        use_sarsa_target=use_sarsa_target,\n        logger=logger,\n        add_extras_fn=add_next_action_extras if use_sarsa_target else None,\n    )\n\n    # Evaluator network (policy)\n    eval_policy = networks.policy_network\n\n    # Create actor\n    actor = crr.CrrActor(\n        policy_network=eval_policy,\n        random_key=key,\n        variable_source=learner\n    )\n\n    # Environment loop\n    env_loop = acme.EnvironmentLoop(\n        environment=environment,\n        actor=actor,\n        logger=loggers.TerminalLogger(label='environment_loop', time_delta=10.0)\n    )\n\n    # Run environment loop\n    for _ in range(evaluation_period):\n        env_loop.run_episode()\n\nif __name__ == '__main__':\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128074,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_ab38f6634a",
+    "usage": {
+      "completion_tokens": 959,
+      "prompt_tokens": 161,
+      "total_tokens": 1120,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport acme\nfrom acme import specs\nfrom acme import wrappers\nfrom acme.agents.jax import crr\nfrom acme.jax import experiments\nfrom acme.jax import networks as networks_lib\nfrom acme.jax import utils as jax_utils\nfrom acme.utils import loggers\nimport dm_env\nimport jax\nimport jax.numpy as jnp\nimport numpy as np\nimport optax\nimport functools\n\ndef add_next_action_extras(transitions):\n    # Adds 'next_action' to extras for SARSA targets\n    next_actions = np.roll(transitions['action'], shift=-1, axis=0)\n    transitions['extras']['next_action'] = next_actions\n    return transitions\n\ndef make_environment(env_name: str, seed: int) -> dm_env.Environment:\n    import gym\n    env = gym.make(env_name)\n    env = wrappers.GymWrapper(env)\n    env = wrappers.SinglePrecisionWrapper(env)\n    env.seed(seed)\n    return env\n\ndef get_demonstrations(dataset_name: str, num_episodes: int):\n    # Placeholder: Replace with actual dataset loading logic\n    # Should return a list of transitions dicts\n    # Each transition dict should have keys: 'observation', 'action', 'reward', 'discount', 'next_observation', 'extras'\n    # For demonstration, we return an empty list\n    return []\n\ndef make_networks(env_spec: specs.EnvironmentSpec, policy_lr: float, critic_lr: float):\n    # Simple MLPs for policy and critic\n    def policy_network(obs):\n        mlp = networks_lib.MLP([256, 256, env_spec.actions.num_values])\n        return mlp(obs)\n    def critic_network(obs, action):\n        mlp = networks_lib.MLP([256, 256, 1])\n        x = jnp.concatenate([obs, action], axis=-1)\n        return mlp(x)\n    networks = crr.CRRNetworks(\n        policy_network=policy_network,\n        critic_network=critic_network,\n        sample=functools.partial(jax.random.uniform, minval=-1, maxval=1)\n    )\n    return networks\n\ndef main(\n    env_name: str = 'CartPole-v1',\n    dataset_name: str = 'cartpole_demo',\n    batch_size: int = 256,\n    evaluation_period: int = 1000,\n    num_demonstration_episodes: int = 10,\n    random_seed: int = 42,\n    policy_learning_rate: float = 3e-4,\n    critic_learning_rate: float = 3e-4,\n    discount: float = 0.99,\n    target_update_period: int = 100,\n    use_sarsa_target: bool = False,\n):\n    # Set random seed\n    np.random.seed(random_seed)\n    key = jax.random.PRNGKey(random_seed)\n\n    # Create environment and spec\n    environment = make_environment(env_name, random_seed)\n    environment_spec = specs.make_environment_spec(environment)\n\n    # Get demonstrations\n    demonstrations = get_demonstrations(dataset_name, num_demonstration_episodes)\n\n    # Create networks\n    networks = make_networks(\n        environment_spec,\n        policy_lr=policy_learning_rate,\n        critic_lr=critic_learning_rate\n    )\n\n    # Create logger\n    logger = loggers.TerminalLogger(label='learner', time_delta=10.0)\n\n    # Create learner\n    learner = crr.CrrLearner(\n        networks=networks,\n        random_key=key,\n        dataset=demonstrations,\n        batch_size=batch_size,\n        discount=discount,\n        policy_optimizer=optax.adam(policy_learning_rate),\n        critic_optimizer=optax.adam(critic_learning_rate),\n        target_update_period=target_update_period,\n        use_sarsa_target=use_sarsa_target,\n        logger=logger,\n        add_extras_fn=add_next_action_extras if use_sarsa_target else None,\n    )\n\n    # Evaluator network (policy)\n    eval_policy = networks.policy_network\n\n    # Create actor\n    actor = crr.CrrActor(\n        policy_network=eval_policy,\n        random_key=key,\n        variable_source=learner\n    )\n\n    # Environment loop\n    env_loop = acme.EnvironmentLoop(\n        environment=environment,\n        actor=actor,\n        logger=loggers.TerminalLogger(label='environment_loop', time_delta=10.0)\n    )\n\n    # Run environment loop\n    for _ in range(evaluation_period):\n        env_loop.run_episode()\n\nif __name__ == '__main__':\n    main()\n```",
+  "latency_seconds": 4.694773911000084,
+  "usage": {
+    "completion_tokens": 959,
+    "prompt_tokens": 161,
+    "total_tokens": 1120,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 7994,
+  "response_sha256": "4c21982c997e6f95dc98cb99f0545a091ad3e07c9698e8d7e6ee3e12263c2e16",
+  "artifact_sha256": "7af5c7b39e0438323034723be22de8d05ed0be83e9d616637782e51c1645df87"
+}

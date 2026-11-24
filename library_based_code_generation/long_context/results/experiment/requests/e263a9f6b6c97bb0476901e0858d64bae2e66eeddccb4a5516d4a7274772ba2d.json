@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 137,
+    "task_sha256": "60f93379a8f4e224e78244f88c7fb8c0d797eb9c8b6445bf239a7718c25d716e",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that imports necessary libraries and modules, including numpy, scipy, os, sys, and several modules from the porepy library. The code should define two functions, add_data_darcy and add_data_advection, which add data to a given grid bucket (gb) and domain with a specified tolerance (tol). The add_data_darcy function should add parameters related to Darcy's law, including permeability, source, aperture, and boundary conditions. The add_data_advection function should add parameters related to advection, including source, porosity, discharge, and boundary conditions. \n\nThe code should also append a path to the system path, import a module named soultz_grid, and set up parameters for creating a grid. It should then create a grid using the soultz_grid module, compute its geometry, coarsen it if a certain condition is met, and assign node ordering. \n\nThe code should then solve a Darcy problem using the DualVEMMixDim solver from the porepy library, add parameters to the grid bucket, compute a matrix and right-hand side vector, solve the system of equations, split the solution, extract discharge and pressure, project discharge, and compute the total flow rate. \n\nThe code should then set up parameters for a transport problem, define solvers for advection and mass matrix, add parameters to the grid bucket, compute matrices and right-hand side vectors, perform an LU factorization, initialize a solution vector, and perform a time-stepping loop to update the solution and export it at certain time steps. \n\nFinally, the code should export the solution in PVD format and save the production data to a text file."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em61olvDKguRBo9U7m20WstfnwJr0",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport scipy.sparse as sps\nimport os\nimport sys\n\nimport porepy as pp\nfrom porepy.numerics.fv import tpfa\nfrom porepy.numerics.mixed_dim import DualVEMMixDim\nfrom porepy.numerics.advection import Upwind\nfrom porepy.numerics.mass_matrix import MassMatrix\n\ndef add_data_darcy(gb, domain, tol):\n    for g, d in gb:\n        k = 1e-14 * np.ones(g.num_cells)\n        source = np.zeros(g.num_cells)\n        aperture = np.ones(g.num_cells)\n        bc_type = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        # Example: Dirichlet on left, Neumann elsewhere\n        left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n        bc_type[left] = pp.BC_DIRICHLET\n        bc_values[left] = 1.0\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        bc_type[right] = pp.BC_DIRICHLET\n        bc_values[right] = 0.0\n        d['permeability'] = k\n        d['source'] = source\n        d['aperture'] = aperture\n        d['bc'] = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), cond=bc_type)\n        d['bc_values'] = bc_values\n    for e, d in gb.edges():\n        d['aperture'] = 1.0\n\ndef add_data_advection(gb, domain, tol):\n    for g, d in gb:\n        source = np.zeros(g.num_cells)\n        porosity = 0.1 * np.ones(g.num_cells)\n        discharge = d.get('discharge', np.zeros((g.dim, g.num_cells)))\n        bc_type = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        # Example: Dirichlet on left, Neumann elsewhere\n        left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n        bc_type[left] = pp.BC_DIRICHLET\n        bc_values[left] = 1.0\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        bc_type[right] = pp.BC_DIRICHLET\n        bc_values[right] = 0.0\n        d['source'] = source\n        d['porosity'] = porosity\n        d['discharge'] = discharge\n        d['bc'] = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), cond=bc_type)\n        d['bc_values'] = bc_values\n\nsys.path.append(os.path.join(os.path.dirname(__file__), 'soultz'))\nimport soultz_grid\n\n# Grid parameters\ndomain = [[0, 1000], [0, 1000], [0, 1000]]\nmesh_size = 100\ntol = 1e-6\ncoarsen = False\n\ngb = soultz_grid.create_grid(domain=domain, mesh_size=mesh_size)\npp.compute_geometry(gb)\nif coarsen:\n    gb = pp.coarsen(gb, refinement=2)\npp.set_node_ordering(gb)\n\n# Darcy problem\nadd_data_darcy(gb, domain, tol)\nsolver = DualVEMMixDim(gb)\nA, b = solver.matrix_rhs()\nsolution = sps.linalg.spsolve(A, b)\nsolver.split(solution)\nfor g, d in gb:\n    d['pressure'] = d['solution'][:g.num_cells]\n    d['discharge'] = solver.project_discharge(g, d)\ntotal_flow = 0.0\nfor g, d in gb:\n    left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n    total_flow += np.sum(d['discharge'][0, left])\n\n# Transport problem\nadd_data_advection(gb, domain, tol)\nadv_solver = Upwind(gb)\nmass_solver = MassMatrix(gb)\nA_adv, _ = adv_solver.matrix_rhs()\nA_mass, _ = mass_solver.matrix_rhs()\nA_sys = A_mass + A_adv\nlu = sps.linalg.splu(A_sys.tocsc())\nc = np.zeros(A_sys.shape[0])\ndt = 1.0\nT = 100.0\nnum_steps = int(T / dt)\nexport_times = np.linspace(0, T, 11)\nexport_idx = 0\nproduction = []\n\nfor step in range(num_steps):\n    t = step * dt\n    rhs = np.zeros_like(c)\n    c = lu.solve(rhs + A_mass @ c)\n    if t >= export_times[export_idx]:\n        for g, d in gb:\n            d['concentration'] = c[:g.num_cells]\n        pp.export_pvd(gb, f\"transport_{int(t)}.pvd\", {'concentration': 'cell'})\n        export_idx = min(export_idx + 1, len(export_times) - 1)\n    # Example: record production at right boundary\n    for g, d in gb:\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        prod = np.sum(d['discharge'][0, right] * d['concentration'][right])\n        production.append([t, prod])\n\nnp.savetxt(\"production.txt\", np.array(production))\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131624,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_0ca27418dc",
+    "usage": {
+      "completion_tokens": 1212,
+      "prompt_tokens": 369,
+      "total_tokens": 1581,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport scipy.sparse as sps\nimport os\nimport sys\n\nimport porepy as pp\nfrom porepy.numerics.fv import tpfa\nfrom porepy.numerics.mixed_dim import DualVEMMixDim\nfrom porepy.numerics.advection import Upwind\nfrom porepy.numerics.mass_matrix import MassMatrix\n\ndef add_data_darcy(gb, domain, tol):\n    for g, d in gb:\n        k = 1e-14 * np.ones(g.num_cells)\n        source = np.zeros(g.num_cells)\n        aperture = np.ones(g.num_cells)\n        bc_type = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        # Example: Dirichlet on left, Neumann elsewhere\n        left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n        bc_type[left] = pp.BC_DIRICHLET\n        bc_values[left] = 1.0\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        bc_type[right] = pp.BC_DIRICHLET\n        bc_values[right] = 0.0\n        d['permeability'] = k\n        d['source'] = source\n        d['aperture'] = aperture\n        d['bc'] = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), cond=bc_type)\n        d['bc_values'] = bc_values\n    for e, d in gb.edges():\n        d['aperture'] = 1.0\n\ndef add_data_advection(gb, domain, tol):\n    for g, d in gb:\n        source = np.zeros(g.num_cells)\n        porosity = 0.1 * np.ones(g.num_cells)\n        discharge = d.get('discharge', np.zeros((g.dim, g.num_cells)))\n        bc_type = np.zeros(g.num_faces, dtype=np.int32)\n        bc_values = np.zeros(g.num_faces)\n        # Example: Dirichlet on left, Neumann elsewhere\n        left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n        bc_type[left] = pp.BC_DIRICHLET\n        bc_values[left] = 1.0\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        bc_type[right] = pp.BC_DIRICHLET\n        bc_values[right] = 0.0\n        d['source'] = source\n        d['porosity'] = porosity\n        d['discharge'] = discharge\n        d['bc'] = pp.BoundaryCondition(g, faces=np.arange(g.num_faces), cond=bc_type)\n        d['bc_values'] = bc_values\n\nsys.path.append(os.path.join(os.path.dirname(__file__), 'soultz'))\nimport soultz_grid\n\n# Grid parameters\ndomain = [[0, 1000], [0, 1000], [0, 1000]]\nmesh_size = 100\ntol = 1e-6\ncoarsen = False\n\ngb = soultz_grid.create_grid(domain=domain, mesh_size=mesh_size)\npp.compute_geometry(gb)\nif coarsen:\n    gb = pp.coarsen(gb, refinement=2)\npp.set_node_ordering(gb)\n\n# Darcy problem\nadd_data_darcy(gb, domain, tol)\nsolver = DualVEMMixDim(gb)\nA, b = solver.matrix_rhs()\nsolution = sps.linalg.spsolve(A, b)\nsolver.split(solution)\nfor g, d in gb:\n    d['pressure'] = d['solution'][:g.num_cells]\n    d['discharge'] = solver.project_discharge(g, d)\ntotal_flow = 0.0\nfor g, d in gb:\n    left = np.where(np.abs(g.face_centers[0] - domain[0][0]) < tol)[0]\n    total_flow += np.sum(d['discharge'][0, left])\n\n# Transport problem\nadd_data_advection(gb, domain, tol)\nadv_solver = Upwind(gb)\nmass_solver = MassMatrix(gb)\nA_adv, _ = adv_solver.matrix_rhs()\nA_mass, _ = mass_solver.matrix_rhs()\nA_sys = A_mass + A_adv\nlu = sps.linalg.splu(A_sys.tocsc())\nc = np.zeros(A_sys.shape[0])\ndt = 1.0\nT = 100.0\nnum_steps = int(T / dt)\nexport_times = np.linspace(0, T, 11)\nexport_idx = 0\nproduction = []\n\nfor step in range(num_steps):\n    t = step * dt\n    rhs = np.zeros_like(c)\n    c = lu.solve(rhs + A_mass @ c)\n    if t >= export_times[export_idx]:\n        for g, d in gb:\n            d['concentration'] = c[:g.num_cells]\n        pp.export_pvd(gb, f\"transport_{int(t)}.pvd\", {'concentration': 'cell'})\n        export_idx = min(export_idx + 1, len(export_times) - 1)\n    # Example: record production at right boundary\n    for g, d in gb:\n        right = np.where(np.abs(g.face_centers[0] - domain[0][1]) < tol)[0]\n        prod = np.sum(d['discharge'][0, right] * d['concentration'][right])\n        production.append([t, prod])\n\nnp.savetxt(\"production.txt\", np.array(production))\n```",
+  "latency_seconds": 6.680974204999075,
+  "usage": {
+    "completion_tokens": 1212,
+    "prompt_tokens": 369,
+    "total_tokens": 1581,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10434,
+  "response_sha256": "fea00a586f4c5434d1dc5f3291187a6a505216743a83d327fcbdc23520aa6f50",
+  "artifact_sha256": "7b85f1eca2637c98a9dea1b970c6c027c077800ff503b04970c817e80ece6153"
+}

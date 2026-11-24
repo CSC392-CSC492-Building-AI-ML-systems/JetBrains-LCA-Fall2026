@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 138,
+    "task_sha256": "1c3572f59a2a66d0648c8c056a11d54fc136c0d56e9b0f57dff139255d84a5e8",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates a 2D box domain for linear elasticity problems using the fealpy library. The code should define a class for the box domain with methods for initializing the mesh, defining displacement, strain, stress, source, Dirichlet and Neumann boundary conditions, and checking if a point is on the Dirichlet, Neumann, or fracture boundary. \n\nThe code should also define a class for counting iterations and a class for a fast solver for linear elasticity problems using Lagrange finite elements. The solver should include methods for preconditioning and solving the system of equations.\n\nThe main part of the code should initialize the box domain, create a mesh, define a Lagrange finite element space, and set up Dirichlet and Neumann boundary conditions. It should then create a function for the solution, compute the stiffness matrix and the linear elasticity matrix, and set up the source vector. The code should apply the boundary conditions to the system of equations and print the shape of the matrix.\n\nFinally, the code should solve the system of equations using the fast solver and print the time it took to solve the system. The code should also plot the original mesh."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em62RxgGGUIxBHpxmi1zQbfAdNdHd",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport time\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.boundarycondition import DirichletBC\nfrom scipy.sparse.linalg import cg, LinearOperator\nfrom scipy.sparse import csr_matrix\n\nclass BoxDomain2D:\n    def __init__(self, box=[0, 1, 0, 1], nx=10, ny=10, E=1.0, nu=0.3):\n        self.box = box\n        self.nx = nx\n        self.ny = ny\n        self.E = E\n        self.nu = nu\n        self.mesh = self.create_mesh()\n        self.lam = E * nu / ((1 + nu) * (1 - 2 * nu))\n        self.mu = E / (2 * (1 + nu))\n\n    def create_mesh(self):\n        x0, x1, y0, y1 = self.box\n        mesh = TriangleMesh.boxmesh2d([x0, x1, y0, y1], nx=self.nx, ny=self.ny)\n        return mesh\n\n    def displacement(self, p):\n        # Example: zero displacement\n        return np.zeros((2, p.shape[1]))\n\n    def strain(self, grad):\n        # grad: (2, 2, N)\n        eps = np.zeros_like(grad)\n        eps[0, 0, :] = grad[0, 0, :]\n        eps[1, 1, :] = grad[1, 1, :]\n        eps[0, 1, :] = 0.5 * (grad[0, 1, :] + grad[1, 0, :])\n        eps[1, 0, :] = eps[0, 1, :]\n        return eps\n\n    def stress(self, grad):\n        # grad: (2, 2, N)\n        eps = self.strain(grad)\n        lam = self.lam\n        mu = self.mu\n        tr = eps[0, 0, :] + eps[1, 1, :]\n        sigma = np.zeros_like(eps)\n        sigma[0, 0, :] = lam * tr + 2 * mu * eps[0, 0, :]\n        sigma[1, 1, :] = lam * tr + 2 * mu * eps[1, 1, :]\n        sigma[0, 1, :] = 2 * mu * eps[0, 1, :]\n        sigma[1, 0, :] = sigma[0, 1, :]\n        return sigma\n\n    def source(self, p):\n        # Example: zero body force\n        return np.zeros((2, p.shape[1]))\n\n    def is_dirichlet_boundary(self, p):\n        # Dirichlet on left (x=0)\n        return np.isclose(p[0], self.box[0])\n\n    def is_neumann_boundary(self, p):\n        # Neumann on right (x=1)\n        return np.isclose(p[0], self.box[1])\n\n    def is_fracture_boundary(self, p):\n        # No fracture in this example\n        return np.zeros(p.shape[1], dtype=bool)\n\n    def dirichlet_bc(self, p):\n        return self.displacement(p)\n\n    def neumann_bc(self, p, n):\n        # Example: zero traction\n        return np.zeros((2, p.shape[1]))\n\nclass IterationCounter:\n    def __init__(self):\n        self.niter = 0\n\n    def __call__(self, rk=None):\n        self.niter += 1\n\nclass FastElasticitySolver:\n    def __init__(self, A, preconditioner=None):\n        self.A = A\n        self.preconditioner = preconditioner\n\n    def solve(self, b, tol=1e-8, maxiter=1000, callback=None):\n        if self.preconditioner is not None:\n            M = LinearOperator(self.A.shape, matvec=self.preconditioner)\n        else:\n            M = None\n        x, info = cg(self.A, b, tol=tol, maxiter=maxiter, M=M, callback=callback)\n        return x, info\n\n    def jacobi_preconditioner(self):\n        D_inv = 1.0 / self.A.diagonal()\n        def precond(x):\n            return D_inv * x\n        return precond\n\nif __name__ == \"__main__\":\n    # Initialize domain and mesh\n    domain = BoxDomain2D(box=[0, 1, 0, 1], nx=20, ny=20, E=1.0, nu=0.3)\n    mesh = domain.mesh\n\n    # Plot original mesh\n    mesh.add_plot(plt)\n    plt.title(\"Original Mesh\")\n    plt.show()\n\n    # Define finite element space\n    space = LagrangeFiniteElementSpace(mesh, p=1, dim=2)\n\n    # Dirichlet boundary condition\n    def dirichlet_dof(p):\n        return domain.is_dirichlet_boundary(p)\n\n    bc = DirichletBC(space, domain.dirichlet_bc, dirichlet_dof)\n\n    # Assemble stiffness matrix and load vector\n    A = space.linear_elasticity_matrix(lam=domain.lam, mu=domain.mu)\n    f = space.source_vector(domain.source)\n\n    # Apply Dirichlet boundary condition\n    A, f = bc.apply(A, f)\n\n    print(\"Stiffness matrix shape:\", A.shape)\n\n    # Fast solver\n    solver = FastElasticitySolver(A, preconditioner=None)\n    counter = IterationCounter()\n\n    t0 = time.time()\n    u, info = solver.solve(f, callback=counter)\n    t1 = time.time()\n\n    print(f\"Solved in {t1 - t0:.4f} seconds, iterations: {counter.niter}, info: {info}\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131663,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_338ed5b0cf",
+    "usage": {
+      "completion_tokens": 1265,
+      "prompt_tokens": 268,
+      "total_tokens": 1533,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport time\nfrom fealpy.mesh import TriangleMesh\nfrom fealpy.functionspace import LagrangeFiniteElementSpace\nfrom fealpy.boundarycondition import DirichletBC\nfrom scipy.sparse.linalg import cg, LinearOperator\nfrom scipy.sparse import csr_matrix\n\nclass BoxDomain2D:\n    def __init__(self, box=[0, 1, 0, 1], nx=10, ny=10, E=1.0, nu=0.3):\n        self.box = box\n        self.nx = nx\n        self.ny = ny\n        self.E = E\n        self.nu = nu\n        self.mesh = self.create_mesh()\n        self.lam = E * nu / ((1 + nu) * (1 - 2 * nu))\n        self.mu = E / (2 * (1 + nu))\n\n    def create_mesh(self):\n        x0, x1, y0, y1 = self.box\n        mesh = TriangleMesh.boxmesh2d([x0, x1, y0, y1], nx=self.nx, ny=self.ny)\n        return mesh\n\n    def displacement(self, p):\n        # Example: zero displacement\n        return np.zeros((2, p.shape[1]))\n\n    def strain(self, grad):\n        # grad: (2, 2, N)\n        eps = np.zeros_like(grad)\n        eps[0, 0, :] = grad[0, 0, :]\n        eps[1, 1, :] = grad[1, 1, :]\n        eps[0, 1, :] = 0.5 * (grad[0, 1, :] + grad[1, 0, :])\n        eps[1, 0, :] = eps[0, 1, :]\n        return eps\n\n    def stress(self, grad):\n        # grad: (2, 2, N)\n        eps = self.strain(grad)\n        lam = self.lam\n        mu = self.mu\n        tr = eps[0, 0, :] + eps[1, 1, :]\n        sigma = np.zeros_like(eps)\n        sigma[0, 0, :] = lam * tr + 2 * mu * eps[0, 0, :]\n        sigma[1, 1, :] = lam * tr + 2 * mu * eps[1, 1, :]\n        sigma[0, 1, :] = 2 * mu * eps[0, 1, :]\n        sigma[1, 0, :] = sigma[0, 1, :]\n        return sigma\n\n    def source(self, p):\n        # Example: zero body force\n        return np.zeros((2, p.shape[1]))\n\n    def is_dirichlet_boundary(self, p):\n        # Dirichlet on left (x=0)\n        return np.isclose(p[0], self.box[0])\n\n    def is_neumann_boundary(self, p):\n        # Neumann on right (x=1)\n        return np.isclose(p[0], self.box[1])\n\n    def is_fracture_boundary(self, p):\n        # No fracture in this example\n        return np.zeros(p.shape[1], dtype=bool)\n\n    def dirichlet_bc(self, p):\n        return self.displacement(p)\n\n    def neumann_bc(self, p, n):\n        # Example: zero traction\n        return np.zeros((2, p.shape[1]))\n\nclass IterationCounter:\n    def __init__(self):\n        self.niter = 0\n\n    def __call__(self, rk=None):\n        self.niter += 1\n\nclass FastElasticitySolver:\n    def __init__(self, A, preconditioner=None):\n        self.A = A\n        self.preconditioner = preconditioner\n\n    def solve(self, b, tol=1e-8, maxiter=1000, callback=None):\n        if self.preconditioner is not None:\n            M = LinearOperator(self.A.shape, matvec=self.preconditioner)\n        else:\n            M = None\n        x, info = cg(self.A, b, tol=tol, maxiter=maxiter, M=M, callback=callback)\n        return x, info\n\n    def jacobi_preconditioner(self):\n        D_inv = 1.0 / self.A.diagonal()\n        def precond(x):\n            return D_inv * x\n        return precond\n\nif __name__ == \"__main__\":\n    # Initialize domain and mesh\n    domain = BoxDomain2D(box=[0, 1, 0, 1], nx=20, ny=20, E=1.0, nu=0.3)\n    mesh = domain.mesh\n\n    # Plot original mesh\n    mesh.add_plot(plt)\n    plt.title(\"Original Mesh\")\n    plt.show()\n\n    # Define finite element space\n    space = LagrangeFiniteElementSpace(mesh, p=1, dim=2)\n\n    # Dirichlet boundary condition\n    def dirichlet_dof(p):\n        return domain.is_dirichlet_boundary(p)\n\n    bc = DirichletBC(space, domain.dirichlet_bc, dirichlet_dof)\n\n    # Assemble stiffness matrix and load vector\n    A = space.linear_elasticity_matrix(lam=domain.lam, mu=domain.mu)\n    f = space.source_vector(domain.source)\n\n    # Apply Dirichlet boundary condition\n    A, f = bc.apply(A, f)\n\n    print(\"Stiffness matrix shape:\", A.shape)\n\n    # Fast solver\n    solver = FastElasticitySolver(A, preconditioner=None)\n    counter = IterationCounter()\n\n    t0 = time.time()\n    u, info = solver.solve(f, callback=counter)\n    t1 = time.time()\n\n    print(f\"Solved in {t1 - t0:.4f} seconds, iterations: {counter.niter}, info: {info}\")\n```",
+  "latency_seconds": 5.524575070998253,
+  "usage": {
+    "completion_tokens": 1265,
+    "prompt_tokens": 268,
+    "total_tokens": 1533,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10656,
+  "response_sha256": "32fb35cea3dd21f8cb4bba47a105962d91167095eb7af7bcc835bf6b250f95cd",
+  "artifact_sha256": "8d74dfef11cd09db8bf7dccbf945b13c330609cf5494e742fc45c13144a47f54"
+}

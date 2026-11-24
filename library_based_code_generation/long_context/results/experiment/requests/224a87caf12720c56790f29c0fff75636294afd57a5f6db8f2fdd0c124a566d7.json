@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 43,
+    "task_sha256": "afa552d74809c1793dbb72362c5ed71ba77a8d3ffc7a78690ce0d1c768466339",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs ensemble verification of a probabilistic extrapolation nowcast using MeteoSwiss radar data. The code should read precipitation field data, upscale it to 2 km resolution, and convert it to rain rate. It should also log-transform the data and handle missing values. The code should estimate the motion field and perform an ensemble nowcast using the STEPS approach. It should then back-transform the nowcast to rain rates and plot some of the realizations. Finally, the code should verify the probabilistic forecasts using the ROC curve, reliability diagrams, and rank histograms."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em571qJ1qkxfsSAnL9ji0SOPhoYBe",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport xarray as xr\nimport matplotlib.pyplot as plt\nfrom scipy.ndimage import zoom\nfrom pysteps import io, motion, nowcasts, verification, utils\nfrom pysteps.visualization import plot_precip_field\nfrom pysteps.utils import transformation, conversion, dimension\nfrom sklearn.metrics import roc_curve, auc\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\n# --- PARAMETERS ---\ndata_path = \"path_to_meteoswiss_data/\"  # Update with your data path\nfile_pattern = \"AQC_*.h5\"  # Update with your file pattern\nn_ens_members = 8\nn_lead_times = 6  # e.g., 30 min at 5-min steps\ntarget_resolution_km = 2.0\n\n# --- READ DATA ---\n# Read a sequence of radar composites\nfilenames = io.find_files(data_path, file_pattern)\nimporter = io.get_method(\"mch\")\nR, _, metadata = io.read_timeseries(filenames, importer, num_prev_files=2, fillna=0)\n\n# --- UPSCALE TO 2 KM RESOLUTION ---\norig_resolution_km = metadata[\"xpixelsize\"] / 1000.0\nzoom_factor = orig_resolution_km / target_resolution_km\nR_upscaled = zoom(R, (1, zoom_factor, zoom_factor), order=1)\n\n# --- CONVERT TO RAIN RATE (mm/h) ---\nR_rate = conversion.to_rainrate(R_upscaled, metadata)\n\n# --- LOG-TRANSFORM AND HANDLE MISSING VALUES ---\nR_masked = np.where(np.isnan(R_rate), 0, R_rate)\nR_log, R_thr = transformation.dB_transform(R_masked, threshold=0.1, zerovalue=-15.0, inverse=False)\n\n# --- ESTIMATE MOTION FIELD ---\noflow_method = motion.get_method(\"lucaskanade\")\nV = oflow_method(R_log[-2:], metadata)\n\n# --- ENSEMBLE NOWCAST USING STEPS ---\nsteps_method = nowcasts.get_method(\"steps\")\nR_f = R_log[-1]\nnowcast_generator = steps_method(\n    R_f,\n    V,\n    n_lead_times,\n    n_ens_members,\n    R_thr,\n    kmperpixel=target_resolution_km,\n    timestep=5,\n    seed=42,\n    num_workers=1,\n    mask_method=\"incremental\"\n)\n\n# --- GENERATE ENSEMBLE NOWCASTS ---\nR_ens_log = np.stack([next(nowcast_generator) for _ in range(n_lead_times)], axis=0)  # (lead_time, ens_member, y, x)\n\n# --- BACK-TRANSFORM TO RAIN RATES ---\nR_ens = transformation.dB_transform(R_ens_log, threshold=0.1, zerovalue=-15.0, inverse=True)\n\n# --- PLOT SOME REALIZATIONS ---\nplt.figure(figsize=(15, 6))\nfor i in range(min(4, n_ens_members)):\n    plt.subplot(2, 2, i+1)\n    plot_precip_field(R_ens[0, i], geodata=metadata, title=f\"Ensemble member {i+1} (t+5min)\")\nplt.tight_layout()\nplt.show()\n\n# --- VERIFICATION: ROC CURVE, RELIABILITY DIAGRAM, RANK HISTOGRAM ---\n# Read corresponding observations for verification\nobs_filenames = filenames[-n_lead_times:]\nR_obs, _, _ = io.read_timeseries(obs_filenames, importer, fillna=0)\nR_obs_upscaled = zoom(R_obs, (1, zoom_factor, zoom_factor), order=1)\nR_obs_rate = conversion.to_rainrate(R_obs_upscaled, metadata)\n\n# Mask for valid points\nmask = ~np.isnan(R_obs_rate)\n\n# ROC Curve\nthreshold = 1.0  # mm/h\ny_true = (R_obs_rate > threshold)[mask]\ny_score = (R_ens[:, :, mask].mean(axis=1) > threshold).mean(axis=1).flatten()\nfpr, tpr, _ = roc_curve(y_true.flatten(), y_score)\nroc_auc = auc(fpr, tpr)\nplt.figure()\nplt.plot(fpr, tpr, label=f\"ROC curve (AUC = {roc_auc:.2f})\")\nplt.plot([0, 1], [0, 1], \"k--\")\nplt.xlabel(\"False Positive Rate\")\nplt.ylabel(\"True Positive Rate\")\nplt.title(\"ROC Curve\")\nplt.legend()\nplt.show()\n\n# Reliability Diagram\nprob_bins = np.linspace(0, 1, 11)\ny_prob = (R_ens[:, :, mask] > threshold).mean(axis=1).flatten()\ny_obs = (R_obs_rate > threshold)[mask].flatten()\nreliability = verification.probs.reliability_curve(y_obs, y_prob, prob_bins)\nplt.figure()\nplt.plot(prob_bins[:-1], reliability, marker=\"o\")\nplt.plot([0, 1], [0, 1], \"k--\")\nplt.xlabel(\"Forecast Probability\")\nplt.ylabel(\"Observed Frequency\")\nplt.title(\"Reliability Diagram\")\nplt.show()\n\n# Rank Histogram\nrank_hist = verification.ens.rankhist(R_ens[:, :, mask], R_obs_rate[mask])\nplt.figure()\nplt.bar(np.arange(len(rank_hist)), rank_hist)\nplt.xlabel(\"Rank\")\nplt.ylabel(\"Frequency\")\nplt.title(\"Rank Histogram\")\nplt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795128103,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_43478567f6",
+    "usage": {
+      "completion_tokens": 1129,
+      "prompt_tokens": 148,
+      "total_tokens": 1277,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport xarray as xr\nimport matplotlib.pyplot as plt\nfrom scipy.ndimage import zoom\nfrom pysteps import io, motion, nowcasts, verification, utils\nfrom pysteps.visualization import plot_precip_field\nfrom pysteps.utils import transformation, conversion, dimension\nfrom sklearn.metrics import roc_curve, auc\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\n# --- PARAMETERS ---\ndata_path = \"path_to_meteoswiss_data/\"  # Update with your data path\nfile_pattern = \"AQC_*.h5\"  # Update with your file pattern\nn_ens_members = 8\nn_lead_times = 6  # e.g., 30 min at 5-min steps\ntarget_resolution_km = 2.0\n\n# --- READ DATA ---\n# Read a sequence of radar composites\nfilenames = io.find_files(data_path, file_pattern)\nimporter = io.get_method(\"mch\")\nR, _, metadata = io.read_timeseries(filenames, importer, num_prev_files=2, fillna=0)\n\n# --- UPSCALE TO 2 KM RESOLUTION ---\norig_resolution_km = metadata[\"xpixelsize\"] / 1000.0\nzoom_factor = orig_resolution_km / target_resolution_km\nR_upscaled = zoom(R, (1, zoom_factor, zoom_factor), order=1)\n\n# --- CONVERT TO RAIN RATE (mm/h) ---\nR_rate = conversion.to_rainrate(R_upscaled, metadata)\n\n# --- LOG-TRANSFORM AND HANDLE MISSING VALUES ---\nR_masked = np.where(np.isnan(R_rate), 0, R_rate)\nR_log, R_thr = transformation.dB_transform(R_masked, threshold=0.1, zerovalue=-15.0, inverse=False)\n\n# --- ESTIMATE MOTION FIELD ---\noflow_method = motion.get_method(\"lucaskanade\")\nV = oflow_method(R_log[-2:], metadata)\n\n# --- ENSEMBLE NOWCAST USING STEPS ---\nsteps_method = nowcasts.get_method(\"steps\")\nR_f = R_log[-1]\nnowcast_generator = steps_method(\n    R_f,\n    V,\n    n_lead_times,\n    n_ens_members,\n    R_thr,\n    kmperpixel=target_resolution_km,\n    timestep=5,\n    seed=42,\n    num_workers=1,\n    mask_method=\"incremental\"\n)\n\n# --- GENERATE ENSEMBLE NOWCASTS ---\nR_ens_log = np.stack([next(nowcast_generator) for _ in range(n_lead_times)], axis=0)  # (lead_time, ens_member, y, x)\n\n# --- BACK-TRANSFORM TO RAIN RATES ---\nR_ens = transformation.dB_transform(R_ens_log, threshold=0.1, zerovalue=-15.0, inverse=True)\n\n# --- PLOT SOME REALIZATIONS ---\nplt.figure(figsize=(15, 6))\nfor i in range(min(4, n_ens_members)):\n    plt.subplot(2, 2, i+1)\n    plot_precip_field(R_ens[0, i], geodata=metadata, title=f\"Ensemble member {i+1} (t+5min)\")\nplt.tight_layout()\nplt.show()\n\n# --- VERIFICATION: ROC CURVE, RELIABILITY DIAGRAM, RANK HISTOGRAM ---\n# Read corresponding observations for verification\nobs_filenames = filenames[-n_lead_times:]\nR_obs, _, _ = io.read_timeseries(obs_filenames, importer, fillna=0)\nR_obs_upscaled = zoom(R_obs, (1, zoom_factor, zoom_factor), order=1)\nR_obs_rate = conversion.to_rainrate(R_obs_upscaled, metadata)\n\n# Mask for valid points\nmask = ~np.isnan(R_obs_rate)\n\n# ROC Curve\nthreshold = 1.0  # mm/h\ny_true = (R_obs_rate > threshold)[mask]\ny_score = (R_ens[:, :, mask].mean(axis=1) > threshold).mean(axis=1).flatten()\nfpr, tpr, _ = roc_curve(y_true.flatten(), y_score)\nroc_auc = auc(fpr, tpr)\nplt.figure()\nplt.plot(fpr, tpr, label=f\"ROC curve (AUC = {roc_auc:.2f})\")\nplt.plot([0, 1], [0, 1], \"k--\")\nplt.xlabel(\"False Positive Rate\")\nplt.ylabel(\"True Positive Rate\")\nplt.title(\"ROC Curve\")\nplt.legend()\nplt.show()\n\n# Reliability Diagram\nprob_bins = np.linspace(0, 1, 11)\ny_prob = (R_ens[:, :, mask] > threshold).mean(axis=1).flatten()\ny_obs = (R_obs_rate > threshold)[mask].flatten()\nreliability = verification.probs.reliability_curve(y_obs, y_prob, prob_bins)\nplt.figure()\nplt.plot(prob_bins[:-1], reliability, marker=\"o\")\nplt.plot([0, 1], [0, 1], \"k--\")\nplt.xlabel(\"Forecast Probability\")\nplt.ylabel(\"Observed Frequency\")\nplt.title(\"Reliability Diagram\")\nplt.show()\n\n# Rank Histogram\nrank_hist = verification.ens.rankhist(R_ens[:, :, mask], R_obs_rate[mask])\nplt.figure()\nplt.bar(np.arange(len(rank_hist)), rank_hist)\nplt.xlabel(\"Rank\")\nplt.ylabel(\"Frequency\")\nplt.title(\"Rank Histogram\")\nplt.show()\n```",
+  "latency_seconds": 8.180921875000422,
+  "usage": {
+    "completion_tokens": 1129,
+    "prompt_tokens": 148,
+    "total_tokens": 1277,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 9328,
+  "response_sha256": "8b46277ea0e464330f2a2614b7aabf9e47636a4fba1490a837c4d5939f1e5563",
+  "artifact_sha256": "ca6df5932533a89326bb8da98b7b52d2da60ddf96d8029212f26a65b35a621d8"
+}

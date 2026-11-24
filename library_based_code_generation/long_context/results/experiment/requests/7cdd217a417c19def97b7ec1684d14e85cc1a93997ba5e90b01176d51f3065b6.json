@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 77,
+    "task_sha256": "ad457ddc22f9dd79028900cc013d5f192399d4fd25dab9ac31166531c4326293",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that creates an emulator with 10 stub Autonomous Systems (AS) and hosts. Then, create an Ethereum service with saveState set to True and override set to True. Create two blockchains, one based on Proof of Work (POW) and the other on Proof of Authority (POA). For each blockchain, create four nodes and set the first two nodes of each blockchain as bootnodes and start mining on them. For the third node of each blockchain, create accounts with a certain balance. For the fourth node of each blockchain, set custom geth command options. Enable HTTP and WebSocket connections on certain nodes and set custom geth binary file on one of the nodes. Customize the display names of the nodes for visualization purposes. Bind the virtual nodes to physical nodes using filters. Add the Ethereum layer to the emulator and save the component to a file. Finally, compile the emulator with Docker and save the output to a directory.\n\nYou can find the following APIs from the library helpful:\nmakeEmulatorBaseWith5StubASAndHosts, makeEmulatorBaseWith10StubASAndHosts, connectToBlockchain, get_balance_of_account, enableOn, createHostsOnNetwork, createBlockchain, getNodeByAsnAndName, registerNodes, getVirtualNodes, connect_to_geth, getBootNodes, load_eth_nodes, getMinerNodes, get_eth_nodes, __getEdgeNodes, connect_to_geth_poa, connect_to_geth_pow, setCustomGeth, makeStubAsWithHosts"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5TMkMV3OdUMTfPNwh3xxnJxtrDX",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nfrom emulatorlib import (\n    makeEmulatorBaseWith10StubASAndHosts,\n    createBlockchain,\n    getNodeByAsnAndName,\n    registerNodes,\n    enableOn,\n    setCustomGeth,\n    connect_to_geth_pow,\n    connect_to_geth_poa,\n    getBootNodes,\n    getMinerNodes,\n    get_eth_nodes,\n    getVirtualNodes,\n    makeStubAsWithHosts,\n)\nfrom ethereumlib import (\n    EthereumService,\n    createAccountWithBalance,\n    setDisplayName,\n    setCustomGethCmdOptions,\n    bindVirtualNodesToPhysicalNodes,\n    addEthereumLayerToEmulator,\n    saveComponentToFile,\n    compileEmulatorWithDocker,\n)\n\n# Step 1: Create emulator with 10 stub AS and hosts\nemulator = makeEmulatorBaseWith10StubASAndHosts()\n\n# Step 2: Create Ethereum service with saveState and override set to True\neth_service = EthereumService(saveState=True, override=True)\n\n# Step 3: Create two blockchains: POW and POA\nblockchain_pow = createBlockchain(type=\"POW\", name=\"POW-Chain\")\nblockchain_poa = createBlockchain(type=\"POA\", name=\"POA-Chain\")\n\n# Step 4: For each blockchain, create four nodes\n# We'll use AS1-AS4 for POW, AS5-AS8 for POA\npow_nodes = []\npoa_nodes = []\nfor i in range(1, 5):\n    node = getNodeByAsnAndName(asn=i, name=f\"pow-node-{i}\")\n    pow_nodes.append(node)\n    registerNodes(blockchain_pow, [node])\n\nfor i in range(5, 9):\n    node = getNodeByAsnAndName(asn=i, name=f\"poa-node-{i-4}\")\n    poa_nodes.append(node)\n    registerNodes(blockchain_poa, [node])\n\n# Step 5: Set first two nodes as bootnodes and start mining\nfor node in pow_nodes[:2]:\n    connect_to_geth_pow(node, blockchain_pow, bootnode=True, mining=True)\nfor node in poa_nodes[:2]:\n    connect_to_geth_poa(node, blockchain_poa, bootnode=True, mining=True)\n\n# Step 6: For third node, create accounts with balance\ncreateAccountWithBalance(pow_nodes[2], balance=1000)\ncreateAccountWithBalance(poa_nodes[2], balance=1000)\n\n# Step 7: For fourth node, set custom geth command options\nsetCustomGethCmdOptions(pow_nodes[3], options=\"--syncmode 'light' --cache 512\")\nsetCustomGethCmdOptions(poa_nodes[3], options=\"--syncmode 'light' --cache 512\")\n\n# Step 8: Enable HTTP and WebSocket connections on certain nodes\nenableOn(pow_nodes[0], http=True, ws=True)\nenableOn(poa_nodes[0], http=True, ws=True)\nenableOn(pow_nodes[1], http=True)\nenableOn(poa_nodes[1], ws=True)\n\n# Step 9: Set custom geth binary file on one node\nsetCustomGeth(pow_nodes[3], binary_path=\"/custom/path/geth\")\n\n# Step 10: Customize display names for visualization\nsetDisplayName(pow_nodes[0], \"POW Bootnode 1\")\nsetDisplayName(pow_nodes[1], \"POW Bootnode 2\")\nsetDisplayName(pow_nodes[2], \"POW Account Node\")\nsetDisplayName(pow_nodes[3], \"POW Custom Node\")\nsetDisplayName(poa_nodes[0], \"POA Bootnode 1\")\nsetDisplayName(poa_nodes[1], \"POA Bootnode 2\")\nsetDisplayName(poa_nodes[2], \"POA Account Node\")\nsetDisplayName(poa_nodes[3], \"POA Custom Node\")\n\n# Step 11: Bind virtual nodes to physical nodes using filters\nbindVirtualNodesToPhysicalNodes(\n    virtual_nodes=pow_nodes + poa_nodes,\n    physical_nodes_filter=lambda n: n.asn in range(1, 9)\n)\n\n# Step 12: Add Ethereum layer to emulator\naddEthereumLayerToEmulator(emulator, eth_service, [blockchain_pow, blockchain_poa])\n\n# Step 13: Save the component to a file\nsaveComponentToFile(emulator, \"emulator_component.json\")\n\n# Step 14: Compile the emulator with Docker and save output to a directory\ncompileEmulatorWithDocker(emulator, output_dir=\"./emulator_docker_output\")\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795129488,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_cf9a00a7a7",
+    "usage": {
+      "completion_tokens": 951,
+      "prompt_tokens": 338,
+      "total_tokens": 1289,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nfrom emulatorlib import (\n    makeEmulatorBaseWith10StubASAndHosts,\n    createBlockchain,\n    getNodeByAsnAndName,\n    registerNodes,\n    enableOn,\n    setCustomGeth,\n    connect_to_geth_pow,\n    connect_to_geth_poa,\n    getBootNodes,\n    getMinerNodes,\n    get_eth_nodes,\n    getVirtualNodes,\n    makeStubAsWithHosts,\n)\nfrom ethereumlib import (\n    EthereumService,\n    createAccountWithBalance,\n    setDisplayName,\n    setCustomGethCmdOptions,\n    bindVirtualNodesToPhysicalNodes,\n    addEthereumLayerToEmulator,\n    saveComponentToFile,\n    compileEmulatorWithDocker,\n)\n\n# Step 1: Create emulator with 10 stub AS and hosts\nemulator = makeEmulatorBaseWith10StubASAndHosts()\n\n# Step 2: Create Ethereum service with saveState and override set to True\neth_service = EthereumService(saveState=True, override=True)\n\n# Step 3: Create two blockchains: POW and POA\nblockchain_pow = createBlockchain(type=\"POW\", name=\"POW-Chain\")\nblockchain_poa = createBlockchain(type=\"POA\", name=\"POA-Chain\")\n\n# Step 4: For each blockchain, create four nodes\n# We'll use AS1-AS4 for POW, AS5-AS8 for POA\npow_nodes = []\npoa_nodes = []\nfor i in range(1, 5):\n    node = getNodeByAsnAndName(asn=i, name=f\"pow-node-{i}\")\n    pow_nodes.append(node)\n    registerNodes(blockchain_pow, [node])\n\nfor i in range(5, 9):\n    node = getNodeByAsnAndName(asn=i, name=f\"poa-node-{i-4}\")\n    poa_nodes.append(node)\n    registerNodes(blockchain_poa, [node])\n\n# Step 5: Set first two nodes as bootnodes and start mining\nfor node in pow_nodes[:2]:\n    connect_to_geth_pow(node, blockchain_pow, bootnode=True, mining=True)\nfor node in poa_nodes[:2]:\n    connect_to_geth_poa(node, blockchain_poa, bootnode=True, mining=True)\n\n# Step 6: For third node, create accounts with balance\ncreateAccountWithBalance(pow_nodes[2], balance=1000)\ncreateAccountWithBalance(poa_nodes[2], balance=1000)\n\n# Step 7: For fourth node, set custom geth command options\nsetCustomGethCmdOptions(pow_nodes[3], options=\"--syncmode 'light' --cache 512\")\nsetCustomGethCmdOptions(poa_nodes[3], options=\"--syncmode 'light' --cache 512\")\n\n# Step 8: Enable HTTP and WebSocket connections on certain nodes\nenableOn(pow_nodes[0], http=True, ws=True)\nenableOn(poa_nodes[0], http=True, ws=True)\nenableOn(pow_nodes[1], http=True)\nenableOn(poa_nodes[1], ws=True)\n\n# Step 9: Set custom geth binary file on one node\nsetCustomGeth(pow_nodes[3], binary_path=\"/custom/path/geth\")\n\n# Step 10: Customize display names for visualization\nsetDisplayName(pow_nodes[0], \"POW Bootnode 1\")\nsetDisplayName(pow_nodes[1], \"POW Bootnode 2\")\nsetDisplayName(pow_nodes[2], \"POW Account Node\")\nsetDisplayName(pow_nodes[3], \"POW Custom Node\")\nsetDisplayName(poa_nodes[0], \"POA Bootnode 1\")\nsetDisplayName(poa_nodes[1], \"POA Bootnode 2\")\nsetDisplayName(poa_nodes[2], \"POA Account Node\")\nsetDisplayName(poa_nodes[3], \"POA Custom Node\")\n\n# Step 11: Bind virtual nodes to physical nodes using filters\nbindVirtualNodesToPhysicalNodes(\n    virtual_nodes=pow_nodes + poa_nodes,\n    physical_nodes_filter=lambda n: n.asn in range(1, 9)\n)\n\n# Step 12: Add Ethereum layer to emulator\naddEthereumLayerToEmulator(emulator, eth_service, [blockchain_pow, blockchain_poa])\n\n# Step 13: Save the component to a file\nsaveComponentToFile(emulator, \"emulator_component.json\")\n\n# Step 14: Compile the emulator with Docker and save output to a directory\ncompileEmulatorWithDocker(emulator, output_dir=\"./emulator_docker_output\")\n```",
+  "latency_seconds": 5.009484247002547,
+  "usage": {
+    "completion_tokens": 951,
+    "prompt_tokens": 338,
+    "total_tokens": 1289,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 8284,
+  "response_sha256": "72f0383f598bcbc80d4b33bd3885ca60b414836effce6ebfc4f21c3e8b93bda3",
+  "artifact_sha256": "909883a64fdaaa542a3d178eeffb5f7a0ed71ae07aee993dea6ad72221a4f4fd"
+}

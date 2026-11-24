@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 10,
+    "task_sha256": "e2ecffcabd3b9e963faf75ceeb80a04474d972021c676d04652f22e0f3f6b56c",
+    "replicate": "independent_repeat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that performs a 1D inversion of Magnetic Susceptibility from Frequency-Domain Electromagnetic (FDEM) data, assuming a fixed electrical conductivity. The code should set up a cylindrically symmetric mesh, define geologic parameters and electrical conductivity, and set up the relative magnetic permeability. It should also define mappings and set up the FDEM problem and survey. The code should then perform the FDEM inversion, set up inversion directives, and run the inversion. If a flag is set to true, the code should plot the conductivity model, the permeability model, and the data misfits. The code should be able to handle the absence of the PardisoSolver by falling back to the SolverLU.\n\nYou can find the following APIs from the library helpful:\nsetUp, setUpClass, setUpProb, setUp_TDEM, set_mesh, test_mappings_and_cell_weights, _indexAndNameFromKey, ParametrizedCasingAndLayer, inversion, test_ParametricCasingAndLayer, bindingSet, setBC, setTemplate, inactiveSet, _setField, setKwargs, activeSet, A, _makeASymmetric, ComplicatedInversion"
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em4kE4Tfj9RLsaMtUwaY6Ml2ajTSx",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom discretize import CylindricalMesh\nfrom SimPEG import maps, data, inversion, inverse_problem, optimization, directives, regularization, data_misfit\nfrom SimPEG.electromagnetics.frequency_domain import simulation, survey, sources, receivers\nfrom SimPEG.utils import mkvc\n\n# Set plotting flag\nplot_results = True\n\n# Mesh parameters\nncz, npad, cs, h, pad = 40, 20, 2.0, 2.0, 1.3\nhz = [(cs, ncz), (cs*pad, npad)]\nmesh = CylindricalMesh([[(1, 1)], hz], x0=\"00C\")\n\n# Geologic parameters\nn_layer = 3\nlayer_tops = np.r_[-np.inf, -20., -40., 0.]\nchi_true = np.r_[0.01, 0.05, 0.02]  # Magnetic susceptibility (SI)\nsigma_true = 1e-2 * np.ones(n_layer)  # Fixed conductivity (S/m)\n\n# Assign models to mesh\nz = mesh.cell_centers_z\nchi_model = np.zeros(mesh.nC)\nsigma_model = np.zeros(mesh.nC)\nfor i in range(n_layer):\n    ind = (z >= layer_tops[i]) & (z < layer_tops[i+1])\n    chi_model[ind] = chi_true[i]\n    sigma_model[ind] = sigma_true[i]\n\n# Set up mappings\nact_map = maps.IdentityMap(nP=mesh.nC)\nchi_map = maps.IdentityMap(nP=mesh.nC)\nsigma_map = maps.IdentityMap(nP=mesh.nC)\n\n# Set up relative magnetic permeability (mu_r = 1 + chi)\nmu_r = 1 + chi_model\n\n# FDEM survey setup\nfrequencies = np.logspace(2, 4, 5)  # 100 Hz to 10 kHz\nsrc_height = 10.0\nrx_offset = 20.0\n\nreceiver_list = []\nfor freq in frequencies:\n    receiver_list.append(\n        receivers.PointMagneticFluxDensity(\n            np.array([[rx_offset, 0, src_height]]),\n            orientation=\"z\",\n            component=\"real\",\n            frequency=freq\n        )\n    )\n    receiver_list.append(\n        receivers.PointMagneticFluxDensity(\n            np.array([[rx_offset, 0, src_height]]),\n            orientation=\"z\",\n            component=\"imag\",\n            frequency=freq\n        )\n    )\n\nsource_list = [\n    sources.CircularLoop(\n        receiver_list,\n        location=np.array([0, 0, src_height]),\n        frequency=freq\n    ) for freq in frequencies\n]\n\nfdem_survey = survey.Survey(source_list)\n\n# Solver selection\ntry:\n    from pymatsolver import PardisoSolver\n    Solver = PardisoSolver\nexcept ImportError:\n    from SimPEG.utils import SolverLU\n    Solver = SolverLU\n\n# FDEM simulation\nsim = simulation.Simulation3DMagneticField(\n    mesh=mesh,\n    survey=fdem_survey,\n    sigmaMap=sigma_map,\n    muMap=maps.SurjectFull(mesh) * (1 + act_map),  # mu = mu_0 * (1 + chi)\n    Solver=Solver,\n    storeJ=True,\n)\nsim.sigma = sigma_model\nsim.mu = mu_r\n\n# Generate synthetic data\nnp.random.seed(0)\nd_true = sim.dpred(chi_model)\nnoise = 0.01 * np.abs(d_true) * np.random.randn(*d_true.shape)\nd_obs = d_true + noise\ndata_obj = data.Data(fdem_survey, dobs=d_obs, noise_floor=0.01 * np.abs(d_obs))\n\n# Inversion setup\nreg = regularization.Simple(mesh, mapping=chi_map)\nopt = optimization.InexactGaussNewton(maxIter=15)\ndmis = data_misfit.L2DataMisfit(simulation=sim, data=data_obj)\ninv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)\n\n# Directives\nbetaest = directives.BetaEstimate_ByEig(beta0_ratio=1e0)\ntarget = directives.TargetMisfit()\nsave = directives.SaveOutputEveryIteration()\nupdate_jac = directives.UpdatePreconditioner()\ndir_list = [betaest, target, save, update_jac]\n\n# Run inversion\ninv = inversion.BaseInversion(inv_prob, directiveList=dir_list)\nchi_start = 0.01 * np.ones(mesh.nC)\nchi_rec = inv.run(chi_start)\n\n# Plotting\nif plot_results:\n    fig, axs = plt.subplots(1, 3, figsize=(15, 4))\n    axs[0].plot(sigma_model, z, label='True')\n    axs[0].set_xlabel('Conductivity (S/m)')\n    axs[0].set_ylabel('Depth (m)')\n    axs[0].set_title('Conductivity Model')\n    axs[0].invert_yaxis()\n    axs[1].plot(chi_model, z, label='True')\n    axs[1].plot(chi_rec, z, label='Recovered', linestyle='--')\n    axs[1].set_xlabel('Magnetic Susceptibility (SI)')\n    axs[1].set_title('Magnetic Susceptibility')\n    axs[1].legend()\n    axs[1].invert_yaxis()\n    axs[2].plot(np.abs(d_obs), 'k.', label='Observed')\n    axs[2].plot(np.abs(sim.dpred(chi_rec)), 'r-', label='Predicted')\n    axs[2].set_xlabel('Data Index')\n    axs[2].set_ylabel('Amplitude')\n    axs[2].set_title('Data Misfit')\n    axs[2].legend()\n    plt.tight_layout()\n    plt.show()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795126690,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_8f7529d0f0",
+    "usage": {
+      "completion_tokens": 1231,
+      "prompt_tokens": 271,
+      "total_tokens": 1502,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom discretize import CylindricalMesh\nfrom SimPEG import maps, data, inversion, inverse_problem, optimization, directives, regularization, data_misfit\nfrom SimPEG.electromagnetics.frequency_domain import simulation, survey, sources, receivers\nfrom SimPEG.utils import mkvc\n\n# Set plotting flag\nplot_results = True\n\n# Mesh parameters\nncz, npad, cs, h, pad = 40, 20, 2.0, 2.0, 1.3\nhz = [(cs, ncz), (cs*pad, npad)]\nmesh = CylindricalMesh([[(1, 1)], hz], x0=\"00C\")\n\n# Geologic parameters\nn_layer = 3\nlayer_tops = np.r_[-np.inf, -20., -40., 0.]\nchi_true = np.r_[0.01, 0.05, 0.02]  # Magnetic susceptibility (SI)\nsigma_true = 1e-2 * np.ones(n_layer)  # Fixed conductivity (S/m)\n\n# Assign models to mesh\nz = mesh.cell_centers_z\nchi_model = np.zeros(mesh.nC)\nsigma_model = np.zeros(mesh.nC)\nfor i in range(n_layer):\n    ind = (z >= layer_tops[i]) & (z < layer_tops[i+1])\n    chi_model[ind] = chi_true[i]\n    sigma_model[ind] = sigma_true[i]\n\n# Set up mappings\nact_map = maps.IdentityMap(nP=mesh.nC)\nchi_map = maps.IdentityMap(nP=mesh.nC)\nsigma_map = maps.IdentityMap(nP=mesh.nC)\n\n# Set up relative magnetic permeability (mu_r = 1 + chi)\nmu_r = 1 + chi_model\n\n# FDEM survey setup\nfrequencies = np.logspace(2, 4, 5)  # 100 Hz to 10 kHz\nsrc_height = 10.0\nrx_offset = 20.0\n\nreceiver_list = []\nfor freq in frequencies:\n    receiver_list.append(\n        receivers.PointMagneticFluxDensity(\n            np.array([[rx_offset, 0, src_height]]),\n            orientation=\"z\",\n            component=\"real\",\n            frequency=freq\n        )\n    )\n    receiver_list.append(\n        receivers.PointMagneticFluxDensity(\n            np.array([[rx_offset, 0, src_height]]),\n            orientation=\"z\",\n            component=\"imag\",\n            frequency=freq\n        )\n    )\n\nsource_list = [\n    sources.CircularLoop(\n        receiver_list,\n        location=np.array([0, 0, src_height]),\n        frequency=freq\n    ) for freq in frequencies\n]\n\nfdem_survey = survey.Survey(source_list)\n\n# Solver selection\ntry:\n    from pymatsolver import PardisoSolver\n    Solver = PardisoSolver\nexcept ImportError:\n    from SimPEG.utils import SolverLU\n    Solver = SolverLU\n\n# FDEM simulation\nsim = simulation.Simulation3DMagneticField(\n    mesh=mesh,\n    survey=fdem_survey,\n    sigmaMap=sigma_map,\n    muMap=maps.SurjectFull(mesh) * (1 + act_map),  # mu = mu_0 * (1 + chi)\n    Solver=Solver,\n    storeJ=True,\n)\nsim.sigma = sigma_model\nsim.mu = mu_r\n\n# Generate synthetic data\nnp.random.seed(0)\nd_true = sim.dpred(chi_model)\nnoise = 0.01 * np.abs(d_true) * np.random.randn(*d_true.shape)\nd_obs = d_true + noise\ndata_obj = data.Data(fdem_survey, dobs=d_obs, noise_floor=0.01 * np.abs(d_obs))\n\n# Inversion setup\nreg = regularization.Simple(mesh, mapping=chi_map)\nopt = optimization.InexactGaussNewton(maxIter=15)\ndmis = data_misfit.L2DataMisfit(simulation=sim, data=data_obj)\ninv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)\n\n# Directives\nbetaest = directives.BetaEstimate_ByEig(beta0_ratio=1e0)\ntarget = directives.TargetMisfit()\nsave = directives.SaveOutputEveryIteration()\nupdate_jac = directives.UpdatePreconditioner()\ndir_list = [betaest, target, save, update_jac]\n\n# Run inversion\ninv = inversion.BaseInversion(inv_prob, directiveList=dir_list)\nchi_start = 0.01 * np.ones(mesh.nC)\nchi_rec = inv.run(chi_start)\n\n# Plotting\nif plot_results:\n    fig, axs = plt.subplots(1, 3, figsize=(15, 4))\n    axs[0].plot(sigma_model, z, label='True')\n    axs[0].set_xlabel('Conductivity (S/m)')\n    axs[0].set_ylabel('Depth (m)')\n    axs[0].set_title('Conductivity Model')\n    axs[0].invert_yaxis()\n    axs[1].plot(chi_model, z, label='True')\n    axs[1].plot(chi_rec, z, label='Recovered', linestyle='--')\n    axs[1].set_xlabel('Magnetic Susceptibility (SI)')\n    axs[1].set_title('Magnetic Susceptibility')\n    axs[1].legend()\n    axs[1].invert_yaxis()\n    axs[2].plot(np.abs(d_obs), 'k.', label='Observed')\n    axs[2].plot(np.abs(sim.dpred(chi_rec)), 'r-', label='Predicted')\n    axs[2].set_xlabel('Data Index')\n    axs[2].set_ylabel('Amplitude')\n    axs[2].set_title('Data Misfit')\n    axs[2].legend()\n    plt.tight_layout()\n    plt.show()\n```",
+  "latency_seconds": 11.95340725800088,
+  "usage": {
+    "completion_tokens": 1231,
+    "prompt_tokens": 271,
+    "total_tokens": 1502,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10390,
+  "response_sha256": "9121673f4ad94763d029adf8418912cc56cfb396256acf4d5f2e5843b702a2bd",
+  "artifact_sha256": "e53924c64bf964be36eb46758cc5db16aff7db40ea692e2b7e680640770ed419"
+}

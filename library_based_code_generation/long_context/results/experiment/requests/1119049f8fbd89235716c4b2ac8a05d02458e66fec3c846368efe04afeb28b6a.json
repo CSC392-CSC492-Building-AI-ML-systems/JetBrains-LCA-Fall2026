@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 116,
+    "task_sha256": "1254139721e0282acb19ac2e26f8b85c16c6d45ed266ddcac582a1346c6a6a2c",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that trains and evaluates a model on the CLEAR benchmark using the Avalanche library. The code should define a set of hyperparameters, create a learning rate scheduler, and define a main function. In the main function, it should initialize a ResNet18 model, define normalization and transformation operations for the training and testing data, and set up logging to Tensorboard, a text file, and stdout. It should also define an evaluation plugin with various metrics. Depending on the evaluation protocol, it should set a seed value and create a CLEAR benchmark. The code should then move the model to the appropriate device, define an SGD optimizer, and create a learning rate scheduler. It should also define a continual learning strategy using the Naive method from Avalanche. The code should then run a training loop, saving the model after each experience and evaluating it on the test stream. Finally, it should generate an accuracy matrix and compute the CLEAR metrics, logging these results to a text file."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5qJt72m1OJqibmdIylmdx4P0DhD",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nfrom torchvision import transforms\nfrom avalanche.benchmarks.classic import CLEAR\nfrom avalanche.models import avalanche_resnet18\nfrom avalanche.training.strategies import Naive\nfrom avalanche.logging import TensorboardLogger, TextLogger, InteractiveLogger\nfrom avalanche.evaluation.metrics import (\n    accuracy_metrics,\n    loss_metrics,\n    forgetting_metrics,\n    confusion_matrix_metrics,\n    timing_metrics,\n    cpu_usage_metrics,\n    disk_usage_metrics,\n)\nfrom avalanche.training.plugins import EvaluationPlugin\nimport numpy as np\nimport random\nimport os\n\n# Hyperparameters\nBATCH_SIZE = 128\nLR = 0.1\nMOMENTUM = 0.9\nWEIGHT_DECAY = 5e-4\nNUM_EPOCHS = 10\nSCHEDULER_STEP_SIZE = 5\nSCHEDULER_GAMMA = 0.1\nSEED = 1234\nEVAL_PROTOCOL = \"ni\"  # or \"nc\", \"nic\", etc.\nLOG_DIR = \"./logs\"\nMODEL_SAVE_DIR = \"./models\"\nRESULTS_FILE = \"./clear_results.txt\"\n\ndef set_seed(seed):\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed_all(seed)\n    np.random.seed(seed)\n    random.seed(seed)\n    torch.backends.cudnn.deterministic = True\n    torch.backends.cudnn.benchmark = False\n\ndef main():\n    # Set seed\n    if EVAL_PROTOCOL == \"ni\":\n        set_seed(SEED)\n    else:\n        set_seed(SEED + 1)\n\n    device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n    # Model\n    model = avalanche_resnet18(num_classes=10)\n    model.to(device)\n\n    # Transforms\n    train_transform = transforms.Compose([\n        transforms.RandomCrop(32, padding=4),\n        transforms.RandomHorizontalFlip(),\n        transforms.ToTensor(),\n        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),\n    ])\n    test_transform = transforms.Compose([\n        transforms.ToTensor(),\n        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),\n    ])\n\n    # Benchmark\n    benchmark = CLEAR(\n        eval_protocol=EVAL_PROTOCOL,\n        train_transform=train_transform,\n        eval_transform=test_transform,\n        seed=SEED\n    )\n\n    # Logging\n    os.makedirs(LOG_DIR, exist_ok=True)\n    os.makedirs(MODEL_SAVE_DIR, exist_ok=True)\n    tensorboard_logger = TensorboardLogger(log_dir=LOG_DIR)\n    text_logger = TextLogger(open(os.path.join(LOG_DIR, \"log.txt\"), \"w\"))\n    interactive_logger = InteractiveLogger()\n\n    # Evaluation Plugin\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        forgetting_metrics(experience=True, stream=True),\n        confusion_matrix_metrics(save_image=False, stream=True),\n        timing_metrics(epoch=True, experience=True),\n        cpu_usage_metrics(experience=True),\n        disk_usage_metrics(minibatch=True, epoch=True, experience=True),\n        loggers=[tensorboard_logger, text_logger, interactive_logger]\n    )\n\n    # Optimizer and Scheduler\n    optimizer = optim.SGD(\n        model.parameters(),\n        lr=LR,\n        momentum=MOMENTUM,\n        weight_decay=WEIGHT_DECAY\n    )\n    scheduler = optim.lr_scheduler.StepLR(\n        optimizer,\n        step_size=SCHEDULER_STEP_SIZE,\n        gamma=SCHEDULER_GAMMA\n    )\n\n    # Continual Learning Strategy\n    cl_strategy = Naive(\n        model,\n        optimizer,\n        nn.CrossEntropyLoss(),\n        train_mb_size=BATCH_SIZE,\n        train_epochs=NUM_EPOCHS,\n        eval_mb_size=BATCH_SIZE,\n        device=device,\n        evaluator=eval_plugin,\n        plugins=[],\n    )\n\n    # Training Loop\n    accuracy_matrix = []\n    for experience in benchmark.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        cl_strategy.train(experience)\n        scheduler.step()\n        print(\"Evaluating on test stream...\")\n        results = cl_strategy.eval(benchmark.test_stream)\n        # Collect accuracy for CLEAR metrics\n        accs = []\n        for exp in benchmark.test_stream:\n            acc = results[f\"Top1_Acc_Exp{exp.current_experience}/stream\"]\n            accs.append(acc)\n        accuracy_matrix.append(accs)\n        # Save model\n        model_path = os.path.join(\n            MODEL_SAVE_DIR, f\"model_exp_{experience.current_experience}.pth\"\n        )\n        torch.save(model.state_dict(), model_path)\n\n    # Compute CLEAR metrics\n    accuracy_matrix = np.array(accuracy_matrix)\n    # CLEAR metrics: average accuracy, backward transfer, forward transfer\n    final_acc = accuracy_matrix[-1]\n    avg_acc = np.mean(final_acc)\n    bwt = np.mean(accuracy_matrix[-1] - np.diag(accuracy_matrix))\n    fwt = np.mean(accuracy_matrix[0] - accuracy_matrix[-1])\n\n    # Log results\n    with open(RESULTS_FILE, \"w\") as f:\n        f.write(\"Accuracy Matrix:\\n\")\n        f.write(str(accuracy_matrix) + \"\\n\")\n        f.write(f\"Average Accuracy: {avg_acc:.4f}\\n\")\n        f.write(f\"Backward Transfer (BWT): {bwt:.4f}\\n\")\n        f.write(f\"Forward Transfer (FWT): {fwt:.4f}\\n\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795130911,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_79ecb637ff",
+    "usage": {
+      "completion_tokens": 1202,
+      "prompt_tokens": 225,
+      "total_tokens": 1427,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\nfrom torchvision import transforms\nfrom avalanche.benchmarks.classic import CLEAR\nfrom avalanche.models import avalanche_resnet18\nfrom avalanche.training.strategies import Naive\nfrom avalanche.logging import TensorboardLogger, TextLogger, InteractiveLogger\nfrom avalanche.evaluation.metrics import (\n    accuracy_metrics,\n    loss_metrics,\n    forgetting_metrics,\n    confusion_matrix_metrics,\n    timing_metrics,\n    cpu_usage_metrics,\n    disk_usage_metrics,\n)\nfrom avalanche.training.plugins import EvaluationPlugin\nimport numpy as np\nimport random\nimport os\n\n# Hyperparameters\nBATCH_SIZE = 128\nLR = 0.1\nMOMENTUM = 0.9\nWEIGHT_DECAY = 5e-4\nNUM_EPOCHS = 10\nSCHEDULER_STEP_SIZE = 5\nSCHEDULER_GAMMA = 0.1\nSEED = 1234\nEVAL_PROTOCOL = \"ni\"  # or \"nc\", \"nic\", etc.\nLOG_DIR = \"./logs\"\nMODEL_SAVE_DIR = \"./models\"\nRESULTS_FILE = \"./clear_results.txt\"\n\ndef set_seed(seed):\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed_all(seed)\n    np.random.seed(seed)\n    random.seed(seed)\n    torch.backends.cudnn.deterministic = True\n    torch.backends.cudnn.benchmark = False\n\ndef main():\n    # Set seed\n    if EVAL_PROTOCOL == \"ni\":\n        set_seed(SEED)\n    else:\n        set_seed(SEED + 1)\n\n    device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n    # Model\n    model = avalanche_resnet18(num_classes=10)\n    model.to(device)\n\n    # Transforms\n    train_transform = transforms.Compose([\n        transforms.RandomCrop(32, padding=4),\n        transforms.RandomHorizontalFlip(),\n        transforms.ToTensor(),\n        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),\n    ])\n    test_transform = transforms.Compose([\n        transforms.ToTensor(),\n        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),\n    ])\n\n    # Benchmark\n    benchmark = CLEAR(\n        eval_protocol=EVAL_PROTOCOL,\n        train_transform=train_transform,\n        eval_transform=test_transform,\n        seed=SEED\n    )\n\n    # Logging\n    os.makedirs(LOG_DIR, exist_ok=True)\n    os.makedirs(MODEL_SAVE_DIR, exist_ok=True)\n    tensorboard_logger = TensorboardLogger(log_dir=LOG_DIR)\n    text_logger = TextLogger(open(os.path.join(LOG_DIR, \"log.txt\"), \"w\"))\n    interactive_logger = InteractiveLogger()\n\n    # Evaluation Plugin\n    eval_plugin = EvaluationPlugin(\n        accuracy_metrics(epoch=True, experience=True, stream=True),\n        loss_metrics(epoch=True, experience=True, stream=True),\n        forgetting_metrics(experience=True, stream=True),\n        confusion_matrix_metrics(save_image=False, stream=True),\n        timing_metrics(epoch=True, experience=True),\n        cpu_usage_metrics(experience=True),\n        disk_usage_metrics(minibatch=True, epoch=True, experience=True),\n        loggers=[tensorboard_logger, text_logger, interactive_logger]\n    )\n\n    # Optimizer and Scheduler\n    optimizer = optim.SGD(\n        model.parameters(),\n        lr=LR,\n        momentum=MOMENTUM,\n        weight_decay=WEIGHT_DECAY\n    )\n    scheduler = optim.lr_scheduler.StepLR(\n        optimizer,\n        step_size=SCHEDULER_STEP_SIZE,\n        gamma=SCHEDULER_GAMMA\n    )\n\n    # Continual Learning Strategy\n    cl_strategy = Naive(\n        model,\n        optimizer,\n        nn.CrossEntropyLoss(),\n        train_mb_size=BATCH_SIZE,\n        train_epochs=NUM_EPOCHS,\n        eval_mb_size=BATCH_SIZE,\n        device=device,\n        evaluator=eval_plugin,\n        plugins=[],\n    )\n\n    # Training Loop\n    accuracy_matrix = []\n    for experience in benchmark.train_stream:\n        print(f\"Start training on experience {experience.current_experience}\")\n        cl_strategy.train(experience)\n        scheduler.step()\n        print(\"Evaluating on test stream...\")\n        results = cl_strategy.eval(benchmark.test_stream)\n        # Collect accuracy for CLEAR metrics\n        accs = []\n        for exp in benchmark.test_stream:\n            acc = results[f\"Top1_Acc_Exp{exp.current_experience}/stream\"]\n            accs.append(acc)\n        accuracy_matrix.append(accs)\n        # Save model\n        model_path = os.path.join(\n            MODEL_SAVE_DIR, f\"model_exp_{experience.current_experience}.pth\"\n        )\n        torch.save(model.state_dict(), model_path)\n\n    # Compute CLEAR metrics\n    accuracy_matrix = np.array(accuracy_matrix)\n    # CLEAR metrics: average accuracy, backward transfer, forward transfer\n    final_acc = accuracy_matrix[-1]\n    avg_acc = np.mean(final_acc)\n    bwt = np.mean(accuracy_matrix[-1] - np.diag(accuracy_matrix))\n    fwt = np.mean(accuracy_matrix[0] - accuracy_matrix[-1])\n\n    # Log results\n    with open(RESULTS_FILE, \"w\") as f:\n        f.write(\"Accuracy Matrix:\\n\")\n        f.write(str(accuracy_matrix) + \"\\n\")\n        f.write(f\"Average Accuracy: {avg_acc:.4f}\\n\")\n        f.write(f\"Backward Transfer (BWT): {bwt:.4f}\\n\")\n        f.write(f\"Forward Transfer (FWT): {fwt:.4f}\\n\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+  "latency_seconds": 5.915270797999256,
+  "usage": {
+    "completion_tokens": 1202,
+    "prompt_tokens": 225,
+    "total_tokens": 1427,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 10066,
+  "response_sha256": "310bea363572ee9f1da92bb6649cd338a864f15032066bb19bce5920c8d582ee",
+  "artifact_sha256": "0d694f568abc3ed28a0d82280d635879e695bb6028cab25bb48020671038cead"
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "experiment": "c3e1b77487ae49285a84cc7a8c35fa508530db32290b9dee38a7aaf6fb73b976",
+    "index": 133,
+    "task_sha256": "db57fa5cc61500e2ee9a978c120c58f1495f4d221ee3565134dd2be10b600a70",
+    "replicate": "main",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Generate Python code based on the following instruction. Output ONLY code. DO NOT include explanations or other textual content.\nInstruction: Generate code that uses the fate library to create a pipeline for a binary classification task using a heterogenous neural network (HeteroNN). The pipeline should include components for reading data, transforming data, intersecting data, and evaluating the model. The HeteroNN should be configured with specific parameters including the number of epochs, learning rate, batch size, and callback parameters. The model should also include a guest and host bottom model, an interactive layer, and a guest top model. The pipeline should be compiled and fitted, and the summary of the HeteroNN component should be printed. The code should also include a main function that accepts a configuration file as an argument."
+      }
+    ],
+    "parameters": {
+      "model": "gpt-4.1-2025-04-14",
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 2048,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    }
+  },
+  "status": "success",
+  "raw_response": {
+    "id": "chatcmpl-Em5zclfGHr19SnFP3g2xLhmPc6hcF",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "```python\nimport argparse\nfrom fate_flow.pipeline import Pipeline\nfrom fate_flow.pipeline.components.federated import (\n    Reader,\n    DataTransform,\n    Intersection,\n    HeteroNN,\n    Evaluation\n)\nfrom fate_flow.pipeline.interface import Data\nfrom fate_flow.pipeline.utils.tools import load_job_config\n\ndef main(config_path):\n    # Load configuration\n    config = load_job_config(config_path)\n    guest = config['role']['guest'][0]\n    host = config['role']['host'][0]\n    backend = config['backend']\n    work_mode = config['work_mode']\n\n    # Define data sources\n    guest_train_data = {\"name\": config['guest_train_data']['name'], \"namespace\": config['guest_train_data']['namespace']}\n    host_train_data = {\"name\": config['host_train_data']['name'], \"namespace\": config['host_train_data']['namespace']}\n\n    # Components\n    reader_0 = Reader(name=\"reader_0\")\n    reader_0.get_party_instance(role='guest', party_id=guest).component_param(table=guest_train_data)\n    reader_0.get_party_instance(role='host', party_id=host).component_param(table=host_train_data)\n\n    data_transform_0 = DataTransform(name=\"data_transform_0\", with_label=True, output_format=\"dense\")\n    data_transform_0.get_party_instance(role='guest', party_id=guest).component_param(with_label=True)\n    data_transform_0.get_party_instance(role='host', party_id=host).component_param(with_label=False)\n\n    intersect_0 = Intersection(name=\"intersection_0\")\n\n    hetero_nn_0 = HeteroNN(\n        name=\"hetero_nn_0\",\n        epochs=10,\n        batch_size=64,\n        learning_rate=0.01,\n        interactive_layer_lr=0.01,\n        config_type=\"keras\",\n        guest_bottom_model={\n            \"units\": [64, 32],\n            \"activation\": [\"relu\", \"relu\"]\n        },\n        host_bottom_model={\n            \"units\": [64, 32],\n            \"activation\": [\"relu\", \"relu\"]\n        },\n        interactive_layer={\n            \"units\": 16,\n            \"activation\": \"relu\"\n        },\n        guest_top_model={\n            \"units\": [8, 1],\n            \"activation\": [\"relu\", \"sigmoid\"]\n        },\n        optimizer=\"Adam\",\n        loss=\"binary_crossentropy\",\n        metrics=[\"AUC\"],\n        callback_param={\n            \"early_stop\": True,\n            \"patience\": 3,\n            \"save_best\": True\n        }\n    )\n\n    evaluation_0 = Evaluation(name=\"evaluation_0\", eval_type=\"binary\")\n\n    # Build pipeline\n    pipeline = Pipeline()\n    pipeline.set_initiator(role='guest', party_id=guest)\n    pipeline.set_roles(guest=guest, host=host)\n\n    pipeline.add_component(reader_0)\n    pipeline.add_component(data_transform_0, data=Data(data=reader_0.output.data))\n    pipeline.add_component(intersect_0, data=Data(data=data_transform_0.output.data))\n    pipeline.add_component(hetero_nn_0, data=Data(train_data=intersect_0.output.data))\n    pipeline.add_component(evaluation_0, data=Data(data=hetero_nn_0.output.data))\n\n    # Compile and fit\n    pipeline.compile()\n    pipeline.fit(backend=backend, work_mode=work_mode)\n\n    # Print summary\n    print(pipeline.get_component(\"hetero_nn_0\").get_summary())\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser(description=\"FATE HeteroNN Pipeline for Binary Classification\")\n    parser.add_argument(\"--config\", type=str, required=True, help=\"Path to configuration file\")\n    args = parser.parse_args()\n    main(args.config)\n```",
+          "refusal": null,
+          "role": "assistant",
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "annotations": []
+        }
+      }
+    ],
+    "created": 1795131488,
+    "model": "gpt-4.1-2025-04-14",
+    "object": "chat.completion",
+    "service_tier": "default",
+    "system_fingerprint": "fp_cf9a00a7a7",
+    "usage": {
+      "completion_tokens": 785,
+      "prompt_tokens": 168,
+      "total_tokens": 953,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    }
+  },
+  "returned_model": "gpt-4.1-2025-04-14",
+  "finish_reason": "stop",
+  "response": "```python\nimport argparse\nfrom fate_flow.pipeline import Pipeline\nfrom fate_flow.pipeline.components.federated import (\n    Reader,\n    DataTransform,\n    Intersection,\n    HeteroNN,\n    Evaluation\n)\nfrom fate_flow.pipeline.interface import Data\nfrom fate_flow.pipeline.utils.tools import load_job_config\n\ndef main(config_path):\n    # Load configuration\n    config = load_job_config(config_path)\n    guest = config['role']['guest'][0]\n    host = config['role']['host'][0]\n    backend = config['backend']\n    work_mode = config['work_mode']\n\n    # Define data sources\n    guest_train_data = {\"name\": config['guest_train_data']['name'], \"namespace\": config['guest_train_data']['namespace']}\n    host_train_data = {\"name\": config['host_train_data']['name'], \"namespace\": config['host_train_data']['namespace']}\n\n    # Components\n    reader_0 = Reader(name=\"reader_0\")\n    reader_0.get_party_instance(role='guest', party_id=guest).component_param(table=guest_train_data)\n    reader_0.get_party_instance(role='host', party_id=host).component_param(table=host_train_data)\n\n    data_transform_0 = DataTransform(name=\"data_transform_0\", with_label=True, output_format=\"dense\")\n    data_transform_0.get_party_instance(role='guest', party_id=guest).component_param(with_label=True)\n    data_transform_0.get_party_instance(role='host', party_id=host).component_param(with_label=False)\n\n    intersect_0 = Intersection(name=\"intersection_0\")\n\n    hetero_nn_0 = HeteroNN(\n        name=\"hetero_nn_0\",\n        epochs=10,\n        batch_size=64,\n        learning_rate=0.01,\n        interactive_layer_lr=0.01,\n        config_type=\"keras\",\n        guest_bottom_model={\n            \"units\": [64, 32],\n            \"activation\": [\"relu\", \"relu\"]\n        },\n        host_bottom_model={\n            \"units\": [64, 32],\n            \"activation\": [\"relu\", \"relu\"]\n        },\n        interactive_layer={\n            \"units\": 16,\n            \"activation\": \"relu\"\n        },\n        guest_top_model={\n            \"units\": [8, 1],\n            \"activation\": [\"relu\", \"sigmoid\"]\n        },\n        optimizer=\"Adam\",\n        loss=\"binary_crossentropy\",\n        metrics=[\"AUC\"],\n        callback_param={\n            \"early_stop\": True,\n            \"patience\": 3,\n            \"save_best\": True\n        }\n    )\n\n    evaluation_0 = Evaluation(name=\"evaluation_0\", eval_type=\"binary\")\n\n    # Build pipeline\n    pipeline = Pipeline()\n    pipeline.set_initiator(role='guest', party_id=guest)\n    pipeline.set_roles(guest=guest, host=host)\n\n    pipeline.add_component(reader_0)\n    pipeline.add_component(data_transform_0, data=Data(data=reader_0.output.data))\n    pipeline.add_component(intersect_0, data=Data(data=data_transform_0.output.data))\n    pipeline.add_component(hetero_nn_0, data=Data(train_data=intersect_0.output.data))\n    pipeline.add_component(evaluation_0, data=Data(data=hetero_nn_0.output.data))\n\n    # Compile and fit\n    pipeline.compile()\n    pipeline.fit(backend=backend, work_mode=work_mode)\n\n    # Print summary\n    print(pipeline.get_component(\"hetero_nn_0\").get_summary())\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser(description=\"FATE HeteroNN Pipeline for Binary Classification\")\n    parser.add_argument(\"--config\", type=str, required=True, help=\"Path to configuration file\")\n    args = parser.parse_args()\n    main(args.config)\n```",
+  "latency_seconds": 4.553669273002015,
+  "usage": {
+    "completion_tokens": 785,
+    "prompt_tokens": 168,
+    "total_tokens": 953,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "cost_micro_usd": 6616,
+  "response_sha256": "66fe3e8ff03fcabf1fd49ff3190ac47acfe78b2578b1ae4cadd8287c687bff9f",
+  "artifact_sha256": "876ad547a14f8956d44ee17689c30220e301d9a4a73ea997eef9564cb4c7315c"
+}
