@@ -4,7 +4,9 @@ This prototype investigates a bug report and returns ranked paths of files
 likely to need changes. It also provides a small action-loop pattern that can
 be adapted to other Long Code Arena benchmarks. Implementation, configuration,
 tests, documentation and default outputs are under `bug_localization/agentic/`;
-existing experiment entry points are intact.
+existing experiment entry points are intact. See [RESULTS.md](RESULTS.md) for the
+completed 50-issue Python test evaluation and [SMOKE_RESULTS.md](SMOKE_RESULTS.md)
+for local and single-issue smoke verification.
 
 ## How the agent works
 
@@ -72,8 +74,10 @@ mode of this prototype.
 - [`SourceTools` in loop.py](loop.py): inspect `execute()` for BM25 search and
   candidate/range validation, and `bound()` for whole-line output clipping and
   the actual returned line ranges.
+- [RESULTS.md](RESULTS.md): full 50-issue `py/test` evaluation metrics, resource
+  usage, outcomes and reproduction commands.
 - [SMOKE_RESULTS.md](SMOKE_RESULTS.md): read the live training issue walkthrough
-  for the search/read sequence, saved trace location and verification outcomes.
+  for the search/read sequence and local verification outcomes.
 
 ## Setup and local verification
 
@@ -247,4 +251,5 @@ Writes are atomic and checksummed. Matching validated successes are resumed;
 fallbacks and preparation failures are retried. `--no-resume` makes new paid
 requests. Exit code 1 indicates any preparation failure or full fallback, even
 though fallback rankings remain scorable. Scoring refuses dry runs. See
-[SMOKE_RESULTS.md](SMOKE_RESULTS.md) for verification performed in this workspace.
+[RESULTS.md](RESULTS.md) for the 50-issue test evaluation and
+[SMOKE_RESULTS.md](SMOKE_RESULTS.md) for smoke verification.

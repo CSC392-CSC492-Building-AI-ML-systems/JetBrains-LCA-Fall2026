@@ -62,24 +62,22 @@ candidate set; they remain misses and count in AP denominators. Do not interpret
 these results as evidence of improvement over RAG or direct context without
 running the matched comparison arms.
 
-## Saved artifacts
+## Local artifacts
 
-- [Human-readable score report](outputs/test50/agent_scoring/comparison.md).
-- [Aggregate metrics and resource totals](outputs/test50/agent_scoring/comparison.json).
-- [Per-issue metrics](outputs/test50/agent_scoring/per_example_metrics.json).
-- [Run metadata](outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/run_metadata.json).
-- [Run summary](outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/summary.json).
-- Rankings and full traces: `outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/examples/000.json` through `049.json`.
+Generated output files are ignored by Git (`outputs/`). Running the commands below writes the following local artifacts:
 
-Generated outputs are retained locally and ignored by Git.
+- Human-readable score report: `outputs/test50/agent_scoring/comparison.md`
+- Aggregate metrics and resource totals: `outputs/test50/agent_scoring/comparison.json`
+- Per-issue metrics: `outputs/test50/agent_scoring/per_example_metrics.json`
+- Run metadata: `outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/run_metadata.json`
+- Run summary: `outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/summary.json`
+- Rankings and full traces: `outputs/test50/agent/35a54bf9e37ac8d26fb45632bae5cf09193b1f3171a1e9a2f7db6b01c0f5ab74/examples/000.json` through `049.json`
 
 ## Commands used
 
-The local test Arrow file was
-`C:/Users/Admin/.cache/huggingface/datasets/JetBrains-Research___lca-bug-localization/py/0.0.0/f2bb26a1c3320ccc1d7b02d2630077ff327a80f6/lca-bug-localization-test.arrow`.
-
 ```powershell
-$testData = 'C:/Users/Admin/.cache/huggingface/datasets/JetBrains-Research___lca-bug-localization/py/0.0.0/f2bb26a1c3320ccc1d7b02d2630077ff327a80f6/lca-bug-localization-test.arrow'
+# Optional: omit --dataset-file to load from the default Hugging Face cache.
+$testData = '<path-to-lca-bug-localization-test.arrow>'
 .\.venv\Scripts\python.exe -m bug_localization.agentic.run --config bug_localization/agentic/settings.example.json --split test --start 0 --limit 50 --repo-token-budget 4096 --tool-calls 6 --window 40 --stride 20 --dataset-file $testData --output-dir bug_localization/agentic/outputs/test50/agent
 .\.venv\Scripts\python.exe -m bug_localization.agentic.evaluate bug_localization/agentic/outputs/test50/agent --dataset-file $testData --output-dir bug_localization/agentic/outputs/test50/agent_scoring
 ```
