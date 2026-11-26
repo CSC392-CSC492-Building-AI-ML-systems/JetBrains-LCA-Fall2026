@@ -1,18 +1,18 @@
 """Shared lexical tokenizer for bug-localization chunks and query text.
 
-Adapted from project_level_code_completion.rag.bm25.tokenize_code. Keep that
-task's tokenizer unchanged: here filtering happens after lowercasing and a
-single distinct component (e.g. `_name`) is retained when it differs from the
-whole identifier. See bug_localization/rag/README.md for the exact lexical policy.
+Adapted from the code completion tokenizer. This version filters after
+lowercasing and retains a single component (e.g. `name` in `_name`) when it
+differs from the whole identifier.
 """
 
 import keyword
-
-from project_level_code_completion.rag.bm25 import CAMEL_BOUNDARY, IDENTIFIER
+import re
 
 
 TOKENIZER_VERSION = 1
 MIN_TOKEN_LENGTH = 2
+IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 PYTHON_KEYWORDS = frozenset(word.lower() for word in keyword.kwlist)
 
 

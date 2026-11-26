@@ -3,14 +3,12 @@
 import json
 import time
 from dataclasses import asdict, dataclass
-from pathlib import Path
 
 from bug_localization.long_context.experiment import TAIL_POLICY, prepare_input
 from bug_localization.long_context.prompt import pack_prompt
-from bug_localization.rag.bm25_index import ChunkBM25Index
 from bug_localization.rag.file_ranking import complete_ranking, validate_response
 from bug_localization.rag.model import ModelResponse, ModelSettings, OpenAIClient
-from bug_localization.rag.prepare_repositories import PreparedSnapshot, chunk_files, normalize_path, source_lines
+from bug_localization.rag.prepare_repositories import normalize_path, source_lines
 from bug_localization.rag.ranking_prompt import json_text
 from bug_localization.rag.retrieval import digest
 
@@ -142,7 +140,7 @@ def parse_decision(raw):
 
 
 def predict(prepared, repo_token_budget, settings, counter, limits=Limits(), client=None,
-            dry_run=False, window=40, stride=20):
+            dry_run=False):
     settings.validate()
     limits.validate()
     action_settings = ActionSettings(**asdict(settings))
@@ -178,9 +176,7 @@ def predict(prepared, repo_token_budget, settings, counter, limits=Limits(), cli
         return result
     if not packed["fits_context"]:
         return fallback("fallback_context", "initial_context_exhausted")
-    chunks = chunk_files(prepared["files"], window, stride)
-    index = ChunkBM25Index(PreparedSnapshot({"candidate_paths": sorted(prepared["files"])}, chunks, Path("."), False))
-    tools = SourceTools(prepared["files"], index, limits, counter)
+    tools = SourceTools(prepared["files"], prepared["bm25_index"], limits, counter)
     force_final = limits.tool_calls == 0
     if force_final:
         result["stop_reason"] = "tool_budget_exhausted"

@@ -179,9 +179,10 @@ the test set or claim an improvement from the smoke example alone.
 
 ## Loop and limits
 
-`loop.py` imports the shared `prepare_input`, `pack_prompt(mode="rag")`,
-`ChunkBM25Index`, `OpenAIClient`, `ModelSettings`, `validate_response` and
-`complete_ranking`; `run.py` supplies the shared `TokenCounter`.
+`loop.py` uses the shared `prepare_input`, `pack_prompt(mode="rag")`,
+`OpenAIClient`, `ModelSettings`, `validate_response` and `complete_ranking`.
+`run.py` supplies the shared `TokenCounter`. The `search_code` tool reuses
+the BM25 index built by `prepare_input` for the initial retrieval.
 The issue, lexicographic Python
 candidate paths and serialized initial BM25 source payload are identical to the
 one-shot comparison. Only the agent's system instructions/schema differ.

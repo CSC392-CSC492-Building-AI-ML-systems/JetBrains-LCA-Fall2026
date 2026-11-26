@@ -1,10 +1,9 @@
 r"""Run TF-IDF + NLTK on all 50 Python test examples.
 
-This file lives in lca-baselines/bug_localization/baseline_eval.
-Run from lca-baselines:
-  .\.venv\Scripts\python.exe .\bug_localization\baseline_eval\run_all_tfidf.py
+Run from the repository root:
+  python -m bug_localization.baseline_eval.run_all_tfidf
 
-Uses the original classes from commit 977d200d2c2c5dc825190c5293db8e25057ff698.
+Uses the ranking algorithm from commit 977d200d2c2c5dc825190c5293db8e25057ff698.
 Preserves the archived baseline's test-directory filter AND unfiltered
 dataset labels. A correct file outside the candidates is a missed prediction,
 not a failed execution. UTF-8 Git-blob reading remains a portability change;
@@ -237,13 +236,13 @@ def run_examples(dataset, baseline, output_dir, manifest):
 
 
 def main():
-    # Make src importable when running this script directly from any directory.
-    sys.path.insert(0, str(ROOT))
-    from datasets import load_dataset
+    if not __package__:
+        sys.path.insert(0, str(ROOT.parent))
+
     import nltk
-    from src.baselines.backbones.emb.tfidf_emb_backbone import TfIdfEmbBackbone
-    from src.baselines.backbones.emb.tokenizers.nltk_tokenizer import NltkTokenizer
-    from src.baselines.backbones.emb.rankers.cosine_distance_ranker import CosineDistanceRanker
+    from datasets import load_dataset
+
+    from bug_localization.baseline_eval import tfidf
 
     # Fetch the additional tokenizer data needed by newer NLTK versions.
     for resource in ("punkt", "punkt_tab", "stopwords", "wordnet"):
@@ -254,12 +253,7 @@ def main():
     if len(dataset) != 50:
         raise ValueError(f"Expected 50 Python test examples, received {len(dataset)}")
 
-    relevant_files = [
-        "src/baselines/backbones/emb/tfidf_emb_backbone.py",
-        "src/baselines/backbones/emb/tokenizers/nltk_tokenizer.py",
-        "src/baselines/backbones/emb/rankers/cosine_distance_ranker.py",
-        "src/baselines/utils/embed_utils.py",
-    ]
+    baseline_source = Path(tfidf.__file__)
     manifest = {
         "reference_commit": REFERENCE_COMMIT,
         "dataset": DATASET, "configuration": "py", "split": "test",
@@ -267,13 +261,13 @@ def main():
         "python_version": platform.python_version(),
         "packages": {name: version(name) for name in ("numpy", "scikit-learn", "nltk", "datasets", "GitPython")},
         "source_hashes": {
-            name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
-            for name in relevant_files
+            baseline_source.relative_to(ROOT).as_posix():
+                hashlib.sha256(baseline_source.read_bytes()).hexdigest(),
         },
         "runner_hash": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "snapshot_method": "Git blobs decoded as UTF-8; .py only; exclude test/ and tests/",
         "label_policy": "Raw dataset changed_files; unreachable labels count as misses",
-        "baseline": "Original TF-IDF + NLTK classes; fit per issue and its repository",
+        "baseline": "Archived TF-IDF + NLTK algorithm; fit per issue and its repository",
     }
     # Different code/data/package versions get separate folders automatically.
     output_dir = ROOT / "outputs" / "tfidf_python50" / digest(manifest)[:12]
@@ -282,10 +276,7 @@ def main():
         "run_directory": output_dir.name,
         "manifest_digest": digest(manifest),
     })
-    baseline = TfIdfEmbBackbone(
-        name="tfidf", tokenizer=NltkTokenizer(),
-        ranker=CosineDistanceRanker(), pretrained_path=None,
-    )
+    baseline = tfidf.TfIdfBaseline()
     print("Results folder:", output_dir, flush=True)
     summary = run_examples(dataset, baseline, output_dir, manifest)
     print(f"\nFinished: {summary['successful']}/50 successful; {summary['failed']} failed.")

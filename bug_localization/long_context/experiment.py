@@ -34,6 +34,7 @@ def load_snapshot(example):
 
 
 def prepare_input(example, window=40, stride=20):
+    """Prepare the initial retrieval and retain its index for follow-up searches."""
     example = project_example(example)
     resolved_sha, files = load_snapshot(example)
     chunks = chunk_files(files, window, stride)
@@ -42,7 +43,7 @@ def prepare_input(example, window=40, stride=20):
     index = ChunkBM25Index(snapshot)  # Same default k1=1.2, b=.75 as existing RAG.
     retrieval = retrieve(index, make_query(example), max_chunks=len(chunks))
     return {"example_input": example, "resolved_base_sha": resolved_sha, "files": files,
-            "snapshot_sha256": digest(files), "retrieval": retrieval}
+            "snapshot_sha256": digest(files), "retrieval": retrieval, "bm25_index": index}
 
 
 def predict(prepared, mode, repo_token_budget, settings, counter, client=None, dry_run=False):

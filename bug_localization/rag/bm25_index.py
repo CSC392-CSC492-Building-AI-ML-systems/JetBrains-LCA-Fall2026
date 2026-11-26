@@ -18,11 +18,12 @@ if not __package__:
 
 from bug_localization.rag import prepare_repositories as preparation
 from bug_localization.rag import retrieval_tokenizer as tokenizer
-from project_level_code_completion.rag.bm25 import BM25Index
+from bug_localization.rag.bm25 import BM25Index
 
 
 FORMAT_VERSION = 1
-# Bump when the reused core or our scoring/persistence semantics change.
+# Keep the version when moving the identical scoring algorithm between modules.
+# Bump it when scoring or persistence semantics change.
 SCORING_VERSION = "adriana-okapi-nonnegative-idf/distinct-query-sorted-sum/v1"
 DEFAULT_CACHE = preparation.RAG_ROOT / "outputs" / "bm25_indexes"
 

@@ -34,10 +34,13 @@ class AgenticTests(unittest.TestCase):
         self.prepared = loop.prepare_input(GuardedRow(self.row), 4, 2)
 
     def predict(self, client, **kwargs):
-        return loop.predict(self.prepared, 1, self.settings, self.counter, client=client, window=4, stride=2, **kwargs)
+        return loop.predict(self.prepared, 1, self.settings, self.counter, client=client, **kwargs)
 
     def test_follow_up_discovery_and_base_only(self):
-        result = self.predict(InvestigatingClient())
+        index = self.prepared["bm25_index"]
+        with patch.object(index, "search", wraps=index.search) as search:
+            result = self.predict(InvestigatingClient())
+        self.assertEqual(search.call_count, 2)
         self.assertEqual([t["action"]["action"] for t in result["trace"]],
                          ["search_code", "search_code", "read_file", "submit_ranking"])
         self.assertIn("resolve_alias", result["trace"][0]["tool_result"]["snippets"][0]["text"])
@@ -95,12 +98,14 @@ class AgenticTests(unittest.TestCase):
         self.assertEqual(len(result["ranking"]), len(self.prepared["files"]))
 
     def test_whole_line_output_and_total_context_bounds(self):
-        prepared = {**self.prepared, "files": {**self.prepared["files"], "large.py": "x = '" + "x" * 4000 + "'\nshort = 1\n"}}
+        files = {**self.prepared["files"], "large.py": "x = '" + "x" * 4000 + "'\nshort = 1\n"}
+        with patch.object(experiment, "load_snapshot", return_value=(self.row["base_sha"], files)):
+            prepared = loop.prepare_input(GuardedRow(self.row), 4, 2)
         # No single huge line can escape the tool token limit.
         result = loop.predict(prepared, 1, self.settings, self.counter,
                               client=SequenceClient({"decision": {"action": "read_file", "path": "large.py", "start_line": 1, "end_line": 2}},
                                                     {"decision": {"action": "submit_ranking", "paths": ["symbols.py"]}}),
-                              limits=loop.Limits(tool_output_tokens=256), window=4, stride=2)
+                              limits=loop.Limits(tool_output_tokens=256))
         self.assertLessEqual(result["trace"][0]["tool_output_tokens"], 256)
         for turn in result["trace"]:
             self.assertLessEqual(turn["input_tokens_estimated"], self.settings.input_budget)

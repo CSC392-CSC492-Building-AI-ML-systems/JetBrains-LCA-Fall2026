@@ -112,9 +112,8 @@ def implementation_hashes():
     root = Path(__file__).resolve().parents[2]
     names = ["bug_localization/rag/" + name for name in (
         "retrieval.py", "run_retrieval.py", "prepare_repositories.py",
-        "bm25_index.py", "retrieval_tokenizer.py")]
-    names.extend(["project_level_code_completion/rag/bm25.py",
-                  "bug_localization/baseline_eval/run_all_tfidf.py"])
+        "bm25.py", "bm25_index.py", "retrieval_tokenizer.py")]
+    names.append("bug_localization/baseline_eval/run_all_tfidf.py")
     return {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}
 
 

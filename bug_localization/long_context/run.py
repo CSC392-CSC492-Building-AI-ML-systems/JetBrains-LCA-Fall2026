@@ -28,11 +28,10 @@ def implementation_identity():
     root = ROOT.parents[1]
     paths = list(ROOT.glob("*.py"))
     paths += [root / "bug_localization" / "rag" / name for name in (
-        "prepare_repositories.py", "bm25_index.py", "retrieval.py", "retrieval_tokenizer.py",
+        "prepare_repositories.py", "bm25.py", "bm25_index.py", "retrieval.py", "retrieval_tokenizer.py",
         "ranking_prompt.py", "model.py", "file_ranking.py", "run_retrieval.py", "run_ranking.py")]
     paths += [root / "bug_localization" / "baseline_eval" / name
               for name in ("run_all_tfidf.py", "evaluate_tfidf.py")]
-    paths.append(root / "project_level_code_completion" / "rag" / "bm25.py")
     packages = {}
     for name in ("openai", "tiktoken", "datasets", "GitPython"):
         try:

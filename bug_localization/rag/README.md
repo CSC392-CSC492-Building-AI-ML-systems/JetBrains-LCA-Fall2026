@@ -28,7 +28,7 @@ Snapshot and candidate semantics:
   [`HFDataSource`](../src/baselines/data_sources/hf_data_source.py) and the local
   TF-IDF runner load `base_sha` as the buggy snapshot. Preparation follows that
   convention, without deriving a parent commit or reading `head_sha` or diffs.
-- The unchanged [`run_all_tfidf.py`](../baseline_eval/run_all_tfidf.py)
+- The TF-IDF runner [`run_all_tfidf.py`](../baseline_eval/run_all_tfidf.py)
   `get_repository` and `read_content` utilities resolve/obtain repository history
   under `bug_localization/repos/<owner>__<name>` and read committed blobs without
   checkout. Missing history may trigger a GitHub clone/fetch; a missing old
@@ -165,16 +165,16 @@ without parsing or executing code. Only chunk **text** enters the index;
 file paths remain source metadata. This ASCII lexical policy is an initial
 limitation for non-English prose and Unicode identifiers.
 
-The extraction/splitting expressions come from Adriana's
-[`rag/bm25.py`](../../project_level_code_completion/rag/bm25.py). That tokenizer is
-unchanged; the new task-specific function filters after lowercasing and retains
+The extraction and splitting expressions in
+[`retrieval_tokenizer.py`](retrieval_tokenizer.py) were adapted from the code
+completion tokenizer. Bug localization filters after lowercasing and retains
 a component such as `name` in `_name` even when there is only one component.
 
 ### Scoring and Python API
 
-[`bm25_index.py`](bm25_index.py) reuses Adriana's `BM25Index`
-constructor, inverted postings, and scorer directly. A BM25 document is one
-**nonempty tokenized chunk**. Defaults are `k1=1.2`, `b=0.75`; require finite
+[`bm25_index.py`](bm25_index.py) uses the local
+[`BM25Index`](bm25.py), adapted from the code completion scorer. A BM25 document
+is one **nonempty tokenized chunk**. Defaults are `k1=1.2`, `b=0.75`; require finite
 `k1 > 0` and `0 <= b <= 1`. With `N` indexed chunks, term frequency `tf`,
 document frequency `df`, chunk token length `dl`, and mean length `avgdl`:
 
@@ -726,8 +726,10 @@ python -m bug_localization.rag.evaluate_ranking bug_localization/rag/outputs/llm
 ```
 
 `--tfidf-summary` accepts the original TF-IDF summary, its run directory, or its
-latest-run parent. If it lives elsewhere, supply its actual path. The unchanged
-baseline runner is `python bug_localization/baseline_eval/run_all_tfidf.py`.
+latest-run parent. If it lives elsewhere, supply its actual path. To generate
+the baseline, add `nltk` and `scikit-learn` to the RAG environment using
+`python -m pip install -c bug_localization/requirements.txt nltk scikit-learn`,
+then run `python -m bug_localization.baseline_eval.run_all_tfidf`.
 Without `--tfidf-summary`, the report explicitly includes BM25/RAG only. A
 supplied TF-IDF run must match every evaluated example's index, issue URL,
 resolved snapshot SHA, candidate universe, and labels, as well as the dataset

@@ -118,7 +118,7 @@ def run_examples(dataset, repo_token_budget=4096, output_root=DEFAULT_OUTPUT, se
                 base.update(resolved_base_sha=prepared["resolved_base_sha"],
                             snapshot_sha256=prepared["snapshot_sha256"], candidate_count=len(prepared["files"]))
                 result = {**base, **predict(prepared, repo_token_budget, settings, counter, limits,
-                                           client, dry_run, window, stride),
+                                           client, dry_run),
                           "elapsed_seconds": time.perf_counter() - started}
                 validate_saved(result, manifest, signature)
                 checked_write(path, result)
