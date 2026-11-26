@@ -1,124 +1,96 @@
-# CI builds repair results
+# CI builds repair evaluation across approaches
 
-**Keep Qwen without retrieval as the default for now; keep long context
-experimental.** The completed paired comparisons use all 68 cached cases and
-seeds 0, 1, and 2 with the same checkpoint, output budget, and composition.
-Standard has the strongest full-dataset edit scores; lean RAG has the best
-local CI result on the seven supported workflows. No GitHub Actions evaluator
-was run.
+## Final experiment table
 
-| Approach | Valid answers | Mean edit F1, all 68 cases | CI Pass@1, supported seven cases, mean across seeds |
-| --- | --- | --- | --- |
-| Standard | 184/204 | 0.281071 | 19.0% (4/21 case-seed attempts) |
-| Lean RAG | 183/204 | 0.229798 | 28.6% (6/21) |
-| Long context | 146/204 | 0.191581 | 0.0% (0/21) |
+All four approaches used 68 cached CI-repair cases, seeds 0, 1, and 2, and
+the same oracle edit locations. The four-bit Qwen2.5-Coder-7B-Instruct
+checkpoint generated the patches for standard, lean RAG, and long context.
+In the agentic arm, that checkpoint produced the plan and
+`gpt-4.1-2025-04-14` used tools and submitted the patch. The seven supported
+workflows and their failed/reference controls are shared across approaches.
 
-All seven failed/reference controls validate. The other 61 workflows remain
-unsupported: **full-dataset CI Pass@1 is unavailable**, and the seven-case
-subset is not comparable to the paper's original score. Repeated seeds are
-not independent cases. See the [full lean-RAG report](baseline/results/FULL_RAG_BENCHMARK.md)
-and [long-context comparison](baseline/results/FULL_LONG_CONTEXT_BENCHMARK.md)
-for audits, settings, per-seed rates, and portable metrics.
+| Approach | Valid / 204 | Exact reference / 204 | Mean edit F1 | Local CI Pass@1 (passes / 21) | Mean tokens / attempt | Median generation s | p95 generation s | Summed generation h |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Standard Qwen | 184 | 21 | 0.2811 | 19.0% (4/21) | 1,277 | 6.97 | 70.30 | 1.25 |
+| Lean RAG | 183 | 21 | 0.2298 | 28.6% (6/21) | 1,817 | 8.67 | 72.02 | 1.32 |
+| Long context | 146 | 7 | 0.1916 | 0.0% (0/21) | 20,558 | 85.32 | 446.54 | 6.11 |
+| Agentic total | 104 | 20 | 0.2615 | 19.0% (4/21) | 9,070 | — | — | — |
 
-## Earlier experiments
+Edit F1 and exact reference match use all 68 cases. CI Pass@1 averages
+three 7-case runs with one final submission per case and seed. Invalid
+submissions count as failures on supported cases. All seven controls
+validated. The other 61 workflows are unsupported, so full-dataset CI
+Pass@1 is unavailable. The four approaches share cases for paired
+comparisons. Differences involving the agentic arm combine a different
+patch-writing model, structured output, and interactive tools.
 
-| Experiment | Cases and seeds | No retrieval | With retrieval |
-| --- | --- | ---: | ---: |
-| [Mistral 7B, 4-bit: original BM25 comparison](rag/results/REPORT.md) | 68 cases × 3 seeds | 0.195233 edit F1 | 0.117880 edit F1 |
-| [Qwen2.5-Coder 7B, 4-bit: lean BM25](baseline/results/QWEN_LEAN_RAG.md) | 6 cases outside the development cohort × 3 seeds | 0.250119 edit F1 | 0.249960 edit F1 |
+### Token use, latency, and compute
 
-- **Mistral:** 123/204 applicable answers without retrieval vs. 68/204
-  with it. Extra context increased marker failures and output truncation.
-- **Qwen:** original all-block markers held fixed. Lean retrieval added at
-  most three deduplicated snippets and 768 tokens. It won seven pairs, tied
-  nine, and lost two. The mean delta was −0.000159; the direction is sensitive
-  to individual cases. These are six CI cases, not 18 independent cases.
+| Approach or model stage | Input tokens | Output tokens | Total tokens | Mean total / attempt |
+| --- | ---: | ---: | ---: | ---: |
+| Standard Qwen | 144,915 | 115,684 | 260,599 | 1,277.4 |
+| Lean RAG | 255,864 | 114,861 | 370,725 | 1,817.3 |
+| Long context | 3,988,620 | 205,295 | 4,193,915 | 20,558.4 |
+| Agentic total | 1,685,486 | 164,893 | 1,850,379 | 9,070.5 |
+| Agentic Qwen planner | 162,249 | 125,805 | 288,054 | 1,412.0 |
+| Agentic GPT-4.1 orchestrator | 1,523,237 | 39,088 | 1,562,325 | 7,658.5 |
 
-## Reproduction and format development
+Input includes each model's full prompt. Output includes generated tokens
+from invalid or capped answers. All rows use 204 attempts as the denominator.
+The agentic total includes both stages. GPT-4.1 usage sums 784 API responses
+including repeated conversation history and tool results. Its 756,992
+cached input tokens are already part of the input total. Qwen and GPT-4.1
+use different tokenizers, so the combined count describes work measured by
+each model. The 204 standard answers reused in the long-context comparison
+are counted once, under standard Qwen.
 
-- The [verified non-RAG Mistral run](baseline/results/REPORT.md) checked all
-  204 saved predictions. The [16,000-token rerun](baseline/results/RUN_16K.md)
-  kept the same scores: it reused compatible answers and generated the three
-  formerly over-budget cases, which all reached the output cap. The separate
-  partial run `2a159171f4b13a8d7ceb` is not included.
-- The [reference oracle](baseline/run_reference_oracle.py) reconstructed
-  68/68 reference repairs. This is an integrity check using the actual
-  reference diff, not a model result; F1 was undefined for three
-  whitespace-only repairs.
-- Sparse output made format validation easier in the
-  [constrained synthetic trials](baseline/results/RAW_EDIT_SMOKE.md), but on
-  real CI examples [Qwen's original format](baseline/results/QWEN_CI_DEV.md)
-  beat constrained raw edits (0.2681 vs. 0.1270 edit F1). Eight valid
-  constrained answers returned no edits. The intermediate
-  [JSON](baseline/results/CONSTRAINED_EDIT_SMOKE.md) and
-  [plain-text marker](baseline/results/SPARSE_MARKER_DEV.md) results are
-  exploratory, not alternative headline scores.
+Local timing uses saved per-answer inference durations and excludes setup,
+evidence preparation, and workflow replay. The p95 is the nearest-rank
+95th percentile. Summed generation hours describe recorded inference
+durations, not GPU utilization or machine rental. The agentic run did not
+record comparable per-attempt durations. The three Qwen-only approaches
+ran on local hardware and incurred no API charges. Local electricity and
+hardware costs were unmeasured for all approaches.
 
-## What the local checks establish
+At the published text rates of $2.00 per million uncached input tokens,
+$0.50 per million cached input tokens, and $8.00 per million output tokens,
+the saved GPT-4.1 usage gives an **estimated $2.22 USD** for the agentic
+API calls. The estimate excludes local Qwen compute and uses list rates
+rather than an account invoice. [GPT-4.1 model pricing](https://developers.openai.com/api/docs/models/gpt-4.1)
 
-| Case | Check | Result |
-| --- | --- | --- |
-| [SkyPilot 37](baseline/results/QWEN_CI_DEV.md#case-37-local-replay-of-the-affected-file-formatter) | Affected-file YAPF 0.32.0, failed and reference controls | Original Qwen format passed 3/3 seeds; constrained raw edits passed 1/3. |
-| [W&B 119](baseline/results/QWEN_LEAN_RAG.md#local-checks-not-ci-pass1) | Affected-file Black 23.7.0, failed and reference controls | No retrieval and lean retrieval each passed 0/3 seeds. |
-| [Starlette 144](baseline/results/QWEN_LEAN_RAG.md#local-checks-not-ci-pass1) | Replayed the logged literal error and compared the resulting Python AST | Both arms corrected the literal. The full file AST matched the reference on 1/3 plain and 3/3 retrieval seeds. No pytest or app code ran. |
+[Machine-readable results and usage table](baseline/results/approach_comparison.csv)
 
-Those original checks cover individual files; repeated seeds on one file do
-not count as independent fixes.
+### Reading the table
 
-## Full local workflow validation
+- **Lean RAG led local CI.** It passed 6/21 supported attempts at 1,817 tokens
+  per attempt, 1.42 times standard's token use. Standard retained the
+  highest full-cohort edit F1, 0.2811.
+- **Long context spent the most tokens.** It used 11.31 times lean RAG's
+  tokens per attempt and roughly 4.6 times its summed generation time.
+  It reached 0.1916 F1 and passed none of the supported workflow attempts.
+- **The agentic approach tied standard on CI.** Its edit F1 exceeded lean
+  RAG's by 0.0317 while its CI total was two passes lower. It used 4.99
+  times lean RAG's tokens per attempt and submitted 104 valid patches.
 
-The [execution-based validation](baseline/results/LOCAL_CI_VALIDATION.md) now
-covers five cases using 42 saved predictions. All five failed/reference pairs
-validate, including Starlette's complete Python 3.8–3.12 matrix with linting,
-builds, tests, and coverage. It uses local Linux containers and no GitHub Actions.
+### Paired local workflow results
 
-Mistral's no-retrieval baseline passes 0/15 selected predictions; original BM25
-passes 3/15, all on SkyPilot case 37. On that shared formatting case, Qwen's
-original format passes 3/3 and constrained raw output passes 1/3. On Starlette
-case 144, both Qwen no-retrieval and lean retrieval pass 0/3: the saved answers
-lose a required blank line and fail formatting despite the earlier AST credit.
-These deliberately selected validation cases do not establish a full dataset
-or paper score. The report includes portable metrics and reproduction commands.
+Each cell counts passes across three seeds for that case. Bold marks a
+case on which at least one approach passed.
 
-The subsequent [repair pipeline improvement](baseline/results/REPAIR_PIPELINE_IMPROVEMENT.md)
-re-evaluates the same answers with unambiguous marker recovery and guarded
-boundary-whitespace preservation. Mistral's no-retrieval arm improves from
-0/15 to 3/15; Qwen on case 144 improves from 0/3 to 1/3 without retrieval and
-0/3 to 3/3 with lean retrieval. CI checks remain unchanged. An additional fresh
-Qwen typing case scores 0/3 under both policies, so semantic errors remain.
-These are development-subset improvements, not a match to the paper's score.
+| Case | Standard Qwen | Lean RAG | Long context | Agentic |
+| --- | ---: | ---: | ---: | ---: |
+| 33 | 0/3 | 0/3 | 0/3 | 0/3 |
+| 34 | 0/3 | 0/3 | 0/3 | 0/3 |
+| **36** | 0/3 | 3/3 | 0/3 | 1/3 |
+| **37** | 3/3 | 0/3 | 0/3 | 2/3 |
+| 142 | 0/3 | 0/3 | 0/3 | 0/3 |
+| 143 | 0/3 | 0/3 | 0/3 | 0/3 |
+| **144** | 1/3 | 3/3 | 0/3 | 1/3 |
 
-## Comparison with Long Code Arena
-
-[Long Code Arena](https://arxiv.org/abs/2406.11612v1) reports GPT-4 bug
-localization MAP of 0.39 (Table 20) and Mistral-7B CI Pass@1 of 6.5% (Table 7).
-File ranking is distinct from patch generation. Our quantized Mistral, reconstructed prompt, current
-68-case dataset, and offline metrics do not replicate the paper's 77-case
-workflow evaluation. Edit F1 is not numerically comparable to CI Pass@1.
-
-## Artifacts and next step
-
-For the full 68-case paired Qwen lean-retrieval benchmark, see its
-[run status and results](baseline/results/FULL_RAG_BENCHMARK.md). It records
-fresh matched predictions, three seeds, independent audits, and explicit local
-CI coverage limits.
-
-The [long-context comparison](baseline/results/FULL_LONG_CONTEXT_BENCHMARK.md)
-uses the same model and seeds, adding affected files and direct imports from
-the failed snapshot within the native 32,768-token limit. Its paired standard
-answers are shared with the completed lean-RAG run. The report distinguishes
-input coverage, offline edit scores, and supported-workflow CI Pass@1.
-
-The [machine-readable results](baseline/results/published_metrics.json) retain
-run identities, verified Qwen case scores, local checks, and Mistral
-verification summaries. The [original Mistral aggregate and per-case data](rag/results/)
-are tracked separately. Raw prompts, responses, full patches, caches, and
-weights remain local under ignored `out/` and `.venv/` directories.
-
-Expand local failed/reference checks and include deterministic formatters
-as baselines for formatting cases. Test any rule for when to retrieve on
-new cases rather than scaling the current RAG setting by default.
-
+Standard passes case 37 on all seeds and case 144 on seed 2. Lean RAG
+passes cases 36 and 144 on all seeds. The agentic run passes case 36 on
+seed 1, case 37 on seeds 1 and 2, and case 144 on seed 2. Its per-seed
+totals are 0/7, 2/7, and 2/7.
 
 ## Models, seeds, and experiment registry
 
@@ -130,8 +102,9 @@ memory. They are different model families; Qwen results are not Mistral
 replications. Qwen revision is `019cc73c45c770444708a6dd8690c66243cc5c80`;
 individual manifests pin model-file hashes and runtime packages.
 
-Every generation experiment in this table uses seeds **0, 1, 2**, temperature
-**0.2**, and effective RNG seed **configured seed + dataset ID**. Each
+All experiments use seeds **0, 1, 2** and temperature **0.2**. Locally
+seeded models use **configured seed + dataset ID**. In the agentic arm this
+seeds Qwen planning. The GPT-4.1 API calls have no server-side seed. Each
 case/seed produces one answer per arm, without selecting the best answer from
 three seeds. A mean across seeds is not Pass@3. Repeated seeds share the same
 case and are not independent projects.
@@ -144,6 +117,7 @@ case and are not independent projects.
 | Lean-RAG pilot, `bf64963b600ed42de523` | Q | 6: 60, 119, 144, 41, 57, 39 | 0, 1, 2 | 8,192 / 2,048 | Different pilot cohort; original composition |
 | Full standard vs lean RAG, `372e8aa90832060ccc54` | Q | 68 | 0, 1, 2 | 32,768 / 8,192 | 204 fresh answers per arm; improved composition |
 | Full standard vs long context, `e7f55dfd54fce4c2b4fa` | Q | 68 | 0, 1, 2 | 32,768 / 8,192 | 204 new long-context answers; same 204 verified standard controls reused |
+| Full agentic experiment, `e9b65a333929f1c53b12` | Q planner + GPT‑4.1 orchestrator | 68 | 0, 1, 2 | Q: 32,768 / 768. GPT‑4.1: 8,192 output tokens per call, up to six calls | 204 tool-loop attempts, 104 accepted patches |
 | Additional typing diagnostic, `67df8c1eb2aa1c0b77bf` | Q | 1: 142 | 0, 1, 2 | 16,000 / 8,192 | Fresh standard answers; 0/3 local CI passes |
 | Larger-output diagnostic, `2ea11b2c7fb3fd05bed8` | M | 1: 33 | 0, 1, 2 | 32,768 / 16,384 | Two incomplete stop responses, one capped response; 0/3 local CI passes |
 
@@ -158,24 +132,27 @@ scores and improved-composition scores must remain separate.
 ## Failure analysis across the full paired Qwen experiments
 
 The following counts cover 204 answers per arm (68 cases times three seeds).
-They come from the audited per-answer records. Input budgets fit every case
-in these full Qwen experiments; their failures are not input-budget skips.
+They come from the audited per-answer records. All four full approaches
+fit their input budgets.
 
-| Observation | Standard | Lean RAG | Long context |
-| --- | ---: | ---: | ---: |
-| Valid replacement-format answers | 184 | 183 | 146 |
-| Marker-format failures | 15 | 17 | 43 |
-| Output-token limit failures | 5 | 4 | 15 |
-| Valid but unchanged repairs | 37 | 55 | 24 |
-| Nonempty patches with detected Python syntax regression | 15 | 16 | 34 |
-| Exact reference matches | 21 | 21 | 7 |
-| Supported-workflow passes / 21 case-seed attempts | 4 | 6 | 0 |
-| Supported-workflow failures after an applicable answer | 11 | 12 | 10 |
-| Invalid answers on supported workflows | 6 | 3 | 11 |
+| Observation | Standard | Lean RAG | Long context | Agentic |
+| --- | ---: | ---: | ---: | ---: |
+| Valid replacement-format answers | 184 | 183 | 146 | 104 |
+| Marker-format failures | 15 | 17 | 43 | — |
+| Output-token limit failures | 5 | 4 | 15 | 0 |
+| Turn limit without accepted patch | — | — | — | 100 |
+| Valid but unchanged repairs | 37 | 55 | 24 | 3 |
+| Nonempty patches with detected Python syntax regression | 15 | 16 | 34 | 0 accepted |
+| Exact reference matches | 21 | 21 | 7 | 20 |
+| Supported-workflow passes / 21 case-seed attempts | 4 | 6 | 0 | 4 |
+| Supported-workflow failures after an applicable answer | 11 | 12 | 10 | 8 |
+| Invalid answers on supported workflows | 6 | 3 | 11 | 9 |
 
-The first three rows partition output validity: a capped answer is classified
-as a token-limit failure even if markers are also incomplete. No-op and syntax
-rows describe valid answers and are not additional disjoint failure totals.
+For the three Qwen-only arms, valid answers, marker failures, and output
+limits exhaust the outcomes. The agentic arm uses structured submissions
+and has a separate turn limit. Its output limit row applies to GPT-4.1
+responses. No-op and syntax counts describe details of the applicable
+answers and may overlap other rows.
 Syntax checks use Python 3.13 AST parsing, not the historical CI interpreters;
 they cannot certify imports, types, formatting, tests, or runtime behavior.
 A valid no-op leaves the known failing snapshot unchanged. Exact-match failure
@@ -248,6 +225,22 @@ making retrieval universal. Recorded generation durations total about 6.11
 hours for long context versus 1.25 for standard and 1.32 for lean RAG; these
 are observed durations from different runs, not a controlled speed benchmark.
 
+### Agentic tool use and incomplete submissions
+
+All 100 invalid agentic attempts exhausted six orchestrator turns. In 82,
+the orchestrator used every turn to find paths or read files without proposing
+a patch. The other 18 generated 30 proposals that failed the static syntax
+check. None of those attempts submitted an accepted revision within the turn
+limit. Among the 21 supported attempts, eight accepted submissions then failed
+YAPF or lint checks, nine ended without a submission, and four passed. The
+absence of syntax regressions among submitted patches reflects the syntax gate.
+It does not mean all proposals were syntactically valid.
+
+Qwen reached its 768-token plan cap on 51 attempts. Twenty of those still
+yielded valid submissions. These observations separate evidence gathering,
+patch validation, and workflow failures. They do not establish that a larger
+turn budget or longer planner output would improve CI.
+
 ### Infrastructure, unsupported cases, and evaluator failures
 
 The seven supported workflows have valid failed/reference controls: original
@@ -277,7 +270,7 @@ for these numbers, rather than later dataset versions or other tasks' results.
 | --- | --- | --- |
 | Dataset | 77 items: 35 formatting, 14 local/typing, 28 dependency-sensitive | 68 cached items; equivalence to the original 77 has not been established |
 | Inputs | Oracle files/hunks, failed code, seven-line first-error log excerpt (or final seven lines) | Same broad oracle/log setup, reconstructed prompt; added stable block IDs and explicit output contract |
-| Models | Table 7 includes Mistral-7B, Mixtral, Llama-2, GPT-3.5 and GPT-4 | Local four-bit Mistral checkpoint for earlier runs; four-bit Qwen checkpoint for the full RAG/long-context comparison |
+| Models | Table 7 includes Mistral-7B, Mixtral, Llama-2, GPT-3.5 and GPT-4 | Local four-bit Mistral checkpoint for earlier runs; four-bit Qwen checkpoint for the full RAG/long-context comparison, plus GPT-4.1 for agentic orchestration |
 | Sampling | CI section does not specify our seed/temperature/cap schedule | Explicit seeds 0/1/2, effective seed plus ID, temperature 0.2; budgets listed above |
 | Additional evidence | Reported oracle baseline edits all blocks in one request | Standard keeps this approach; RAG and long-context evidence are extensions, not paper replications |
 | Primary correctness | Generated patch succeeds on the GitHub Actions workflow | Original supported workflow checks reconstructed in local Linux containers; coverage only 7/68 |
@@ -285,7 +278,7 @@ for these numbers, rather than later dataset versions or other tasks' results.
 
 Table 7 reports Mistral-7B **6.5%**, GPT-3.5 **16.9%**, and GPT-4 **15.6%**
 CI Pass@1. These are not edit F1 values. Our conditional seven-case values
-(19.0% standard, 28.6% lean RAG, 0% long context) cannot show that we beat or
+(19.0% standard and agentic, 28.6% lean RAG, 0% long context) cannot show that we beat or
 match those results: the models, precision, dataset, coverage, environment,
 prompt details, decoding, and composition differ. Qwen is not a model evaluated
 in that table. The earlier Mistral run matches a model family, not necessarily
@@ -306,11 +299,13 @@ Our measured protocol fragility and context-associated regressions explain part
 of our local performance; they do not explain the numerical gap to the paper
 without an aligned dataset/model/environment experiment.
 
-## Next experiments justified by this evidence
+## Conclusion and next experiments
 
 Keep standard as the default for broad offline performance and retain lean RAG
 as a conditional candidate based on the limited CI subset. Do not promote the
-current long-context policy. First test output-protocol reliability and
+current long-context policy. The agentic results make submission rate the
+first target for a follow-up, with an explicit budget reserved for proposing
+and revising a patch. First test output-protocol reliability and
 syntax/format validation as explicitly separate variants without changing
 historical results. Then compare targeted evidence budgets on unseen cases,
 keeping model, oracle blocks, decoding, and output processing fixed. Finally,
@@ -318,3 +313,96 @@ expand workflow coverage with verified failed/reference controls before making
 a full-dataset or paper-comparability claim. Inspect failure stages as well as
 aggregate success; a gain on one formatting case is not evidence of improved
 project-level reasoning.
+
+## Artifacts
+
+| Experiment | Report | Run records |
+| --- | --- | --- |
+| Standard and lean RAG | [Full RAG benchmark](baseline/results/FULL_RAG_BENCHMARK.md) | `372e8aa90832060ccc54`, [metrics](baseline/results/full_rag_metrics.json) |
+| Long context | [Full long-context benchmark](baseline/results/FULL_LONG_CONTEXT_BENCHMARK.md) | `e7f55dfd54fce4c2b4fa`, [metrics](baseline/results/full_long_context_metrics.json) |
+| Agentic | [Agentic benchmark](baseline/AGENTIC_BENCHMARK.md#results) | `e9b65a333929f1c53b12`, local CI audit `ac5f6d067797cd26ebe5` |
+| Earlier Mistral | [Original benchmark](rag/results/REPORT.md) | `2d9349bb16247814246b`, [metrics](rag/results/metrics.json) |
+
+The combined token table uses checksummed local prediction records for the
+Qwen-only and historical Mistral arms, and checksummed planning records and
+API usage for the agentic arm. The corresponding raw artifacts live under
+the ignored benchmark `out/` directory. The agent directory contains
+`metrics.json`, saved plans and API turns, plus the separately audited local
+CI summary. [Combined CSV](baseline/results/approach_comparison.csv)
+
+## Earlier experiments
+
+| Experiment | Cases and seeds | No retrieval | With retrieval |
+| --- | --- | ---: | ---: |
+| [Mistral 7B, 4-bit: original BM25 comparison](rag/results/REPORT.md) | 68 cases × 3 seeds | 0.195233 edit F1 | 0.117880 edit F1 |
+| [Qwen2.5-Coder 7B, 4-bit: lean BM25](baseline/results/QWEN_LEAN_RAG.md) | 6 cases outside the development cohort × 3 seeds | 0.250119 edit F1 | 0.249960 edit F1 |
+
+- **Mistral:** 123/204 applicable answers without retrieval vs. 68/204
+  with it. Extra context increased marker failures and output truncation.
+- **Qwen:** original all-block markers held fixed. Lean retrieval added at
+  most three deduplicated snippets and 768 tokens. It won seven pairs, tied
+  nine, and lost two. The mean delta was −0.000159; the direction is sensitive
+  to individual cases. These are six CI cases, not 18 independent cases.
+
+The original Mistral comparison used 201 model calls per arm for 204
+attempts. Three attempts per arm exceeded the input budget and contribute
+zero consumed tokens. Timing summaries for these arms use the 201 calls.
+
+| Historical approach | Input tokens | Output tokens | Mean total / attempt | Median generation s | p95 generation s | Summed generation h |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Mistral standard | 149,292 | 113,588 | 1,288.6 | 12.78 | 73.35 | 1.22 |
+| Mistral BM25 RAG | 1,157,799 | 198,172 | 6,646.9 | 44.45 | 101.59 | 3.17 |
+
+## Reproduction and format development
+
+- The [verified non-RAG Mistral run](baseline/results/REPORT.md) checked all
+  204 saved predictions. The [16,000-token rerun](baseline/results/RUN_16K.md)
+  kept the same scores: it reused compatible answers and generated the three
+  formerly over-budget cases, which all reached the output cap. The separate
+  partial run `2a159171f4b13a8d7ceb` is not included.
+- The [reference oracle](baseline/run_reference_oracle.py) reconstructed
+  68/68 reference repairs. This is an integrity check using the actual
+  reference diff, not a model result; F1 was undefined for three
+  whitespace-only repairs.
+- Sparse output made format validation easier in the
+  [constrained synthetic trials](baseline/results/RAW_EDIT_SMOKE.md), but on
+  real CI examples [Qwen's original format](baseline/results/QWEN_CI_DEV.md)
+  beat constrained raw edits (0.2681 vs. 0.1270 edit F1). Eight valid
+  constrained answers returned no edits. The intermediate
+  [JSON](baseline/results/CONSTRAINED_EDIT_SMOKE.md) and
+  [plain-text marker](baseline/results/SPARSE_MARKER_DEV.md) results are
+  exploratory, not alternative headline scores.
+
+## What the local checks establish
+
+| Case | Check | Result |
+| --- | --- | --- |
+| [SkyPilot 37](baseline/results/QWEN_CI_DEV.md#case-37-local-replay-of-the-affected-file-formatter) | Affected-file YAPF 0.32.0, failed and reference controls | Original Qwen format passed 3/3 seeds; constrained raw edits passed 1/3. |
+| [W&B 119](baseline/results/QWEN_LEAN_RAG.md#local-checks-not-ci-pass1) | Affected-file Black 23.7.0, failed and reference controls | No retrieval and lean retrieval each passed 0/3 seeds. |
+| [Starlette 144](baseline/results/QWEN_LEAN_RAG.md#local-checks-not-ci-pass1) | Replayed the logged literal error and compared the resulting Python AST | Both arms corrected the literal. The full file AST matched the reference on 1/3 plain and 3/3 retrieval seeds. No pytest or app code ran. |
+
+Those original checks cover individual files; repeated seeds on one file do
+not count as independent fixes.
+
+## Full local workflow validation
+
+The [execution-based validation](baseline/results/LOCAL_CI_VALIDATION.md) now
+covers five cases using 42 saved predictions. All five failed/reference pairs
+validate, including Starlette's complete Python 3.8–3.12 matrix with linting,
+builds, tests, and coverage. It uses local Linux containers and no GitHub Actions.
+
+Mistral's no-retrieval baseline passes 0/15 selected predictions; original BM25
+passes 3/15, all on SkyPilot case 37. On that shared formatting case, Qwen's
+original format passes 3/3 and constrained raw output passes 1/3. On Starlette
+case 144, both Qwen no-retrieval and lean retrieval pass 0/3: the saved answers
+lose a required blank line and fail formatting despite the earlier AST credit.
+These deliberately selected validation cases do not establish a full dataset
+or paper score. The report includes portable metrics and reproduction commands.
+
+The subsequent [repair pipeline improvement](baseline/results/REPAIR_PIPELINE_IMPROVEMENT.md)
+re-evaluates the same answers with unambiguous marker recovery and guarded
+boundary-whitespace preservation. Mistral's no-retrieval arm improves from
+0/15 to 3/15; Qwen on case 144 improves from 0/3 to 1/3 without retrieval and
+0/3 to 3/3 with lean retrieval. CI checks remain unchanged. An additional fresh
+Qwen typing case scores 0/3 under both policies, so semantic errors remain.
+These are development-subset improvements, not a match to the paper's score.
