@@ -247,7 +247,7 @@ def main():
             time.sleep(20)
         status('auditing_generation', completed_predictions=expected)
         audit_script = meta.get('audit_script', 'run_qwen_lean_rag.py')
-        if audit_script not in ('run_qwen_lean_rag.py', 'run_qwen_long_context.py'):
+        if audit_script not in ('run_qwen_lean_rag.py', 'run_qwen_long_context.py', 'run_agentic_benchmark.py'):
             raise ValueError('Unknown generation audit script')
         execute([scripts / audit_script, '--audit-run', run])
         status('evaluating_local_workflows')
@@ -259,7 +259,8 @@ def main():
         else:
             if list(root.glob('*/manifest.json')):
                 root = run / ('local-ci-retry-' + str(int(time.time())))
-            command = [scripts / 'run_local_ci.py', '--all-cases', '--runs', run,
+            selection = ['--ids', *meta['ids']] if meta['arms'] == ['agentic'] else ['--all-cases']
+            command = [scripts / 'run_local_ci.py', *selection, '--runs', run,
                        '--composition', 'recover-markers', '--output-dir', root]
             for i, previous in enumerate(args.reuse_evaluation):
                 command.extend(['--reuse-evaluation' if i == 0 else '--additional-reuse-evaluation', previous])
@@ -267,6 +268,11 @@ def main():
             evaluation, = [p.parent for p in root.glob('*/summary.json')]
         status('auditing_local_workflows', evaluation=str(evaluation))
         execute([scripts / 'run_local_ci.py', '--audit-run', evaluation, '--runs', run])
+        if meta['arms'] == ['agentic']:
+            audited = evaluation / 'audited_summary.json'
+            phase = 'complete' if ci.read(audited)['complete'] else 'complete_with_limited_ci_coverage'
+            status(phase, audited_results=str(audited), generation_metrics=str(run / 'metrics.json'))
+            return
         status('publishing_results')
         report = publish(run, evaluation, args.evaluation_date)
         markdown = ('FULL_LONG_CONTEXT_BENCHMARK.md' if 'long_context' in meta['arms']

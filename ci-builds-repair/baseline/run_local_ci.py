@@ -138,6 +138,9 @@ def saved_predictions(run, row, composition='original'):
                     if arm == 'raw_plain':
                         from run_raw_edit_smoke import parse_answer
                         edits = parse_answer(answer['response'], blocks)
+                    elif arm == 'agentic':
+                        from agentic_repair import parse_submission
+                        edits = parse_submission(answer['response'], blocks)
                     else:
                         edits = parse_response(answer['response'], blocks)
                 except ValueError as exc:
@@ -543,6 +546,8 @@ def main(argv=None):
                HERE.parent / 'rag/evaluation.py', BENCHMARK / 'paper_mistral_baseline.py', HERE / 'run_raw_edit_smoke.py']
     if args.composition != 'original':
         sources.append(HERE / 'repair_composition.py')
+    if any('agentic' in read(run / 'run_metadata.json').get('arms', []) for run in runs):
+        sources.append(HERE / 'agentic_repair.py')
     source_hashes = {p.name: sha(p) for p in sources}
     manifest = {'ids': args.ids, 'dataset_sha256': sha(args.dataset_file), 'platform': args.platform,
                 'runs': {r.name: digest(read(r / 'run_metadata.json')) for r in runs},

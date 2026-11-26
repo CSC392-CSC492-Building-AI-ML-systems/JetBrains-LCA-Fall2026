@@ -1,5 +1,8 @@
 # Local baseline and experimental runs
 
+The [agentic benchmark](AGENTIC_BENCHMARK.md) uses local Qwen as the planner
+and GPT-4.1 as the orchestrator, followed by the same local CI evaluator.
+
 For the headline results and comparison with the paper, start with the
 [results summary](../RESULTS.md). This guide documents how to reproduce or
 audit the baseline and the subsequent pilots. The
